@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+.npm-cache/
+
+# 민감정보 — 절대 커밋 금지 (CLAUDE.md 참조)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*_certificate*
+secrets/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# React Native / Metro / Expo
+.expo/
+apps/mobile/ios/Pods/
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+*.jsbundle
+
+# 로그 (PII 평문 유출 방지 — 로그 파일 자체를 커밋하지 않는다)
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+coverage/
+
+# local tooling artifacts
+.npm-cache/
+.claude/
