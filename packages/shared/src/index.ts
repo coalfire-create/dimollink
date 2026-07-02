@@ -11,3 +11,4 @@ export * from './user.js';
 export * from './review.js';
 export * from './matching.js';
 export * from './quote.js';
+export * from './offer.js';
