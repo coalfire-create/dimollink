@@ -10,6 +10,7 @@ import {
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
+import type { CollectionPersistence } from '../lib/json-collection.js';
 
 /**
  * 서비스 요청(철거/운반/처리장예약) 저장소 + 상태 관리.
@@ -20,10 +21,7 @@ import {
 export class RequestValidationError extends Error {}
 
 /** 저장 어댑터 — 부팅 시 로드, 변경 시 전체 스냅샷 저장. */
-export interface RequestPersistence {
-  load(): ServiceRequest[];
-  save(requests: ServiceRequest[]): void;
-}
+export type RequestPersistence = CollectionPersistence<ServiceRequest>;
 
 /** 종류별 생성 입력 (id/status/createdAt 등 서버 생성 필드 제외). */
 export interface CreateRequestInput {

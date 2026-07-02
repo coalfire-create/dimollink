@@ -7,3 +7,4 @@ export * from './holidays.js';
 export * from './geo.js';
 export * from './site-photo.js';
 export * from './request.js';
+export * from './user.js';

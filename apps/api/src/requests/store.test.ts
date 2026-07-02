@@ -3,9 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REQUEST_STATUS_TRANSITIONS, type MatchStatus } from '@dimol/shared';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { ServiceRequest } from '@dimol/shared';
+import { JsonCollectionFile } from '../lib/json-collection.js';
 import { buildSitePhotoKey } from '../storage/site-photo.js';
-import { JsonFilePersistence } from './json-file-persistence.js';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from './store.js';
+
+function requestsFile(dir: string): JsonCollectionFile<ServiceRequest> {
+  return new JsonCollectionFile<ServiceRequest>(dir, 'requests.json');
+}
 
 const demolition: CreateRequestInput = {
   kind: 'DEMOLITION',
@@ -161,19 +166,19 @@ describe('RequestStore.list — 목록/필터', () => {
   });
 });
 
-describe('JsonFilePersistence — 재시작 시 데이터 유지', () => {
+describe('JSON 파일 영속화 — 재시작 시 데이터 유지', () => {
   let dir: string;
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   it('저장 후 새 스토어에서 그대로 로드된다', () => {
     dir = mkdtempSync(join(tmpdir(), 'dimol-requests-'));
-    const persistence = new JsonFilePersistence(dir);
+    const persistence = requestsFile(dir);
 
     const store1 = new RequestStore(persistence);
     const r = store1.create(demolition);
     store1.changeStatus(r.id, 'MATCHED', { matchedProviderId: 'provider-1' });
 
-    const store2 = new RequestStore(new JsonFilePersistence(dir));
+    const store2 = new RequestStore(requestsFile(dir));
     const loaded = store2.get(r.id);
     expect(loaded?.status).toBe('MATCHED');
     expect(loaded?.matchedProviderId).toBe('provider-1');
@@ -182,6 +187,6 @@ describe('JsonFilePersistence — 재시작 시 데이터 유지', () => {
 
   it('파일이 없으면 빈 상태로 시작한다', () => {
     dir = mkdtempSync(join(tmpdir(), 'dimol-requests-'));
-    expect(new RequestStore(new JsonFilePersistence(dir)).list()).toEqual([]);
+    expect(new RequestStore(requestsFile(dir)).list()).toEqual([]);
   });
 });
