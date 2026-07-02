@@ -16,6 +16,8 @@ export const env = {
   databaseUrl: process.env.DATABASE_URL,
   // 파일럿 단계 요청 데이터 JSON 저장 경로 (PostgreSQL 연동 전까지).
   dataDir: process.env.DATA_DIR ?? '.data',
+  // 관리자 백오피스 API 토큰 (Phase 5). 미설정 시 /api/admin/* 전체가 503 으로 잠긴다.
+  adminToken: process.env.ADMIN_TOKEN,
   allbaro: {
     baseUrl: process.env.ALLBARO_API_BASE_URL,
     apiKey: process.env.ALLBARO_API_KEY,
