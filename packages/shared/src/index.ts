@@ -14,3 +14,4 @@ export * from './quote.js';
 export * from './offer.js';
 export * from './notification.js';
 export * from './location-share.js';
+export * from './chat.js';
