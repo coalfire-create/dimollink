@@ -1,5 +1,6 @@
 import type { MatchOfferStatus, MatchStatus, UserApprovalStatus } from '@dimol/shared';
 import { Router } from 'express';
+import type { AnomalyDetector } from '../anomaly/detect.js';
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import type { OfferStore } from '../offers/store.js';
 import type { RequestStore } from '../requests/store.js';
@@ -17,6 +18,7 @@ export interface AdminStores {
   reviewStore: ReviewStore;
   requestStore: RequestStore;
   offerStore: OfferStore;
+  anomalyDetector: AnomalyDetector;
 }
 
 export function createAdminRouter(stores: AdminStores, adminToken: string | undefined): Router {
@@ -104,6 +106,11 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
         status: typeof status === 'string' ? (status as MatchOfferStatus) : undefined,
       }),
     );
+  });
+
+  // GET /api/admin/anomalies — 이상거래 탐지 결과 (룰 기반, 수동 조치용)
+  router.get('/admin/anomalies', (_req, res) => {
+    res.json(stores.anomalyDetector.detect());
   });
 
   return router;
