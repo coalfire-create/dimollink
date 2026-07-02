@@ -24,6 +24,20 @@ export const env = {
     // 외부(정부) API 응답 지연 대비 요청 타임아웃(ms).
     timeoutMs: Number(process.env.ALLBARO_TIMEOUT_MS ?? 10_000),
   },
+  storage: {
+    // 현장 사진 스토리지 — AWS S3 또는 S3 호환 서비스(NCP Object Storage, MinIO 등).
+    // endpoint 미설정 시 AWS S3 기본 엔드포인트를 사용한다.
+    region: process.env.STORAGE_REGION ?? 'ap-northeast-2',
+    bucket: process.env.STORAGE_BUCKET,
+    endpoint: process.env.STORAGE_ENDPOINT,
+    accessKeyId: process.env.STORAGE_ACCESS_KEY_ID,
+    secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY,
+    // MinIO 등 path-style 만 지원하는 호환 스토리지용.
+    forcePathStyle: process.env.STORAGE_FORCE_PATH_STYLE === 'true',
+    // presigned URL 유효시간(초). 업로드는 짧게, 조회는 화면 표시 시간을 고려해 설정.
+    uploadUrlTtlSec: Number(process.env.STORAGE_UPLOAD_URL_TTL_SEC ?? 300),
+    viewUrlTtlSec: Number(process.env.STORAGE_VIEW_URL_TTL_SEC ?? 600),
+  },
   portone: {
     baseUrl: process.env.PORTONE_API_BASE_URL ?? 'https://api.portone.io',
     apiSecret: process.env.PORTONE_API_SECRET,

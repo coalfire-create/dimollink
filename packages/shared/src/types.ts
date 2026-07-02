@@ -132,6 +132,12 @@ export interface MatchRequest {
   wasteTons: number;
   /** 매칭 신청 화면의 "올바로 전자인계서 신고 필요" 체크박스 값. */
   allbaroRequested: boolean;
+  /**
+   * 현장 사진 오브젝트 키 목록 (철거요청/처리장예약 UI 업로드분).
+   * URL 이 아닌 키를 저장한다 — 버킷/도메인 변경에 안전하고, 조회 시
+   * presigned GET URL 로 변환해 내려준다. 형식은 `isValidSitePhotoKey` 로 검증.
+   */
+  sitePhotoKeys: string[];
   status: MatchStatus;
   createdAt: string;
 }
