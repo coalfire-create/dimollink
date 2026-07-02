@@ -60,6 +60,23 @@ export function createUsersRouter(store: UserStore): Router {
     res.json(user);
   });
 
+  // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
+  router.patch('/users/:id/certifications', (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    try {
+      res.json(
+        store.setCertifications(req.params.id, {
+          insuranceRegistered:
+            typeof body.insuranceRegistered === 'boolean' ? body.insuranceRegistered : undefined,
+          permitRegistered:
+            typeof body.permitRegistered === 'boolean' ? body.permitRegistered : undefined,
+        }),
+      );
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
   // PATCH /api/users/:id — 프로필 수정 (이름/연락처/지역)
   router.patch('/users/:id', (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
