@@ -81,10 +81,16 @@ function normalizeSitePhotoKeys(keys: unknown): string[] {
   return unique;
 }
 
+/** 상태 전이 리스너 — 매칭 단계별 알림(Phase 4) 등이 연결된다. */
+export type StatusChangeListener = (request: ServiceRequest, from: MatchStatus) => void;
+
 export class RequestStore {
   private readonly requests = new Map<string, ServiceRequest>();
 
-  constructor(private readonly persistence?: RequestPersistence) {
+  constructor(
+    private readonly persistence?: RequestPersistence,
+    private readonly onStatusChange?: StatusChangeListener,
+  ) {
     for (const request of persistence?.load() ?? []) {
       this.requests.set(request.id, request);
     }
@@ -201,6 +207,11 @@ export class RequestStore {
     };
     this.requests.set(id, updated);
     this.persist();
+    try {
+      this.onStatusChange?.(updated, request.status);
+    } catch {
+      // 리스너(알림 등) 오류가 상태 전이를 실패시키면 안 된다.
+    }
     return updated;
   }
 

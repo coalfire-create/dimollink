@@ -12,3 +12,4 @@ export * from './review.js';
 export * from './matching.js';
 export * from './quote.js';
 export * from './offer.js';
+export * from './notification.js';
