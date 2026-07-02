@@ -1,0 +1,32 @@
+{
+  "name": "dimollink",
+  "version": "0.1.0",
+  "private": true,
+  "description": "디몰링크 (DimolLink) — 철거·운반·처리장 매칭 플랫폼 (올바로 API 연동)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build:shared": "npm run build -w @dimol/shared",
+    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "api:dev": "npm run dev -w @dimol/api",
+    "mobile:start": "npm run start -w @dimol/mobile"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0"
+  }
+}

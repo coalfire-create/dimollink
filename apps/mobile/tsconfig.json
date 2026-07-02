@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-native",
+    "types": ["react-native"],
+    "noEmit": true,
+    "declaration": false,
+    "allowJs": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src", "App.tsx", "index.js"]
+}

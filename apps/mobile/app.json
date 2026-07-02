@@ -1,0 +1,21 @@
+{
+  "name": "DimolLink",
+  "displayName": "디몰링크",
+  "expo": {
+    "name": "디몰링크",
+    "slug": "dimol-link",
+    "version": "1.0.0",
+    "sdkVersion": "52.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-asset"
+    ]
+  }
+}
