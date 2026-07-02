@@ -14,6 +14,8 @@ export const env = {
   port: Number(process.env.PORT ?? 4000),
   // 실제 연동 시 아래를 required(...) 로 강제. 스캐폴딩 단계에서는 optional.
   databaseUrl: process.env.DATABASE_URL,
+  // 파일럿 단계 요청 데이터 JSON 저장 경로 (PostgreSQL 연동 전까지).
+  dataDir: process.env.DATA_DIR ?? '.data',
   allbaro: {
     baseUrl: process.env.ALLBARO_API_BASE_URL,
     apiKey: process.env.ALLBARO_API_KEY,

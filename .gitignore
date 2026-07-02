@@ -27,6 +27,9 @@ apps/mobile/android/.gradle/
 apps/mobile/android/app/build/
 *.jsbundle
 
+# 파일럿 단계 요청 데이터 (주소 등 포함 — 커밋 금지, PostgreSQL 연동 전까지 로컬 파일)
+.data/
+
 # 로그 (PII 평문 유출 방지 — 로그 파일 자체를 커밋하지 않는다)
 logs/
 *.log
