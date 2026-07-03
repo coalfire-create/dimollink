@@ -1,6 +1,7 @@
 import { createApp, type SharedStores } from './app.js';
 import { RedisOtpKv } from './auth/redis-otp-kv.js';
 import { RedisSessionStore } from './auth/redis-session-store.js';
+import { StatelessSessionStore } from './auth/stateless-session-store.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { createPgPool, initPgPersistence } from './lib/pg-collection.js';
@@ -41,16 +42,23 @@ async function buildPersistence(): Promise<PersistenceFactory> {
   return jsonPersistenceFactory(env.dataDir);
 }
 
-/** Redis 설정 시 다중 인스턴스 공유 상태(세션·레이트리밋)를 구성. */
+/** 다중 인스턴스 공유 상태 구성: Redis > 무상태 세션(SESSION_SECRET) > 인메모리. */
 async function buildSharedStores(): Promise<SharedStores> {
-  if (!env.redisUrl) return {};
-  const redis = await createRedisClient(env.redisUrl);
-  console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
-  return {
-    sessionStore: new RedisSessionStore(redis, env.auth.sessionTtlDays * 24 * 60 * 60 * 1000),
-    rateLimitStore: new RedisRateLimitStore(redis),
-    otpKv: new RedisOtpKv(redis),
-  };
+  const sessionTtlMs = env.auth.sessionTtlDays * 24 * 60 * 60 * 1000;
+  if (env.redisUrl) {
+    const redis = await createRedisClient(env.redisUrl);
+    console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
+    return {
+      sessionStore: new RedisSessionStore(redis, sessionTtlMs),
+      rateLimitStore: new RedisRateLimitStore(redis),
+      otpKv: new RedisOtpKv(redis),
+    };
+  }
+  if (env.auth.sessionSecret) {
+    console.log('[dimol-api] 세션: 무상태(서명) — Redis 없이 다중 인스턴스 동작');
+    return { sessionStore: new StatelessSessionStore(env.auth.sessionSecret, sessionTtlMs) };
+  }
+  return {};
 }
 
 async function main(): Promise<void> {

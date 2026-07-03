@@ -23,6 +23,8 @@ export const env = {
   auth: {
     // 세션 토큰 유효기간(일). 기본 30일.
     sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
+    // 무상태(서명) 세션용 시크릿. 설정 시 Redis 없이도 서버리스에서 세션이 동작한다.
+    sessionSecret: process.env.SESSION_SECRET,
   },
   otp: {
     // 코드 유효시간(초, 기본 180) · 재발송 쿨다운(초, 기본 30) · 최대 검증 시도(기본 5).
