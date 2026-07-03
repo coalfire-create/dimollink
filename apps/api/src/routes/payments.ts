@@ -229,6 +229,7 @@ export function createPaymentsRouter(
 
     // 결제자 본인 검증 + 환불 기준금액을 기록에서 가져온다(클라이언트 paidAmount 무시).
     let paidAmount: number;
+    let matchRequestId: string | undefined;
     if (paymentStore) {
       const payment = paymentStore.get(paymentId);
       if (!payment) {
@@ -240,6 +241,7 @@ export function createPaymentsRouter(
         return;
       }
       paidAmount = payment.amount;
+      matchRequestId = payment.matchRequestId;
     } else {
       // paymentStore 미주입(테스트) 시에만 클라이언트 paidAmount 사용.
       if (typeof body.paidAmount !== 'number' || !Number.isInteger(body.paidAmount) || body.paidAmount < 0) {
@@ -259,6 +261,19 @@ export function createPaymentsRouter(
         reason,
       });
       paymentStore?.markCancelled(paymentId);
+      // 환불 성립 시 해당 요청도 취소 처리(취소 가능 상태일 때만).
+      if (requestStore && matchRequestId) {
+        const request = requestStore.get(matchRequestId);
+        if (request && (request.status === 'PAID' || request.status === 'MATCHED')) {
+          try {
+            requestStore.changeStatus(matchRequestId, 'CANCELLED', {
+              cancelReason: reason ?? '결제 취소',
+            });
+          } catch {
+            // 상태 전이 실패가 환불 응답을 막지 않게 한다(환불은 이미 성립).
+          }
+        }
+      }
       res.json(result);
     } catch (err) {
       if (err instanceof CancellationNotAllowedError) {

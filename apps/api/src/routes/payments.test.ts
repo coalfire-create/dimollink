@@ -150,7 +150,7 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
     });
   }
 
-  it('본인 결제는 취소 가능', async () => {
+  it('본인 결제는 취소 가능 + 요청도 취소 처리된다', async () => {
     const owner = makeUser('01060000005');
     const request = makeRequest(owner.id);
     await prepaid(owner, request);
@@ -160,6 +160,7 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
     });
     expect(res.status).toBe(200);
     expect(paymentStore.get('pay-test')?.status).toBe('CANCELLED');
+    expect(requestStore.get(request.id)?.status).toBe('CANCELLED');
   });
 
   it('타인은 취소 불가(403)', async () => {

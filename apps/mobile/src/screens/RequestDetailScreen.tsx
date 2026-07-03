@@ -7,7 +7,14 @@ import {
   type Quote,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, acceptQuote, cancelRequest, getRequest, listQuotes } from '../api/client';
+import {
+  ApiError,
+  acceptQuote,
+  cancelPayment,
+  cancelRequest,
+  getRequest,
+  listQuotes,
+} from '../api/client';
 import {
   AppButton,
   Card,
@@ -45,6 +52,8 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [refundMode, setRefundMode] = useState(false);
+  const [refunding, setRefunding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +86,22 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function confirmRefund() {
+    if (!request?.paymentId) return;
+    setError(null);
+    setRefunding(true);
+    try {
+      // 결제완료(배차 전) 취소 = 전액 환불. 서버가 결제자·금액을 검증한다.
+      await cancelPayment({ paymentId: request.paymentId, stage: 'BEFORE_DISPATCH' });
+      setRefundMode(false);
+      await load(); // 요청이 CANCELLED 로 전이된다.
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '환불 처리에 실패했습니다.');
+    } finally {
+      setRefunding(false);
+    }
+  }
 
   async function confirmCancel() {
     setError(null);
@@ -225,6 +250,30 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               <Text style={styles.quoteHint}>
                 {request.agreedFee.toLocaleString('ko-KR')}원 결제됨
               </Text>
+            ) : null}
+            {request.paymentId ? (
+              refundMode ? (
+                <View style={{ marginTop: spacing.sm }}>
+                  <Text style={styles.cancelPolicy}>
+                    아직 배차 전이라 전액 환불돼요. 정말 취소·환불하시겠어요?
+                  </Text>
+                  <AppButton
+                    label="취소하고 환불받기"
+                    variant="danger"
+                    onPress={confirmRefund}
+                    loading={refunding}
+                  />
+                  <View style={{ height: spacing.xs }} />
+                  <AppButton label="돌아가기" variant="outline" onPress={() => setRefundMode(false)} />
+                </View>
+              ) : (
+                <AppButton
+                  label="결제 취소·환불"
+                  variant="danger"
+                  style={{ marginTop: spacing.sm }}
+                  onPress={() => setRefundMode(true)}
+                />
+              )
             ) : null}
           </Card>
         ) : null}
