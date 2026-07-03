@@ -6,6 +6,7 @@ import type { PaymentStore } from '../payment/payment-store.js';
 import { PortOneError, type PayMethod } from '../payment/portone-client.js';
 import type { QuoteStore } from '../quotes/store.js';
 import type { RequestStore } from '../requests/store.js';
+import type { UserStore } from '../users/store.js';
 import { buildSettlementPlan, type BuildSettlementPlanInput } from '../settlement/plan.js';
 import { CancellationNotAllowedError, calculateRefund } from '../settlement/refund.js';
 
@@ -78,6 +79,7 @@ export function createPaymentsRouter(
   requestStore?: RequestStore,
   quoteStore?: QuoteStore,
   paymentStore?: PaymentStore,
+  userStore?: UserStore,
 ): Router {
   const router = Router();
 
@@ -181,23 +183,65 @@ export function createPaymentsRouter(
     }
   });
 
-  // POST /api/payments/payouts  정산일 지급대행 실행(스케줄러 트리거)
+  // POST /api/payments/payouts  정산일 지급대행 실행(관리자/스케줄러). 금액·사업자번호는 서버 확정값.
   router.post('/payments/payouts', async (req, res) => {
-    const matchRequestId = (req.body as { matchRequestId?: unknown })?.matchRequestId;
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const matchRequestId = body.matchRequestId;
     if (typeof matchRequestId !== 'string' || matchRequestId.trim() === '') {
       res.status(400).json({ error: 'matchRequestId(문자열)가 필요합니다.' });
       return;
     }
-    const parsed = parsePlanInput(req.body);
-    if (typeof parsed === 'string') {
-      res.status(400).json({ error: parsed });
+    const dateParsed = parseSettlementDate(body);
+    if (typeof dateParsed === 'string') {
+      res.status(400).json({ error: dateParsed });
       return;
     }
-    const plan = buildSettlementPlan(parsed);
+
+    // 지급 금액 = 요청 합의 금액(권위). 사업자번호 = 매칭된 셀러의 등록번호.
+    let plan;
+    if (requestStore) {
+      const request = requestStore.get(matchRequestId);
+      if (!request) {
+        res.status(404).json({ error: '정산 대상 요청을 찾을 수 없습니다.' });
+        return;
+      }
+      const amount = request.agreedFee ?? 0;
+      if (amount <= 0) {
+        res.status(409).json({ error: '확정된 정산 금액이 없습니다.', code: 'NO_AGREED_AMOUNT' });
+        return;
+      }
+      const seller = request.matchedProviderId ? userStore?.get(request.matchedProviderId) : undefined;
+      plan = buildSettlementPlan({
+        transportFee: amount,
+        disposalFee: 0,
+        completedDate: dateParsed.completedDate,
+        holidays: dateParsed.holidays,
+        transportBusinessNumber: seller?.businessNumber,
+      });
+    } else {
+      const parsed = parsePlanInput(req.body);
+      if (typeof parsed === 'string') {
+        res.status(400).json({ error: parsed });
+        return;
+      }
+      plan = buildSettlementPlan(parsed);
+    }
 
     try {
       const payouts = await service.executePayouts(matchRequestId, plan);
-      res.json({ settlementDate: plan.settlementDate, payouts });
+      // 전자세금계산서 발행(실패해도 지급 응답을 막지 않음).
+      const taxInvoices = await service
+        .issueTaxInvoices(matchRequestId, plan)
+        .catch(() => []);
+      // 처리 완료(COMPLETED) 요청은 정산 완료(SETTLED)로 전이.
+      if (requestStore?.get(matchRequestId)?.status === 'COMPLETED') {
+        try {
+          requestStore.changeStatus(matchRequestId, 'SETTLED');
+        } catch {
+          // 상태 전이 실패가 지급 응답을 막지 않게 한다.
+        }
+      }
+      res.json({ settlementDate: plan.settlementDate, payouts, taxInvoices });
     } catch (err) {
       sendPortOneError(res, err, '지급대행 처리 중 오류가 발생했습니다.');
     }

@@ -7,6 +7,7 @@ import {
   type PayMethod,
   type PayoutResult,
   type PrepaymentResult,
+  type TaxInvoiceResult,
 } from './portone-client.js';
 
 /**
@@ -49,6 +50,25 @@ export class PaymentService {
           party: payout.party,
           amount: payout.amount,
           businessNumber: payout.businessNumber,
+        }),
+      );
+    }
+    return results;
+  }
+
+  /**
+   * 정산 확정 시 셀러별 전자세금계산서 발행. payoutId를 멱등키로 중복 발행을 막는다.
+   * 지급액이 있고 사업자번호가 있는 셀러에 대해서만 발행한다.
+   */
+  async issueTaxInvoices(matchRequestId: string, plan: SettlementPlan): Promise<TaxInvoiceResult[]> {
+    const results: TaxInvoiceResult[] = [];
+    for (const payout of plan.payouts) {
+      if (payout.amount <= 0 || !payout.businessNumber) continue;
+      results.push(
+        await this.client.issueTaxInvoice({
+          payoutId: `${matchRequestId}-${payout.party}`,
+          businessNumber: payout.businessNumber,
+          amount: payout.amount,
         }),
       );
     }

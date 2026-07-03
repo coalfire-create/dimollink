@@ -2,11 +2,11 @@ import {
   isValidBusinessNumber,
   maskBusinessNumber,
   normalizeBusinessNumber,
-  type AllbaroMemberType,
   type AllbaroMemberVerification,
   type ManifestIssueRequest,
 } from '@dimol/shared';
 import { env } from '../config/env.js';
+import { ASSUMED_ALLBARO_SPEC, type AllbaroApiSpec } from './spec.js';
 
 /**
  * 올바로 API 클라이언트 — 회원 검증(사업자등록번호) + 전자인계서 자동 발행/전송.
@@ -56,28 +56,13 @@ export interface ManifestApiResult {
   environment: 'sandbox' | 'production';
 }
 
-/** 올바로 회원유형 코드 → 도메인 타입. 규격 확정 시 코드값을 갱신한다. */
-function mapMemberType(raw: unknown): AllbaroMemberType {
-  switch (raw) {
-    case 'DISCHARGER':
-    case '01': // 배출자 (가정값)
-      return 'DISCHARGER';
-    case 'TRANSPORT':
-    case '02': // 운반자 (가정값)
-      return 'TRANSPORT';
-    case 'DISPOSAL':
-    case '03': // 처리자 (가정값)
-      return 'DISPOSAL';
-    default:
-      return 'UNKNOWN';
-  }
-}
-
 export class AllbaroClient {
   constructor(
     private readonly config: AllbaroClientConfig,
     /** 테스트에서 주입 가능. 기본은 전역 fetch. */
     private readonly fetchFn: typeof fetch = fetch,
+    /** 올바로 API 규격 어댑터. 실제 규격 수령 시 이 객체만 교체한다. */
+    private readonly spec: AllbaroApiSpec = ASSUMED_ALLBARO_SPEC,
   ) {}
 
   /**
@@ -95,16 +80,16 @@ export class AllbaroClient {
     }
 
     const data = await this.post(
-      '/member/verify',
-      { businessNumber },
+      this.spec.memberVerifyPath,
+      this.spec.buildMemberVerifyBody(businessNumber),
       maskBusinessNumber(businessNumber),
     );
 
     return {
       businessNumber,
-      verified: data.verified === true || data.isMember === true,
-      memberName: typeof data.memberName === 'string' ? data.memberName : undefined,
-      memberType: mapMemberType(data.memberType),
+      verified: this.spec.parseMemberVerified(data),
+      memberName: this.spec.parseMemberName(data),
+      memberType: this.spec.parseMemberType(data.memberType),
       environment: this.config.mode,
       checkedAt: new Date().toISOString(),
     };
@@ -116,19 +101,14 @@ export class AllbaroClient {
    * 사업자번호(PII)는 로그에 마스킹 값만 남긴다.
    */
   async issueManifest(request: ManifestIssueRequest): Promise<ManifestApiResult> {
-    // 엔드포인트/요청 스펙은 실제 올바로 전자인계서 API 규격에 맞춰 확정 필요.
-    const payload = {
-      wasteCategory: request.wasteCategory,
-      wasteTons: request.wasteTons,
-      discharger: { businessNumber: normalizeBusinessNumber(request.discharger.businessNumber) },
-      transport: { businessNumber: normalizeBusinessNumber(request.transport.businessNumber) },
-      disposal: { businessNumber: normalizeBusinessNumber(request.disposal.businessNumber) },
-    };
+    const data = await this.post(
+      this.spec.manifestIssuePath,
+      this.spec.buildManifestBody(request),
+      `match=${request.matchRequestId}`,
+    );
 
-    const data = await this.post('/manifest/issue', payload, `match=${request.matchRequestId}`);
-
-    const manifestNo = data.manifestNo ?? data.manifestNumber;
-    if (typeof manifestNo !== 'string' || manifestNo === '') {
+    const manifestNo = this.spec.parseManifestNo(data);
+    if (manifestNo === undefined) {
       throw new AllbaroError('UPSTREAM_ERROR', '올바로가 전자인계서 번호를 반환하지 않았습니다.');
     }
 

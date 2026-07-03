@@ -249,3 +249,17 @@ export const adminSetApproval = (adminToken: string, userId: string, status: Use
     headers: { 'x-admin-token': adminToken },
     body: JSON.stringify({ status }),
   });
+
+/** 정산 모니터링 — 상태별 요청 목록. */
+export const adminListRequests = (adminToken: string, status?: MatchStatus) =>
+  api<ServiceRequest[]>(`/admin/requests${status ? `?status=${status}` : ''}`, {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+/** 정산(지급대행) 실행 — 관리자 토큰. 금액·사업자번호는 서버 확정값. */
+export const adminExecutePayout = (adminToken: string, matchRequestId: string, completedDate: string) =>
+  api<{ settlementDate: string; payouts: unknown[]; taxInvoices: unknown[] }>('/payments/payouts', {
+    method: 'POST',
+    headers: { 'x-admin-token': adminToken },
+    body: JSON.stringify({ matchRequestId, completedDate }),
+  });

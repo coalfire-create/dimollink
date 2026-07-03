@@ -32,6 +32,7 @@ const fakeService = {
     breakdown: { stage: 'BEFORE_DISPATCH', cancellable: true, paidAmount: 0, penaltyAmount: 0, refundAmount: 0 },
   }),
   executePayouts: async () => [],
+  issueTaxInvoices: async () => [],
 } as unknown as PaymentService;
 
 beforeEach(async () => {
@@ -182,5 +183,25 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
       stage: 'BEFORE_DISPATCH',
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
+  it('작업완료 요청을 정산 실행하면 SETTLED 로 전이한다', async () => {
+    const owner = makeUser('01060000011');
+    const request = makeRequest(owner.id);
+    // 라이프사이클: 매칭(금액)→결제→작업시작→작업완료.
+    requestStore.changeStatus(request.id, 'MATCHED', { matchedProviderId: 'p', agreedFee: 100000 });
+    requestStore.changeStatus(request.id, 'PAID', { paymentId: 'x' });
+    requestStore.changeStatus(request.id, 'IN_PROGRESS');
+    requestStore.changeStatus(request.id, 'COMPLETED');
+
+    const res = await fetch(`${base}/api/payments/payouts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ matchRequestId: request.id, completedDate: '2026-07-10' }),
+    });
+    expect(res.status).toBe(200);
+    expect(requestStore.get(request.id)?.status).toBe('SETTLED');
   });
 });

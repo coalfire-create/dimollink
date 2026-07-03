@@ -178,7 +178,7 @@ export function createApp(
   app.use('/api/allbaro/manifest/failures', requireAdmin);
 
   app.use('/api', createAllbaroRouter());
-  app.use('/api', createPaymentsRouter(undefined, requestStore, quoteStore, paymentStore));
+  app.use('/api', createPaymentsRouter(undefined, requestStore, quoteStore, paymentStore, userStore));
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, createGeocoder()));

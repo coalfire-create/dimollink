@@ -88,6 +88,23 @@ export interface CancelPaymentResult {
   environment: 'test' | 'live';
 }
 
+export interface TaxInvoiceRequest {
+  /** 대응하는 정산 지급 멱등키(중복 발행 방지). */
+  payoutId: string;
+  /** 공급자(정산 받는 셀러: 운반업체/처리장) 사업자번호. */
+  businessNumber: string;
+  /** 공급가액(원, 지급액 기준). */
+  amount: number;
+  /** 품목명. */
+  itemName?: string;
+}
+
+export interface TaxInvoiceResult {
+  taxInvoiceId: string;
+  status: string;
+  environment: 'test' | 'live';
+}
+
 function assertPositiveInt(amount: number): void {
   if (!Number.isInteger(amount) || amount <= 0) {
     throw new PortOneError('INVALID_AMOUNT', `금액은 양의 정수여야 합니다: ${amount}`);
@@ -176,6 +193,34 @@ export class PortOneClient {
       paymentId: req.paymentId,
       cancelledAmount: req.amount,
       status: typeof data.status === 'string' ? data.status : 'CANCELLED',
+      environment: this.config.mode,
+    };
+  }
+
+  /**
+   * 전자세금계산서 발행 — 정산 확정 시 셀러(운반업체/처리장) 공급분에 대해 발행한다.
+   * payoutId 를 멱등키로 사용해 중복 발행을 막는다. 사업자번호(PII)는 마스킹 로그만 남긴다.
+   * ⚠️ 엔드포인트/필드는 실제 포트원 전자세금계산서 API 규격에 맞춰 확정 필요(임시 가정).
+   */
+  async issueTaxInvoice(req: TaxInvoiceRequest): Promise<TaxInvoiceResult> {
+    assertPositiveInt(req.amount);
+    const taxInvoiceId = `tax-${req.payoutId}`;
+
+    const data = await this.post(
+      '/tax-invoices',
+      {
+        storeId: this.config.storeId,
+        taxInvoiceId,
+        businessNumber: req.businessNumber,
+        supplyAmount: req.amount,
+        itemName: req.itemName ?? '폐기물 운반·처리 용역',
+      },
+      `taxinvoice=${taxInvoiceId} (${maskBusinessNumber(req.businessNumber)})`,
+    );
+
+    return {
+      taxInvoiceId,
+      status: typeof data.status === 'string' ? data.status : 'ISSUED',
       environment: this.config.mode,
     };
   }

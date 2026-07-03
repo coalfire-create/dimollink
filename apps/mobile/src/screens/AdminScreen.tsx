@@ -1,9 +1,25 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { USER_TYPE_LABELS, formatBusinessNumber, type UserProfile } from '@dimol/shared';
-import { ApiError, adminListUsers, adminSetApproval } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field } from '../components/ui';
+import {
+  REQUEST_KIND_LABELS,
+  USER_TYPE_LABELS,
+  formatBusinessNumber,
+  type ServiceRequest,
+  type UserProfile,
+} from '@dimol/shared';
+import {
+  ApiError,
+  adminExecutePayout,
+  adminListRequests,
+  adminListUsers,
+  adminSetApproval,
+} from '../api/client';
+import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../components/ui';
 import { theme } from '../theme';
+
+function todayKST(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 /**
  * 관리자 백오피스(파일럿) — 업체 승인 대기 큐.
@@ -13,6 +29,7 @@ import { theme } from '../theme';
 export function AdminScreen({ onBack }: { onBack: () => void }) {
   const [token, setToken] = useState('');
   const [pending, setPending] = useState<UserProfile[] | null>(null);
+  const [settleQueue, setSettleQueue] = useState<ServiceRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,12 +42,28 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
     }
     setLoading(true);
     try {
-      setPending(await adminListUsers(token.trim(), 'PENDING'));
+      const t = token.trim();
+      setPending(await adminListUsers(t, 'PENDING'));
+      // 작업완료(COMPLETED) = 정산 대기 큐.
+      setSettleQueue(await adminListRequests(t, 'COMPLETED').catch(() => []));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '조회에 실패했습니다.');
       setPending(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function settle(requestId: string) {
+    setBusyId(requestId);
+    setError(null);
+    try {
+      await adminExecutePayout(token.trim(), requestId, todayKST());
+      setSettleQueue((prev) => prev.filter((r) => r.id !== requestId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '정산 실행에 실패했습니다.');
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -67,6 +100,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
 
         <ErrorBanner message={error} />
 
+        {pending !== null ? <SectionTitle>승인 대기</SectionTitle> : null}
         {pending !== null ? (
           pending.length === 0 ? (
             <Text style={styles.empty}>승인 대기 중인 업체가 없어요.</Text>
@@ -101,6 +135,30 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
               </Card>
             ))
           )
+        ) : null}
+
+        {pending !== null ? (
+          <>
+            <SectionTitle>정산 대기 (작업완료)</SectionTitle>
+            {settleQueue.length === 0 ? (
+              <Text style={styles.empty}>정산할 완료 건이 없어요.</Text>
+            ) : (
+              settleQueue.map((r) => (
+                <Card key={r.id}>
+                  <Text style={styles.name}>{REQUEST_KIND_LABELS[r.kind]}</Text>
+                  <Text style={styles.meta}>
+                    {r.agreedFee !== undefined ? `${r.agreedFee.toLocaleString('ko-KR')}원` : '금액 미확정'}
+                    {` · ${r.wasteTons}톤`}
+                  </Text>
+                  <AppButton
+                    label="정산 실행(지급)"
+                    onPress={() => settle(r.id)}
+                    loading={busyId === r.id}
+                  />
+                </Card>
+              ))
+            )}
+          </>
         ) : null}
       </ScrollView>
     </View>

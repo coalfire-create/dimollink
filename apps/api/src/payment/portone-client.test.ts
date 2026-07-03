@@ -138,3 +138,32 @@ describe('PortOne 로그 PII 마스킹', () => {
     warn.mockRestore();
   });
 });
+
+describe('PortOneClient.issueTaxInvoice', () => {
+  it('공급가액·사업자번호로 전자세금계산서 발행', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ status: 'ISSUED' }));
+    const client = makeClient(fetchFn);
+
+    const result = await client.issueTaxInvoice({
+      payoutId: 'MR-1-TRANSPORT',
+      businessNumber: '1208147521',
+      amount: 139_500,
+    });
+
+    expect(result.status).toBe('ISSUED');
+    expect(result.taxInvoiceId).toBe('tax-MR-1-TRANSPORT');
+    expect(result.environment).toBe('test');
+    const body = JSON.parse((fetchFn.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.supplyAmount).toBe(139_500);
+    expect(body.businessNumber).toBe('1208147521');
+  });
+
+  it('금액이 0 이하면 발행 불가(INVALID_AMOUNT)', async () => {
+    const fetchFn = vi.fn();
+    const client = makeClient(fetchFn);
+    await expect(
+      client.issueTaxInvoice({ payoutId: 'x', businessNumber: '1208147521', amount: 0 }),
+    ).rejects.toThrowError(expect.objectContaining({ code: 'INVALID_AMOUNT' }));
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+});
