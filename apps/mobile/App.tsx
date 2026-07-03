@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import type { AuthSession, UserProfile } from '@dimol/shared';
-import { getMe, logoutServer } from './src/api/client';
+import { getMe, logoutServer, setAuthToken } from './src/api/client';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
 import {
   AuthActionsContext,
@@ -54,6 +54,7 @@ export default function App() {
         try {
           const user = await getMe(saved);
           if (active) {
+            setAuthToken(saved);
             setToken(saved);
             setSession(user);
           }
@@ -70,6 +71,7 @@ export default function App() {
 
   // 로그인/회원가입 성공 — 토큰 저장 + 세션 진입.
   const handleAuthenticated = useCallback((authSession: AuthSession) => {
+    setAuthToken(authSession.token);
     setToken(authSession.token);
     void saveToken(authSession.token);
     setSession(authSession.user);
@@ -92,6 +94,7 @@ export default function App() {
       logout: () => {
         if (token) void logoutServer(token).catch(() => undefined);
         void clearToken();
+        setAuthToken(null);
         setToken(null);
         setStack([]);
         setTab('home');

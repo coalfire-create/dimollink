@@ -12,7 +12,8 @@ export type OtpErrorCode =
   | 'NOT_REQUESTED' // 요청 이력 없음(혹은 소진)
   | 'EXPIRED' // 코드 만료
   | 'TOO_MANY_ATTEMPTS' // 검증 시도 초과
-  | 'INVALID_CODE'; // 코드 불일치
+  | 'INVALID_CODE' // 코드 불일치
+  | 'RESEND_COOLDOWN'; // 재발송 쿨다운 중
 
 export class OtpError extends Error {
   constructor(
@@ -51,16 +52,24 @@ interface OtpEntry {
   code: string;
   expiresAt: number;
   attempts: number;
+  sentAt: number;
 }
 
 export interface OtpServiceOptions {
   sender?: SmsSender;
   /** 코드 유효시간(ms). 기본 3분. */
   ttlMs?: number;
+  /** 재발송 쿨다운(ms). 기본 30초. 짧은 시간 반복 발송(요금 폭탄) 차단. */
+  resendCooldownMs?: number;
   /** 검증 최대 시도. 초과 시 코드 무효화. 기본 5회. */
   maxAttempts?: number;
   /** 인증 완료 후 회원가입까지 유효한 창(ms). 기본 10분. */
   verifiedWindowMs?: number;
+  /**
+   * 개발/테스트용 마스터 인증코드. 지정 시 이 코드로 언제나 검증을 통과한다.
+   * 운영에서는 반드시 undefined 로 둔다(app.ts 가 비운영 환경에서만 주입).
+   */
+  devMasterCode?: string;
   /** 시각 주입(테스트용). */
   now?: () => number;
   /** 코드 생성기 주입(테스트용). 기본 6자리 난수. */
@@ -70,8 +79,10 @@ export interface OtpServiceOptions {
 export class OtpService {
   private readonly sender: SmsSender;
   private readonly ttlMs: number;
+  private readonly resendCooldownMs: number;
   private readonly maxAttempts: number;
   private readonly verifiedWindowMs: number;
+  private readonly devMasterCode?: string;
   private readonly now: () => number;
   private readonly generateCode: () => string;
 
@@ -82,17 +93,27 @@ export class OtpService {
   constructor(options: OtpServiceOptions = {}) {
     this.sender = options.sender ?? new ConsoleSmsSender();
     this.ttlMs = options.ttlMs ?? 3 * 60 * 1000;
+    this.resendCooldownMs = options.resendCooldownMs ?? 30 * 1000;
     this.maxAttempts = options.maxAttempts ?? 5;
     this.verifiedWindowMs = options.verifiedWindowMs ?? 10 * 60 * 1000;
+    this.devMasterCode = options.devMasterCode;
     this.now = options.now ?? Date.now;
     this.generateCode = options.generateCode ?? (() => String(randomInt(0, 1_000_000)).padStart(6, '0'));
   }
 
-  /** 인증코드 발송. 유효시간(초)을 반환한다. */
+  /** 인증코드 발송. 유효시간(초)을 반환한다. 쿨다운 내 재요청은 거부한다. */
   async request(phoneInput: string): Promise<{ sent: boolean; expiresInSec: number }> {
     const key = normalizePhone(phoneInput);
+    const existing = this.pending.get(key);
+    if (existing && this.now() - existing.sentAt < this.resendCooldownMs) {
+      throw new OtpError(
+        'RESEND_COOLDOWN',
+        '잠시 후 다시 시도해 주세요. 인증코드는 30초에 한 번 보낼 수 있어요.',
+      );
+    }
     const code = this.generateCode();
-    this.pending.set(key, { code, expiresAt: this.now() + this.ttlMs, attempts: 0 });
+    const sentAt = this.now();
+    this.pending.set(key, { code, expiresAt: sentAt + this.ttlMs, attempts: 0, sentAt });
     await this.sender.send(phoneInput, code);
     return { sent: true, expiresInSec: Math.floor(this.ttlMs / 1000) };
   }
@@ -103,7 +124,8 @@ export class OtpService {
    */
   verify(phoneInput: string, code: string): boolean {
     const key = normalizePhone(phoneInput);
-    if (code.trim() === '123456') {
+    // 개발/테스트 마스터 코드(운영에서는 주입되지 않음).
+    if (this.devMasterCode !== undefined && code.trim() === this.devMasterCode) {
       this.verified.set(key, this.now() + this.verifiedWindowMs);
       return true;
     }

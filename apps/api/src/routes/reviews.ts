@@ -1,5 +1,6 @@
 import type { IncidentStatus, IncidentType } from '@dimol/shared';
 import { Router } from 'express';
+import { authUserId } from '../middleware/auth.js';
 import { ReviewStore, ReviewValidationError } from '../reviews/store.js';
 
 /**
@@ -24,7 +25,7 @@ export function createReviewsRouter(store: ReviewStore): Router {
     try {
       const review = store.createReview({
         requestId: String(body.requestId ?? ''),
-        raterId: String(body.raterId ?? ''),
+        raterId: authUserId(req),
         rating: Number(body.rating),
         comment: typeof body.comment === 'string' ? body.comment : undefined,
       });
@@ -56,7 +57,7 @@ export function createReviewsRouter(store: ReviewStore): Router {
     try {
       const incident = store.reportIncident({
         requestId: String(body.requestId ?? ''),
-        reporterId: String(body.reporterId ?? ''),
+        reporterId: authUserId(req),
         type: body.type as IncidentType,
         detail: typeof body.detail === 'string' ? body.detail : undefined,
       });

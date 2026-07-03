@@ -15,6 +15,7 @@ const OTP_ERROR_STATUS: Record<string, number> = {
   EXPIRED: 400,
   INVALID_CODE: 401,
   TOO_MANY_ATTEMPTS: 429,
+  RESEND_COOLDOWN: 429,
 };
 
 /** Authorization: Bearer <token> 에서 토큰 추출. */
@@ -42,6 +43,10 @@ export function createAuthRouter(
     try {
       res.json(await otpService.request(phone));
     } catch (err) {
+      if (err instanceof OtpError) {
+        res.status(OTP_ERROR_STATUS[err.code] ?? 400).json({ error: err.message, code: err.code });
+        return;
+      }
       console.error('[auth] OTP 발송 오류', err);
       res.status(502).json({ error: '인증코드 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
     }

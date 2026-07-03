@@ -94,3 +94,35 @@ describe('OtpService', () => {
     expect(spy.mock.calls[0]?.[1]).toMatch(/^\d{6}$/);
   });
 });
+
+describe('OtpService — 보안 하드닝', () => {
+  it('재발송 쿨다운 내 재요청은 RESEND_COOLDOWN', async () => {
+    const { service } = makeService({ resendCooldownMs: 30_000 });
+    await service.request('01011112222');
+    await expect(service.request('01011112222')).rejects.toThrowError(
+      expect.objectContaining({ code: 'RESEND_COOLDOWN' }),
+    );
+  });
+
+  it('쿨다운 경과 후에는 재발송 가능', async () => {
+    const { service, setNow } = makeService({ resendCooldownMs: 30_000 });
+    await service.request('01011112222');
+    setNow(31_000);
+    await expect(service.request('01011112222')).resolves.toEqual(
+      expect.objectContaining({ sent: true }),
+    );
+  });
+
+  it('devMasterCode 지정 시 해당 코드로 요청 없이도 통과', () => {
+    const { service } = makeService({ devMasterCode: '999999' });
+    expect(service.verify('01011112222', '999999')).toBe(true);
+    expect(service.isPhoneVerified('01011112222')).toBe(true);
+  });
+
+  it('devMasterCode 미지정(운영 가정)이면 마스터 우회가 없다', () => {
+    const { service } = makeService(); // devMasterCode 없음
+    expect(() => service.verify('01011112222', '123456')).toThrowError(
+      expect.objectContaining({ code: 'NOT_REQUESTED' }),
+    );
+  });
+});

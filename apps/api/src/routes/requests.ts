@@ -6,7 +6,14 @@ import {
   type RequestKind,
 } from '@dimol/shared';
 import { Router } from 'express';
+import { authUserId } from '../middleware/auth.js';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
+import type { ServiceRequest } from '@dimol/shared';
+
+/** 요청 참여자(요청자 또는 매칭된 업체)인지. */
+function isParticipant(request: ServiceRequest, userId: string): boolean {
+  return request.requesterId === userId || request.matchedProviderId === userId;
+}
 
 /** { lat, lng } 형태만 좌표로 인정. 그 외(누락/형식오류)는 undefined. */
 function parseGeoPoint(raw: unknown): GeoPoint | undefined {
@@ -34,13 +41,13 @@ export function createRequestsRouter(store: RequestStore): Router {
     res.status(500).json({ error: '요청 처리 오류' });
   }
 
-  // POST /api/requests — 요청 생성 (kind 로 3종 구분)
+  // POST /api/requests — 요청 생성 (kind 로 3종 구분). 요청자는 인증된 본인으로 고정.
   router.post('/requests', (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       const request = store.create({
         kind: body.kind,
-        requesterId: body.requesterId,
+        requesterId: authUserId(req),
         region: body.region,
         wasteCategory: body.wasteCategory,
         wasteTons: Number(body.wasteTons),
@@ -58,27 +65,31 @@ export function createRequestsRouter(store: RequestStore): Router {
     }
   });
 
-  // GET /api/requests?requesterId=&kind=&status= — 목록 (최신순)
+  // GET /api/requests?kind=&status= — 내 요청 목록 (최신순). 요청자는 인증된 본인으로 고정.
   router.get('/requests', (req, res) => {
-    const { requesterId, kind, status } = req.query;
+    const { kind, status } = req.query;
     if (kind !== undefined && !REQUEST_KINDS.includes(kind as RequestKind)) {
       res.status(400).json({ error: `kind 는 ${REQUEST_KINDS.join(' | ')} 중 하나여야 합니다.` });
       return;
     }
     res.json(
       store.list({
-        requesterId: typeof requesterId === 'string' ? requesterId : undefined,
+        requesterId: authUserId(req),
         kind: kind as RequestKind | undefined,
         status: typeof status === 'string' ? (status as MatchStatus) : undefined,
       }),
     );
   });
 
-  // GET /api/requests/:id — 단건 조회
+  // GET /api/requests/:id — 단건 조회 (참여자: 요청자 또는 매칭된 업체만)
   router.get('/requests/:id', (req, res) => {
     const request = store.get(req.params.id);
     if (!request) {
       res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+      return;
+    }
+    if (!isParticipant(request, authUserId(req))) {
+      res.status(403).json({ error: '이 요청을 볼 권한이 없어요.' });
       return;
     }
     res.json(request);
@@ -89,6 +100,11 @@ export function createRequestsRouter(store: RequestStore): Router {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.status !== 'string') {
       res.status(400).json({ error: 'status 가 필요합니다.' });
+      return;
+    }
+    const existing = store.get(req.params.id);
+    if (existing && !isParticipant(existing, authUserId(req))) {
+      res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
       return;
     }
     try {
@@ -108,6 +124,11 @@ export function createRequestsRouter(store: RequestStore): Router {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (!Array.isArray(body.keys)) {
       res.status(400).json({ error: 'keys(사진 키 배열)가 필요합니다.' });
+      return;
+    }
+    const existing = store.get(req.params.id);
+    if (existing && !isParticipant(existing, authUserId(req))) {
+      res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
       return;
     }
     try {

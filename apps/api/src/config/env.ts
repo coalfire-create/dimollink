@@ -9,9 +9,32 @@ function required(name: string): string {
   return value;
 }
 
+const nodeEnv = process.env.NODE_ENV ?? 'development';
+
 export const env = {
-  nodeEnv: process.env.NODE_ENV ?? 'development',
+  nodeEnv,
+  isProduction: nodeEnv === 'production',
   port: Number(process.env.PORT ?? 4000),
+  /** CORS 허용 출처(콤마 구분). 미설정 시 개발 편의로 전체 허용, 운영에선 반드시 지정. */
+  corsOrigins: (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+  auth: {
+    // 세션 토큰 유효기간(일). 기본 30일.
+    sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
+  },
+  otp: {
+    // 코드 유효시간(초, 기본 180) · 재발송 쿨다운(초, 기본 30) · 최대 검증 시도(기본 5).
+    ttlSec: Number(process.env.OTP_TTL_SEC ?? 180),
+    resendCooldownSec: Number(process.env.OTP_RESEND_COOLDOWN_SEC ?? 30),
+    maxAttempts: Number(process.env.OTP_MAX_ATTEMPTS ?? 5),
+    /**
+     * 개발/테스트용 마스터 인증코드. 운영(production)에서는 절대 사용하지 않는다.
+     * 비운영 환경에서만 값을 노출하며, 기본값도 운영에서는 undefined.
+     */
+    devMasterCode: process.env.OTP_DEV_MASTER_CODE ?? '123456',
+  },
   // 실제 연동 시 아래를 required(...) 로 강제. 스캐폴딩 단계에서는 optional.
   databaseUrl: process.env.DATABASE_URL,
   // 파일럿 단계 요청 데이터 JSON 저장 경로 (PostgreSQL 연동 전까지).

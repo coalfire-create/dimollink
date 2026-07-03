@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authUserId } from '../middleware/auth.js';
 import { LocationStore, LocationValidationError } from '../locations/store.js';
 
 /** 실시간 위치 공유 API (로드맵 Phase 4). 작업 진행중(IN_PROGRESS)에만 동작. */
@@ -14,7 +15,7 @@ export function createLocationsRouter(store: LocationStore): Router {
     res.status(500).json({ error: '위치 공유 처리 오류' });
   }
 
-  // PUT /api/requests/:id/location  { providerId, lat, lng } — 업체 위치 갱신
+  // PUT /api/requests/:id/location  { lat, lng } — 업체 위치 갱신(업체는 인증된 본인)
   router.put('/requests/:id/location', (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.lat !== 'number' || typeof body.lng !== 'number') {
@@ -23,7 +24,7 @@ export function createLocationsRouter(store: LocationStore): Router {
     }
     try {
       res.json(
-        store.updateLocation(req.params.id, String(body.providerId ?? ''), {
+        store.updateLocation(req.params.id, authUserId(req), {
           lat: body.lat,
           lng: body.lng,
         }),

@@ -3,6 +3,8 @@ import type { AddressInfo } from 'node:net';
 import { PILOT } from '@dimol/shared';
 import express from 'express';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { SessionTokenStore } from '../auth/session-store.js';
+import { createRequireAuth } from '../middleware/auth.js';
 import { RequestStore } from '../requests/store.js';
 import { UserStore } from '../users/store.js';
 import { createJobsRouter } from './jobs.js';
@@ -15,12 +17,19 @@ let server: Server;
 let base: string;
 let requestStore: RequestStore;
 let userStore: UserStore;
+let sessionStore: SessionTokenStore;
+
+/** 회원 id 로 세션 토큰 발급(인증 헤더용). */
+const tokenOf = (userId: string) => sessionStore.issue(userId);
 
 beforeEach(async () => {
   requestStore = new RequestStore();
   userStore = new UserStore();
+  sessionStore = new SessionTokenStore();
   const app = express();
   app.use(express.json());
+  // 일감 라우트는 인증 필요 — 실제 앱과 동일하게 미들웨어를 건다.
+  app.use('/api/jobs', createRequireAuth(sessionStore, userStore));
   app.use('/api', createJobsRouter(requestStore, userStore));
   await new Promise<void>((resolve) => {
     server = app.listen(0, resolve);
@@ -62,16 +71,18 @@ function makeTransportRequest(requesterId = 'consumer-1') {
 }
 
 const getJobs = (providerId: string) =>
-  fetch(`${base}/api/jobs?providerId=${providerId}`).then(async (r) => ({
-    status: r.status,
-    body: await r.json(),
-  }));
+  fetch(`${base}/api/jobs`, {
+    headers: { authorization: `Bearer ${tokenOf(providerId)}` },
+  }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
 const accept = (requestId: string, providerId: string) =>
   fetch(`${base}/api/jobs/${requestId}/accept`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ providerId }),
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${tokenOf(providerId)}`,
+    },
+    body: JSON.stringify({}),
   }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
 describe('업체 일감 피드 (/api/jobs)', () => {
@@ -135,6 +146,11 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     userStore.setAvailability(u.id, 'ONLINE');
     const req = makeTransportRequest();
     expect((await accept(req.id, u.id)).status).toBe(403);
+  });
+
+  it('토큰 없이 피드 조회는 401', async () => {
+    const res = await fetch(`${base}/api/jobs`);
+    expect(res.status).toBe(401);
   });
 
   it('소비자 등 일감 대상이 아닌 유형은 피드 조회 400', async () => {

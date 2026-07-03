@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import type {
   AppNotification,
   ChatMessage,
@@ -25,6 +25,8 @@ import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
 import { OtpService } from './auth/otp-service.js';
 import { SessionTokenStore } from './auth/session-store.js';
+import { createRequireAuth } from './middleware/auth.js';
+import { createRateLimiter, securityHeaders } from './middleware/security.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
@@ -46,9 +48,29 @@ import { createUsersRouter } from './routes/users.js';
 /** Express 앱 구성 (서버 기동과 분리해 테스트에서 재사용 가능). */
 export function createApp() {
   const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', true); // 프록시(로드밸런서/Vercel) 뒤 실제 클라이언트 IP 사용.
 
-  app.use(cors());
-  app.use(express.json());
+  // CORS: 운영에서는 허용 출처(CORS_ORIGINS)만, 미설정 시(개발) 전체 허용.
+  app.use(
+    cors(
+      env.corsOrigins.length > 0
+        ? { origin: env.corsOrigins, credentials: true }
+        : undefined,
+    ),
+  );
+  app.use(securityHeaders(env.isProduction));
+  app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
+
+  // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — IP 기준 레이트리밋.
+  app.use(
+    '/api/auth',
+    createRateLimiter({
+      windowMs: 60_000,
+      max: 20,
+      message: '인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+    }),
+  );
 
   app.use('/api', healthRouter);
   app.use('/api', createAllbaroRouter());
@@ -63,8 +85,15 @@ export function createApp() {
   );
   const userStore = new UserStore(new JsonCollectionFile<UserProfile>(env.dataDir, 'users.json'));
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
-  const otpService = new OtpService();
-  const sessionStore = new SessionTokenStore();
+  // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
+  const otpService = new OtpService({
+    ttlMs: env.otp.ttlSec * 1000,
+    resendCooldownMs: env.otp.resendCooldownSec * 1000,
+    maxAttempts: env.otp.maxAttempts,
+    // 운영에서는 마스터 인증코드를 절대 활성화하지 않는다(env 값과 무관한 최종 안전장치).
+    devMasterCode: env.isProduction ? undefined : env.otp.devMasterCode,
+  });
+  const sessionStore = new SessionTokenStore({ ttlMs: env.auth.sessionTtlDays * 24 * 60 * 60 * 1000 });
   const reviewStore = new ReviewStore(
     requestStore,
     new JsonCollectionFile<Review>(env.dataDir, 'reviews.json'),
@@ -78,6 +107,16 @@ export function createApp() {
     requestStore,
     new JsonCollectionFile<MatchOffer>(env.dataDir, 'offers.json'),
   );
+
+  // ── 인증 게이트: 로그인(세션 토큰)이 필요한 경로. 회원가입·로그인·헬스·조회성 일부는 공개.
+  const requireAuth = createRequireAuth(sessionStore, userStore);
+  app.use('/api/requests', requireAuth); // 요청 생성/조회/상태변경/채팅/위치 — 참여자 본인만
+  app.use('/api/jobs', requireAuth); // 업체 일감 피드/수락 — 본인 계정만
+  app.use('/api/notifications', requireAuth); // 알림 — 본인 것만
+  app.use('/api/reviews', requireAuth); // 리뷰 작성/조회 — 작성자는 인증된 본인
+  app.use('/api/incidents', requireAuth); // 노쇼/분쟁 신고 — 신고자는 인증된 본인
+  app.use('/api/users/:id', requireAuth); // 프로필 수정·콜대기·인증서류 — 본인만(회원가입 POST /users 는 공개)
+  app.get('/api/users', requireAuth); // 회원 목록(PII) — 최소 로그인 필요(추후 관리자 전용으로 제한)
 
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
@@ -110,6 +149,26 @@ export function createApp() {
       env.adminToken,
     ),
   );
+
+  // 404 — 정의되지 않은 경로.
+  app.use((_req, res) => {
+    res.status(404).json({ error: '요청한 리소스를 찾을 수 없습니다.' });
+  });
+
+  // 중앙 오류 처리 — 미처리 예외를 500 JSON 으로 변환하고 스택/내부정보는 노출하지 않는다.
+  // (JSON 파싱 오류 등 프레임워크 예외 포함)
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err && typeof err === 'object' && 'type' in err && err.type === 'entity.too.large') {
+      res.status(413).json({ error: '요청 본문이 너무 큽니다.' });
+      return;
+    }
+    if (err instanceof SyntaxError && 'body' in err) {
+      res.status(400).json({ error: '요청 형식(JSON)이 올바르지 않습니다.' });
+      return;
+    }
+    console.error('[api] 처리되지 않은 오류', err);
+    res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  });
 
   return app;
 }

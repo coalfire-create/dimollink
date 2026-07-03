@@ -6,6 +6,7 @@ import {
 } from '@dimol/shared';
 import { Router } from 'express';
 import { rankByDistance } from '../matching/rank.js';
+import { authUserId } from '../middleware/auth.js';
 import { RequestStore, RequestValidationError } from '../requests/store.js';
 import { UserStore } from '../users/store.js';
 
@@ -24,13 +25,10 @@ const ASSIGNED_STATUSES: readonly MatchStatus[] = ['MATCHED', 'PAID', 'IN_PROGRE
 export function createJobsRouter(requestStore: RequestStore, userStore: UserStore): Router {
   const router = Router();
 
-  // GET /api/jobs?providerId=  — 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned)
+  // GET /api/jobs  — 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned)
+  // 요청자는 인증된 본인(토큰)으로 고정한다 — 남의 피드를 조회할 수 없다.
   router.get('/jobs', (req, res) => {
-    const providerId = req.query.providerId;
-    if (typeof providerId !== 'string' || providerId.trim() === '') {
-      res.status(400).json({ error: 'providerId 가 필요합니다.' });
-      return;
-    }
+    const providerId = authUserId(req);
     const provider = userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
@@ -64,13 +62,9 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     res.json(body);
   });
 
-  // POST /api/jobs/:requestId/accept  { providerId } — 업체가 일감 수락 → MATCHED
+  // POST /api/jobs/:requestId/accept — 업체가 일감 수락 → MATCHED (요청자는 인증된 본인)
   router.post('/jobs/:requestId/accept', (req, res) => {
-    const providerId = (req.body as { providerId?: unknown } | undefined)?.providerId;
-    if (typeof providerId !== 'string' || providerId.trim() === '') {
-      res.status(400).json({ error: 'providerId 가 필요합니다.' });
-      return;
-    }
+    const providerId = authUserId(req);
     const provider = userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });

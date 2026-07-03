@@ -8,10 +8,11 @@ import {
   type UserApprovalStatus,
   type UserType,
 } from '@dimol/shared';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
 import type { OtpService } from '../auth/otp-service.js';
 import type { SessionTokenStore } from '../auth/session-store.js';
+import { authUserId } from '../middleware/auth.js';
 import { UserStore, UserValidationError, type CreateUserInput } from '../users/store.js';
 
 /** { lat, lng } 형태만 좌표로 인정. 그 외(누락/형식오류)는 undefined. */
@@ -48,6 +49,15 @@ export function createUsersRouter(
       return;
     }
     res.status(500).json({ error: '회원 처리 오류' });
+  }
+
+  /** 본인 계정 확인 — 다른 회원의 리소스를 수정하려 하면 403. */
+  function assertSelf(req: Request, res: Response): boolean {
+    if (authUserId(req) !== req.params.id) {
+      res.status(403).json({ error: '본인 계정만 변경할 수 있어요.' });
+      return false;
+    }
+    return true;
   }
 
   // POST /api/users — 온보딩 (유형별 분기: 소비자 즉시 가입 / 업체 올바로 검증)
@@ -134,18 +144,27 @@ export function createUsersRouter(
     );
   });
 
-  // GET /api/users/:id — 프로필 조회 (올바로 배지·평점·유형 노출용)
+  // GET /api/users/:id — 프로필 조회. 본인은 전체, 타인은 PII(연락처·사업자번호) 제외 공개 프로필.
   router.get('/users/:id', (req, res) => {
     const user = store.get(req.params.id);
     if (!user) {
       res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
       return;
     }
-    res.json(user);
+    if (authUserId(req) === user.id) {
+      res.json(user);
+      return;
+    }
+    // 타인 조회 — 연락처·사업자번호 같은 PII 는 노출하지 않는다.
+    const publicProfile = { ...user };
+    delete publicProfile.phone;
+    delete publicProfile.businessNumber;
+    res.json(publicProfile);
   });
 
   // PATCH /api/users/:id/availability — 운반업체 콜대기 상태 토글 (ONLINE/OFFLINE)
   router.patch('/users/:id/availability', (req, res) => {
+    if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     const availability = body.availability;
     if (availability !== 'ONLINE' && availability !== 'OFFLINE') {
@@ -161,6 +180,7 @@ export function createUsersRouter(
 
   // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
   router.patch('/users/:id/certifications', (req, res) => {
+    if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
@@ -178,6 +198,7 @@ export function createUsersRouter(
 
   // PATCH /api/users/:id — 프로필 수정 (이름/연락처/지역)
   router.patch('/users/:id', (req, res) => {
+    if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(

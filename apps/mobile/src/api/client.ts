@@ -36,12 +36,26 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * 로그인 세션 토큰 — 로그인/자동로그인 시 저장되고, 이후 모든 인증 요청에 자동 첨부된다.
+ * App 이 로그인/복원 시 setAuthToken(token), 로그아웃 시 setAuthToken(null) 을 호출한다.
+ */
+let authToken: string | null = null;
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
-      headers: { 'content-type': 'application/json', ...init?.headers },
+      headers: {
+        'content-type': 'application/json',
+        // 토큰이 있으면 자동 첨부(개별 호출이 명시한 헤더가 우선).
+        ...(authToken ? { authorization: `Bearer ${authToken}` } : {}),
+        ...init?.headers,
+      },
     });
   } catch {
     throw new ApiError('서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.', 0);
