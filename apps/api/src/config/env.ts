@@ -35,6 +35,13 @@ export const env = {
      */
     devMasterCode: process.env.OTP_DEV_MASTER_CODE ?? '123456',
   },
+  /**
+   * 테스트/스테이징 전용 스위치. 운영에는 절대 켜지 않는다.
+   * - allowTestOtp: 운영 모드(NODE_ENV=production)에서도 마스터 OTP 코드를 허용(테스트 배포용).
+   * - seedTestAccounts: 기동 시 역할별 테스트 계정을 없으면 생성한다.
+   */
+  allowTestOtp: process.env.ALLOW_TEST_OTP === 'true',
+  seedTestAccounts: process.env.SEED_TEST_ACCOUNTS === 'true',
   // PostgreSQL 접속 문자열. 설정 시 JSON 파일 대신 DB 영속화를 사용한다.
   databaseUrl: process.env.DATABASE_URL,
   // Redis 접속 문자열. 설정 시 세션·레이트리밋을 인스턴스 간 공유(다중 인스턴스).

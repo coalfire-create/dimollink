@@ -29,6 +29,7 @@ import { UserStore } from './users/store.js';
 import { OtpService, type OtpKv } from './auth/otp-service.js';
 import { SessionTokenStore } from './auth/session-store.js';
 import { createSmsSender } from './auth/sms-sender.js';
+import { seedTestAccounts } from './dev/seed.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
@@ -119,6 +120,8 @@ export function createApp(
     notificationService.notifyStatusChange(request),
   );
   const userStore = new UserStore(persistence<UserProfile>('users'));
+  // 테스트/스테이징 배포: 역할별 계정 시드(멱등). 운영에서는 SEED_TEST_ACCOUNTS 를 켜지 않는다.
+  if (env.seedTestAccounts) seedTestAccounts(userStore);
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
@@ -127,8 +130,8 @@ export function createApp(
     ttlMs: env.otp.ttlSec * 1000,
     resendCooldownMs: env.otp.resendCooldownSec * 1000,
     maxAttempts: env.otp.maxAttempts,
-    // 운영에서는 마스터 인증코드를 절대 활성화하지 않는다(env 값과 무관한 최종 안전장치).
-    devMasterCode: env.isProduction ? undefined : env.otp.devMasterCode,
+    // 운영에서는 마스터 인증코드를 비활성화한다. 단, 테스트 배포는 ALLOW_TEST_OTP=true 로 허용.
+    devMasterCode: env.isProduction && !env.allowTestOtp ? undefined : env.otp.devMasterCode,
   });
   // 세션: Redis(다중 인스턴스) 주입 시 그걸 쓰고, 없으면 영속 인메모리(재시작 유지).
   const sessionStore: SessionStore =
