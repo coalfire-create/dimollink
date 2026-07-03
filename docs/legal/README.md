@@ -31,4 +31,5 @@
 ## D(비즈니스) 요약
 
 법무 문서 확정 외에 상용 오픈에 필요한 비코드 항목은
-[go-live-checklist.md](go-live-checklist.md) 참조(사업자·계약·API 신청·업체 확보·심사).
+[go-live-checklist.md](go-live-checklist.md)(무엇을) 및
+[../go-live-guide.md](../go-live-guide.md)(어떻게 — 단계별 실행 가이드) 참조.

@@ -2,6 +2,9 @@
 
 상용 전환에 필요한 설정·절차·점검 목록. 시크릿은 절대 커밋하지 않는다(.env / 배포 플랫폼 시크릿에만).
 
+> 외부 액션(PortOne/올바로 신청·인프라·법무·심사)을 **단계별로 어떻게 하는지**는
+> **[go-live-guide.md](go-live-guide.md)** 참조.
+
 ## 1. 아키텍처
 
 - **API**: Node/Express (`apps/api`). Vercel 서버리스(`api/index.js`) 또는 일반 Node 서버(`apps/api/dist/index.js`).
