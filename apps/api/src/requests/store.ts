@@ -5,7 +5,9 @@ import {
   REQUEST_STATUS_LABELS,
   SITE_PHOTOS_MAX_PER_REQUEST,
   canTransitionRequestStatus,
+  isValidGeoPoint,
   isValidSitePhotoKey,
+  type GeoPoint,
   type MatchStatus,
   type RequestKind,
   type ServiceRequest,
@@ -32,6 +34,8 @@ export interface CreateRequestInput {
   wasteTons: number;
   allbaroRequested: boolean;
   sitePhotoKeys?: string[];
+  /** 현장 좌표(거리 기반 일감 추천용, 선택). */
+  location?: GeoPoint;
   /** DEMOLITION */
   siteAddress?: string;
   /** TRANSPORT */
@@ -45,6 +49,10 @@ export interface ListRequestsFilter {
   requesterId?: string;
   kind?: RequestKind;
   status?: MatchStatus;
+  /** 매칭 확정된 업체 id (업체 일감 피드 — 내가 수락한 요청 조회용). */
+  providerId?: string;
+  /** 현장 지역 필터 (파일럿 양평). */
+  region?: string;
 }
 
 export interface StatusChangeOptions {
@@ -117,6 +125,9 @@ export class RequestStore {
     if (!Number.isFinite(input.wasteTons) || input.wasteTons <= 0) {
       throw new RequestValidationError('wasteTons(예상 중량, 톤)은 양수여야 합니다.');
     }
+    if (input.location !== undefined && !isValidGeoPoint(input.location)) {
+      throw new RequestValidationError('유효한 좌표(lat -90~90, lng -180~180)가 필요합니다.');
+    }
 
     const now = new Date().toISOString();
     const base = {
@@ -127,6 +138,7 @@ export class RequestStore {
       wasteTons: input.wasteTons,
       allbaroRequested: input.allbaroRequested === true,
       sitePhotoKeys: normalizeSitePhotoKeys(input.sitePhotoKeys),
+      ...(input.location ? { location: input.location } : {}),
       status: 'REQUESTED' as const,
       createdAt: now,
       updatedAt: now,
@@ -175,7 +187,9 @@ export class RequestStore {
         (r) =>
           (filter.requesterId === undefined || r.requesterId === filter.requesterId) &&
           (filter.kind === undefined || r.kind === filter.kind) &&
-          (filter.status === undefined || r.status === filter.status),
+          (filter.status === undefined || r.status === filter.status) &&
+          (filter.providerId === undefined || r.matchedProviderId === filter.providerId) &&
+          (filter.region === undefined || r.region === filter.region),
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }

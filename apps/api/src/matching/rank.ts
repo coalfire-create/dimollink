@@ -1,6 +1,7 @@
 import {
   PILOT,
   haversineDistanceKm,
+  isValidGeoPoint,
   type GeoPoint,
   type MatchCandidate,
   type ProviderRole,
@@ -57,4 +58,54 @@ export function rankCandidatesByDistance(
     .sort((a, b) => a.distanceKm - b.distanceKm || a.id.localeCompare(b.id));
 
   return options.limit === undefined ? ranked : ranked.slice(0, Math.max(0, options.limit));
+}
+
+/** 좌표를 가질 수 있는 항목(일감 등). location 이 없으면 거리 계산에서 제외. */
+export interface Located {
+  id: string;
+  location?: GeoPoint;
+}
+
+export interface DistanceRankOptions {
+  /** 반경 제한(km). 초과 항목 제외(좌표 없는 항목은 유지). */
+  maxRadiusKm?: number;
+}
+
+/**
+ * origin(업체 기준 좌표)에서 가까운 순으로 항목(일감)을 정렬한다.
+ * 거리 기반 매칭을 후보(업체)뿐 아니라 일감 목록에도 재사용하기 위한 범용 정렬기.
+ *
+ * - origin 이 없거나 유효하지 않으면 거리 없이(distanceKm=null) 입력 순서를 유지한다.
+ * - 좌표 없는 항목은 distanceKm=null 로 두고 좌표 있는 항목보다 뒤로 정렬한다.
+ * - 도로거리가 아닌 직선거리(하버사인) — Phase 1 기본 매칭 기준.
+ */
+export function rankByDistance<T extends Located>(
+  origin: GeoPoint | undefined,
+  items: T[],
+  options: DistanceRankOptions = {},
+): Array<T & { distanceKm: number | null }> {
+  if (!origin || !isValidGeoPoint(origin)) {
+    return items.map((item) => ({ ...item, distanceKm: null }));
+  }
+  return items
+    .map((item) => ({
+      ...item,
+      distanceKm:
+        item.location && isValidGeoPoint(item.location)
+          ? round3(haversineDistanceKm(origin, item.location))
+          : null,
+    }))
+    .filter(
+      (item) =>
+        options.maxRadiusKm === undefined ||
+        item.distanceKm === null ||
+        item.distanceKm <= options.maxRadiusKm,
+    )
+    .sort((a, b) => {
+      // 좌표 있는 항목을 가까운 순으로 앞에, 좌표 없는 항목은 뒤로(결정적).
+      if (a.distanceKm === null && b.distanceKm === null) return a.id.localeCompare(b.id);
+      if (a.distanceKm === null) return 1;
+      if (b.distanceKm === null) return -1;
+      return a.distanceKm - b.distanceKm || a.id.localeCompare(b.id);
+    });
 }

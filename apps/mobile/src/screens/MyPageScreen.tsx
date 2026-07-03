@@ -1,27 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  CALL_AVAILABILITY_LABELS,
   PILOT,
   USER_APPROVAL_LABELS,
-  isCompanyRole,
+  USER_TYPE_LABELS,
+  isCompanyType,
   type RatingSummary,
 } from '@dimol/shared';
 import { getRating } from '../api/client';
-import { Card, InfoRow, SectionTitle } from '../components/ui';
-import { ScreenHeader, TabBar, useSession } from '../navigation';
+import { AppButton, Card, InfoRow, SectionTitle } from '../components/ui';
+import { ScreenHeader, TabBar, useAuthActions, useSession } from '../navigation';
 import { theme } from '../theme';
 
 /** 내 정보 — 프로필·승인 상태·올바로 인증 배지·평점 (Phase 1~2). */
 
-const ROLE_LABELS: Record<string, string> = {
-  DISCHARGER: '배출자',
-  DEMOLITION: '철거 업체',
-  TRANSPORT: '운반 업체',
-  DISPOSAL: '처리장',
-};
-
 export function MyPageScreen() {
   const user = useSession();
+  const { logout } = useAuthActions();
   const [rating, setRating] = useState<RatingSummary | null>(null);
 
   useEffect(() => {
@@ -38,7 +34,7 @@ export function MyPageScreen() {
         <Card>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.role}>
-            {ROLE_LABELS[user.role] ?? user.role} · {PILOT.region}
+            {USER_TYPE_LABELS[user.userType] ?? user.userType} · {PILOT.region}
           </Text>
           <View style={styles.badgeRow}>
             {user.allbaroCertified ? (
@@ -62,11 +58,14 @@ export function MyPageScreen() {
         <SectionTitle>계정</SectionTitle>
         <Card>
           <InfoRow label="가입 상태" value={USER_APPROVAL_LABELS[user.approvalStatus]} />
+          {user.availability ? (
+            <InfoRow label="콜대기" value={CALL_AVAILABILITY_LABELS[user.availability]} />
+          ) : null}
           {user.phone ? <InfoRow label="연락처" value={user.phone} /> : null}
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 
-        {isCompanyRole(user.role) ? (
+        {isCompanyType(user.userType) ? (
           <>
             <SectionTitle>평가</SectionTitle>
             <Card>
@@ -81,6 +80,9 @@ export function MyPageScreen() {
             </Card>
           </>
         ) : null}
+
+        <View style={{ height: theme.spacing.md }} />
+        <AppButton label="로그아웃" variant="outline" onPress={logout} />
 
         <Text style={styles.footer}>디몰링크 · {PILOT.region} 파일럿</Text>
       </ScrollView>

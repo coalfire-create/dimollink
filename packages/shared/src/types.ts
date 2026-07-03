@@ -1,11 +1,9 @@
 import type { GeoPoint } from './geo.js';
 
-/** 플랫폼 참여 주체. */
-export type UserRole =
-  | 'DISCHARGER' // 배출자 (철거 현장 / 선결제 주체)
-  | 'DEMOLITION' // 철거 업체
-  | 'TRANSPORT' // 운반 업체
-  | 'DISPOSAL'; // 폐기물 처리장
+/**
+ * 회원 가입 유형(계정 계층)은 `UserType`(user.ts)로 정의한다.
+ * 매칭/정산의 지급 대상 역할은 아래 `ProviderRole`·`PayoutParty`가 담당한다.
+ */
 
 /** 폐기물 카테고리. 파일럿은 건설폐기물(CONSTRUCTION)로 한정. */
 export type WasteCategory = 'CONSTRUCTION';

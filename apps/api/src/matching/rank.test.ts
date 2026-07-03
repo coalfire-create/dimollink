@@ -1,6 +1,6 @@
-import type { MatchCandidate } from '@dimol/shared';
+import type { GeoPoint, MatchCandidate } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
-import { rankCandidatesByDistance } from './rank.js';
+import { rankByDistance, rankCandidatesByDistance } from './rank.js';
 
 // 배출 현장(양평 인근) 기준.
 const ORIGIN = { lat: 37.49, lng: 127.49 };
@@ -84,5 +84,42 @@ describe('rankCandidatesByDistance', () => {
     const ranked = rankCandidatesByDistance(ORIGIN, [candidate({ id: 'x' })]);
     expect(ranked[0]).toHaveProperty('distanceKm');
     expect(ranked[0]!.distanceKm).toBe(0); // origin과 동일 좌표
+  });
+});
+
+describe('rankByDistance (일감 거리 정렬)', () => {
+  interface Job {
+    id: string;
+    location?: GeoPoint;
+  }
+  const near: Job = { id: 'near', location: { lat: 37.49, lng: 127.49 } };
+  const far: Job = { id: 'far', location: { lat: 37.7, lng: 127.8 } };
+  const noLoc: Job = { id: 'noloc' };
+
+  it('업체 좌표에서 가까운 순으로 정렬하고 distanceKm 를 붙인다', () => {
+    const ranked = rankByDistance(ORIGIN, [far, near]);
+    expect(ranked.map((j) => j.id)).toEqual(['near', 'far']);
+    expect(ranked[0]!.distanceKm).toBe(0);
+    expect(ranked[1]!.distanceKm).toBeGreaterThan(0);
+  });
+
+  it('좌표 없는 일감은 distanceKm=null 이며 좌표 있는 일감보다 뒤로 간다', () => {
+    const ranked = rankByDistance(ORIGIN, [noLoc, near]);
+    expect(ranked.map((j) => j.id)).toEqual(['near', 'noloc']);
+    expect(ranked[1]!.distanceKm).toBeNull();
+  });
+
+  it('origin(업체 좌표)이 없으면 거리 없이 입력 순서를 유지한다', () => {
+    const ranked = rankByDistance(undefined, [far, near]);
+    expect(ranked.map((j) => j.id)).toEqual(['far', 'near']);
+    expect(ranked.every((j) => j.distanceKm === null)).toBe(true);
+  });
+
+  it('maxRadiusKm 초과 일감은 제외한다(좌표 없는 일감은 유지)', () => {
+    const ranked = rankByDistance(ORIGIN, [near, far, noLoc], { maxRadiusKm: 1 });
+    const ids = ranked.map((j) => j.id);
+    expect(ids).toContain('near');
+    expect(ids).toContain('noloc');
+    expect(ids).not.toContain('far');
   });
 });

@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { RequestKind, UserProfile } from '@dimol/shared';
+import { ROLE_CONFIG } from './roleConfig';
 import { theme } from './theme';
 
 /**
@@ -35,7 +36,7 @@ export function useNavigation(): Navigation {
   return nav;
 }
 
-// ── 세션 (온보딩 완료 후 회원 프로필 보관)
+// ── 세션 (로그인/회원가입 완료 후 회원 프로필 보관)
 export const SessionContext = createContext<UserProfile | null>(null);
 
 export function useSession(): UserProfile {
@@ -44,19 +45,27 @@ export function useSession(): UserProfile {
   return user;
 }
 
-// ── 하단 탭바
-const TABS: Array<{ tab: TabName; label: string; icon: string }> = [
-  { tab: 'home', label: '홈', icon: '🏠' },
-  { tab: 'requests', label: '내 요청', icon: '📋' },
-  { tab: 'notifications', label: '알림', icon: '🔔' },
-  { tab: 'mypage', label: '내 정보', icon: '👤' },
-];
+// ── 인증 동작 (로그아웃 등) — 로그인한 회원 화면에서 사용
+export interface AuthActions {
+  logout: () => void;
+}
 
+export const AuthActionsContext = createContext<AuthActions | null>(null);
+
+export function useAuthActions(): AuthActions {
+  const actions = useContext(AuthActionsContext);
+  if (!actions) throw new Error('AuthActionsContext 가 설정되지 않았습니다.');
+  return actions;
+}
+
+// ── 하단 탭바 (가입 유형별 탭 구성이 다르다 — roleConfig 참조)
 export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
+  const user = useSession();
+  const tabs = ROLE_CONFIG[user.userType].tabs;
   return (
     <View style={styles.tabBar}>
-      {TABS.map(({ tab, label, icon }) => {
+      {tabs.map(({ tab, label, icon }) => {
         const isActive = tab === active;
         return (
           <Pressable

@@ -1,13 +1,44 @@
-import type { UserApprovalStatus, UserRole } from '@dimol/shared';
+import {
+  isCompanyType,
+  isValidBusinessNumber,
+  isValidGeoPoint,
+  type AuthSession,
+  type CallAvailability,
+  type GeoPoint,
+  type UserApprovalStatus,
+  type UserType,
+} from '@dimol/shared';
 import { Router } from 'express';
+import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
+import type { OtpService } from '../auth/otp-service.js';
+import type { SessionTokenStore } from '../auth/session-store.js';
 import { UserStore, UserValidationError, type CreateUserInput } from '../users/store.js';
+
+/** { lat, lng } 형태만 좌표로 인정. 그 외(누락/형식오류)는 undefined. */
+function parseGeoPoint(raw: unknown): GeoPoint | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const { lat, lng } = raw as { lat?: unknown; lng?: unknown };
+  if (typeof lat !== 'number' || typeof lng !== 'number') return undefined;
+  const point = { lat, lng };
+  return isValidGeoPoint(point) ? point : undefined;
+}
 
 /**
  * 회원 온보딩·프로필 API (로드맵 Phase 1 §4.1).
- * 배출자/업체 구분 가입, 프로필 조회·수정.
- * [올바로 인증 업체] 배지 갱신은 올바로 검증 라우트(민감 영역) 몫 — 여기서는 읽기만.
+ * 가입 유형(user_type)별로 절차가 갈린다:
+ *  - 소비자(CONSUMER): 사업자등록번호 없이 가입.
+ *  - 업체(철거/운반/처리): 사업자등록번호 필수 + 올바로 회원 검증 API 실시간 검증.
+ * 공통: 휴대폰 OTP 인증을 마친 번호만 가입 가능. 가입 성공 시 세션 토큰을 함께 발급(자동 로그인).
+ *
+ * ⚠️ CLAUDE.md「사람이 반드시 직접 diff를 검토해야 하는 영역」— 올바로 API 연동(회원 검증).
+ *   자동 커밋/머지 금지. 사람이 diff 검토 + 올바로 샌드박스 계정으로 검증 후 반영한다.
  */
-export function createUsersRouter(store: UserStore): Router {
+export function createUsersRouter(
+  store: UserStore,
+  otpService: OtpService,
+  sessionStore: SessionTokenStore,
+  allbaro: AllbaroClient = createAllbaroClient(),
+): Router {
   const router = Router();
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
@@ -19,29 +50,82 @@ export function createUsersRouter(store: UserStore): Router {
     res.status(500).json({ error: '회원 처리 오류' });
   }
 
-  // POST /api/users — 온보딩 (배출자/업체 구분)
-  router.post('/users', (req, res) => {
+  // POST /api/users — 온보딩 (유형별 분기: 소비자 즉시 가입 / 업체 올바로 검증)
+  router.post('/users', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
+    const userType = body.userType;
+    if (typeof userType !== 'string') {
+      res.status(400).json({ error: 'userType(가입 유형)이 필요합니다.' });
+      return;
+    }
+    const businessNumber = typeof body.businessNumber === 'string' ? body.businessNumber : undefined;
+    const phone = typeof body.phone === 'string' ? body.phone : '';
+
+    // 휴대폰 OTP 인증을 마친 번호만 가입 허용(번호 소유 확인).
+    if (!phone || !otpService.isPhoneVerified(phone)) {
+      res.status(403).json({ error: '휴대폰 인증을 먼저 완료해 주세요.', code: 'PHONE_NOT_VERIFIED' });
+      return;
+    }
+
+    // 업체 유형: 사업자등록번호 필수 + 올바로 회원 검증(실시간).
+    let allbaroVerifiedAt: string | undefined;
+    if (isCompanyType(userType as UserType)) {
+      if (!businessNumber || !isValidBusinessNumber(businessNumber)) {
+        // PII — 입력값을 메시지에 되돌려주지 않는다.
+        res.status(400).json({ error: '유효한 사업자등록번호(10자리)가 필요합니다.' });
+        return;
+      }
+      try {
+        const verification = await allbaro.verifyMember(businessNumber);
+        if (!verification.verified) {
+          res
+            .status(422)
+            .json({ error: '올바로에 등록된 회원(사업자)이 아닙니다. 사업자등록번호를 확인해 주세요.' });
+          return;
+        }
+        allbaroVerifiedAt = verification.checkedAt;
+      } catch (err) {
+        // 형식/체크섬 불량은 가입 차단. 그 외(설정 누락·타임아웃·업스트림 장애)는
+        // 올바로 폴백 원칙에 따라 미인증 상태로 가입만 진행하고 관리자 승인을 백스톱으로 둔다.
+        if (err instanceof AllbaroError && err.code === 'INVALID_BUSINESS_NUMBER') {
+          res.status(400).json({ error: err.message, code: err.code });
+          return;
+        }
+        console.warn(
+          '[users] 올바로 회원 검증 실패 — 미인증으로 가입 진행',
+          err instanceof AllbaroError ? err.code : 'UNKNOWN',
+        );
+      }
+    }
+
     try {
-      const user = store.create({
-        role: body.role,
+      const created = store.create({
+        userType: userType as UserType,
         name: body.name,
         region: body.region,
-        phone: typeof body.phone === 'string' ? body.phone : undefined,
-        businessNumber: typeof body.businessNumber === 'string' ? body.businessNumber : undefined,
+        phone,
+        businessNumber,
+        location: parseGeoPoint(body.location),
       } as CreateUserInput);
-      res.status(201).json(user);
+      // 올바로 검증 성공 시 [올바로 인증 업체] 배지 부여.
+      const user = allbaroVerifiedAt
+        ? store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
+        : created;
+      // 번호 인증 창 소진 + 세션 토큰 발급(가입 즉시 로그인·자동 로그인).
+      otpService.consumePhoneVerification(phone);
+      const session: AuthSession = { token: sessionStore.issue(user.id), user };
+      res.status(201).json(session);
     } catch (err) {
       handleError(err, res);
     }
   });
 
-  // GET /api/users?role=&approvalStatus= — 목록
+  // GET /api/users?userType=&approvalStatus= — 목록
   router.get('/users', (req, res) => {
-    const { role, approvalStatus } = req.query;
+    const { userType, approvalStatus } = req.query;
     res.json(
       store.list({
-        role: typeof role === 'string' ? (role as UserRole) : undefined,
+        userType: typeof userType === 'string' ? (userType as UserType) : undefined,
         approvalStatus:
           typeof approvalStatus === 'string'
             ? (approvalStatus as UserApprovalStatus)
@@ -50,7 +134,7 @@ export function createUsersRouter(store: UserStore): Router {
     );
   });
 
-  // GET /api/users/:id — 프로필 조회 (올바로 배지·평점 노출용)
+  // GET /api/users/:id — 프로필 조회 (올바로 배지·평점·유형 노출용)
   router.get('/users/:id', (req, res) => {
     const user = store.get(req.params.id);
     if (!user) {
@@ -58,6 +142,21 @@ export function createUsersRouter(store: UserStore): Router {
       return;
     }
     res.json(user);
+  });
+
+  // PATCH /api/users/:id/availability — 운반업체 콜대기 상태 토글 (ONLINE/OFFLINE)
+  router.patch('/users/:id/availability', (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const availability = body.availability;
+    if (availability !== 'ONLINE' && availability !== 'OFFLINE') {
+      res.status(400).json({ error: "availability 는 'ONLINE' 또는 'OFFLINE' 이어야 합니다." });
+      return;
+    }
+    try {
+      res.json(store.setAvailability(req.params.id, availability as CallAvailability));
+    } catch (err) {
+      handleError(err, res);
+    }
   });
 
   // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
@@ -86,6 +185,7 @@ export function createUsersRouter(store: UserStore): Router {
           name: typeof body.name === 'string' ? body.name : undefined,
           region: typeof body.region === 'string' ? body.region : undefined,
           phone: typeof body.phone === 'string' ? body.phone : undefined,
+          location: parseGeoPoint(body.location),
         }),
       );
     } catch (err) {

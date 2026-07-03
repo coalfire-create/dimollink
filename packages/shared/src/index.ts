@@ -8,6 +8,7 @@ export * from './geo.js';
 export * from './site-photo.js';
 export * from './request.js';
 export * from './user.js';
+export * from './auth.js';
 export * from './review.js';
 export * from './matching.js';
 export * from './quote.js';

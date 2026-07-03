@@ -1,4 +1,6 @@
+import type { GeoPoint } from './geo.js';
 import type { MatchStatus, WasteCategory } from './types.js';
+import type { UserType } from './user.js';
 
 /**
  * 서비스 요청 3종 (철거요청 / 운반요청 / 처리장예약 · 로드맵 Phase 1 §4.2).
@@ -22,6 +24,38 @@ export const REQUEST_KIND_LABELS: Record<RequestKind, string> = {
   DISPOSAL_RESERVATION: '처리장예약',
 };
 
+/**
+ * 가입 유형 → 그 업체가 수행(수락)하는 요청 종류.
+ * 소비자(CONSUMER)는 수행 주체가 아니라 매핑이 없다.
+ * - 철거업체: 철거요청, 운반업체: 운반요청, 처리장: 처리장예약.
+ */
+export const REQUEST_KIND_BY_USER_TYPE: Partial<Record<UserType, RequestKind>> = {
+  DEMOLITION_COMPANY: 'DEMOLITION',
+  TRANSPORT_COMPANY: 'TRANSPORT',
+  WASTE_TREATMENT_PLANT: 'DISPOSAL_RESERVATION',
+};
+
+/** 업체가 수락 가능한 요청 종류. 대상이 아니면(소비자) undefined. */
+export function requestKindForProvider(userType: UserType): RequestKind | undefined {
+  return REQUEST_KIND_BY_USER_TYPE[userType];
+}
+
+/**
+ * 거리 정보가 붙은 일감(요청) — 업체 기준 좌표로부터의 직선거리(km).
+ * 좌표가 없어 거리를 계산할 수 없으면 distanceKm 은 null.
+ */
+export type RankedJob = ServiceRequest & { distanceKm: number | null };
+
+/**
+ * 업체 일감 피드 응답.
+ * - open: 아직 수락되지 않은(REQUESTED) 내 유형·지역 요청. 가까운 순으로 정렬(거리 기반 매칭).
+ * - assigned: 내가 수락해 진행 중인 요청.
+ */
+export interface ProviderJobs {
+  open: RankedJob[];
+  assigned: ServiceRequest[];
+}
+
 interface ServiceRequestBase {
   id: string;
   kind: RequestKind;
@@ -32,6 +66,11 @@ interface ServiceRequestBase {
   wasteCategory: WasteCategory;
   /** 예상 폐기물 중량(톤). 올바로 의무신고(5톤 이상) 안내 기준. */
   wasteTons: number;
+  /**
+   * 현장 좌표(철거 현장/상차지/처리장 방문지). 거리 기반 일감 추천에 사용한다.
+   * 미입력이면 업체 목록에서 거리 정렬 없이 최신순으로 노출된다.
+   */
+  location?: GeoPoint;
   /** "올바로 전자인계서 신고 필요" 체크박스 값. */
   allbaroRequested: boolean;
   /** 현장 사진 오브젝트 키 목록 (`isValidSitePhotoKey` 형식만 허용). */

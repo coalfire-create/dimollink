@@ -1,10 +1,21 @@
 import {
   REQUEST_KINDS,
+  isValidGeoPoint,
+  type GeoPoint,
   type MatchStatus,
   type RequestKind,
 } from '@dimol/shared';
 import { Router } from 'express';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
+
+/** { lat, lng } 형태만 좌표로 인정. 그 외(누락/형식오류)는 undefined. */
+function parseGeoPoint(raw: unknown): GeoPoint | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const { lat, lng } = raw as { lat?: unknown; lng?: unknown };
+  if (typeof lat !== 'number' || typeof lng !== 'number') return undefined;
+  const point = { lat, lng };
+  return isValidGeoPoint(point) ? point : undefined;
+}
 
 /**
  * 서비스 요청 API (철거요청/운반요청/처리장예약 · 로드맵 Phase 1 §4.2).
@@ -35,6 +46,7 @@ export function createRequestsRouter(store: RequestStore): Router {
         wasteTons: Number(body.wasteTons),
         allbaroRequested: body.allbaroRequested === true,
         sitePhotoKeys: body.sitePhotoKeys,
+        location: parseGeoPoint(body.location),
         siteAddress: body.siteAddress,
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,
