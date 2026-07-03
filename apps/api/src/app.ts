@@ -32,7 +32,8 @@ import { createSmsSender } from './auth/sms-sender.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
-import { createRateLimiter, requestLogger, securityHeaders } from './middleware/security.js';
+import { createRateLimiter, requestId, requestLogger, securityHeaders } from './middleware/security.js';
+import { Metrics, metricsMiddleware } from './observability/metrics.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
@@ -78,6 +79,9 @@ export function createApp(
     ),
   );
   app.use(securityHeaders(env.isProduction));
+  app.use(requestId());
+  const metrics = new Metrics();
+  app.use(metricsMiddleware(metrics));
   app.use(requestLogger());
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
@@ -146,6 +150,10 @@ export function createApp(
 
   // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
   const requireAdmin = createAdminAuth(env.adminToken);
+  // 메트릭 노출 — 관리자 토큰(스크레이퍼)만. Prometheus 텍스트 형식.
+  app.get('/api/metrics', requireAdmin, (_req, res) => {
+    res.type('text/plain').send(metrics.render());
+  });
   app.post('/api/payments/prepay', requireAuth);
   app.post('/api/payments/cancel', requireAuth);
   app.post('/api/payments/refund/preview', requireAuth);

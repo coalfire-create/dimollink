@@ -1,4 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+
+/** 요청 상관관계 ID — 로그·응답 헤더(X-Request-Id)에 실어 추적한다. */
+export function requestId() {
+  return function assignRequestId(req: Request, res: Response, next: NextFunction): void {
+    const incoming = req.header('x-request-id');
+    const id = (incoming && incoming.length <= 64 ? incoming : randomUUID());
+    (req as Request & { id?: string }).id = id;
+    res.setHeader('X-Request-Id', id);
+    next();
+  };
+}
 
 /**
  * 상용 보안 미들웨어 (외부 의존성 없이 최소 구성).
@@ -22,8 +34,9 @@ export function requestLogger() {
     const start = Date.now();
     // originalUrl 은 마운트 미들웨어에서 변형되지 않는다. 쿼리스트링(PII 우려)은 제외.
     const path = req.originalUrl.split('?')[0];
+    const id = (req as Request & { id?: string }).id ?? '-';
     res.on('finish', () => {
-      console.log(`[req] ${req.method} ${path} ${res.statusCode} ${Date.now() - start}ms`);
+      console.log(`[req] ${id} ${req.method} ${path} ${res.statusCode} ${Date.now() - start}ms`);
     });
     next();
   };
