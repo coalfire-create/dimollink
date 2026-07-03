@@ -1,7 +1,9 @@
 import { buildKoreanHolidaySet, type CancellationStage } from '@dimol/shared';
 import { Router } from 'express';
+import { authUserId } from '../middleware/auth.js';
 import { PaymentService } from '../payment/payment-service.js';
 import { PortOneError, type PayMethod } from '../payment/portone-client.js';
+import type { RequestStore } from '../requests/store.js';
 import { buildSettlementPlan, type BuildSettlementPlanInput } from '../settlement/plan.js';
 import { CancellationNotAllowedError, calculateRefund } from '../settlement/refund.js';
 
@@ -64,7 +66,13 @@ function parsePlanInput(body: unknown): BuildSettlementPlanInput | string {
  * 결제/정산 라우트 — 정산 플랜 미리보기 + 선결제 + 정산일 지급대행.
  * DI를 위해 service를 주입받을 수 있게 한다.
  */
-export function createPaymentsRouter(service: PaymentService = new PaymentService()): Router {
+/**
+ * @param requestStore 선결제 요청자 본인 검증용(선택). 주입 시 matchRequestId 의 요청자만 결제 가능.
+ */
+export function createPaymentsRouter(
+  service: PaymentService = new PaymentService(),
+  requestStore?: RequestStore,
+): Router {
   const router = Router();
 
   // POST /api/settlements/preview  정산 플랜 계산(포트원 호출 없음)
@@ -83,6 +91,18 @@ export function createPaymentsRouter(service: PaymentService = new PaymentServic
     if (typeof matchRequestId !== 'string' || matchRequestId.trim() === '') {
       res.status(400).json({ error: 'matchRequestId(문자열)가 필요합니다.' });
       return;
+    }
+    // 선결제는 해당 요청의 요청자(배출자) 본인만.
+    if (requestStore) {
+      const request = requestStore.get(matchRequestId);
+      if (!request) {
+        res.status(404).json({ error: '결제 대상 요청을 찾을 수 없습니다.' });
+        return;
+      }
+      if (request.requesterId !== authUserId(req)) {
+        res.status(403).json({ error: '본인 요청만 결제할 수 있어요.' });
+        return;
+      }
     }
     const parsed = parsePlanInput(req.body);
     if (typeof parsed === 'string') {

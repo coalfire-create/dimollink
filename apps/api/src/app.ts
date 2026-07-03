@@ -134,7 +134,7 @@ export function createApp(persistence: PersistenceFactory = jsonPersistenceFacto
   app.post('/api/payments/payouts', requireAdmin);
 
   app.use('/api', createAllbaroRouter());
-  app.use('/api', createPaymentsRouter());
+  app.use('/api', createPaymentsRouter(undefined, requestStore));
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, createGeocoder()));

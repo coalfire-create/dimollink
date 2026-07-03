@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BackHandler, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import type { AuthSession, UserProfile } from '@dimol/shared';
-import { getMe, logoutServer, setAuthToken } from './src/api/client';
+import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
 import {
   AuthActionsContext,
@@ -106,6 +106,12 @@ export default function App() {
   );
 
   const isMember = session !== null && session !== 'guest';
+
+  // 세션 만료(401) 시 자동 로그아웃 — 게이트로 복귀.
+  useEffect(() => {
+    setOnUnauthorized(authActions.logout);
+    return () => setOnUnauthorized(null);
+  }, [authActions]);
 
   // Android 하드웨어 뒤로가기: 푸시 화면이 있으면 pop, 탭 루트면 기본 동작(앱 종료).
   useEffect(() => {

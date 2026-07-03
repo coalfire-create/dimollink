@@ -45,6 +45,15 @@ export function setAuthToken(token: string | null): void {
   authToken = token;
 }
 
+/**
+ * 세션 만료(401) 처리 콜백 — 로그인 상태에서 인증 실패 시 호출된다.
+ * App 이 로그아웃(게이트 복귀)에 연결한다.
+ */
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -62,6 +71,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
+    // 로그인 상태에서 401 → 세션 만료로 보고 로그아웃 유도.
+    if (res.status === 401 && authToken) onUnauthorized?.();
     const message = typeof body.error === 'string' ? body.error : '요청 처리에 실패했습니다.';
     throw new ApiError(message, res.status);
   }
