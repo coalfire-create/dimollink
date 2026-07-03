@@ -7,6 +7,7 @@ import type {
   ChatMessage,
   GeoPoint,
   MarketRate,
+  MatchStatus,
   OtpRequestResult,
   OtpVerifyResult,
   ProviderJobs,
@@ -173,6 +174,13 @@ export const cancelRequest = (id: string, cancelReason: string) =>
   api<ServiceRequest>(`/requests/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status: 'CANCELLED', cancelReason }),
+  });
+
+/** 요청 상태 진행 (업체: 작업 시작/완료 등). 참여자만 가능. */
+export const updateRequestStatus = (id: string, status: MatchStatus) =>
+  api<ServiceRequest>(`/requests/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   });
 
 // ── 시세 (Phase 3)

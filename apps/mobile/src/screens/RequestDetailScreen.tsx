@@ -14,6 +14,7 @@ import {
   cancelRequest,
   getRequest,
   listQuotes,
+  updateRequestStatus,
 } from '../api/client';
 import {
   AppButton,
@@ -54,6 +55,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const [cancelling, setCancelling] = useState(false);
   const [refundMode, setRefundMode] = useState(false);
   const [refunding, setRefunding] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -86,6 +88,19 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 업체(매칭 확정 업체)가 작업 상태를 진행한다.
+  async function advance(status: 'IN_PROGRESS' | 'COMPLETED') {
+    setError(null);
+    setAdvancing(true);
+    try {
+      setRequest(await updateRequestStatus(requestId, status));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '상태 변경에 실패했습니다.');
+    } finally {
+      setAdvancing(false);
+    }
+  }
 
   async function confirmRefund() {
     if (!request?.paymentId) return;
@@ -128,6 +143,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
 
   const cancelled = request.status === 'CANCELLED';
   const isRequester = user.id === request.requesterId;
+  const isProvider = user.id === request.matchedProviderId;
   const activeIndex = TIMELINE.indexOf(request.status);
   const counterpartyId = request.matchedProviderId
     ? user.id === request.requesterId
@@ -276,6 +292,25 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               )
             ) : null}
           </Card>
+        ) : null}
+
+        {isProvider && (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
+          <>
+            <SectionTitle>작업 진행</SectionTitle>
+            <Card>
+              {request.status === 'PAID' ? (
+                <>
+                  <Text style={styles.quoteHint}>결제가 완료됐어요. 현장에 도착하면 작업을 시작하세요.</Text>
+                  <AppButton label="작업 시작" onPress={() => advance('IN_PROGRESS')} loading={advancing} />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.quoteHint}>작업이 끝나면 완료 처리하세요. 완료 후 정산이 진행돼요.</Text>
+                  <AppButton label="작업 완료" onPress={() => advance('COMPLETED')} loading={advancing} />
+                </>
+              )}
+            </Card>
+          </>
         ) : null}
 
         {counterpartyId && !cancelled ? (
