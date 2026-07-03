@@ -62,6 +62,8 @@ export interface RateLimitOptions {
   windowMs: number;
   max: number;
   message?: string;
+  /** 리미터 구분 접두사 — 공유 저장소(Redis)에서 리미터 간 카운터 충돌 방지. */
+  keyPrefix?: string;
 }
 
 /**
@@ -94,7 +96,8 @@ export class InMemoryRateLimitStore implements RateLimitStore {
 /** IP 기준 고정 윈도 레이트리밋 미들웨어. store 미지정 시 인메모리. */
 export function createRateLimiter(options: RateLimitOptions, store: RateLimitStore = new InMemoryRateLimitStore()) {
   return function rateLimit(req: Request, res: Response, next: NextFunction): void {
-    const key = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const ip = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const key = `${options.keyPrefix ?? 'default'}:${ip}`;
     void store
       .hit(key, options.windowMs)
       .then(({ count, resetMs }) => {

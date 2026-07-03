@@ -86,20 +86,31 @@ export function createApp(
   app.use(requestLogger());
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
-  // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — IP 기준 레이트리밋.
+  // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
+  app.use('/api', healthRouter);
+
+  // 전역 레이트리밋(기본 DDoS·남용 완화) — IP 기준. 정상 사용에 넉넉한 상한.
+  app.use(
+    '/api',
+    createRateLimiter(
+      { windowMs: 60_000, max: 300, keyPrefix: 'global' },
+      shared.rateLimitStore,
+    ),
+  );
+  // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — 더 엄격한 상한.
   app.use(
     '/api/auth',
     createRateLimiter(
       {
         windowMs: 60_000,
         max: 20,
+        keyPrefix: 'auth',
         message: '인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
       },
       shared.rateLimitStore,
     ),
   );
 
-  app.use('/api', healthRouter);
   const notificationService = new NotificationService(
     new ConsoleNotificationProvider(),
     persistence<AppNotification>('notifications'),
