@@ -18,6 +18,7 @@ import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { AdminScreen } from './src/screens/AdminScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -30,7 +31,7 @@ import { WelcomeScreen } from './src/screens/WelcomeScreen';
 /** 세션: 로그인 회원(UserProfile) / 게스트('guest') / 미진입(null). */
 type Session = UserProfile | 'guest' | null;
 /** 미진입(null) 상태에서 보여줄 인증 화면. */
-type AuthRoute = 'welcome' | 'login' | 'signup';
+type AuthRoute = 'welcome' | 'login' | 'signup' | 'admin';
 
 /**
  * 앱 루트 — 진입 게이트(로그인/회원가입/둘러보기) + 탭/스택 내비게이션.
@@ -195,6 +196,8 @@ export default function App() {
             onLogin={() => setAuthRoute('login')}
           />
         );
+      case 'admin':
+        return <AdminScreen onBack={() => setAuthRoute('welcome')} />;
       case 'welcome':
       default:
         return (
@@ -202,6 +205,7 @@ export default function App() {
             onLogin={() => setAuthRoute('login')}
             onSignup={() => setAuthRoute('signup')}
             onGuest={() => setSession('guest')}
+            onAdmin={() => setAuthRoute('admin')}
           />
         );
     }

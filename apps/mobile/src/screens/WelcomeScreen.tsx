@@ -12,10 +12,12 @@ export function WelcomeScreen({
   onLogin,
   onSignup,
   onGuest,
+  onAdmin,
 }: {
   onLogin: () => void;
   onSignup: () => void;
   onGuest: () => void;
+  onAdmin?: () => void;
 }) {
   return (
     <View style={styles.container}>
@@ -31,6 +33,15 @@ export function WelcomeScreen({
         <AppButton label="회원가입" variant="outline" onPress={onSignup} />
         <View style={{ height: theme.spacing.md }} />
         <AppButton label="로그인 없이 둘러보기" variant="outline" onPress={onGuest} />
+        {onAdmin ? (
+          <Text
+            accessibilityRole="button"
+            onPress={onAdmin}
+            style={styles.adminLink}
+          >
+            관리자
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -69,5 +80,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     paddingBottom: spacing.lg,
+  },
+  adminLink: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
 });

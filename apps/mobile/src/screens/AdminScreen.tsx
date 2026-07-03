@@ -1,0 +1,123 @@
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { USER_TYPE_LABELS, formatBusinessNumber, type UserProfile } from '@dimol/shared';
+import { ApiError, adminListUsers, adminSetApproval } from '../api/client';
+import { AppButton, Card, ErrorBanner, Field } from '../components/ui';
+import { theme } from '../theme';
+
+/**
+ * 관리자 백오피스(파일럿) — 업체 승인 대기 큐.
+ * 사용자 세션이 아니라 관리자 토큰(x-admin-token)으로 인증한다.
+ * 승인해야 업체가 일감을 수락할 수 있다.
+ */
+export function AdminScreen({ onBack }: { onBack: () => void }) {
+  const [token, setToken] = useState('');
+  const [pending, setPending] = useState<UserProfile[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    setError(null);
+    if (token.trim().length === 0) {
+      setError('관리자 토큰을 입력해 주세요.');
+      return;
+    }
+    setLoading(true);
+    try {
+      setPending(await adminListUsers(token.trim(), 'PENDING'));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '조회에 실패했습니다.');
+      setPending(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function decide(userId: string, status: 'APPROVED' | 'SUSPENDED') {
+    setBusyId(userId);
+    setError(null);
+    try {
+      await adminSetApproval(token.trim(), userId, status);
+      setPending((prev) => (prev ? prev.filter((u) => u.id !== userId) : prev));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '처리에 실패했습니다.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <View style={styles.screen}>
+      <Pressable accessibilityRole="button" onPress={onBack} style={styles.back}>
+        <Text style={styles.backLabel}>‹ 뒤로</Text>
+      </Pressable>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title}>관리자 · 업체 승인</Text>
+
+        <Field
+          label="관리자 토큰"
+          value={token}
+          onChangeText={setToken}
+          placeholder="x-admin-token"
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <AppButton label="승인 대기 조회" onPress={load} loading={loading} />
+
+        <ErrorBanner message={error} />
+
+        {pending !== null ? (
+          pending.length === 0 ? (
+            <Text style={styles.empty}>승인 대기 중인 업체가 없어요.</Text>
+          ) : (
+            pending.map((u) => (
+              <Card key={u.id}>
+                <Text style={styles.name}>{u.name}</Text>
+                <Text style={styles.meta}>
+                  {USER_TYPE_LABELS[u.userType] ?? u.userType}
+                  {u.businessNumber ? ` · 사업자 ${formatBusinessNumber(u.businessNumber)}` : ''}
+                </Text>
+                <Text style={styles.meta}>
+                  {u.allbaroCertified ? '✓ 올바로 인증' : '올바로 미인증'}
+                  {u.phone ? ` · ${u.phone}` : ''}
+                </Text>
+                <View style={styles.actions}>
+                  <AppButton
+                    label="승인"
+                    onPress={() => decide(u.id, 'APPROVED')}
+                    loading={busyId === u.id}
+                    style={styles.actionBtn}
+                  />
+                  <View style={{ width: theme.spacing.sm }} />
+                  <AppButton
+                    label="거절"
+                    variant="danger"
+                    onPress={() => decide(u.id, 'SUSPENDED')}
+                    loading={busyId === u.id}
+                    style={styles.actionBtn}
+                  />
+                </View>
+              </Card>
+            ))
+          )
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+const { colors, font, spacing } = theme;
+
+const styles = StyleSheet.create({
+  screen: { backgroundColor: colors.background, flex: 1 },
+  back: { justifyContent: 'center', minHeight: theme.touch.minButtonHeight, paddingHorizontal: spacing.md },
+  backLabel: { color: colors.primary, fontSize: font.bodyLarge, fontWeight: '700' },
+  content: { padding: spacing.md, paddingBottom: spacing.lg },
+  title: { color: colors.text, fontSize: font.titleLarge, fontWeight: '800', marginBottom: spacing.md },
+  empty: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.md },
+  name: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
+  meta: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
+  actions: { flexDirection: 'row', marginTop: spacing.sm },
+  actionBtn: { flex: 1 },
+});

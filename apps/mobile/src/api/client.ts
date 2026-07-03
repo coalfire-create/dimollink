@@ -3,6 +3,7 @@ import type {
   AppNotification,
   AuthSession,
   CallAvailability,
+  CancellationStage,
   ChatMessage,
   GeoPoint,
   MarketRate,
@@ -10,9 +11,12 @@ import type {
   OtpVerifyResult,
   ProviderJobs,
   ProviderRole,
+  Quote,
   RatingSummary,
   RequestKind,
   ServiceRequest,
+  SettlementPlan,
+  UserApprovalStatus,
   UserProfile,
   UserType,
   VolumeEstimate,
@@ -195,3 +199,45 @@ export const sendMessage = (requestId: string, senderId: string, content: string
 // ── 물량 추정 (Phase 6)
 export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
   api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });
+
+// ── 견적 (처리장 견적 비교 등 · Phase 3)
+/** 업체가 요청에 견적 제출(제출자는 인증된 본인). party: TRANSPORT | DISPOSAL. */
+export const submitQuote = (input: { requestId: string; party: ProviderRole; amount: number; memo?: string }) =>
+  api<Quote>('/quotes', { method: 'POST', body: JSON.stringify(input) });
+
+/** 요청의 견적 목록(가격 비교용). */
+export const listQuotes = (requestId: string) =>
+  api<Quote[]>(`/quotes?requestId=${encodeURIComponent(requestId)}`);
+
+/** 배출자(요청자 본인)가 견적 수락 → 정산 금액 확정. */
+export const acceptQuote = (quoteId: string) =>
+  api<Quote>(`/quotes/${quoteId}/accept`, { method: 'POST', body: '{}' });
+
+// ── 결제 (선결제/취소)
+export interface PrepayResult {
+  plan: SettlementPlan;
+  prepayment: { paymentId: string; [k: string]: unknown };
+}
+/** 선결제 — 정산 금액은 서버가 수락 견적에서 산출. completedDate=처리완료 예정일(YYYY-MM-DD). */
+export const prepay = (input: { matchRequestId: string; completedDate: string; payMethod?: 'CARD' | 'VBANK' }) =>
+  api<PrepayResult>('/payments/prepay', { method: 'POST', body: JSON.stringify(input) });
+
+/** 취소/환불 — 결제자 본인만. stage 로 위약금 정책 결정. */
+export const cancelPayment = (input: { paymentId: string; stage: CancellationStage; reason?: string }) =>
+  api<{ breakdown: { refundAmount: number; penaltyAmount: number } }>('/payments/cancel', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+// ── 관리자 백오피스 (x-admin-token · Phase 5)
+export const adminListUsers = (adminToken: string, approvalStatus?: UserApprovalStatus) =>
+  api<UserProfile[]>(`/admin/users${approvalStatus ? `?approvalStatus=${approvalStatus}` : ''}`, {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+export const adminSetApproval = (adminToken: string, userId: string, status: UserApprovalStatus) =>
+  api<UserProfile>(`/admin/users/${userId}/approval`, {
+    method: 'PATCH',
+    headers: { 'x-admin-token': adminToken },
+    body: JSON.stringify({ status }),
+  });
