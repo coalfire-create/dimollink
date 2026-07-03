@@ -1,23 +1,10 @@
 {
   "version": 2,
-  "builds": [
+  "outputDirectory": "apps/mobile/dist",
+  "rewrites": [
     {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "apps/mobile/dist/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "apps/mobile/dist/"
+      "source": "/api/(.*)",
+      "destination": "api/index.js"
     }
   ]
 }
