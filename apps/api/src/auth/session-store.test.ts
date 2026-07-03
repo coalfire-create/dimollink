@@ -32,4 +32,25 @@ describe('SessionTokenStore', () => {
     const store = new SessionTokenStore();
     expect(store.issue('user-1')).not.toBe(store.issue('user-1'));
   });
+
+  it('영속화하면 재기동(새 인스턴스)에도 세션이 복원된다', () => {
+    const saved: unknown[] = [];
+    const persistence = {
+      load: () => saved as never[],
+      save: (items: unknown[]) => {
+        saved.length = 0;
+        saved.push(...items);
+      },
+    };
+    const store = new SessionTokenStore({ persistence });
+    const token = store.issue('user-1');
+
+    // 새 인스턴스(재기동 모사)가 같은 저장소에서 복원.
+    const restored = new SessionTokenStore({ persistence });
+    expect(restored.resolve(token)).toBe('user-1');
+
+    restored.revoke(token);
+    const again = new SessionTokenStore({ persistence });
+    expect(again.resolve(token)).toBeUndefined();
+  });
 });

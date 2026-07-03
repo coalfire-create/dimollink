@@ -92,7 +92,11 @@ export function createApp() {
     // 운영에서는 마스터 인증코드를 절대 활성화하지 않는다(env 값과 무관한 최종 안전장치).
     devMasterCode: env.isProduction ? undefined : env.otp.devMasterCode,
   });
-  const sessionStore = new SessionTokenStore({ ttlMs: env.auth.sessionTtlDays * 24 * 60 * 60 * 1000 });
+  // 세션은 영속화해 재시작/배포에도 로그인이 유지되게 한다(파일럿 JSON, 운영은 Redis/DB 교체).
+  const sessionStore = new SessionTokenStore({
+    ttlMs: env.auth.sessionTtlDays * 24 * 60 * 60 * 1000,
+    persistence: new JsonCollectionFile(env.dataDir, 'sessions.json'),
+  });
   const reviewStore = new ReviewStore(
     requestStore,
     new JsonCollectionFile<Review>(env.dataDir, 'reviews.json'),
@@ -117,6 +121,8 @@ export function createApp() {
   app.use('/api/users/:id', requireAuth); // 프로필 수정·콜대기·인증서류 — 본인만(회원가입 POST /users 는 공개)
   app.get('/api/users', requireAuth); // 회원 목록(PII) — 최소 로그인 필요(추후 관리자 전용으로 제한)
   app.use('/api/allbaro', requireAuth); // 올바로 연동(회원검증·전자인계서) — 내부/관리 성격, 로그인 필요
+  app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
+  app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
 
   // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
   const requireAdmin = createAdminAuth(env.adminToken);

@@ -1,5 +1,6 @@
 import type { ProviderRole } from '@dimol/shared';
 import { Router } from 'express';
+import { authUserId } from '../middleware/auth.js';
 import { QuoteStore, QuoteValidationError } from '../quotes/store.js';
 
 /** 견적 히스토리·평균 시세 API (로드맵 Phase 3). */
@@ -16,7 +17,7 @@ export function createQuotesRouter(store: QuoteStore): Router {
     try {
       const quote = store.createQuote({
         requestId: String(body.requestId ?? ''),
-        providerId: String(body.providerId ?? ''),
+        providerId: authUserId(req),
         party: body.party as ProviderRole,
         amount: Number(body.amount),
         memo: typeof body.memo === 'string' ? body.memo : undefined,
