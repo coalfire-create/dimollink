@@ -7,6 +7,18 @@
 > ⚠️ 이건 **테스트 배포**다. `ALLOW_TEST_OTP`(마스터코드 로그인)와 `SEED_TEST_ACCOUNTS`는
 > 테스트 전용이며 실서비스 전환 시 반드시 끈다.
 
+## 현재 배포 상태 (이미 라이브)
+
+- URL: https://mobile-alpha-seven-97.vercel.app
+- 세션: Redis 대신 **무상태 서명 세션**(`SESSION_SECRET`) 사용 → 서버리스에서 로그인 유지.
+- 데이터: `DATABASE_URL` 미설정 시 `/tmp`(서버리스 인스턴스별 휘발). **영속화하려면 아래 Neon 연결**.
+
+### 영속 데이터(Neon) 붙이기 — 한 번만
+1. 브라우저에서 마켓플레이스 약관 동의:
+   `https://vercel.com/semi2colon/~/integrations/accept-terms/neon?source=cli`
+2. `npx vercel integration add neon` (DATABASE_URL 자동 주입)
+3. `npx vercel --prod` 재배포. → 요청·결제 데이터가 인스턴스 간 영속.
+
 ## 0. 사전 준비 (무료 티어)
 
 - **Upstash Redis**: [upstash.com](https://upstash.com) → Redis DB 생성 → `REDIS_URL`(rediss://...).
