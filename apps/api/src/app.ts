@@ -30,7 +30,7 @@ import { createSmsSender } from './auth/sms-sender.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
-import { createRateLimiter, securityHeaders } from './middleware/security.js';
+import { createRateLimiter, requestLogger, securityHeaders } from './middleware/security.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
@@ -67,6 +67,7 @@ export function createApp(persistence: PersistenceFactory = jsonPersistenceFacto
     ),
   );
   app.use(securityHeaders(env.isProduction));
+  app.use(requestLogger());
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
   // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — IP 기준 레이트리밋.
