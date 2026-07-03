@@ -1,0 +1,254 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  REQUEST_STATUS_LABELS,
+  isRequestCancellable,
+  type MatchStatus,
+  type ServiceRequest,
+} from '@dimol/shared';
+import { ApiError, cancelRequest, getRequest } from '../api/client';
+import {
+  AppButton,
+  Card,
+  ErrorBanner,
+  Field,
+  InfoRow,
+  LoadingView,
+  SectionTitle,
+  StatusBadge,
+} from '../components/ui';
+import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { theme } from '../theme';
+
+/**
+ * 요청 상세 — 상태 타임라인 + 취소 + 채팅 진입.
+ * 취소 버튼 노출은 shared 의 isRequestCancellable 로 서버 전이 규칙과 일치시킨다
+ * (진행중부터는 취소 불가 — 취소 정책).
+ */
+
+const TIMELINE: MatchStatus[] = ['REQUESTED', 'MATCHED', 'PAID', 'IN_PROGRESS', 'COMPLETED', 'SETTLED'];
+
+const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
+  DEMOLITION: '철거 요청',
+  TRANSPORT: '운반 요청',
+  DISPOSAL_RESERVATION: '처리장 예약',
+};
+
+export function RequestDetailScreen({ requestId }: { requestId: string }) {
+  const nav = useNavigation();
+  const user = useSession();
+  const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setRequest(await getRequest(requestId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
+    }
+  }, [requestId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function confirmCancel() {
+    setError(null);
+    setCancelling(true);
+    try {
+      setRequest(await cancelRequest(requestId, cancelReason.trim() || '사용자 취소'));
+      setCancelMode(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '취소에 실패했습니다.');
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  if (!request) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="요청 상세" canGoBack />
+        <ErrorBanner message={error} />
+        {error ? null : <LoadingView />}
+      </View>
+    );
+  }
+
+  const cancelled = request.status === 'CANCELLED';
+  const activeIndex = TIMELINE.indexOf(request.status);
+  const counterpartyId = request.matchedProviderId
+    ? user.id === request.requesterId
+      ? request.matchedProviderId
+      : request.requesterId
+    : null;
+
+  return (
+    <View style={styles.screen}>
+      <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.statusHeader}>
+          <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
+        </View>
+
+        {!cancelled ? (
+          <Card>
+            {TIMELINE.map((step, index) => {
+              const reached = index <= activeIndex;
+              const isCurrent = index === activeIndex;
+              return (
+                <View key={step} style={styles.timelineRow}>
+                  <Text style={[styles.timelineDot, reached && { color: colors.primary }]}>
+                    {reached ? '●' : '○'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.timelineLabel,
+                      reached && { color: colors.text },
+                      isCurrent && { fontWeight: '800', color: colors.primary },
+                    ]}
+                  >
+                    {REQUEST_STATUS_LABELS[step]}
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
+        ) : (
+          <Card>
+            <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
+            {request.cancelReason ? (
+              <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
+            ) : null}
+          </Card>
+        )}
+
+        <SectionTitle>요청 정보</SectionTitle>
+        <Card>
+          <InfoRow label="지역" value={request.region} />
+          <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
+          <InfoRow label="올바로 신고" value={request.allbaroRequested ? '신청함' : '간이 확인서'} />
+          {request.kind === 'DEMOLITION' ? (
+            <InfoRow label="현장 주소" value={request.siteAddress} />
+          ) : null}
+          {request.kind === 'TRANSPORT' ? (
+            <>
+              <InfoRow label="상차지" value={request.loadAddress} />
+              <InfoRow label="하차지" value={request.unloadAddress} />
+            </>
+          ) : null}
+          {request.kind === 'DISPOSAL_RESERVATION' ? (
+            <InfoRow
+              label="방문 일시"
+              value={new Date(request.visitAt).toLocaleString('ko-KR', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            />
+          ) : null}
+          <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
+          <InfoRow
+            label="접수일"
+            value={new Date(request.createdAt).toLocaleDateString('ko-KR')}
+          />
+        </Card>
+
+        {counterpartyId && !cancelled ? (
+          <>
+            <SectionTitle>매칭 업체와 대화</SectionTitle>
+            <AppButton
+              label="채팅하기"
+              variant="outline"
+              onPress={() => nav.push({ name: 'chat', requestId: request.id, counterpartyId })}
+            />
+          </>
+        ) : null}
+
+        <ErrorBanner message={error} />
+
+        {isRequestCancellable(request.status) ? (
+          cancelMode ? (
+            <Card style={{ marginTop: spacing.sm }}>
+              <Text style={styles.cancelConfirmTitle}>정말 취소하시겠어요?</Text>
+              <Text style={styles.cancelPolicy}>
+                업체 배차 후에 취소하면 위약금 10%를 뺀 금액이 환불돼요. 배차 전에는 전액 환불돼요.
+              </Text>
+              <Field
+                label="취소 사유 (선택)"
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                placeholder="예) 일정이 변경됐어요"
+              />
+              <AppButton label="요청 취소하기" variant="danger" onPress={confirmCancel} loading={cancelling} />
+              <View style={{ height: spacing.xs }} />
+              <AppButton label="돌아가기" variant="outline" onPress={() => setCancelMode(false)} />
+            </Card>
+          ) : (
+            <AppButton
+              label="요청 취소"
+              variant="danger"
+              style={{ marginTop: spacing.sm }}
+              onPress={() => setCancelMode(true)}
+            />
+          )
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+const { colors, font, spacing } = theme;
+
+const styles = StyleSheet.create({
+  screen: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
+  content: {
+    padding: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  statusHeader: {
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  timelineRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    paddingVertical: spacing.xs,
+  },
+  timelineDot: {
+    color: colors.border,
+    fontSize: font.body,
+    marginRight: spacing.sm,
+    width: spacing.md,
+  },
+  timelineLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
+  },
+  cancelledTitle: {
+    color: colors.error,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+  },
+  cancelledReason: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: spacing.xs,
+  },
+  cancelConfirmTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  cancelPolicy: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginBottom: spacing.sm,
+  },
+});
