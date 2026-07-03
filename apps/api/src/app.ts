@@ -25,6 +25,7 @@ import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
 import { OtpService } from './auth/otp-service.js';
 import { SessionTokenStore } from './auth/session-store.js';
+import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
 import { createRateLimiter, securityHeaders } from './middleware/security.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
@@ -73,8 +74,6 @@ export function createApp() {
   );
 
   app.use('/api', healthRouter);
-  app.use('/api', createAllbaroRouter());
-  app.use('/api', createPaymentsRouter());
   const notificationService = new NotificationService(
     new ConsoleNotificationProvider(),
     new JsonCollectionFile<AppNotification>(env.dataDir, 'notifications.json'),
@@ -117,7 +116,18 @@ export function createApp() {
   app.use('/api/incidents', requireAuth); // 노쇼/분쟁 신고 — 신고자는 인증된 본인
   app.use('/api/users/:id', requireAuth); // 프로필 수정·콜대기·인증서류 — 본인만(회원가입 POST /users 는 공개)
   app.get('/api/users', requireAuth); // 회원 목록(PII) — 최소 로그인 필요(추후 관리자 전용으로 제한)
+  app.use('/api/allbaro', requireAuth); // 올바로 연동(회원검증·전자인계서) — 내부/관리 성격, 로그인 필요
 
+  // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
+  const requireAdmin = createAdminAuth(env.adminToken);
+  app.post('/api/payments/prepay', requireAuth);
+  app.post('/api/payments/cancel', requireAuth);
+  app.post('/api/payments/refund/preview', requireAuth);
+  app.post('/api/settlements/preview', requireAuth);
+  app.post('/api/payments/payouts', requireAdmin);
+
+  app.use('/api', createAllbaroRouter());
+  app.use('/api', createPaymentsRouter());
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore));
