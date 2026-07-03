@@ -1,0 +1,40 @@
+# Prometheus 스크레이프 설정 — 디몰링크 API
+# /api/metrics 는 x-admin-token 으로 보호되므로, Prometheus 가 임의 헤더를 못 넣는 한계를
+# 우회하기 위해 metrics-proxy(nginx, 같은 폴더 참조)가 헤더를 주입한 뒤 스크레이프한다.
+# 또는 metrics 를 내부 네트워크로만 노출하고 IP 허용목록으로 보호해도 된다.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - dimol-alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: 'dimol-api'
+    metrics_path: /api/metrics
+    static_configs:
+      # metrics-proxy 가 x-admin-token 을 주입해 실제 API 로 전달한다.
+      - targets: ['metrics-proxy:9145']
+        labels:
+          service: dimol-api
+          env: production
+
+  # 헬스체크(레디니스) 가용성 모니터링 — blackbox exporter 사용 시.
+  # - job_name: 'dimol-api-ready'
+  #   metrics_path: /probe
+  #   params: { module: [http_2xx] }
+  #   static_configs:
+  #     - targets: ['https://api.dimol.example/api/health/ready']
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: blackbox-exporter:9115

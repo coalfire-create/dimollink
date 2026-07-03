@@ -1,0 +1,53 @@
+# 디몰링크 API 알림 규칙 — 앱이 실제 노출하는 메트릭 기준
+# 노출 메트릭: http_requests_total{method,status}, http_request_duration_ms_{sum,count}, process_uptime_seconds
+groups:
+  - name: dimol-api
+    rules:
+      # 인스턴스 다운(스크레이프 실패) — Prometheus 생성 메트릭 up 사용.
+      - alert: DimolApiInstanceDown
+        expr: up{job="dimol-api"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: '디몰링크 API 인스턴스 다운'
+          description: '{{ $labels.instance }} 가 1분 이상 스크레이프되지 않습니다.'
+
+      # 5xx 오류율 5% 초과(5분).
+      - alert: DimolApiHighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status="5xx"}[5m]))
+          / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: '5xx 오류율 상승(>5%)'
+          description: '최근 5분 5xx 비율이 5% 를 초과했습니다.'
+
+      # 평균 응답 지연 1초 초과(5분).
+      - alert: DimolApiHighLatency
+        expr: >
+          rate(http_request_duration_ms_sum[5m])
+          / clamp_min(rate(http_request_duration_ms_count[5m]), 1) > 1000
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: '평균 응답 지연 상승(>1s)'
+          description: '최근 5분 평균 처리시간이 1초를 넘었습니다.'
+
+      # 인증 실패(401) 급증 — 크리덴셜 스터핑/토큰 만료 폭증 감지.
+      - alert: DimolApiAuthFailureSpike
+        expr: sum(rate(http_requests_total{status="4xx"}[5m])) > 5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: '4xx 급증(인증 실패/남용 의심)'
+          description: '최근 10분 4xx 비율이 지속적으로 높습니다. 레이트리밋·인증 로그 확인.'
+
+      # 잦은 재시작 감지(가동시간이 계속 낮음).
+      - alert: DimolApiFlapping
+        expr: process_uptime_seconds < 120
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: '잦은 재시작 의심'
+          description: '가동시간이 10분간 지속적으로 2분 미만입니다(크래시루프 가능).'

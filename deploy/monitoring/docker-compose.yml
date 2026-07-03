@@ -1,0 +1,45 @@
+# 관측성 스택(Prometheus + Alertmanager + Grafana) — 단독 실행용 예시.
+# 운영에서는 관리형 모니터링(Grafana Cloud 등)으로 대체 가능. 시크릿은 .env 로 주입.
+version: '3.8'
+
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./dimol-alerts.yml:/etc/prometheus/dimol-alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports: ['9090:9090']
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    ports: ['9093:9093']
+    restart: unless-stopped
+
+  metrics-proxy:
+    image: nginx:1.27-alpine
+    # nginx 에 envsubst 로 ADMIN_TOKEN 주입 후 기동(간이 예시).
+    command: /bin/sh -c "envsubst '$$ADMIN_TOKEN' < /etc/nginx/conf.d/proxy.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    volumes:
+      - ./metrics-proxy.nginx.conf:/etc/nginx/conf.d/proxy.template:ro
+    environment:
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports: ['3001:3000']
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
