@@ -52,6 +52,20 @@ describe('QuoteStore.accept / acceptedFees', () => {
     expect(quoteStore.listQuotes({ requestId: request.id }).find((q) => q.id === q1.id)?.accepted).toBe(false);
   });
 
+  it('견적 수락 시 요청이 그 업체로 매칭 확정(MATCHED)된다', () => {
+    const { quoteStore, requestStore, request } = setup();
+    const q = quoteStore.createQuote({
+      requestId: request.id,
+      providerId: 'plant-1',
+      party: 'DISPOSAL',
+      amount: 90000,
+    });
+    quoteStore.accept(q.id, 'consumer-1');
+    const updated = requestStore.get(request.id);
+    expect(updated?.status).toBe('MATCHED');
+    expect(updated?.matchedProviderId).toBe('plant-1');
+  });
+
   it('운반+처리 각각 수락 시 합산된 정산 금액', () => {
     const { quoteStore, request } = setup();
     const t = quoteStore.createQuote({ requestId: request.id, providerId: 't', party: 'TRANSPORT', amount: 120000 });

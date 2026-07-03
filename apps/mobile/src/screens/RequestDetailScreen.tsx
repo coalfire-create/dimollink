@@ -4,9 +4,10 @@ import {
   REQUEST_STATUS_LABELS,
   isRequestCancellable,
   type MatchStatus,
+  type Quote,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, cancelRequest, getRequest } from '../api/client';
+import { ApiError, acceptQuote, cancelRequest, getRequest, listQuotes } from '../api/client';
 import {
   AppButton,
   Card,
@@ -38,6 +39,8 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const nav = useNavigation();
   const user = useSession();
   const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -45,11 +48,31 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
 
   const load = useCallback(async () => {
     try {
-      setRequest(await getRequest(requestId));
+      const r = await getRequest(requestId);
+      setRequest(r);
+      // 내 요청이고 아직 매칭 대기중이면 받은 견적을 불러온다(가격 비교·선택).
+      if (r.requesterId === user.id && r.status === 'REQUESTED') {
+        setQuotes(await listQuotes(requestId).catch(() => []));
+      } else {
+        setQuotes([]);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
     }
-  }, [requestId]);
+  }, [requestId, user.id]);
+
+  async function acceptQuoteAndMatch(quoteId: string) {
+    setError(null);
+    setAcceptingQuoteId(quoteId);
+    try {
+      await acceptQuote(quoteId);
+      await load(); // 요청이 MATCHED 로 바뀌고 견적 섹션은 사라진다.
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '견적 수락에 실패했습니다.');
+    } finally {
+      setAcceptingQuoteId(null);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -156,6 +179,30 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           />
         </Card>
 
+        {quotes.length > 0 ? (
+          <>
+            <SectionTitle>받은 견적 ({quotes.length})</SectionTitle>
+            <Text style={styles.quoteHint}>가격을 비교하고 하나를 선택하면 그 업체로 매칭돼요.</Text>
+            {[...quotes]
+              .sort((a, b) => a.amount - b.amount)
+              .map((q, i) => (
+                <Card key={q.id}>
+                  <View style={styles.quoteRow}>
+                    <Text style={styles.quoteAmount}>
+                      {q.amount.toLocaleString('ko-KR')}원{i === 0 ? ' · 최저가' : ''}
+                    </Text>
+                  </View>
+                  {q.memo ? <Text style={styles.quoteMemo}>{q.memo}</Text> : null}
+                  <AppButton
+                    label="이 견적 선택"
+                    onPress={() => acceptQuoteAndMatch(q.id)}
+                    loading={acceptingQuoteId === q.id}
+                  />
+                </Card>
+              ))}
+          </>
+        ) : null}
+
         {counterpartyId && !cancelled ? (
           <>
             <SectionTitle>매칭 업체와 대화</SectionTitle>
@@ -250,5 +297,26 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginBottom: spacing.sm,
+  },
+  quoteHint: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginBottom: spacing.xs,
+  },
+  quoteRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quoteAmount: {
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+  },
+  quoteMemo: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs / 2,
   },
 });

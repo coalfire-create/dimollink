@@ -31,13 +31,21 @@ export interface RoleTab {
   icon: string;
 }
 
-/** 업체 일감 피드(홈)에 쓰는 문구. */
+/** 업체 일감 피드(홈)에 쓰는 문구·동작 방식. */
 export interface JobFeedLabels {
   openTitle: string;
   openEmpty: string;
   assignedTitle: string;
   assignedEmpty: string;
   acceptLabel: string;
+  /**
+   * 열린 일감 처리 방식:
+   * - 'accept': 선착순 수락 + 금액 입력(철거/운반). 먼저 잡는 업체가 매칭.
+   * - 'quote': 견적 제출(처리장). 여러 견적 중 요청자가 선택.
+   */
+  openMode: 'accept' | 'quote';
+  /** 'quote' 모드에서 제출할 견적 party(처리장=DISPOSAL). */
+  quoteParty?: ProviderRole;
 }
 
 export interface RoleConfig {
@@ -121,6 +129,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
       assignedTitle: '수주한 철거',
       assignedEmpty: '수주한 철거가 없어요.',
       acceptLabel: '수주하기',
+      openMode: 'accept', // 선착순 + 금액 입력
     },
     marketRateParty: 'DISPOSAL',
     listTitle: '내 작업',
@@ -137,6 +146,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
       assignedTitle: '수락한 콜',
       assignedEmpty: '수락한 콜이 없어요.',
       acceptLabel: '콜 수락',
+      openMode: 'accept', // 선착순 + 금액 입력
     },
     marketRateParty: 'TRANSPORT',
     listTitle: '콜 내역',
@@ -152,7 +162,9 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
       openEmpty: '아직 들어온 반입 예약이 없어요.',
       assignedTitle: '확정된 반입',
       assignedEmpty: '확정된 반입이 없어요.',
-      acceptLabel: '예약 수락',
+      acceptLabel: '견적 제출',
+      openMode: 'quote', // 여러 처리장이 견적 제출 → 요청자가 비교·선택
+      quoteParty: 'DISPOSAL',
     },
     marketRateParty: 'DISPOSAL',
     listTitle: '반입 예약',

@@ -9,8 +9,15 @@ import {
   type ProviderJobs,
   type ServiceRequest,
 } from '@dimol/shared';
-import { acceptJob, getMarketRate, listJobs, listRequests, setAvailability } from '../api/client';
-import { AppButton, Card, SectionTitle, StatusBadge } from '../components/ui';
+import {
+  acceptJob,
+  getMarketRate,
+  listJobs,
+  listRequests,
+  setAvailability,
+  submitQuote,
+} from '../api/client';
+import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -43,6 +50,9 @@ export function HomeScreen() {
   const [rate, setRate] = useState<MarketRate | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
+  const [submittedIds, setSubmittedIds] = useState<string[]>([]);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [availability, setLocalAvailability] = useState<CallAvailability>(
     user.availability ?? 'OFFLINE',
   );
@@ -98,6 +108,27 @@ export function HomeScreen() {
     } catch {
       // 이미 수락됨 등 — 새로고침으로 최신 상태 반영.
       await load();
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
+  // 처리장 견적 제출(가격 비교 방식). 요청자가 여러 견적 중 선택한다.
+  async function submitQuoteFor(requestId: string) {
+    setQuoteError(null);
+    const party = jobFeed?.quoteParty;
+    const amount = Number((quoteAmounts[requestId] ?? '').replace(/\D/g, ''));
+    if (!party) return;
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setQuoteError('견적 금액(원)을 정확히 입력해 주세요.');
+      return;
+    }
+    setAcceptingId(requestId);
+    try {
+      await submitQuote({ requestId, party, amount });
+      setSubmittedIds((prev) => [...prev, requestId]);
+    } catch {
+      setQuoteError('견적 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setAcceptingId(null);
     }
@@ -165,6 +196,7 @@ export function HomeScreen() {
         {jobFeed ? (
           <>
             <SectionTitle>{jobFeed.openTitle}</SectionTitle>
+            <ErrorBanner message={quoteError} />
             {jobs && jobs.open.length > 0 ? (
               jobs.open.map((job) => (
                 <Card key={job.id}>
@@ -179,11 +211,32 @@ export function HomeScreen() {
                     {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
                   </Text>
                   <View style={{ height: theme.spacing.xs }} />
-                  <AppButton
-                    label={jobFeed.acceptLabel}
-                    onPress={() => accept(job.id)}
-                    loading={acceptingId === job.id}
-                  />
+                  {jobFeed.openMode === 'quote' ? (
+                    submittedIds.includes(job.id) ? (
+                      <Text style={styles.quoteDone}>✓ 견적 제출됨 · 요청자 선택 대기</Text>
+                    ) : (
+                      <>
+                        <Field
+                          label="견적 금액(원)"
+                          value={quoteAmounts[job.id] ?? ''}
+                          onChangeText={(v) => setQuoteAmounts((p) => ({ ...p, [job.id]: v }))}
+                          placeholder="예) 80000"
+                          keyboardType="number-pad"
+                        />
+                        <AppButton
+                          label={jobFeed.acceptLabel}
+                          onPress={() => submitQuoteFor(job.id)}
+                          loading={acceptingId === job.id}
+                        />
+                      </>
+                    )
+                  ) : (
+                    <AppButton
+                      label={jobFeed.acceptLabel}
+                      onPress={() => accept(job.id)}
+                      loading={acceptingId === job.id}
+                    />
+                  )}
                 </Card>
               ))
             ) : (
@@ -337,6 +390,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
+  },
+  quoteDone: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    paddingVertical: spacing.xs,
   },
   emptyText: {
     color: colors.textMuted,

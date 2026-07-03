@@ -98,8 +98,8 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
   it('선결제 금액은 클라이언트 입력이 아닌 수락 견적에서 산출된다', async () => {
     const owner = makeUser('01060000002');
     const request = makeRequest(owner.id);
+    // 요청 1건 = 단일 party(수락 시 매칭 확정). 여기선 운반 견적 하나를 수락.
     acceptQuote(request.id, owner.id, 'TRANSPORT', 120000);
-    acceptQuote(request.id, owner.id, 'DISPOSAL', 80000);
 
     const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
       matchRequestId: request.id,
@@ -108,8 +108,8 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
       disposalFee: 999999,
     });
     expect(res.status).toBe(200);
-    expect(res.body.plan.prepaymentAmount).toBe(200000); // 120000 + 80000
-    expect(paymentStore.get('pay-test')?.amount).toBe(200000);
+    expect(res.body.plan.prepaymentAmount).toBe(120000); // 수락 견적 금액
+    expect(paymentStore.get('pay-test')?.amount).toBe(120000);
   });
 
   it('타인 요청은 결제 불가(403)', async () => {

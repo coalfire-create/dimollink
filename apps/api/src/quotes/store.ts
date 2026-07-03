@@ -77,6 +77,14 @@ export class QuoteStore {
     const accepted: Quote = { ...quote, accepted: true };
     this.quotes.set(quote.id, accepted);
     this.persistence?.save([...this.quotes.values()]);
+
+    // 견적 수락 = 그 업체로 매칭 확정. 아직 REQUESTED 면 MATCHED 로 전이(선착순 등으로
+    // 이미 매칭된 경우는 그대로 둔다).
+    if (request.status === 'REQUESTED') {
+      this.requestStore.changeStatus(quote.requestId, 'MATCHED', {
+        matchedProviderId: quote.providerId,
+      });
+    }
     return accepted;
   }
 
