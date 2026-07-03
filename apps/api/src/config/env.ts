@@ -35,10 +35,23 @@ export const env = {
      */
     devMasterCode: process.env.OTP_DEV_MASTER_CODE ?? '123456',
   },
-  // 실제 연동 시 아래를 required(...) 로 강제. 스캐폴딩 단계에서는 optional.
+  // PostgreSQL 접속 문자열. 설정 시 JSON 파일 대신 DB 영속화를 사용한다.
   databaseUrl: process.env.DATABASE_URL,
-  // 파일럿 단계 요청 데이터 JSON 저장 경로 (PostgreSQL 연동 전까지).
+  // 파일럿 단계 요청 데이터 JSON 저장 경로 (DATABASE_URL 미설정 시 폴백).
   dataDir: process.env.DATA_DIR ?? '.data',
+  sms: {
+    // 실 SMS 발송 REST API. 미설정 시 콘솔 발송(개발)로 폴백.
+    apiUrl: process.env.SMS_API_URL,
+    apiKey: process.env.SMS_API_KEY,
+    sender: process.env.SMS_SENDER, // 발신번호(사전 등록 필요).
+    timeoutMs: Number(process.env.SMS_TIMEOUT_MS ?? 5000),
+  },
+  geocode: {
+    // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 미설정 시 좌표 없이 진행.
+    provider: (process.env.GEOCODE_PROVIDER ?? 'none') as 'kakao' | 'none',
+    kakaoRestKey: process.env.KAKAO_REST_API_KEY,
+    timeoutMs: Number(process.env.GEOCODE_TIMEOUT_MS ?? 5000),
+  },
   // 관리자 백오피스 API 토큰 (Phase 5). 미설정 시 /api/admin/* 전체가 503 으로 잠긴다.
   adminToken: process.env.ADMIN_TOKEN,
   allbaro: {

@@ -4,11 +4,13 @@ import {
   type GeoPoint,
   type MatchStatus,
   type RequestKind,
+  type ServiceRequest,
 } from '@dimol/shared';
 import { Router } from 'express';
+import type { Geocoder } from '../geo/geocoder.js';
+import { NoopGeocoder } from '../geo/geocoder.js';
 import { authUserId } from '../middleware/auth.js';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
-import type { ServiceRequest } from '@dimol/shared';
 
 /** 요청 참여자(요청자 또는 매칭된 업체)인지. */
 function isParticipant(request: ServiceRequest, userId: string): boolean {
@@ -29,7 +31,10 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
  * 프론트(안티그래비티 화면)가 사용하는 저장·상태 관리 엔드포인트.
  * 엔드포인트 명세: docs/api-requests.md
  */
-export function createRequestsRouter(store: RequestStore): Router {
+export function createRequestsRouter(
+  store: RequestStore,
+  geocoder: Geocoder = new NoopGeocoder(),
+): Router {
   const router = Router();
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
@@ -41,10 +46,25 @@ export function createRequestsRouter(store: RequestStore): Router {
     res.status(500).json({ error: '요청 처리 오류' });
   }
 
+  /** 좌표 미제공 시 현장 주소(철거=현장, 운반=상차지)를 지오코딩해 좌표를 채운다. */
+  async function resolveLocation(body: Record<string, unknown>): Promise<GeoPoint | undefined> {
+    const explicit = parseGeoPoint(body.location);
+    if (explicit) return explicit;
+    const address =
+      body.kind === 'DEMOLITION'
+        ? body.siteAddress
+        : body.kind === 'TRANSPORT'
+          ? body.loadAddress
+          : undefined;
+    if (typeof address !== 'string' || address.trim() === '') return undefined;
+    return (await geocoder.geocode(address)) ?? undefined;
+  }
+
   // POST /api/requests — 요청 생성 (kind 로 3종 구분). 요청자는 인증된 본인으로 고정.
-  router.post('/requests', (req, res) => {
+  router.post('/requests', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
+      const location = await resolveLocation(body);
       const request = store.create({
         kind: body.kind,
         requesterId: authUserId(req),
@@ -53,7 +73,7 @@ export function createRequestsRouter(store: RequestStore): Router {
         wasteTons: Number(body.wasteTons),
         allbaroRequested: body.allbaroRequested === true,
         sitePhotoKeys: body.sitePhotoKeys,
-        location: parseGeoPoint(body.location),
+        location,
         siteAddress: body.siteAddress,
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,

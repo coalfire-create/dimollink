@@ -25,6 +25,8 @@ import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
 import { OtpService } from './auth/otp-service.js';
 import { SessionTokenStore } from './auth/session-store.js';
+import { createSmsSender } from './auth/sms-sender.js';
+import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
 import { createRateLimiter, securityHeaders } from './middleware/security.js';
@@ -86,6 +88,7 @@ export function createApp() {
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
+    sender: createSmsSender(),
     ttlMs: env.otp.ttlSec * 1000,
     resendCooldownMs: env.otp.resendCooldownSec * 1000,
     maxAttempts: env.otp.maxAttempts,
@@ -136,7 +139,7 @@ export function createApp() {
   app.use('/api', createPaymentsRouter());
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
-  app.use('/api', createRequestsRouter(requestStore));
+  app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
   app.use('/api', createJobsRouter(requestStore, userStore));
   app.use('/api', createAuthRouter(userStore, otpService, sessionStore));
   app.use('/api', createUsersRouter(userStore, otpService, sessionStore));
