@@ -18,6 +18,7 @@ export type Route =
   | { name: 'requestForm'; kind: RequestKind }
   | { name: 'requestDetail'; requestId: string }
   | { name: 'chat'; requestId: string; counterpartyId: string }
+  | { name: 'payment'; requestId: string }
   | { name: 'estimate' };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';

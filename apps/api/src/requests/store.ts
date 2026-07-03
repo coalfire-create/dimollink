@@ -60,6 +60,8 @@ export interface StatusChangeOptions {
   matchedProviderId?: string;
   /** MATCHED 전이 시 선택 — 선착순 수락 합의 금액(원). */
   agreedFee?: number;
+  /** PAID 전이 시 선택 — 결제 id. */
+  paymentId?: string;
   /** CANCELLED 전이 시 선택 — 취소 사유. */
   cancelReason?: string;
 }
@@ -222,6 +224,7 @@ export class RequestStore {
       ...(to === 'MATCHED' && typeof options.agreedFee === 'number'
         ? { agreedFee: options.agreedFee }
         : {}),
+      ...(to === 'PAID' && options.paymentId ? { paymentId: options.paymentId } : {}),
       ...(to === 'CANCELLED' && options.cancelReason ? { cancelReason: options.cancelReason } : {}),
     };
     this.requests.set(id, updated);

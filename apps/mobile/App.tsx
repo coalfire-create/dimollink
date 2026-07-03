@@ -23,6 +23,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { PaymentScreen } from './src/screens/PaymentScreen';
 import { RequestDetailScreen } from './src/screens/RequestDetailScreen';
 import { RequestFormScreen } from './src/screens/RequestFormScreen';
 import { RequestListScreen } from './src/screens/RequestListScreen';
@@ -143,6 +144,8 @@ export default function App() {
         return <RequestDetailScreen requestId={route.requestId} />;
       case 'chat':
         return <ChatScreen requestId={route.requestId} />;
+      case 'payment':
+        return <PaymentScreen requestId={route.requestId} />;
       case 'estimate':
         return <EstimateScreen />;
     }

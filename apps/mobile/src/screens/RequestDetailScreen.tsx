@@ -102,6 +102,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   }
 
   const cancelled = request.status === 'CANCELLED';
+  const isRequester = user.id === request.requesterId;
   const activeIndex = TIMELINE.indexOf(request.status);
   const counterpartyId = request.matchedProviderId
     ? user.id === request.requesterId
@@ -201,6 +202,31 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 </Card>
               ))}
           </>
+        ) : null}
+
+        {isRequester && request.agreedFee !== undefined && request.status === 'MATCHED' ? (
+          <>
+            <SectionTitle>결제</SectionTitle>
+            <Card>
+              <Text style={styles.payAmount}>{request.agreedFee.toLocaleString('ko-KR')}원</Text>
+              <Text style={styles.quoteHint}>매칭된 업체와 합의된 금액이에요. 결제하면 작업이 시작돼요.</Text>
+              <AppButton
+                label="결제하기"
+                onPress={() => nav.push({ name: 'payment', requestId: request.id })}
+              />
+            </Card>
+          </>
+        ) : null}
+
+        {isRequester && request.status === 'PAID' ? (
+          <Card>
+            <Text style={styles.paidBadge}>✓ 결제 완료</Text>
+            {request.agreedFee !== undefined ? (
+              <Text style={styles.quoteHint}>
+                {request.agreedFee.toLocaleString('ko-KR')}원 결제됨
+              </Text>
+            ) : null}
+          </Card>
         ) : null}
 
         {counterpartyId && !cancelled ? (
@@ -318,5 +344,15 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginBottom: spacing.xs,
     marginTop: spacing.xs / 2,
+  },
+  payAmount: {
+    color: colors.text,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+  },
+  paidBadge: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
   },
 });

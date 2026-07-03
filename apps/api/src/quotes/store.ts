@@ -83,6 +83,7 @@ export class QuoteStore {
     if (request.status === 'REQUESTED') {
       this.requestStore.changeStatus(quote.requestId, 'MATCHED', {
         matchedProviderId: quote.providerId,
+        agreedFee: quote.amount, // 수락한 견적 금액이 선결제 기준.
       });
     }
     return accepted;
