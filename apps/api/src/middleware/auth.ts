@@ -1,6 +1,6 @@
 import type { UserProfile } from '@dimol/shared';
 import type { NextFunction, Request, Response } from 'express';
-import type { SessionTokenStore } from '../auth/session-store.js';
+import type { SessionStore } from '../auth/session-store.js';
 import { bearerToken } from '../routes/auth.js';
 import type { UserStore } from '../users/store.js';
 
@@ -14,17 +14,20 @@ export interface AuthedRequest extends Request {
   authUser: UserProfile;
 }
 
-export function createRequireAuth(sessionStore: SessionTokenStore, userStore: UserStore) {
+export function createRequireAuth(sessionStore: SessionStore, userStore: UserStore) {
   return function requireAuth(req: Request, res: Response, next: NextFunction): void {
-    const token = bearerToken(req);
-    const userId = token ? sessionStore.resolve(token) : undefined;
-    const user = userId ? userStore.get(userId) : undefined;
-    if (!user) {
-      res.status(401).json({ error: '로그인이 필요합니다.' });
-      return;
-    }
-    (req as AuthedRequest).authUser = user;
-    next();
+    // 세션 조회는 비동기(Redis)일 수 있으므로 항상 await. 오류는 next(err)로 위임.
+    void (async () => {
+      const token = bearerToken(req);
+      const userId = token ? await sessionStore.resolve(token) : undefined;
+      const user = userId ? userStore.get(userId) : undefined;
+      if (!user) {
+        res.status(401).json({ error: '로그인이 필요합니다.' });
+        return;
+      }
+      (req as AuthedRequest).authUser = user;
+      next();
+    })().catch(next);
   };
 }
 

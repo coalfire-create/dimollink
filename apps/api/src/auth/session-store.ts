@@ -8,6 +8,16 @@ import type { CollectionPersistence } from '../lib/json-collection.js';
  * 운영에서는 Redis/DB 어댑터로 교체한다. 토큰은 보안 값 — 로그에 평문으로 남기지 않는다.
  */
 
+/**
+ * 세션 저장소 공통 인터페이스. 인메모리(단일 인스턴스)와 Redis(다중 인스턴스) 구현이 만족한다.
+ * 반환 타입이 동기/비동기 모두를 허용하므로 소비자는 항상 `await` 로 다룬다.
+ */
+export interface SessionStore {
+  issue(userId: string): string | Promise<string>;
+  resolve(token: string): (string | undefined) | Promise<string | undefined>;
+  revoke(token: string): void | Promise<void>;
+}
+
 interface SessionEntry {
   userId: string;
   createdAt: number;
@@ -27,7 +37,7 @@ export interface SessionTokenStoreOptions {
   persistence?: CollectionPersistence<PersistedSession>;
 }
 
-export class SessionTokenStore {
+export class SessionTokenStore implements SessionStore {
   private readonly ttlMs: number;
   private readonly now: () => number;
   private readonly persistence?: CollectionPersistence<PersistedSession>;

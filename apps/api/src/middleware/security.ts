@@ -51,32 +51,50 @@ export interface RateLimitOptions {
   message?: string;
 }
 
-/** IP 기준 고정 윈도 레이트리밋 미들웨어. */
-export function createRateLimiter(options: RateLimitOptions) {
-  const hits = new Map<string, { count: number; resetAt: number }>();
+/**
+ * 레이트리밋 카운터 저장소. 인메모리(단일 인스턴스)와 Redis(다중 인스턴스)를 교체한다.
+ * hit 은 현재 윈도의 누적 횟수와 남은 시간(ms)을 반환한다.
+ */
+export interface RateLimitStore {
+  hit(key: string, windowMs: number): Promise<{ count: number; resetMs: number }>;
+}
 
-  return function rateLimit(req: Request, res: Response, next: NextFunction): void {
+/** 인메모리 고정 윈도 카운터(단일 인스턴스 기본). */
+export class InMemoryRateLimitStore implements RateLimitStore {
+  private readonly hits = new Map<string, { count: number; resetAt: number }>();
+
+  async hit(key: string, windowMs: number): Promise<{ count: number; resetMs: number }> {
     const now = Date.now();
-    // 만료 항목 정리(맵 무한 증가 방지).
-    if (hits.size > 5000) {
-      for (const [k, v] of hits) if (now > v.resetAt) hits.delete(k);
+    if (this.hits.size > 5000) {
+      for (const [k, v] of this.hits) if (now > v.resetAt) this.hits.delete(k);
     }
-    const key = req.ip ?? req.socket.remoteAddress ?? 'unknown';
-    const entry = hits.get(key);
+    const entry = this.hits.get(key);
     if (!entry || now > entry.resetAt) {
-      hits.set(key, { count: 1, resetAt: now + options.windowMs });
-      next();
-      return;
+      this.hits.set(key, { count: 1, resetAt: now + windowMs });
+      return { count: 1, resetMs: windowMs };
     }
     entry.count += 1;
-    if (entry.count > options.max) {
-      const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
-      res.setHeader('Retry-After', String(retryAfterSec));
-      res
-        .status(429)
-        .json({ error: options.message ?? '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
-      return;
-    }
-    next();
+    return { count: entry.count, resetMs: Math.max(0, entry.resetAt - now) };
+  }
+}
+
+/** IP 기준 고정 윈도 레이트리밋 미들웨어. store 미지정 시 인메모리. */
+export function createRateLimiter(options: RateLimitOptions, store: RateLimitStore = new InMemoryRateLimitStore()) {
+  return function rateLimit(req: Request, res: Response, next: NextFunction): void {
+    const key = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    void store
+      .hit(key, options.windowMs)
+      .then(({ count, resetMs }) => {
+        if (count > options.max) {
+          res.setHeader('Retry-After', String(Math.ceil(resetMs / 1000)));
+          res
+            .status(429)
+            .json({ error: options.message ?? '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.' });
+          return;
+        }
+        next();
+      })
+      // 레이트리밋 저장소 오류가 요청 자체를 막지 않도록 통과(가용성 우선).
+      .catch(() => next());
   };
 }

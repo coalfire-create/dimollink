@@ -1,7 +1,10 @@
-import { createApp } from './app.js';
+import { createApp, type SharedStores } from './app.js';
+import { RedisSessionStore } from './auth/redis-session-store.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { createPgPool, initPgPersistence } from './lib/pg-collection.js';
+import { createRedisClient } from './lib/redis.js';
+import { RedisRateLimitStore } from './middleware/redis-rate-limit-store.js';
 
 /**
  * 운영 기동 전 필수 설정 점검. 누락 시 조용히 취약하게 뜨지 않도록 즉시 종료한다.
@@ -37,10 +40,22 @@ async function buildPersistence(): Promise<PersistenceFactory> {
   return jsonPersistenceFactory(env.dataDir);
 }
 
+/** Redis 설정 시 다중 인스턴스 공유 상태(세션·레이트리밋)를 구성. */
+async function buildSharedStores(): Promise<SharedStores> {
+  if (!env.redisUrl) return {};
+  const redis = await createRedisClient(env.redisUrl);
+  console.log('[dimol-api] 공유 상태: Redis (세션·레이트리밋)');
+  return {
+    sessionStore: new RedisSessionStore(redis, env.auth.sessionTtlDays * 24 * 60 * 60 * 1000),
+    rateLimitStore: new RedisRateLimitStore(redis),
+  };
+}
+
 async function main(): Promise<void> {
   assertProductionConfig();
   const persistence = await buildPersistence();
-  const app = createApp(persistence);
+  const shared = await buildSharedStores();
+  const app = createApp(persistence, shared);
 
   const server = app.listen(env.port, () => {
     // 서버 로그에는 PII/시크릿을 남기지 않는다 (CLAUDE.md 절대 규칙).

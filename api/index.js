@@ -1,11 +1,23 @@
 import { createApp } from '../apps/api/dist/app.js';
+import { RedisSessionStore } from '../apps/api/dist/auth/redis-session-store.js';
 import { env } from '../apps/api/dist/config/env.js';
 import { jsonPersistenceFactory } from '../apps/api/dist/lib/json-collection.js';
 import { createPgPool, initPgPersistence } from '../apps/api/dist/lib/pg-collection.js';
+import { createRedisClient } from '../apps/api/dist/lib/redis.js';
+import { RedisRateLimitStore } from '../apps/api/dist/middleware/redis-rate-limit-store.js';
 
-// 서버리스(임시 파일시스템)에서는 데이터가 유지되지 않으므로 운영은 DATABASE_URL(PostgreSQL) 필수.
+// 서버리스(임시 FS·다중 인스턴스)에서는 PostgreSQL·Redis 가 사실상 필수.
 const persistence = env.databaseUrl
   ? await initPgPersistence(createPgPool(env.databaseUrl))
   : jsonPersistenceFactory(env.dataDir);
 
-export default createApp(persistence);
+let shared = {};
+if (env.redisUrl) {
+  const redis = await createRedisClient(env.redisUrl);
+  shared = {
+    sessionStore: new RedisSessionStore(redis, env.auth.sessionTtlDays * 24 * 60 * 60 * 1000),
+    rateLimitStore: new RedisRateLimitStore(redis),
+  };
+}
+
+export default createApp(persistence, shared);

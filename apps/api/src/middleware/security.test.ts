@@ -34,8 +34,10 @@ describe('securityHeaders', () => {
   });
 });
 
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
 describe('createRateLimiter', () => {
-  it('max 이하 요청은 통과, 초과 시 429', () => {
+  it('max 이하 요청은 통과, 초과 시 429', async () => {
     const limiter = createRateLimiter({ windowMs: 60_000, max: 3 });
     const req = { ip: '1.2.3.4', socket: {} } as unknown as Request;
 
@@ -43,23 +45,27 @@ describe('createRateLimiter', () => {
     for (let i = 0; i < 3; i += 1) {
       const res = mockRes();
       limiter(req, res, (() => (passed += 1)) as NextFunction);
+      await flush();
     }
     expect(passed).toBe(3);
 
     const res = mockRes();
     limiter(req, res, (() => (passed += 1)) as NextFunction);
+    await flush();
     expect(res.statusCode).toBe(429);
     expect(res.headers.has('retry-after')).toBe(true);
     expect(passed).toBe(3); // 초과분은 next() 호출 안 됨
   });
 
-  it('IP 별로 카운트를 분리한다', () => {
+  it('IP 별로 카운트를 분리한다', async () => {
     const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
     const resA = mockRes();
     limiter({ ip: 'a', socket: {} } as unknown as Request, resA, (() => {}) as NextFunction);
+    await flush();
     const resB = mockRes();
     let bPassed = false;
     limiter({ ip: 'b', socket: {} } as unknown as Request, resB, (() => (bPassed = true)) as NextFunction);
+    await flush();
     expect(bPassed).toBe(true);
     expect(resB.statusCode).toBe(200);
   });

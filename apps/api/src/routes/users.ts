@@ -11,7 +11,7 @@ import {
 import { Router, type Request, type Response } from 'express';
 import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
 import type { OtpService } from '../auth/otp-service.js';
-import type { SessionTokenStore } from '../auth/session-store.js';
+import type { SessionStore } from '../auth/session-store.js';
 import { authUserId } from '../middleware/auth.js';
 import { UserStore, UserValidationError, type CreateUserInput } from '../users/store.js';
 
@@ -37,7 +37,7 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
 export function createUsersRouter(
   store: UserStore,
   otpService: OtpService,
-  sessionStore: SessionTokenStore,
+  sessionStore: SessionStore,
   allbaro: AllbaroClient = createAllbaroClient(),
 ): Router {
   const router = Router();
@@ -123,7 +123,7 @@ export function createUsersRouter(
         : created;
       // 번호 인증 창 소진 + 세션 토큰 발급(가입 즉시 로그인·자동 로그인).
       otpService.consumePhoneVerification(phone);
-      const session: AuthSession = { token: sessionStore.issue(user.id), user };
+      const session: AuthSession = { token: await sessionStore.issue(user.id), user };
       res.status(201).json(session);
     } catch (err) {
       handleError(err, res);

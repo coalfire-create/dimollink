@@ -37,6 +37,8 @@ export const env = {
   },
   // PostgreSQL 접속 문자열. 설정 시 JSON 파일 대신 DB 영속화를 사용한다.
   databaseUrl: process.env.DATABASE_URL,
+  // Redis 접속 문자열. 설정 시 세션·레이트리밋을 인스턴스 간 공유(다중 인스턴스).
+  redisUrl: process.env.REDIS_URL,
   // 파일럿 단계 요청 데이터 JSON 저장 경로 (DATABASE_URL 미설정 시 폴백).
   dataDir: process.env.DATA_DIR ?? '.data',
   sms: {

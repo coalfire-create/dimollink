@@ -1,7 +1,7 @@
 import type { AuthSession } from '@dimol/shared';
 import { Router, type Request } from 'express';
 import { OtpError, OtpService } from '../auth/otp-service.js';
-import { SessionTokenStore } from '../auth/session-store.js';
+import type { SessionStore } from '../auth/session-store.js';
 import { UserStore } from '../users/store.js';
 
 /**
@@ -29,7 +29,7 @@ export function bearerToken(req: Request): string | undefined {
 export function createAuthRouter(
   userStore: UserStore,
   otpService: OtpService,
-  sessionStore: SessionTokenStore,
+  sessionStore: SessionStore,
 ): Router {
   const router = Router();
 
@@ -53,7 +53,7 @@ export function createAuthRouter(
   });
 
   // POST /api/auth/otp/verify  { phone, code } — 코드 검증 → 로그인 세션 or 가입 안내
-  router.post('/auth/otp/verify', (req, res) => {
+  router.post('/auth/otp/verify', async (req, res) => {
     const body = (req.body ?? {}) as { phone?: unknown; code?: unknown };
     if (typeof body.phone !== 'string' || typeof body.code !== 'string') {
       res.status(400).json({ error: 'phone·code(문자열)가 필요합니다.' });
@@ -76,15 +76,15 @@ export function createAuthRouter(
       res.json({ phoneVerified: true, session: null });
       return;
     }
-    const token = sessionStore.issue(user.id);
+    const token = await sessionStore.issue(user.id);
     const session: AuthSession = { token, user };
     res.json({ phoneVerified: true, session });
   });
 
   // GET /api/auth/me — 토큰으로 세션 복원(자동 로그인)
-  router.get('/auth/me', (req, res) => {
+  router.get('/auth/me', async (req, res) => {
     const token = bearerToken(req);
-    const userId = token ? sessionStore.resolve(token) : undefined;
+    const userId = token ? await sessionStore.resolve(token) : undefined;
     const user = userId ? userStore.get(userId) : undefined;
     if (!user) {
       res.status(401).json({ error: '세션이 만료되었습니다. 다시 로그인해 주세요.' });
@@ -94,9 +94,9 @@ export function createAuthRouter(
   });
 
   // POST /api/auth/logout — 토큰 회수
-  router.post('/auth/logout', (req, res) => {
+  router.post('/auth/logout', async (req, res) => {
     const token = bearerToken(req);
-    if (token) sessionStore.revoke(token);
+    if (token) await sessionStore.revoke(token);
     res.json({ ok: true });
   });
 
