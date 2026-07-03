@@ -121,7 +121,9 @@ export function createApp(persistence: PersistenceFactory = jsonPersistenceFacto
   app.use('/api/incidents', requireAuth); // 노쇼/분쟁 신고 — 신고자는 인증된 본인
   app.use('/api/users/:id', requireAuth); // 프로필 수정·콜대기·인증서류 — 본인만(회원가입 POST /users 는 공개)
   app.get('/api/users', requireAuth); // 회원 목록(PII) — 최소 로그인 필요(추후 관리자 전용으로 제한)
-  app.use('/api/allbaro', requireAuth); // 올바로 연동(회원검증·전자인계서) — 내부/관리 성격, 로그인 필요
+  // 올바로: 회원검증·전자인계서 발행은 로그인, 재시도 큐/실패 목록(스케줄러·운영)은 관리자 전용.
+  app.post('/api/allbaro/verify-member', requireAuth);
+  app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
 
@@ -132,6 +134,10 @@ export function createApp(persistence: PersistenceFactory = jsonPersistenceFacto
   app.post('/api/payments/refund/preview', requireAuth);
   app.post('/api/settlements/preview', requireAuth);
   app.post('/api/payments/payouts', requireAdmin);
+  // 올바로 전자인계서 재시도 큐/실패 목록 — 스케줄러·운영 전용.
+  app.use('/api/allbaro/manifest/retry', requireAdmin);
+  app.use('/api/allbaro/manifest/queue', requireAdmin);
+  app.use('/api/allbaro/manifest/failures', requireAdmin);
 
   app.use('/api', createAllbaroRouter());
   app.use('/api', createPaymentsRouter(undefined, requestStore));
