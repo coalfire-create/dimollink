@@ -33,6 +33,20 @@ export function createQuotesRouter(store: QuoteStore): Router {
     }
   });
 
+  // POST /api/quotes/:id/accept — 배출자(요청자 본인)가 견적 수락 → 정산 금액 확정
+  router.post('/quotes/:id/accept', (req, res) => {
+    try {
+      res.json(store.accept(req.params.id, authUserId(req)));
+    } catch (err) {
+      if (err instanceof QuoteValidationError) {
+        const status = err.message.includes('찾을 수 없습니다') ? 404 : 400;
+        res.status(status).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({ error: '견적 수락 처리 오류' });
+    }
+  });
+
   // GET /api/quotes?requestId=&providerId=&party= — 견적 히스토리 (최신순)
   router.get('/quotes', (req, res) => {
     const { requestId, providerId, party } = req.query;

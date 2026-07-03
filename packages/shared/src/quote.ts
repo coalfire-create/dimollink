@@ -16,6 +16,8 @@ export interface Quote {
   /** 견적가(원, 양의 정수). */
   amount: number;
   memo?: string;
+  /** 배출자가 이 견적을 수락했는지. 정산 금액(선결제)은 수락된 견적에서만 산출한다. */
+  accepted?: boolean;
   createdAt: string;
 }
 

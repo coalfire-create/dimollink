@@ -24,6 +24,7 @@ export const COLLECTION_NAMES = [
   'quotes',
   'offers',
   'chat',
+  'payments',
 ] as const;
 
 /** 테스트에서 모킹 가능한 최소 쿼리 인터페이스. */
