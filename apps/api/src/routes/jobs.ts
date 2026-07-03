@@ -62,9 +62,20 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     res.json(body);
   });
 
-  // POST /api/jobs/:requestId/accept — 업체가 일감 수락 → MATCHED (요청자는 인증된 본인)
+  // POST /api/jobs/:requestId/accept  { amount? } — 선착순 수락 → MATCHED (요청자는 인증된 본인).
+  // amount 를 주면 그 금액이 합의 금액(선결제 기준)으로 기록된다(철거/운반 선착순+금액).
   router.post('/jobs/:requestId/accept', (req, res) => {
     const providerId = authUserId(req);
+    const rawAmount = (req.body as { amount?: unknown } | undefined)?.amount;
+    let agreedFee: number | undefined;
+    if (rawAmount !== undefined) {
+      const amount = Number(rawAmount);
+      if (!Number.isInteger(amount) || amount <= 0) {
+        res.status(400).json({ error: '수락 금액(원, 양의 정수)을 정확히 입력해 주세요.' });
+        return;
+      }
+      agreedFee = amount;
+    }
     const provider = userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
@@ -100,6 +111,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     try {
       const updated: ServiceRequest = requestStore.changeStatus(request.id, 'MATCHED', {
         matchedProviderId: providerId,
+        agreedFee,
       });
       res.json(updated);
     } catch (err) {

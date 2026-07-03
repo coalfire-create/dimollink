@@ -138,11 +138,11 @@ export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId
 export const listJobs = (providerId: string) =>
   api<ProviderJobs>(`/jobs?providerId=${encodeURIComponent(providerId)}`);
 
-/** 일감 수락 → 매칭 확정된 요청 반환. */
-export const acceptJob = (requestId: string, providerId: string) =>
+/** 일감 수락(선착순) → 매칭 확정. amount 를 주면 그 금액이 합의 금액(선결제 기준). */
+export const acceptJob = (requestId: string, amount?: number) =>
   api<ServiceRequest>(`/jobs/${requestId}/accept`, {
     method: 'POST',
-    body: JSON.stringify({ providerId }),
+    body: JSON.stringify(amount !== undefined ? { amount } : {}),
   });
 
 // ── 서비스 요청 (Phase 1)

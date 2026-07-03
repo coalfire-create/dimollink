@@ -78,6 +78,11 @@ interface ServiceRequestBase {
   status: MatchStatus;
   /** 매칭 확정된 업체 id (MATCHED 전이 시 기록). */
   matchedProviderId?: string;
+  /**
+   * 합의 금액(원) — 선착순 수락 시 업체가 제시한 금액. 선결제 청구 기준.
+   * 견적 비교(처리장) 방식은 수락된 견적(Quote)에서 금액을 산출하므로 이 값이 없다.
+   */
+  agreedFee?: number;
   /** 취소 사유 (CANCELLED 전이 시 기록). */
   cancelReason?: string;
   createdAt: string;

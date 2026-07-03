@@ -58,6 +58,8 @@ export interface ListRequestsFilter {
 export interface StatusChangeOptions {
   /** MATCHED 전이 시 필수 — 매칭 확정된 업체 id. */
   matchedProviderId?: string;
+  /** MATCHED 전이 시 선택 — 선착순 수락 합의 금액(원). */
+  agreedFee?: number;
   /** CANCELLED 전이 시 선택 — 취소 사유. */
   cancelReason?: string;
 }
@@ -217,6 +219,9 @@ export class RequestStore {
       status: to,
       updatedAt: new Date().toISOString(),
       ...(to === 'MATCHED' ? { matchedProviderId: options.matchedProviderId } : {}),
+      ...(to === 'MATCHED' && typeof options.agreedFee === 'number'
+        ? { agreedFee: options.agreedFee }
+        : {}),
       ...(to === 'CANCELLED' && options.cancelReason ? { cancelReason: options.cancelReason } : {}),
     };
     this.requests.set(id, updated);

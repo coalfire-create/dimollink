@@ -92,7 +92,7 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
       completedDate: '2026-07-10',
     });
     expect(res.status).toBe(409);
-    expect(res.body.code).toBe('NO_ACCEPTED_QUOTE');
+    expect(res.body.code).toBe('NO_AGREED_AMOUNT');
   });
 
   it('선결제 금액은 클라이언트 입력이 아닌 수락 견적에서 산출된다', async () => {
@@ -110,6 +110,22 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
     expect(res.status).toBe(200);
     expect(res.body.plan.prepaymentAmount).toBe(120000); // 수락 견적 금액
     expect(paymentStore.get('pay-test')?.amount).toBe(120000);
+  });
+
+  it('선착순 합의 금액(agreedFee)으로도 결제 금액이 산출된다', async () => {
+    const owner = makeUser('01060000009');
+    const request = makeRequest(owner.id);
+    // 선착순 수락 시뮬레이션: 매칭 + 합의 금액 기록.
+    requestStore.changeStatus(request.id, 'MATCHED', {
+      matchedProviderId: 'demo-company',
+      agreedFee: 150000,
+    });
+    const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
+      matchRequestId: request.id,
+      completedDate: '2026-07-10',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.plan.prepaymentAmount).toBe(150000);
   });
 
   it('타인 요청은 결제 불가(403)', async () => {

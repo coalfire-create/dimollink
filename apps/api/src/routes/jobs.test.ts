@@ -75,14 +75,14 @@ const getJobs = (providerId: string) =>
     headers: { authorization: `Bearer ${tokenOf(providerId)}` },
   }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
-const accept = (requestId: string, providerId: string) =>
+const accept = (requestId: string, providerId: string, amount?: number) =>
   fetch(`${base}/api/jobs/${requestId}/accept`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       authorization: `Bearer ${tokenOf(providerId)}`,
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(amount !== undefined ? { amount } : {}),
   }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
 describe('업체 일감 피드 (/api/jobs)', () => {
@@ -146,6 +146,21 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     userStore.setAvailability(u.id, 'ONLINE');
     const req = makeTransportRequest();
     expect((await accept(req.id, u.id)).status).toBe(403);
+  });
+
+  it('금액과 함께 수락하면 합의 금액(agreedFee)이 기록된다', async () => {
+    const t = makeTransport('ONLINE', '01020000009');
+    const req = makeTransportRequest();
+    const res = await accept(req.id, t.id, 150000);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('MATCHED');
+    expect(res.body.agreedFee).toBe(150000);
+  });
+
+  it('음수/0 금액 수락은 400', async () => {
+    const t = makeTransport('ONLINE', '01020000010');
+    const req = makeTransportRequest();
+    expect((await accept(req.id, t.id, 0)).status).toBe(400);
   });
 
   it('토큰 없이 피드 조회는 401', async () => {

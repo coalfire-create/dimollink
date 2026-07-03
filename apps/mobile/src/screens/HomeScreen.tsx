@@ -100,10 +100,17 @@ export function HomeScreen() {
     }
   }
 
+  // 선착순 수락(철거/운반) — 금액 입력 후 수락하면 그 금액이 합의 금액이 된다.
   async function accept(requestId: string) {
+    setQuoteError(null);
+    const amount = Number((quoteAmounts[requestId] ?? '').replace(/\D/g, ''));
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setQuoteError('수락 금액(원)을 정확히 입력해 주세요.');
+      return;
+    }
     setAcceptingId(requestId);
     try {
-      await acceptJob(requestId, user.id);
+      await acceptJob(requestId, amount);
       await load();
     } catch {
       // 이미 수락됨 등 — 새로고침으로 최신 상태 반영.
@@ -211,31 +218,25 @@ export function HomeScreen() {
                     {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
                   </Text>
                   <View style={{ height: theme.spacing.xs }} />
-                  {jobFeed.openMode === 'quote' ? (
-                    submittedIds.includes(job.id) ? (
-                      <Text style={styles.quoteDone}>✓ 견적 제출됨 · 요청자 선택 대기</Text>
-                    ) : (
-                      <>
-                        <Field
-                          label="견적 금액(원)"
-                          value={quoteAmounts[job.id] ?? ''}
-                          onChangeText={(v) => setQuoteAmounts((p) => ({ ...p, [job.id]: v }))}
-                          placeholder="예) 80000"
-                          keyboardType="number-pad"
-                        />
-                        <AppButton
-                          label={jobFeed.acceptLabel}
-                          onPress={() => submitQuoteFor(job.id)}
-                          loading={acceptingId === job.id}
-                        />
-                      </>
-                    )
+                  {jobFeed.openMode === 'quote' && submittedIds.includes(job.id) ? (
+                    <Text style={styles.quoteDone}>✓ 견적 제출됨 · 요청자 선택 대기</Text>
                   ) : (
-                    <AppButton
-                      label={jobFeed.acceptLabel}
-                      onPress={() => accept(job.id)}
-                      loading={acceptingId === job.id}
-                    />
+                    <>
+                      <Field
+                        label={jobFeed.openMode === 'quote' ? '견적 금액(원)' : '수락 금액(원)'}
+                        value={quoteAmounts[job.id] ?? ''}
+                        onChangeText={(v) => setQuoteAmounts((p) => ({ ...p, [job.id]: v }))}
+                        placeholder="예) 80000"
+                        keyboardType="number-pad"
+                      />
+                      <AppButton
+                        label={jobFeed.acceptLabel}
+                        onPress={() =>
+                          jobFeed.openMode === 'quote' ? submitQuoteFor(job.id) : accept(job.id)
+                        }
+                        loading={acceptingId === job.id}
+                      />
+                    </>
                   )}
                 </Card>
               ))

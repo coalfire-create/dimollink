@@ -131,19 +131,30 @@ export function createPaymentsRouter(
       return;
     }
 
-    // 금액 권위: 정산 금액은 클라이언트 입력이 아닌 수락된 견적에서 산출한다.
+    // 금액 권위: 정산 금액은 클라이언트 입력이 아닌 서버 확정 금액에서 산출한다.
+    // - 선착순+금액(철거/운반): 요청의 합의 금액(request.agreedFee).
+    // - 견적 비교(처리): 수락된 견적(acceptedFees).
     let fees: { transportFee: number; disposalFee: number };
-    if (quoteStore) {
-      fees = quoteStore.acceptedFees(matchRequestId);
+    if (quoteStore || requestStore) {
+      const accepted = quoteStore?.acceptedFees(matchRequestId) ?? {
+        transportFee: 0,
+        disposalFee: 0,
+      };
+      const agreedFee = requestStore?.get(matchRequestId)?.agreedFee ?? 0;
+      // 합의 금액은 단일 party — transportFee 슬롯에 합산(정산 총액 기준으로 동작).
+      fees = {
+        transportFee: agreedFee + accepted.transportFee,
+        disposalFee: accepted.disposalFee,
+      };
       if (fees.transportFee + fees.disposalFee <= 0) {
         res.status(409).json({
-          error: '수락된 견적이 없어 정산 금액이 확정되지 않았습니다. 견적을 먼저 수락해 주세요.',
-          code: 'NO_ACCEPTED_QUOTE',
+          error: '확정된 금액이 없어 결제할 수 없습니다. 견적 수락 또는 업체 수락(금액)을 먼저 진행해 주세요.',
+          code: 'NO_AGREED_AMOUNT',
         });
         return;
       }
     } else {
-      // quoteStore 미주입(테스트) 시에만 클라이언트 금액 사용.
+      // 스토어 미주입(테스트) 시에만 클라이언트 금액 사용.
       fees = { transportFee: Number(body.transportFee), disposalFee: Number(body.disposalFee) };
     }
 
