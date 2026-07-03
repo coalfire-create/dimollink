@@ -26,7 +26,7 @@ import { QuoteStore } from './quotes/store.js';
 import { RequestStore } from './requests/store.js';
 import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
-import { OtpService } from './auth/otp-service.js';
+import { OtpService, type OtpKv } from './auth/otp-service.js';
 import { SessionTokenStore } from './auth/session-store.js';
 import { createSmsSender } from './auth/sms-sender.js';
 import { createGeocoder } from './geo/geocoder.js';
@@ -56,6 +56,7 @@ import { createUsersRouter } from './routes/users.js';
 export interface SharedStores {
   sessionStore?: SessionStore;
   rateLimitStore?: RateLimitStore;
+  otpKv?: OtpKv;
 }
 
 /**
@@ -111,6 +112,7 @@ export function createApp(
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
     sender: createSmsSender(),
+    kv: shared.otpKv, // Redis(다중 인스턴스) 주입 시 공유, 없으면 인메모리.
     ttlMs: env.otp.ttlSec * 1000,
     resendCooldownMs: env.otp.resendCooldownSec * 1000,
     maxAttempts: env.otp.maxAttempts,

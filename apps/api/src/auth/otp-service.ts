@@ -48,15 +48,54 @@ export class ConsoleSmsSender implements SmsSender {
   }
 }
 
-interface OtpEntry {
+export interface OtpEntry {
   code: string;
   expiresAt: number;
   attempts: number;
   sentAt: number;
 }
 
+/**
+ * OTP 상태 저장소 — 인메모리(단일 인스턴스)/Redis(다중 인스턴스)를 교체한다.
+ * pending: 발송된 코드, verified: 인증 완료된 번호(만료시각).
+ */
+export interface OtpKv {
+  getPending(key: string): Promise<OtpEntry | undefined>;
+  setPending(key: string, entry: OtpEntry, ttlMs: number): Promise<void>;
+  deletePending(key: string): Promise<void>;
+  getVerifiedExpiry(key: string): Promise<number | undefined>;
+  setVerified(key: string, expiresAt: number, ttlMs: number): Promise<void>;
+  deleteVerified(key: string): Promise<void>;
+}
+
+/** 인메모리 OTP 저장소(기본). 만료는 OtpService 가 now() 로 판정하므로 ttl 은 무시. */
+export class InMemoryOtpKv implements OtpKv {
+  private readonly pending = new Map<string, OtpEntry>();
+  private readonly verified = new Map<string, number>();
+  async getPending(key: string) {
+    return this.pending.get(key);
+  }
+  async setPending(key: string, entry: OtpEntry) {
+    this.pending.set(key, entry);
+  }
+  async deletePending(key: string) {
+    this.pending.delete(key);
+  }
+  async getVerifiedExpiry(key: string) {
+    return this.verified.get(key);
+  }
+  async setVerified(key: string, expiresAt: number) {
+    this.verified.set(key, expiresAt);
+  }
+  async deleteVerified(key: string) {
+    this.verified.delete(key);
+  }
+}
+
 export interface OtpServiceOptions {
   sender?: SmsSender;
+  /** 상태 저장소(다중 인스턴스는 Redis). 미지정 시 인메모리. */
+  kv?: OtpKv;
   /** 코드 유효시간(ms). 기본 3분. */
   ttlMs?: number;
   /** 재발송 쿨다운(ms). 기본 30초. 짧은 시간 반복 발송(요금 폭탄) 차단. */
@@ -78,6 +117,7 @@ export interface OtpServiceOptions {
 
 export class OtpService {
   private readonly sender: SmsSender;
+  private readonly kv: OtpKv;
   private readonly ttlMs: number;
   private readonly resendCooldownMs: number;
   private readonly maxAttempts: number;
@@ -86,12 +126,9 @@ export class OtpService {
   private readonly now: () => number;
   private readonly generateCode: () => string;
 
-  private readonly pending = new Map<string, OtpEntry>();
-  /** 인증 완료된 번호 → 만료시각. 회원가입 시 번호 인증 여부 확인용. */
-  private readonly verified = new Map<string, number>();
-
   constructor(options: OtpServiceOptions = {}) {
     this.sender = options.sender ?? new ConsoleSmsSender();
+    this.kv = options.kv ?? new InMemoryOtpKv();
     this.ttlMs = options.ttlMs ?? 3 * 60 * 1000;
     this.resendCooldownMs = options.resendCooldownMs ?? 30 * 1000;
     this.maxAttempts = options.maxAttempts ?? 5;
@@ -104,7 +141,7 @@ export class OtpService {
   /** 인증코드 발송. 유효시간(초)을 반환한다. 쿨다운 내 재요청은 거부한다. */
   async request(phoneInput: string): Promise<{ sent: boolean; expiresInSec: number }> {
     const key = normalizePhone(phoneInput);
-    const existing = this.pending.get(key);
+    const existing = await this.kv.getPending(key);
     if (existing && this.now() - existing.sentAt < this.resendCooldownMs) {
       throw new OtpError(
         'RESEND_COOLDOWN',
@@ -113,7 +150,7 @@ export class OtpService {
     }
     const code = this.generateCode();
     const sentAt = this.now();
-    this.pending.set(key, { code, expiresAt: sentAt + this.ttlMs, attempts: 0, sentAt });
+    await this.kv.setPending(key, { code, expiresAt: sentAt + this.ttlMs, attempts: 0, sentAt }, this.ttlMs);
     await this.sender.send(phoneInput, code);
     return { sent: true, expiresInSec: Math.floor(this.ttlMs / 1000) };
   }
@@ -122,48 +159,49 @@ export class OtpService {
    * 인증코드 검증. 성공 시 해당 번호를 '인증 완료' 창에 등록하고 true 반환.
    * 실패 시 OtpError(코드별)로 구분해 던진다.
    */
-  verify(phoneInput: string, code: string): boolean {
+  async verify(phoneInput: string, code: string): Promise<boolean> {
     const key = normalizePhone(phoneInput);
     // 개발/테스트 마스터 코드(운영에서는 주입되지 않음).
     if (this.devMasterCode !== undefined && code.trim() === this.devMasterCode) {
-      this.verified.set(key, this.now() + this.verifiedWindowMs);
+      await this.kv.setVerified(key, this.now() + this.verifiedWindowMs, this.verifiedWindowMs);
       return true;
     }
-    const entry = this.pending.get(key);
+    const entry = await this.kv.getPending(key);
     if (!entry) {
       throw new OtpError('NOT_REQUESTED', '인증코드를 먼저 요청해 주세요.');
     }
     if (this.now() > entry.expiresAt) {
-      this.pending.delete(key);
+      await this.kv.deletePending(key);
       throw new OtpError('EXPIRED', '인증코드가 만료되었습니다. 다시 요청해 주세요.');
     }
     entry.attempts += 1;
     if (entry.attempts > this.maxAttempts) {
-      this.pending.delete(key);
+      await this.kv.deletePending(key);
       throw new OtpError('TOO_MANY_ATTEMPTS', '인증 시도가 너무 많습니다. 코드를 다시 요청해 주세요.');
     }
     if (entry.code !== String(code).trim()) {
+      await this.kv.setPending(key, entry, Math.max(0, entry.expiresAt - this.now()));
       throw new OtpError('INVALID_CODE', '인증코드가 올바르지 않습니다.');
     }
-    this.pending.delete(key);
-    this.verified.set(key, this.now() + this.verifiedWindowMs);
+    await this.kv.deletePending(key);
+    await this.kv.setVerified(key, this.now() + this.verifiedWindowMs, this.verifiedWindowMs);
     return true;
   }
 
   /** 번호가 최근 인증 완료 상태인지(회원가입 게이트). */
-  isPhoneVerified(phoneInput: string): boolean {
+  async isPhoneVerified(phoneInput: string): Promise<boolean> {
     const key = normalizePhone(phoneInput);
-    const expiresAt = this.verified.get(key);
+    const expiresAt = await this.kv.getVerifiedExpiry(key);
     if (expiresAt === undefined) return false;
     if (this.now() > expiresAt) {
-      this.verified.delete(key);
+      await this.kv.deleteVerified(key);
       return false;
     }
     return true;
   }
 
   /** 회원가입 완료 시 인증 창을 소진(1회성). */
-  consumePhoneVerification(phoneInput: string): void {
-    this.verified.delete(normalizePhone(phoneInput));
+  async consumePhoneVerification(phoneInput: string): Promise<void> {
+    await this.kv.deleteVerified(normalizePhone(phoneInput));
   }
 }

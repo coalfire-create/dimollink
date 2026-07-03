@@ -72,7 +72,7 @@ export function createUsersRouter(
     const phone = typeof body.phone === 'string' ? body.phone : '';
 
     // 휴대폰 OTP 인증을 마친 번호만 가입 허용(번호 소유 확인).
-    if (!phone || !otpService.isPhoneVerified(phone)) {
+    if (!phone || !(await otpService.isPhoneVerified(phone))) {
       res.status(403).json({ error: '휴대폰 인증을 먼저 완료해 주세요.', code: 'PHONE_NOT_VERIFIED' });
       return;
     }
@@ -122,7 +122,7 @@ export function createUsersRouter(
         ? store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
         : created;
       // 번호 인증 창 소진 + 세션 토큰 발급(가입 즉시 로그인·자동 로그인).
-      otpService.consumePhoneVerification(phone);
+      await otpService.consumePhoneVerification(phone);
       const session: AuthSession = { token: await sessionStore.issue(user.id), user };
       res.status(201).json(session);
     } catch (err) {

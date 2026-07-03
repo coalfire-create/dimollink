@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OtpError, OtpService, type OtpServiceOptions, type SmsSender } from './otp-service.js';
+import { OtpService, type OtpServiceOptions, type SmsSender } from './otp-service.js';
 
 function makeService(overrides: OtpServiceOptions = {}) {
   const sent: Array<{ phone: string; code: string }> = [];
@@ -29,14 +29,14 @@ describe('OtpService', () => {
   it('올바른 코드 검증 성공 → 번호 인증 완료 상태', async () => {
     const { service } = makeService();
     await service.request('01011112222');
-    expect(service.verify('01011112222', '654321')).toBe(true);
+    expect(await service.verify('01011112222', '654321')).toBe(true);
     // 하이픈 유무와 무관하게 같은 번호로 인증 확인.
-    expect(service.isPhoneVerified('010-1111-2222')).toBe(true);
+    expect(await service.isPhoneVerified('010-1111-2222')).toBe(true);
   });
 
-  it('요청 없이 검증하면 NOT_REQUESTED', () => {
+  it('요청 없이 검증하면 NOT_REQUESTED', async () => {
     const { service } = makeService();
-    expect(() => service.verify('01011112222', '654321')).toThrowError(
+    await expect(service.verify('01011112222', '654321')).rejects.toThrowError(
       expect.objectContaining({ code: 'NOT_REQUESTED' }),
     );
   });
@@ -44,7 +44,7 @@ describe('OtpService', () => {
   it('틀린 코드는 INVALID_CODE', async () => {
     const { service } = makeService();
     await service.request('01011112222');
-    expect(() => service.verify('01011112222', '000000')).toThrowError(
+    await expect(service.verify('01011112222', '000000')).rejects.toThrowError(
       expect.objectContaining({ code: 'INVALID_CODE' }),
     );
   });
@@ -53,7 +53,7 @@ describe('OtpService', () => {
     const { service, setNow } = makeService();
     await service.request('01011112222');
     setNow(2000); // ttl 1000 초과
-    expect(() => service.verify('01011112222', '654321')).toThrowError(
+    await expect(service.verify('01011112222', '654321')).rejects.toThrowError(
       expect.objectContaining({ code: 'EXPIRED' }),
     );
   });
@@ -62,10 +62,12 @@ describe('OtpService', () => {
     const { service } = makeService();
     await service.request('01011112222');
     for (let i = 0; i < 3; i += 1) {
-      expect(() => service.verify('01011112222', '000000')).toThrow(OtpError);
+      await expect(service.verify('01011112222', '000000')).rejects.toThrowError(
+        expect.objectContaining({ code: 'INVALID_CODE' }),
+      );
     }
     // maxAttempts(3) 초과 → 무효화.
-    expect(() => service.verify('01011112222', '654321')).toThrowError(
+    await expect(service.verify('01011112222', '654321')).rejects.toThrowError(
       expect.objectContaining({ code: 'TOO_MANY_ATTEMPTS' }),
     );
   });
@@ -73,17 +75,17 @@ describe('OtpService', () => {
   it('인증 창 만료 후에는 isPhoneVerified=false', async () => {
     const { service, setNow } = makeService();
     await service.request('01011112222');
-    service.verify('01011112222', '654321');
+    await service.verify('01011112222', '654321');
     setNow(6000); // verifiedWindowMs 5000 초과
-    expect(service.isPhoneVerified('01011112222')).toBe(false);
+    expect(await service.isPhoneVerified('01011112222')).toBe(false);
   });
 
   it('consumePhoneVerification 로 인증 창 소진', async () => {
     const { service } = makeService();
     await service.request('01011112222');
-    service.verify('01011112222', '654321');
-    service.consumePhoneVerification('01011112222');
-    expect(service.isPhoneVerified('01011112222')).toBe(false);
+    await service.verify('01011112222', '654321');
+    await service.consumePhoneVerification('01011112222');
+    expect(await service.isPhoneVerified('01011112222')).toBe(false);
   });
 
   it('기본 코드 생성기는 6자리 숫자', async () => {
@@ -113,15 +115,15 @@ describe('OtpService — 보안 하드닝', () => {
     );
   });
 
-  it('devMasterCode 지정 시 해당 코드로 요청 없이도 통과', () => {
+  it('devMasterCode 지정 시 해당 코드로 요청 없이도 통과', async () => {
     const { service } = makeService({ devMasterCode: '999999' });
-    expect(service.verify('01011112222', '999999')).toBe(true);
-    expect(service.isPhoneVerified('01011112222')).toBe(true);
+    expect(await service.verify('01011112222', '999999')).toBe(true);
+    expect(await service.isPhoneVerified('01011112222')).toBe(true);
   });
 
-  it('devMasterCode 미지정(운영 가정)이면 마스터 우회가 없다', () => {
+  it('devMasterCode 미지정(운영 가정)이면 마스터 우회가 없다', async () => {
     const { service } = makeService(); // devMasterCode 없음
-    expect(() => service.verify('01011112222', '123456')).toThrowError(
+    await expect(service.verify('01011112222', '123456')).rejects.toThrowError(
       expect.objectContaining({ code: 'NOT_REQUESTED' }),
     );
   });

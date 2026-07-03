@@ -60,7 +60,7 @@ export function createAuthRouter(
       return;
     }
     try {
-      otpService.verify(body.phone, body.code);
+      await otpService.verify(body.phone, body.code);
     } catch (err) {
       if (err instanceof OtpError) {
         res.status(OTP_ERROR_STATUS[err.code] ?? 400).json({ error: err.message, code: err.code });

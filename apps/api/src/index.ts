@@ -1,4 +1,5 @@
 import { createApp, type SharedStores } from './app.js';
+import { RedisOtpKv } from './auth/redis-otp-kv.js';
 import { RedisSessionStore } from './auth/redis-session-store.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
@@ -44,10 +45,11 @@ async function buildPersistence(): Promise<PersistenceFactory> {
 async function buildSharedStores(): Promise<SharedStores> {
   if (!env.redisUrl) return {};
   const redis = await createRedisClient(env.redisUrl);
-  console.log('[dimol-api] 공유 상태: Redis (세션·레이트리밋)');
+  console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
   return {
     sessionStore: new RedisSessionStore(redis, env.auth.sessionTtlDays * 24 * 60 * 60 * 1000),
     rateLimitStore: new RedisRateLimitStore(redis),
+    otpKv: new RedisOtpKv(redis),
   };
 }
 

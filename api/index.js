@@ -1,4 +1,5 @@
 import { createApp } from '../apps/api/dist/app.js';
+import { RedisOtpKv } from '../apps/api/dist/auth/redis-otp-kv.js';
 import { RedisSessionStore } from '../apps/api/dist/auth/redis-session-store.js';
 import { env } from '../apps/api/dist/config/env.js';
 import { jsonPersistenceFactory } from '../apps/api/dist/lib/json-collection.js';
@@ -17,6 +18,7 @@ if (env.redisUrl) {
   shared = {
     sessionStore: new RedisSessionStore(redis, env.auth.sessionTtlDays * 24 * 60 * 60 * 1000),
     rateLimitStore: new RedisRateLimitStore(redis),
+    otpKv: new RedisOtpKv(redis),
   };
 }
 
