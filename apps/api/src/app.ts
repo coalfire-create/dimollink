@@ -10,8 +10,9 @@ import type {
   ServiceRequest,
   UserProfile,
 } from '@dimol/shared';
+import type { PersistedSession } from './auth/session-store.js';
 import { env } from './config/env.js';
-import { JsonCollectionFile } from './lib/json-collection.js';
+import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
@@ -48,8 +49,11 @@ import { createReviewsRouter } from './routes/reviews.js';
 import { createUploadsRouter } from './routes/uploads.js';
 import { createUsersRouter } from './routes/users.js';
 
-/** Express 앱 구성 (서버 기동과 분리해 테스트에서 재사용 가능). */
-export function createApp() {
+/**
+ * Express 앱 구성 (서버 기동과 분리해 테스트에서 재사용 가능).
+ * persistence 팩토리를 주입해 JSON 파일(기본) 또는 PostgreSQL 로 저장소를 교체한다.
+ */
+export function createApp(persistence: PersistenceFactory = jsonPersistenceFactory(env.dataDir)) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', true); // 프록시(로드밸런서/Vercel) 뒤 실제 클라이언트 IP 사용.
@@ -78,13 +82,12 @@ export function createApp() {
   app.use('/api', healthRouter);
   const notificationService = new NotificationService(
     new ConsoleNotificationProvider(),
-    new JsonCollectionFile<AppNotification>(env.dataDir, 'notifications.json'),
+    persistence<AppNotification>('notifications'),
   );
-  const requestStore = new RequestStore(
-    new JsonCollectionFile<ServiceRequest>(env.dataDir, 'requests.json'),
-    (request) => notificationService.notifyStatusChange(request),
+  const requestStore = new RequestStore(persistence<ServiceRequest>('requests'), (request) =>
+    notificationService.notifyStatusChange(request),
   );
-  const userStore = new UserStore(new JsonCollectionFile<UserProfile>(env.dataDir, 'users.json'));
+  const userStore = new UserStore(persistence<UserProfile>('users'));
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
@@ -98,21 +101,15 @@ export function createApp() {
   // 세션은 영속화해 재시작/배포에도 로그인이 유지되게 한다(파일럿 JSON, 운영은 Redis/DB 교체).
   const sessionStore = new SessionTokenStore({
     ttlMs: env.auth.sessionTtlDays * 24 * 60 * 60 * 1000,
-    persistence: new JsonCollectionFile(env.dataDir, 'sessions.json'),
+    persistence: persistence<PersistedSession>('sessions'),
   });
   const reviewStore = new ReviewStore(
     requestStore,
-    new JsonCollectionFile<Review>(env.dataDir, 'reviews.json'),
-    new JsonCollectionFile<Incident>(env.dataDir, 'incidents.json'),
+    persistence<Review>('reviews'),
+    persistence<Incident>('incidents'),
   );
-  const quoteStore = new QuoteStore(
-    requestStore,
-    new JsonCollectionFile<Quote>(env.dataDir, 'quotes.json'),
-  );
-  const offerStore = new OfferStore(
-    requestStore,
-    new JsonCollectionFile<MatchOffer>(env.dataDir, 'offers.json'),
-  );
+  const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
+  const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
 
   // ── 인증 게이트: 로그인(세션 토큰)이 필요한 경로. 회원가입·로그인·헬스·조회성 일부는 공개.
   const requireAuth = createRequireAuth(sessionStore, userStore);
@@ -150,9 +147,7 @@ export function createApp() {
   app.use('/api', createLocationsRouter(new LocationStore(requestStore)));
   app.use(
     '/api',
-    createChatRouter(
-      new ChatStore(requestStore, new JsonCollectionFile<ChatMessage>(env.dataDir, 'chat.json')),
-    ),
+    createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))),
   );
   app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
   app.use(

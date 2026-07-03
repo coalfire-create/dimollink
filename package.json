@@ -2,6 +2,7 @@
   "name": "dimollink",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "디몰링크 (DimolLink) — 철거·운반·처리장 매칭 플랫폼 (올바로 API 연동)",
   "workspaces": [
     "apps/*",

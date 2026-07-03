@@ -10,6 +10,17 @@ export interface CollectionPersistence<T> {
   save(items: T[]): void;
 }
 
+/** 컬렉션 이름 → 영속화 어댑터 생성. JSON 파일 또는 PostgreSQL 구현을 주입한다. */
+export interface PersistenceFactory {
+  <T>(name: string): CollectionPersistence<T>;
+}
+
+/** JSON 파일 기반 영속화 팩토리(기본). `<name>.json` 파일에 저장한다. */
+export function jsonPersistenceFactory(dataDir: string): PersistenceFactory {
+  return <T>(name: string): CollectionPersistence<T> =>
+    new JsonCollectionFile<T>(dataDir, `${name}.json`);
+}
+
 /**
  * JSON 파일 영속화 — 서버 재시작에도 데이터 유지 (프론트 연동 개발 편의).
  * 쓰기는 임시 파일 + rename 으로 원자적으로 처리해 중단 시 파일 깨짐을 방지한다.

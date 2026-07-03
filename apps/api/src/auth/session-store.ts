@@ -15,7 +15,7 @@ interface SessionEntry {
 }
 
 /** 영속화 레코드(토큰 포함). */
-interface PersistedSession extends SessionEntry {
+export interface PersistedSession extends SessionEntry {
   token: string;
 }
 
