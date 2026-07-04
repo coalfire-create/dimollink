@@ -1,0 +1,35 @@
+[project]
+name = "dimol-vision-api"
+version = "0.1.0"
+description = "디몰비전 AI 서버 — 철거 현장 사진 분석(자체 VLM). 기획서 §3, §5."
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "httpx>=0.27",
+    "typing-extensions>=4.10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+# GPU 서빙 의존성(vLLM 등)은 별도 extra 로 분리 — 로컬/CI 에는 설치하지 않는다.
+gpu = [
+    # "vllm>=0.6",
+    # "torch",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]

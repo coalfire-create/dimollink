@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+# 잡 저장소(SQLite) — 런타임 산출물
+vision_jobs.db
+vision_jobs.db-wal
+vision_jobs.db-shm
+*.db
+*.db-wal
+*.db-shm
