@@ -16,8 +16,15 @@ logger = logging.getLogger("vision.pipeline")
 
 
 def _build_retriever(settings: Settings):
-    """로컬/CI 용 인메모리 RAG 검색기(mock 임베딩). 원문 없으면 None → 지침 fallback."""
-    from ..kb import MockEmbedder, build_inmemory_retriever
+    """RAG 검색기 구성. pg 백엔드면 PgRetriever, 아니면 인메모리(원문+임베딩)."""
+    from ..kb import build_inmemory_retriever, get_embedder
+
+    embedder = get_embedder(settings.kb_embedder, model_path=settings.model_base) if settings.kb_embedder == "bge-m3" else get_embedder("mock")
+
+    if settings.kb_backend == "pg" and settings.db_url:
+        from ..kb import PgRetriever
+
+        return PgRetriever(settings.db_url, embedder)
 
     sources_dir = settings.kb_sources_dir
     if not os.path.isdir(sources_dir):
@@ -27,14 +34,19 @@ def _build_retriever(settings: Settings):
     if not os.path.isdir(sources_dir):
         logger.warning("KB 원문 디렉터리를 찾지 못해 검색기 없이 동작합니다: %s", settings.kb_sources_dir)
         return None
-    return build_inmemory_retriever(sources_dir, MockEmbedder())
+    return build_inmemory_retriever(sources_dir, embedder)
 
 
 def get_pipeline(settings: Settings) -> AnalysisPipeline:
+    retriever = _build_retriever(settings)
     if settings.pipeline == "vllm":
-        return VLLMPipeline(settings.model_base, settings.model_adapter_hash)
-    return MockPipeline(
-        settings.model_version,
-        retriever=_build_retriever(settings),
-        top_k=settings.kb_top_k,
-    )
+        return VLLMPipeline(
+            model=settings.model_base,
+            model_version=settings.model_version,
+            base_url=settings.vllm_base_url,
+            api_key=settings.vllm_api_key,
+            retriever=retriever,
+            top_k=settings.kb_top_k,
+            timeout=settings.job_timeout_seconds,
+        )
+    return MockPipeline(settings.model_version, retriever=retriever, top_k=settings.kb_top_k)

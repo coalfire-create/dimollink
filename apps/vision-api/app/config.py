@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     # RAG 지식베이스(§3.4) — 원문 디렉터리와 검색 top-k.
     kb_sources_dir: str = "kb_sources"
     kb_top_k: int = 3
+    # 검색기 백엔드: memory(로컬/CI) | pg(pgvector). 임베더: mock | bge-m3.
+    kb_backend: str = "memory"
+    kb_embedder: str = "mock"
+    # Postgres DSN (PgRetriever/PgWriter 용). 비우면 memory 검색기로 폴백.
+    db_url: str = ""
+
+    # vLLM OpenAI 호환 엔드포인트(§3.3 — GPU 서빙). pipeline=vllm 일 때 사용.
+    vllm_base_url: str = "http://localhost:8000/v1"
+    vllm_api_key: str = ""
 
     environment: str = "local"
 

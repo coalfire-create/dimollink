@@ -62,9 +62,14 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## 다음 (미구현)
+## 상태
 
-- `pipeline/vllm.py` 2-패스(인식→지침검색→생성) 실제 구현 — Phase V1(프롬프트)·V3(파인튜닝)
-- Supabase Edge Function ↔ 이 서버 연동, Storage 서명 URL 발급 흐름
-- RAG 안전지침 KB(pgvector, BGE-M3 임베딩) 검색 연결 — §3.4
+- ✅ RAG KB 적재(`app/kb`, `scripts/ingest_kb.py`) + 검색 연결(`app/kb/retrieve.py`) — §3.4
+- ✅ Supabase 스키마·RLS(`supabase/migrations`) + Edge Function 중계(`supabase/functions`) — §3.2/§5.2
+- ✅ `pipeline/vllm.py` 2-패스(인식→지침검색→생성) 구현 — **GPU/vLLM 미가용으로 실행 미검증**
+
+## 다음 (미검증/미구현)
+
+- vLLM 서버에서 `VISION_PIPELINE=vllm` 실추론 검증(Qwen3-VL, guided_json) — Phase V1(프롬프트)·V3(파인튜닝)
 - GPU 서빙(RunPod serverless, FP8/AWQ 양자화, prefix caching) — §6.1
+- 실제 BGE-M3 임베딩으로 KB 적재 후 `VISION_KB_BACKEND=pg` 검색(의미 랭킹) 검증
