@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { PILOT, isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
 
@@ -114,23 +115,22 @@ export function OnboardingScreen({
           <Text style={styles.backLabel}>‹ 뒤로</Text>
         </Pressable>
       ) : null}
-      <Image
-        source={brandmark}
-        style={styles.brandmark}
-        resizeMode="contain"
-        accessibilityLabel="비움 로고"
-      />
-      <Text style={styles.appName}>비움</Text>
-      <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
-      <Text style={styles.tagline}>철거부터 폐기물 처리까지, 한 번에 연결해 드려요</Text>
-      <Text style={styles.pilotNote}>지금은 {PILOT.region} 지역 건설폐기물만 서비스해요</Text>
+      <FadeInUp delay={40}>
+        <Image
+          source={brandmark}
+          style={styles.brandmark}
+          resizeMode="contain"
+          accessibilityLabel="비움 로고"
+        />
+        <Text style={styles.appName}>비움</Text>
+      </FadeInUp>
 
       <Text style={styles.stepTitle}>어떤 일로 오셨나요?</Text>
-      {TYPE_OPTIONS.map((option) => {
+      {TYPE_OPTIONS.map((option, i) => {
         const selected = userType === option.type;
         return (
+          <FadeInUp key={option.type} delay={120 + i * 70}>
           <Pressable
-            key={option.type}
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             onPress={() => setUserType(option.type)}
@@ -142,6 +142,7 @@ export function OnboardingScreen({
             </Text>
             <Text style={styles.roleDescription}>{option.description}</Text>
           </Pressable>
+          </FadeInUp>
         );
       })}
 
@@ -250,41 +251,24 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     textAlign: 'center',
   },
-  slogan: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  tagline: {
-    color: colors.text,
-    fontSize: font.body,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  pilotNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
   stepTitle: {
     color: colors.text,
     fontSize: font.title,
     fontWeight: '700',
     marginBottom: spacing.sm,
+    marginTop: spacing.lg,
   },
   roleCard: {
-    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderColor: 'transparent',
     borderRadius: radius.card,
     borderWidth: 2,
-    marginBottom: spacing.xs,
-    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    ...theme.shadow.card,
   },
   roleCardSelected: {
-    backgroundColor: '#E7EFFC',
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
   roleTitle: {

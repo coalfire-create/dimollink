@@ -11,9 +11,29 @@ export const theme = {
   spacing: SPACING,
   touch: TOUCH,
   radius: {
-    card: 16,
+    card: 20,
     button: 16,
-    badge: 8,
+    badge: 999,
+    pill: 999,
+  },
+  /** 그림자 프리셋 — 하드한 테두리 대신 은은한 입체감(대기업 앱 톤). */
+  shadow: {
+    /** 카드·시트 기본 그림자. */
+    card: {
+      shadowColor: '#0B1B3A',
+      shadowOpacity: 0.06,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 2,
+    },
+    /** 주요 버튼 강조 그림자(브랜드 색). */
+    primary: {
+      shadowColor: COLORS.primary,
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
   },
 } as const;
 

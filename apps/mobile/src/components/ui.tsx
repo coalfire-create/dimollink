@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +12,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { statusColor, theme } from '../theme';
+import { PressableScale, usePressScale } from './motion';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /**
  * 공용 UI 컴포넌트 — 고령 사용자 접근성 기준을 컴포넌트 차원에서 강제한다.
@@ -40,19 +44,23 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const isPrimary = variant === 'primary';
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled || loading}
       onPress={onPress}
-      style={({ pressed }) => [
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={[
         styles.button,
-        isPrimary && { backgroundColor: colors.primary, height: touch.primaryButtonHeight },
+        isPrimary && styles.buttonPrimary,
+        isPrimary && theme.shadow.primary,
         variant === 'outline' && styles.buttonOutline,
         variant === 'danger' && styles.buttonDanger,
-        (disabled || loading) && { opacity: 0.5 },
-        pressed && { opacity: 0.8 },
+        (disabled || loading) && styles.buttonDisabled,
+        { transform: [{ scale }] },
         style,
       ]}
     >
@@ -70,7 +78,7 @@ export function AppButton({
           {label}
         </Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -86,13 +94,9 @@ export function Card({
 }) {
   if (!onPress) return <View style={[styles.card, style]}>{children}</View>;
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }, style]}
-    >
+    <PressableScale accessibilityRole="button" onPress={onPress} style={[styles.card, style]}>
       {children}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -177,6 +181,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+    height: touch.primaryButtonHeight,
+  },
   buttonOutline: {
     backgroundColor: colors.background,
     borderColor: colors.primary,
@@ -186,6 +194,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderColor: colors.error,
     borderWidth: 2,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonLabel: {
     fontSize: font.bodyLarge,
@@ -197,12 +208,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
     marginBottom: spacing.sm,
-    padding: spacing.sm,
+    padding: spacing.md,
+    ...theme.shadow.card,
   },
   badge: {
     alignSelf: 'flex-start',
     borderRadius: radius.badge,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
   badgeText: {
@@ -258,7 +270,7 @@ const styles = StyleSheet.create({
   },
   errorBanner: {
     backgroundColor: '#FBEAEA',
-    borderRadius: radius.badge,
+    borderRadius: radius.button,
     marginBottom: spacing.sm,
     padding: spacing.sm,
   },

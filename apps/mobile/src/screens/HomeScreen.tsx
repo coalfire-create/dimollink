@@ -18,6 +18,7 @@ import {
   submitQuote,
 } from '../api/client';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -151,39 +152,41 @@ export function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         {config.showAvailability ? (
-          <Card style={[styles.availCard, online && styles.availCardOn]}>
-            <Text style={styles.availStatus}>
-              {online ? '🟢 ' : '⚪ '}
-              {CALL_AVAILABILITY_LABELS[availability]}
-            </Text>
-            <Text style={styles.availDescription}>
-              {online
-                ? '지금 들어오는 운반 콜을 받을 수 있어요.'
-                : '콜대기를 켜면 운반 요청을 받을 수 있어요.'}
-            </Text>
-            <AppButton
-              label={online ? '콜대기 끄기' : '콜대기 켜기'}
-              variant={online ? 'outline' : 'primary'}
-              onPress={toggleAvailability}
-              loading={availBusy}
-            />
-          </Card>
+          <FadeInUp delay={40}>
+            <Card style={[styles.availCard, online && styles.availCardOn]}>
+              <Text style={styles.availStatus}>
+                {online ? '🟢 ' : '⚪ '}
+                {CALL_AVAILABILITY_LABELS[availability]}
+              </Text>
+              <Text style={styles.availDescription}>
+                {online ? '콜을 받는 중이에요' : '켜면 운반 콜을 받아요'}
+              </Text>
+              <AppButton
+                label={online ? '콜대기 끄기' : '콜대기 켜기'}
+                variant={online ? 'outline' : 'primary'}
+                onPress={toggleAvailability}
+                loading={availBusy}
+              />
+            </Card>
+          </FadeInUp>
         ) : null}
 
         {config.homeActions.length > 0 ? (
           <>
             {config.homeIntro ? <SectionTitle>{config.homeIntro}</SectionTitle> : null}
-            {config.homeActions.map((action) => (
-              <Card key={action.key} onPress={() => nav.push(action.route)}>
-                <View style={styles.actionRow}>
-                  <Text style={styles.actionIcon}>{action.icon}</Text>
-                  <View style={styles.actionTextBox}>
-                    <Text style={styles.actionTitle}>{action.title}</Text>
-                    <Text style={styles.actionDescription}>{action.description}</Text>
+            {config.homeActions.map((action, i) => (
+              <FadeInUp key={action.key} delay={80 + i * 70}>
+                <Card onPress={() => nav.push(action.route)}>
+                  <View style={styles.actionRow}>
+                    <Text style={styles.actionIcon}>{action.icon}</Text>
+                    <View style={styles.actionTextBox}>
+                      <Text style={styles.actionTitle}>{action.title}</Text>
+                      <Text style={styles.actionDescription}>{action.description}</Text>
+                    </View>
+                    <Text style={styles.actionChevron}>›</Text>
                   </View>
-                  <Text style={styles.actionChevron}>›</Text>
-                </View>
-              </Card>
+                </Card>
+              </FadeInUp>
             ))}
           </>
         ) : null}

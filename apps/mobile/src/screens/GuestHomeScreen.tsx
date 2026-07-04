@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PILOT } from '@dimol/shared';
 import { AppButton, Card } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
 
@@ -25,31 +26,30 @@ export function GuestHomeScreen({
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Image
-          source={brandmark}
-          style={styles.brandmark}
-          resizeMode="contain"
-          accessibilityLabel="비움 로고"
-        />
-        <Text style={styles.appName}>비움</Text>
-        <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
-        <Text style={styles.tagline}>둘러보기 모드예요. 로그인하면 요청을 등록할 수 있어요.</Text>
-        <Text style={styles.pilotNote}>지금은 {PILOT.region} 지역 건설폐기물만 서비스해요</Text>
+        <FadeInUp delay={40}>
+          <Image
+            source={brandmark}
+            style={styles.brandmark}
+            resizeMode="contain"
+            accessibilityLabel="비움 로고"
+          />
+          <Text style={styles.appName}>비움</Text>
+          <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
+          <View style={styles.pilotChip}>
+            <Text style={styles.pilotChipText}>{PILOT.region} · 건설폐기물</Text>
+          </View>
+        </FadeInUp>
 
-        {STEPS.map((step) => (
-          <Card key={step.title}>
-            <Text style={styles.stepTitle}>
-              {step.icon} {step.title}
-            </Text>
-            <Text style={styles.stepDescription}>{step.description}</Text>
-          </Card>
+        {STEPS.map((step, i) => (
+          <FadeInUp key={step.title} delay={180 + i * 90}>
+            <Card>
+              <Text style={styles.stepTitle}>
+                {step.icon} {step.title}
+              </Text>
+              <Text style={styles.stepDescription}>{step.description}</Text>
+            </Card>
+          </FadeInUp>
         ))}
-
-        <View style={styles.notice}>
-          <Text style={styles.noticeText}>
-            요청 등록·견적 확인·알림은 로그인 후 이용할 수 있어요.
-          </Text>
-        </View>
       </ScrollView>
 
       <View style={styles.actions}>
@@ -61,7 +61,7 @@ export function GuestHomeScreen({
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
@@ -85,24 +85,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   slogan: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  pilotChip: {
+    alignSelf: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  pilotChipText: {
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  tagline: {
-    color: colors.text,
-    fontSize: font.body,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  pilotNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginBottom: spacing.md,
-    marginTop: spacing.xs,
-    textAlign: 'center',
   },
   stepTitle: {
     color: colors.text,
@@ -113,16 +114,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs / 2,
-  },
-  notice: {
-    backgroundColor: '#E7EFFC',
-    borderRadius: radius.card,
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-  },
-  noticeText: {
-    color: colors.text,
-    fontSize: font.body,
   },
   actions: {
     borderTopColor: colors.border,
