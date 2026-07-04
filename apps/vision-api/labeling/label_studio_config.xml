@@ -1,0 +1,47 @@
+<!--
+  디몰비전 라벨링 설정 (기획서 §4.3 — Label Studio 자체 호스팅).
+  자재 12종 바운딩박스 + 위험요소 + 석면 의심 + 사진 품질을 한 화면에서 라벨링한다.
+  대형 모델 초안 → 사람 검수·수정 방식과 함께 사용한다.
+  RectangleLabels value 코드는 packages/shared vision-taxonomy.ts 의 12종과 동일해야 한다.
+-->
+<View>
+  <Header value="철거 현장 자재·위험 라벨링"/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true"/>
+
+  <Header value="자재 (바운딩박스)"/>
+  <RectangleLabels name="materials" toName="image">
+    <Label value="REINFORCED_CONCRETE" background="#8c9eff"/>
+    <Label value="PLAIN_CONCRETE" background="#b0bec5"/>
+    <Label value="BRICK_MASONRY" background="#ff8a65"/>
+    <Label value="WOOD" background="#a1887f"/>
+    <Label value="METAL" background="#90a4ae"/>
+    <Label value="GLASS" background="#4dd0e1"/>
+    <Label value="GYPSUM_BOARD" background="#e0e0e0"/>
+    <Label value="ROOFING_SLATE" background="#ef5350"/>
+    <Label value="WATERPROOF_INSULATION" background="#ffd54f"/>
+    <Label value="WASTE_SYNTHETIC_RESIN" background="#ba68c8"/>
+    <Label value="SANITARY_TILE" background="#4db6ac"/>
+    <Label value="MIXED_WASTE" background="#bdbdbd"/>
+  </RectangleLabels>
+
+  <Header value="위험 요소"/>
+  <Choices name="hazards" toName="image" choice="multiple">
+    <Choice value="ASBESTOS_SUSPECT"/>
+    <Choice value="STRUCTURAL_INSTABILITY"/>
+    <Choice value="ELECTRICAL_GAS"/>
+    <Choice value="OBSTRUCTION"/>
+  </Choices>
+
+  <Header value="석면 의심 (슬레이트·뿜칠재 등) — 유무 확정 금지, 의심 여부만"/>
+  <Choices name="asbestos_suspect" toName="image" choice="single">
+    <Choice value="suspect"/>
+    <Choice value="none_observed"/>
+  </Choices>
+
+  <Header value="사진 품질 경고"/>
+  <Choices name="photo_quality" toName="image" choice="multiple">
+    <Choice value="blurry"/>
+    <Choice value="too_dark"/>
+    <Choice value="insufficient_angle"/>
+  </Choices>
+</View>
