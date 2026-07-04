@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>디몰비전 — 현장 사진 분석</title>
+    <meta
+      name="description"
+      content="철거 현장 사진을 올리면 자재·공정·폐기물 계획을 참고용으로 분석합니다."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1 class="app-title">디몰비전</h1>
+      <p class="app-subtitle">현장 사진으로 철거 자재·공정·폐기물을 참고용으로 분석합니다</p>
+    </header>
+
+    <main class="container">
+      <!-- 1) 업로드 -->
+      <section id="upload-view" class="card" aria-labelledby="upload-heading">
+        <h2 id="upload-heading" class="section-title">현장 사진 올리기</h2>
+
+        <label class="field-label" for="photo-input">사진 (최대 10장)</label>
+        <input
+          id="photo-input"
+          class="file-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+        />
+        <p id="photo-hint" class="hint">외부 4방향·내부 실별·지붕재 근접 사진이 정확도를 높입니다.</p>
+        <div id="thumbs" class="thumbs" aria-live="polite"></div>
+
+        <fieldset class="fieldset">
+          <legend class="field-label">부가 정보 (선택)</legend>
+          <label class="field-label sub" for="building-use">건물 용도</label>
+          <input id="building-use" class="text-input" type="text" placeholder="예: 단독주택" />
+          <label class="field-label sub" for="floor-area">연면적(㎡)</label>
+          <input id="floor-area" class="text-input" type="number" inputmode="numeric" placeholder="예: 100" />
+          <label class="field-label sub" for="floors">층수</label>
+          <input id="floors" class="text-input" type="number" inputmode="numeric" placeholder="예: 2" />
+        </fieldset>
+
+        <button id="analyze-btn" class="btn btn-primary" type="button" disabled>
+          분석 시작
+        </button>
+        <p id="upload-error" class="error-text" role="alert" hidden></p>
+      </section>
+
+      <!-- 2) 진행 상태 -->
+      <section id="progress-view" class="card" aria-labelledby="progress-heading" hidden>
+        <h2 id="progress-heading" class="section-title">분석 중…</h2>
+        <ol id="progress-steps" class="progress-steps"></ol>
+        <p class="hint">사진 분석에는 보통 30초~2분이 걸립니다. 화면을 닫아도 결과는 저장됩니다.</p>
+        <button id="cancel-btn" class="btn btn-ghost" type="button">취소</button>
+      </section>
+
+      <!-- 3) 리포트 -->
+      <section id="report-view" class="card" aria-labelledby="report-heading" hidden>
+        <h2 id="report-heading" class="section-title">분석 리포트</h2>
+        <div id="report-body"></div>
+        <div class="report-actions">
+          <button id="prefill-btn" class="btn btn-primary" type="button">
+            매칭 신청에 이 결과 사용
+          </button>
+          <button id="restart-btn" class="btn btn-ghost" type="button">새 분석</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- 비모듈 경량 구성 (프레임워크 없음). 로드 순서 = 의존 순서. -->
+    <script src="./config.js"></script>
+    <script src="./taxonomy.js"></script>
+    <script src="./lib/format.js"></script>
+    <script src="./lib/client.js"></script>
+    <script src="./lib/report.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

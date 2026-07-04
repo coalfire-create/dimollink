@@ -1,0 +1,253 @@
+/*
+ * 디몰비전 웹 — 접근성 우선 경량 스타일.
+ * 토큰은 packages/shared design-tokens.ts 미러(단일 원천은 TS):
+ * 본문 18px+, 제목 24px+, 버튼 48px+, 여백 8px 배수, 메인 1 + 보조 1 색.
+ */
+:root {
+  --color-primary: #2f6bd8;
+  --color-primary-dark: #1e4fa8;
+  --color-primary-soft: #e7effc;
+  --color-secondary: #6fb4f0;
+  --color-text: #1a1a1a;
+  --color-text-muted: #595959;
+  --color-bg: #ffffff;
+  --color-surface: #f4f7fc;
+  --color-border: #dce3f0;
+  --color-error: #c62828;
+
+  --fs-body: 18px;
+  --fs-body-lg: 20px;
+  --fs-title: 24px;
+  --fs-title-lg: 28px;
+
+  --sp-xs: 8px;
+  --sp-sm: 16px;
+  --sp-md: 24px;
+  --sp-lg: 32px;
+
+  --btn-h: 48px;
+  --btn-h-primary: 56px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.app-header {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-dark));
+  color: #fff;
+  padding: var(--sp-md) var(--sp-sm);
+  padding-top: calc(var(--sp-md) + env(safe-area-inset-top, 0px));
+}
+.app-title {
+  margin: 0;
+  font-size: var(--fs-title-lg);
+}
+.app-subtitle {
+  margin: var(--sp-xs) 0 0;
+  font-size: var(--fs-body);
+  opacity: 0.95;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--sp-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+}
+
+.card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: var(--sp-md);
+}
+
+.section-title {
+  margin: 0 0 var(--sp-sm);
+  font-size: var(--fs-title);
+}
+
+.field-label {
+  display: block;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin: var(--sp-sm) 0 var(--sp-xs);
+}
+.field-label.sub {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.file-input,
+.text-input {
+  width: 100%;
+  min-height: var(--btn-h);
+  font-size: var(--fs-body);
+  padding: var(--sp-xs) var(--sp-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--sp-xs) var(--sp-sm) var(--sp-sm);
+  margin: var(--sp-sm) 0;
+}
+
+.hint {
+  font-size: var(--fs-body);
+  color: var(--color-text-muted);
+  margin: var(--sp-xs) 0 0;
+}
+
+.thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs);
+  margin-top: var(--sp-sm);
+}
+.thumbs img {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--btn-h-primary);
+  font-size: var(--fs-body-lg);
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: var(--sp-md);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:active {
+  background: var(--color-primary-dark);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  min-height: var(--btn-h);
+}
+
+.error-text {
+  color: var(--color-error);
+  font-size: var(--fs-body);
+  margin-top: var(--sp-sm);
+}
+
+/* 진행 단계 */
+.progress-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.progress-steps li {
+  padding: var(--sp-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  color: var(--color-text-muted);
+}
+.progress-steps li .marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  flex: 0 0 auto;
+}
+.progress-steps li.active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.progress-steps li.active .marker {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.progress-steps li.done .marker {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
+/* 리포트 */
+.report-section {
+  margin-bottom: var(--sp-md);
+}
+.report-section h3 {
+  font-size: var(--fs-body-lg);
+  margin: 0 0 var(--sp-xs);
+}
+.report-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.report-list li {
+  padding: var(--sp-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: var(--sp-xs);
+  background: var(--color-surface);
+}
+.badge {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+.hazard-item {
+  border-left: 4px solid var(--color-error);
+}
+.hazard-item .badge {
+  background: #fdecea;
+  color: var(--color-error);
+}
+.disclaimer {
+  margin-top: var(--sp-md);
+  padding: var(--sp-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  font-size: var(--fs-body);
+}
+.allbaro-flag {
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+.report-actions {
+  margin-top: var(--sp-md);
+}
