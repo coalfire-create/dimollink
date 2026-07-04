@@ -87,6 +87,8 @@ def health(
         "pipeline": settings.pipeline,
         "queue_length": worker.qsize(),
         "environment": settings.environment,
+        # 운영 지표(§V4 비용/지연 모니터링).
+        "metrics": worker.metrics.snapshot(),
         # GPU 메모리 등 실측치는 vllm 파이프라인 연동 시 채운다(§5.1).
         "gpu": None,
     }

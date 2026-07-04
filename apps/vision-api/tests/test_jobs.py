@@ -39,6 +39,11 @@ def test_create_job_runs_to_done_with_valid_report(client):
     guidelines = report["process_steps"][0]["safety_guidelines"]
     assert guidelines and "샘플" in guidelines[0]["source_document"]
 
+    # 잡 완료가 운영 지표에 반영된다(§V4)
+    metrics = client.get("/v1/health").json()["metrics"]
+    assert metrics["jobs_succeeded"] >= 1
+    assert metrics["last_duration_seconds"] is not None
+
 
 def test_get_missing_job_404(client):
     r = client.get("/v1/jobs/does-not-exist", headers={"X-API-Key": API_KEY})

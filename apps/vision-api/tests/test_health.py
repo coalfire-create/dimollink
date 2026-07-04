@@ -6,3 +6,5 @@ def test_health_ok(client):
     assert body["pipeline"] == "mock"
     assert body["model_version"].endswith("+mock")
     assert body["queue_length"] >= 0
+    assert "metrics" in body
+    assert body["metrics"]["jobs_processed"] >= 0

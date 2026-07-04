@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from . import callback
 from .config import Settings
+from .metrics import Metrics
 from .pipeline import AnalysisPipeline
 from .schemas import JobStage, JobStatus
 from .store import JobStore
@@ -20,16 +22,25 @@ logger = logging.getLogger("vision.worker")
 
 class JobWorker:
     def __init__(
-        self, settings: Settings, store: JobStore, pipeline: AnalysisPipeline
+        self,
+        settings: Settings,
+        store: JobStore,
+        pipeline: AnalysisPipeline,
+        metrics: Metrics | None = None,
     ) -> None:
         self._settings = settings
         self._store = store
         self._pipeline = pipeline
+        self._metrics = metrics or Metrics()
         self._queue: asyncio.Queue[str] = asyncio.Queue()
         self._task: asyncio.Task | None = None
 
     def qsize(self) -> int:
         return self._queue.qsize()
+
+    @property
+    def metrics(self) -> Metrics:
+        return self._metrics
 
     def set_pipeline(self, pipeline: AnalysisPipeline) -> None:
         """LoRA 어댑터 교체(POST /admin/reload) 시 파이프라인 교체."""
@@ -72,6 +83,7 @@ class JobWorker:
             return
 
         self._store.update(job_id, status=JobStatus.PROCESSING, error=None)
+        started = time.monotonic()
 
         async def on_stage(stage: JobStage) -> None:
             self._store.update(job_id, stage=stage.value)
@@ -96,8 +108,9 @@ class JobWorker:
             self._store.update(
                 job_id, status=JobStatus.DONE, stage=None, result=report, error=None
             )
+            self._metrics.record_success(time.monotonic() - started)
         except Exception as exc:  # noqa: BLE001
-            await self._handle_failure(job_id, exc)
+            await self._handle_failure(job_id, exc, time.monotonic() - started)
 
         done = self._store.get(job_id)
         if done:
@@ -105,7 +118,7 @@ class JobWorker:
                 request.callback_url, done, self._settings.callback_secret
             )
 
-    async def _handle_failure(self, job_id: str, exc: Exception) -> None:
+    async def _handle_failure(self, job_id: str, exc: Exception, duration: float = 0.0) -> None:
         job = self._store.get(job_id)
         attempts = (job.attempts if job else 0) + 1
         if attempts <= self._settings.max_retries:
@@ -127,3 +140,4 @@ class JobWorker:
                 job_id, status=JobStatus.FAILED, stage=None, attempts=attempts,
                 error=str(exc),
             )
+            self._metrics.record_failure(duration)
