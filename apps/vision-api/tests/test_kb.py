@@ -5,10 +5,13 @@ import os
 
 from app.kb import (
     EMBED_DIM,
+    InMemoryRetriever,
     JsonlWriter,
     MockEmbedder,
+    build_inmemory_retriever,
     build_rows,
     chunk_document,
+    cosine_similarity,
     ingest,
     load_sources,
 )
@@ -79,6 +82,37 @@ def test_ingest_to_jsonl(tmp_path):
     for key in ("source", "clause", "body", "revised_at", "embedding"):
         assert key in row
     assert len(row["embedding"]) == 1024
+
+
+def test_cosine_similarity():
+    assert abs(cosine_similarity([1, 0, 0], [1, 0, 0]) - 1.0) < 1e-9
+    assert abs(cosine_similarity([1, 0], [0, 1])) < 1e-9
+
+
+def test_inmemory_retriever_ranks_exact_match_top():
+    embedder = MockEmbedder()
+    rows = build_rows(
+        [
+            KbChunk(source="A", clause="c1", body="사전조사 및 작업계획", revised_at=None),
+            KbChunk(source="B", clause="c2", body="석면 슬레이트 지붕재 처리", revised_at=None),
+        ],
+        embedder,
+    )
+    retriever = InMemoryRetriever(rows, embedder)
+    # 쿼리를 청크 본문과 동일하게 주면 결정적 임베딩이 일치 → top-1 score ≈ 1.0
+    hits = retriever.search("석면 슬레이트 지붕재 처리", top_k=2)
+    assert hits[0].source == "B"
+    assert abs(hits[0].score - 1.0) < 1e-6
+
+
+def test_build_inmemory_retriever_from_bundled_sources():
+    import os
+
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    retriever = build_inmemory_retriever(os.path.join(here, "kb_sources"), MockEmbedder())
+    hits = retriever.search("석면 해체 안전", top_k=3)
+    assert len(hits) > 0
+    assert all(h.source for h in hits)
 
 
 def test_load_bundled_sample_sources():

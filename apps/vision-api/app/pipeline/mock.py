@@ -31,9 +31,33 @@ from .base import StageCallback
 
 
 class MockPipeline:
-    def __init__(self, model_version: str, stage_delay: float = 0.0) -> None:
+    def __init__(
+        self,
+        model_version: str,
+        stage_delay: float = 0.0,
+        retriever=None,
+        top_k: int = 3,
+    ) -> None:
         self._model_version = model_version
         self._stage_delay = stage_delay
+        self._retriever = retriever
+        self._top_k = top_k
+
+    def _guidelines(self, query: str, fallback):
+        """RAG 검색으로 안전 지침을 근거 인용과 함께 구성. 검색기 없으면 fallback(§3.4)."""
+        if self._retriever is None:
+            return fallback
+        hits = self._retriever.search(query, top_k=self._top_k)
+        if not hits:
+            return fallback
+        return [
+            SafetyGuideline(
+                text=h.body.strip()[:160],
+                source_document=h.source,
+                source_clause=h.clause,
+            )
+            for h in hits[:2]
+        ]
 
     async def analyze(
         self, request: JobCreateRequest, on_stage: StageCallback
@@ -102,12 +126,15 @@ class MockPipeline:
                     required_equipment=["개인보호구"],
                     required_workforce="2인",
                     estimated_duration="0.5일",
-                    safety_guidelines=[
-                        SafetyGuideline(
-                            text="해체 착공 전 지장물 및 위험요인을 조사한다.",
-                            source_document="KOSHA 해체공사 안전보건작업 지침",
-                        ),
-                    ],
+                    safety_guidelines=self._guidelines(
+                        "해체작업 착공 전 사전조사 지장물 위험요인 작업계획",
+                        fallback=[
+                            SafetyGuideline(
+                                text="해체 착공 전 지장물 및 위험요인을 조사한다.",
+                                source_document="KOSHA 해체공사 안전보건작업 지침",
+                            )
+                        ],
+                    ),
                 ),
                 ProcessStep(
                     order=2,
@@ -116,12 +143,15 @@ class MockPipeline:
                     required_equipment=["고소작업 안전장비"],
                     required_workforce="전문 인력",
                     estimated_duration="현장 조건에 따름",
-                    safety_guidelines=[
-                        SafetyGuideline(
-                            text="석면이 의심되는 자재는 임의 제거하지 않고 전문 조사·처리 절차를 따른다.",
-                            source_document="석면안전관리법 관련 고시",
-                        ),
-                    ],
+                    safety_guidelines=self._guidelines(
+                        "석면 의심 슬레이트 지붕재 해체 제거 전문조사 안전",
+                        fallback=[
+                            SafetyGuideline(
+                                text="석면이 의심되는 자재는 임의 제거하지 않고 전문 조사·처리 절차를 따른다.",
+                                source_document="석면안전관리법 관련 고시",
+                            )
+                        ],
+                    ),
                 ),
             ],
             waste_plan=WastePlan(

@@ -3,6 +3,14 @@
 from .chunk import KbChunk, chunk_document
 from .embed import EMBED_DIM, Embedder, MockEmbedder, get_embedder
 from .ingest import JsonlWriter, PgWriter, build_rows, ingest, load_sources
+from .retrieve import (
+    InMemoryRetriever,
+    PgRetriever,
+    RetrievedChunk,
+    Retriever,
+    build_inmemory_retriever,
+    cosine_similarity,
+)
 
 __all__ = [
     "KbChunk",
@@ -16,4 +24,10 @@ __all__ = [
     "build_rows",
     "ingest",
     "load_sources",
+    "Retriever",
+    "RetrievedChunk",
+    "InMemoryRetriever",
+    "PgRetriever",
+    "build_inmemory_retriever",
+    "cosine_similarity",
 ]

@@ -35,6 +35,9 @@ def test_create_job_runs_to_done_with_valid_report(client):
     assert any(h["type"] == "ASBESTOS_SUSPECT" for h in report["hazards"])
     # 올바로 판정 필드 존재
     assert isinstance(report["waste_plan"]["allbaro_manifest_required"], bool)
+    # 공정 안전 지침은 RAG 지식베이스(kb_sources)에서 인용되어야 한다(§3.4)
+    guidelines = report["process_steps"][0]["safety_guidelines"]
+    assert guidelines and "샘플" in guidelines[0]["source_document"]
 
 
 def test_get_missing_job_404(client):

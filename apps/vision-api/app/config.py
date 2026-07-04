@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # 사진 장수 상한(기획서 §2.1 — 1~10장).
     max_photos: int = 10
 
+    # RAG 지식베이스(§3.4) — 원문 디렉터리와 검색 top-k.
+    kb_sources_dir: str = "kb_sources"
+    kb_top_k: int = 3
+
     environment: str = "local"
 
     @property
