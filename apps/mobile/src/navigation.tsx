@@ -77,7 +77,9 @@ export function TabBar({ active }: { active: TabName }) {
             onPress={() => nav.switchTab(tab)}
             style={styles.tabItem}
           >
-            <Text style={styles.tabIcon}>{icon}</Text>
+            <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
+              <Text style={styles.tabIcon}>{icon}</Text>
+            </View>
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{label}</Text>
           </Pressable>
         );
@@ -122,6 +124,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: touch.primaryButtonHeight + spacing.xs,
     paddingVertical: spacing.xs,
+  },
+  tabIconWrap: {
+    alignItems: 'center',
+    borderRadius: 999,
+    justifyContent: 'center',
+    marginBottom: 2,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+  },
+  tabIconWrapActive: {
+    backgroundColor: colors.primarySoft,
   },
   tabIcon: {
     fontSize: font.bodyLarge,

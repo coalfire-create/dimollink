@@ -6,9 +6,12 @@ import {
   type VolumeEstimate,
 } from '@dimol/shared';
 import { ApiError, estimateVolume } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field } from '../components/ui';
+import { AppButton, ErrorBanner, Field } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader } from '../navigation';
 import { theme } from '../theme';
+
+const CONFIDENCE_LABELS: Record<string, string> = { LOW: '참고 수준', MEDIUM: '보통' };
 
 /**
  * 폐기물 양 미리 계산 (Phase 6 물량 추정).
@@ -46,9 +49,7 @@ export function EstimateScreen() {
     <View style={styles.screen}>
       <ScreenHeader title="폐기물 양 미리 계산" canGoBack />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.intro}>
-          건물 면적과 구조를 알려 주시면 폐기물이 대략 몇 톤 나올지 계산해 드려요.
-        </Text>
+        <Text style={styles.intro}>면적과 구조로 예상 폐기물 양을 계산해요.</Text>
 
         <Field
           label="건물 연면적 (㎡)"
@@ -56,7 +57,7 @@ export function EstimateScreen() {
           onChangeText={setArea}
           placeholder="예) 100"
           keyboardType="numeric"
-          hint="1평은 약 3.3㎡ 예요. (30평 ≈ 99㎡)"
+          hint="30평 ≈ 99㎡"
         />
 
         <Text style={styles.structureLabel}>건물 구조 (선택)</Text>
@@ -83,11 +84,20 @@ export function EstimateScreen() {
         <AppButton label="계산하기" onPress={calculate} loading={loading} />
 
         {result ? (
-          <Card style={styles.resultCard}>
-            <Text style={styles.resultLabel}>예상 폐기물 양</Text>
-            <Text style={styles.resultTons}>약 {result.estimatedTons}톤</Text>
-            <Text style={styles.resultDisclaimer}>{result.disclaimer}</Text>
-          </Card>
+          <FadeInUp>
+            <View style={styles.resultCard}>
+              <View style={styles.resultTopRow}>
+                <Text style={styles.resultLabel}>예상 폐기물 양</Text>
+                <View style={styles.confidenceChip}>
+                  <Text style={styles.confidenceText}>
+                    신뢰도 {CONFIDENCE_LABELS[result.confidence] ?? result.confidence}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.resultTons}>약 {result.estimatedTons}톤</Text>
+              <Text style={styles.resultDisclaimer}>{result.disclaimer}</Text>
+            </View>
+          </FadeInUp>
         ) : null}
       </ScrollView>
     </View>
@@ -102,11 +112,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.sm,
+    padding: spacing.md,
     paddingBottom: spacing.lg,
   },
   intro: {
-    color: colors.text,
+    color: colors.textMuted,
     fontSize: font.body,
     marginBottom: spacing.md,
   },
@@ -122,13 +132,14 @@ const styles = StyleSheet.create({
   },
   structureChip: {
     alignItems: 'center',
-    borderColor: colors.border,
-    borderRadius: radius.button,
+    backgroundColor: colors.surface,
+    borderColor: 'transparent',
+    borderRadius: 999,
     borderWidth: 2,
     justifyContent: 'center',
     marginRight: spacing.xs,
     minHeight: touch.minButtonHeight,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   structureChipSelected: {
     backgroundColor: colors.primary,
@@ -137,20 +148,38 @@ const styles = StyleSheet.create({
   structureChipText: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   resultCard: {
-    backgroundColor: '#E7EFFC',
-    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.card,
     marginTop: spacing.md,
+    padding: spacing.lg,
+  },
+  resultTopRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   resultLabel: {
-    color: colors.textMuted,
+    color: colors.primary,
     fontSize: font.body,
+    fontWeight: '700',
+  },
+  confidenceChip: {
+    backgroundColor: colors.background,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+  },
+  confidenceText: {
+    color: colors.primary,
+    fontSize: font.caption,
+    fontWeight: '700',
   },
   resultTons: {
-    color: colors.primary,
-    fontSize: 40,
+    color: colors.text,
+    fontSize: 48,
     fontWeight: '800',
     marginVertical: spacing.xs,
   },

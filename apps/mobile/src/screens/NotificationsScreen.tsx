@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_STATUS_LABELS, type AppNotification } from '@dimol/shared';
 import { ApiError, listNotifications } from '../api/client';
 import { Card, EmptyState, ErrorBanner, LoadingView, StatusBadge } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -47,19 +48,25 @@ export function NotificationsScreen() {
             setRefreshing(false);
           }}
           ListEmptyComponent={
-            <EmptyState title="새 알림이 없어요" description="매칭·결제·작업 소식이 오면 여기에 떠요." />
+            <EmptyState
+              icon="🔔"
+              title="새 알림이 없어요"
+              description="매칭·결제·작업 소식이 오면 여기에 떠요."
+            />
           }
-          renderItem={({ item }) => (
-            <Card onPress={() => nav.push({ name: 'requestDetail', requestId: item.requestId })}>
-              <StatusBadge status={item.status} label={REQUEST_STATUS_LABELS[item.status]} />
-              <Text style={styles.message}>{item.message}</Text>
-              <Text style={styles.time}>
-                {new Date(item.createdAt).toLocaleString('ko-KR', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                })}
-              </Text>
-            </Card>
+          renderItem={({ item, index }) => (
+            <FadeInUp delay={Math.min(index, 6) * 60}>
+              <Card onPress={() => nav.push({ name: 'requestDetail', requestId: item.requestId })}>
+                <StatusBadge status={item.status} label={REQUEST_STATUS_LABELS[item.status]} />
+                <Text style={styles.message}>{item.message}</Text>
+                <Text style={styles.time}>
+                  {new Date(item.createdAt).toLocaleString('ko-KR', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </Text>
+              </Card>
+            </FadeInUp>
           )}
         />
       )}
@@ -77,12 +84,13 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    padding: spacing.sm,
+    padding: spacing.md,
   },
   message: {
     color: colors.text,
-    fontSize: font.body,
-    marginTop: spacing.xs,
+    fontSize: font.bodyLarge,
+    fontWeight: '600',
+    marginTop: spacing.sm,
   },
   time: {
     color: colors.textMuted,

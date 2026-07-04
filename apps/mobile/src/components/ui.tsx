@@ -178,9 +178,22 @@ export function LoadingView() {
   );
 }
 
-export function EmptyState({ title, description }: { title: string; description?: string }) {
+export function EmptyState({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description?: string;
+  icon?: string;
+}) {
   return (
     <View style={styles.centerFill}>
+      {icon ? (
+        <View style={styles.emptyIconCircle}>
+          <Text style={styles.emptyIcon}>{icon}</Text>
+        </View>
+      ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {description ? <Text style={styles.emptyDescription}>{description}</Text> : null}
     </View>
@@ -310,10 +323,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  emptyIconCircle: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    height: 88,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    width: 88,
+  },
+  emptyIcon: {
+    fontSize: 40,
+  },
   emptyTitle: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '700',
+    fontWeight: '800',
     marginBottom: spacing.xs,
     textAlign: 'center',
   },

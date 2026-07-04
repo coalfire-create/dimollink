@@ -10,6 +10,7 @@ import {
 } from '@dimol/shared';
 import { getRating } from '../api/client';
 import { AppButton, Card, InfoRow, SectionTitle } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -31,29 +32,38 @@ export function MyPageScreen() {
     <View style={styles.screen}>
       <ScreenHeader title="내 정보" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Card>
-          <Text style={styles.name}>{user.name}</Text>
-          <Text style={styles.role}>
-            {USER_TYPE_LABELS[user.userType] ?? user.userType} · {PILOT.region}
-          </Text>
-          <View style={styles.badgeRow}>
-            {user.allbaroCertified ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>✓ 올바로 인증 업체</Text>
+        <FadeInUp delay={40}>
+          <Card>
+            <View style={styles.profileRow}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{user.name.trim().charAt(0) || '비'}</Text>
               </View>
-            ) : null}
-            {user.insuranceRegistered ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>✓ 보험 가입</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{user.name}</Text>
+                <Text style={styles.role}>
+                  {USER_TYPE_LABELS[user.userType] ?? user.userType} · {PILOT.region}
+                </Text>
               </View>
-            ) : null}
-            {user.permitRegistered ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>✓ 허가증 등록</Text>
-              </View>
-            ) : null}
-          </View>
-        </Card>
+            </View>
+            <View style={styles.badgeRow}>
+              {user.allbaroCertified ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>✓ 올바로 인증</Text>
+                </View>
+              ) : null}
+              {user.insuranceRegistered ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>✓ 보험 가입</Text>
+                </View>
+              ) : null}
+              {user.permitRegistered ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>✓ 허가증</Text>
+                </View>
+              ) : null}
+            </View>
+          </Card>
+        </FadeInUp>
 
         <SectionTitle>계정</SectionTitle>
         <Card>
@@ -99,8 +109,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.sm,
+    padding: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  profileRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  avatar: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 60,
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    width: 60,
+  },
+  avatarText: {
+    color: colors.background,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
   },
   name: {
     color: colors.text,
@@ -115,14 +143,14 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   badge: {
-    backgroundColor: '#E7EFFC',
+    backgroundColor: colors.primarySoft,
     borderRadius: radius.badge,
     marginRight: spacing.xs,
     marginTop: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
   badgeText: {

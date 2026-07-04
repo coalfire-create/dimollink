@@ -15,6 +15,7 @@ import {
   adminSetApproval,
 } from '../api/client';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
 
 function todayKST(): string {
@@ -82,11 +83,19 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <View style={styles.screen}>
-      <Pressable accessibilityRole="button" onPress={onBack} style={styles.back}>
-        <Text style={styles.backLabel}>‹ 뒤로</Text>
-      </Pressable>
+      <View style={styles.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="뒤로 가기"
+          onPress={onBack}
+          style={styles.backButton}
+        >
+          <Text style={styles.backChevron}>‹</Text>
+        </Pressable>
+        <Text style={styles.headerTitle}>관리자</Text>
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>관리자 · 업체 승인</Text>
+        <Text style={styles.title}>업체 승인 · 정산</Text>
 
         <Field
           label="관리자 토큰"
@@ -105,8 +114,9 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
           pending.length === 0 ? (
             <Text style={styles.empty}>승인 대기 중인 업체가 없어요.</Text>
           ) : (
-            pending.map((u) => (
-              <Card key={u.id}>
+            pending.map((u, i) => (
+              <FadeInUp key={u.id} delay={Math.min(i, 6) * 60}>
+              <Card>
                 <Text style={styles.name}>{u.name}</Text>
                 <Text style={styles.meta}>
                   {USER_TYPE_LABELS[u.userType] ?? u.userType}
@@ -133,6 +143,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
                   />
                 </View>
               </Card>
+              </FadeInUp>
             ))
           )
         ) : null}
@@ -143,19 +154,21 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
             {settleQueue.length === 0 ? (
               <Text style={styles.empty}>정산할 완료 건이 없어요.</Text>
             ) : (
-              settleQueue.map((r) => (
-                <Card key={r.id}>
-                  <Text style={styles.name}>{REQUEST_KIND_LABELS[r.kind]}</Text>
-                  <Text style={styles.meta}>
-                    {r.agreedFee !== undefined ? `${r.agreedFee.toLocaleString('ko-KR')}원` : '금액 미확정'}
-                    {` · ${r.wasteTons}톤`}
-                  </Text>
-                  <AppButton
-                    label="정산 실행(지급)"
-                    onPress={() => settle(r.id)}
-                    loading={busyId === r.id}
-                  />
-                </Card>
+              settleQueue.map((r, i) => (
+                <FadeInUp key={r.id} delay={Math.min(i, 6) * 60}>
+                  <Card>
+                    <Text style={styles.name}>{REQUEST_KIND_LABELS[r.kind]}</Text>
+                    <Text style={styles.meta}>
+                      {r.agreedFee !== undefined ? `${r.agreedFee.toLocaleString('ko-KR')}원` : '금액 미확정'}
+                      {` · ${r.wasteTons}톤`}
+                    </Text>
+                    <AppButton
+                      label="정산 실행(지급)"
+                      onPress={() => settle(r.id)}
+                      loading={busyId === r.id}
+                    />
+                  </Card>
+                </FadeInUp>
               ))
             )}
           </>
@@ -169,8 +182,24 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  back: { justifyContent: 'center', minHeight: theme.touch.minButtonHeight, paddingHorizontal: spacing.md },
-  backLabel: { color: colors.primary, fontSize: font.bodyLarge, fontWeight: '700' },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: theme.touch.primaryButtonHeight + spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+  },
+  backButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    height: theme.touch.minButtonHeight,
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    width: theme.touch.minButtonHeight,
+  },
+  backChevron: { color: colors.text, fontSize: font.title, fontWeight: '800', lineHeight: font.title + 2 },
+  headerTitle: { color: colors.text, fontSize: font.title, fontWeight: '800' },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
   title: { color: colors.text, fontSize: font.titleLarge, fontWeight: '800', marginBottom: spacing.md },
   empty: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.md },
