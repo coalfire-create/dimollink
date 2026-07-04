@@ -88,7 +88,7 @@ export function ChatScreen({ requestId }: { requestId: string }) {
                 <Text style={[styles.bubbleText, mine && { color: colors.background }]}>
                   {item.content}
                 </Text>
-                <Text style={[styles.bubbleTime, mine && { color: '#D3E8DC' }]}>
+                <Text style={[styles.bubbleTime, mine && { color: '#C7D9F5' }]}>
                   {new Date(item.createdAt).toLocaleTimeString('ko-KR', {
                     hour: '2-digit',
                     minute: '2-digit',

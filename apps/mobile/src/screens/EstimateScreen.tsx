@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   resultCard: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderColor: colors.primary,
     marginTop: spacing.md,
   },

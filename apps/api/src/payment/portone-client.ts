@@ -133,7 +133,7 @@ export class PortOneClient {
         storeId: this.config.storeId,
         amount: req.amount,
         payMethod: method,
-        orderName: `디몰링크 매칭 ${req.matchRequestId}`,
+        orderName: `비움 매칭 ${req.matchRequestId}`,
       },
       `payment=${paymentId}`,
     );

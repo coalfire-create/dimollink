@@ -169,18 +169,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   mandatoryNotice: {
-    backgroundColor: '#FDF3E3',
+    backgroundColor: '#E7EFFC',
     borderRadius: radius.card,
     marginBottom: spacing.sm,
     padding: spacing.sm,
   },
   mandatoryTitle: {
-    color: '#8A5A00',
+    color: '#1E5FBF',
     fontSize: font.bodyLarge,
     fontWeight: '700',
   },
   mandatoryBody: {
-    color: '#8A5A00',
+    color: '#1E5FBF',
     fontSize: font.body,
     marginTop: spacing.xs,
   },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   checkboxRowChecked: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderColor: colors.primary,
   },
   checkboxMark: {

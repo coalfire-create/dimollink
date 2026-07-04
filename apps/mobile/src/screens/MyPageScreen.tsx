@@ -84,7 +84,7 @@ export function MyPageScreen() {
         <View style={{ height: theme.spacing.md }} />
         <AppButton label="로그아웃" variant="outline" onPress={logout} />
 
-        <Text style={styles.footer}>디몰링크 · {PILOT.region} 파일럿</Text>
+        <Text style={styles.footer}>비움 · {PILOT.region} 파일럿</Text>
       </ScrollView>
       <TabBar active="mypage" />
     </View>
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   badge: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderRadius: radius.badge,
     marginRight: spacing.xs,
     marginTop: spacing.xs,

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PILOT, isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { theme } from '../theme';
+import brandmark from '../../assets/brandmark.png';
 
 /** 숫자만 10자리 이상이면 휴대폰번호로 간주(서버가 최종 검증). */
 function isPhoneLike(value: string): boolean {
@@ -113,7 +114,14 @@ export function OnboardingScreen({
           <Text style={styles.backLabel}>‹ 뒤로</Text>
         </Pressable>
       ) : null}
-      <Text style={styles.appName}>디몰링크</Text>
+      <Image
+        source={brandmark}
+        style={styles.brandmark}
+        resizeMode="contain"
+        accessibilityLabel="비움 로고"
+      />
+      <Text style={styles.appName}>비움</Text>
+      <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
       <Text style={styles.tagline}>철거부터 폐기물 처리까지, 한 번에 연결해 드려요</Text>
       <Text style={styles.pilotNote}>지금은 {PILOT.region} 지역 건설폐기물만 서비스해요</Text>
 
@@ -229,11 +237,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: spacing.sm,
   },
+  brandmark: {
+    alignSelf: 'center',
+    height: 72,
+    marginTop: spacing.lg,
+    width: 72,
+  },
   appName: {
     color: colors.primary,
     fontSize: font.titleLarge,
     fontWeight: '800',
-    marginTop: spacing.lg,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  slogan: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
   tagline: {
@@ -263,7 +284,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   roleCardSelected: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderColor: colors.primary,
   },
   roleTitle: {

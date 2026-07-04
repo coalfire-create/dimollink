@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   availCardOn: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderColor: colors.primary,
   },
   availStatus: {

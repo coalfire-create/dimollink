@@ -1,8 +1,9 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PILOT } from '@dimol/shared';
 import { AppButton, Card } from '../components/ui';
 import { theme } from '../theme';
+import brandmark from '../../assets/brandmark.png';
 
 /**
  * 게스트(로그인 없이 둘러보기) 화면.
@@ -24,7 +25,14 @@ export function GuestHomeScreen({
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.appName}>디몰링크</Text>
+        <Image
+          source={brandmark}
+          style={styles.brandmark}
+          resizeMode="contain"
+          accessibilityLabel="비움 로고"
+        />
+        <Text style={styles.appName}>비움</Text>
+        <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
         <Text style={styles.tagline}>둘러보기 모드예요. 로그인하면 요청을 등록할 수 있어요.</Text>
         <Text style={styles.pilotNote}>지금은 {PILOT.region} 지역 건설폐기물만 서비스해요</Text>
 
@@ -64,11 +72,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.lg,
   },
+  brandmark: {
+    alignSelf: 'center',
+    height: 80,
+    width: 80,
+  },
   appName: {
     color: colors.primary,
     fontSize: font.titleLarge,
     fontWeight: '800',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  slogan: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
   tagline: {
@@ -95,7 +115,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs / 2,
   },
   notice: {
-    backgroundColor: '#E7F3EC',
+    backgroundColor: '#E7EFFC',
     borderRadius: radius.card,
     marginTop: spacing.sm,
     padding: spacing.sm,

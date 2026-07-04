@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     padding: spacing.sm,
   },
-  methodSelected: { backgroundColor: '#E7F3EC', borderColor: colors.primary },
+  methodSelected: { backgroundColor: '#E7EFFC', borderColor: colors.primary },
   methodLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   methodHint: { color: colors.textMuted, fontSize: font.caption, marginTop: spacing.xs / 2 },
   doneBox: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.lg },

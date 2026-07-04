@@ -25,10 +25,10 @@ export function statusColor(status: string): { background: string; text: string 
     case 'MATCHED':
     case 'PAID':
     case 'IN_PROGRESS':
-      return { background: '#FDF3E3', text: '#8A5A00' }; // 보조색 계열 연한 배경
+      return { background: '#EAF2FE', text: '#1E5FBF' }; // 보조(스카이블루) 계열 — 진행 중
     case 'COMPLETED':
     case 'SETTLED':
-      return { background: '#E7F3EC', text: theme.colors.primary }; // 메인색 계열 연한 배경
+      return { background: theme.colors.primarySoft, text: theme.colors.primary }; // 메인 계열 — 완료
     case 'CANCELLED':
       return { background: '#FBEAEA', text: theme.colors.error };
     default:

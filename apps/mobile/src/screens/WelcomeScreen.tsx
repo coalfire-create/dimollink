@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { PILOT } from '@dimol/shared';
 import { AppButton } from '../components/ui';
 import { theme } from '../theme';
+import brandmark from '../../assets/brandmark.png';
 
 /**
  * 진입 게이트 — 앱을 열면 가장 먼저 보이는 화면.
@@ -22,7 +23,14 @@ export function WelcomeScreen({
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.appName}>디몰링크</Text>
+        <Image
+          source={brandmark}
+          style={styles.brandmark}
+          resizeMode="contain"
+          accessibilityLabel="비움 로고"
+        />
+        <Text style={styles.appName}>비움</Text>
+        <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
         <Text style={styles.tagline}>철거부터 폐기물 처리까지,{'\n'}한 번에 연결해 드려요</Text>
         <Text style={styles.pilotNote}>지금은 {PILOT.region} 지역 건설폐기물만 서비스해요</Text>
       </View>
@@ -61,10 +69,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  brandmark: {
+    height: 112,
+    marginBottom: spacing.sm,
+    width: 112,
+  },
   appName: {
     color: colors.primary,
-    fontSize: font.titleLarge + 8,
+    fontSize: font.titleLarge + 12,
     fontWeight: '800',
+    letterSpacing: 1,
+  },
+  slogan: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginTop: spacing.xs,
   },
   tagline: {
     color: colors.text,

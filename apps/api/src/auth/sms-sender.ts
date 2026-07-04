@@ -40,7 +40,7 @@ export class HttpSmsSender implements SmsSender {
         body: JSON.stringify({
           to: phone.replace(/\D/g, ''),
           from: this.config.sender,
-          text: `[디몰링크] 인증번호 ${code} 를 입력해 주세요.`,
+          text: `[비움] 인증번호 ${code} 를 입력해 주세요.`,
         }),
         signal: controller.signal,
       });

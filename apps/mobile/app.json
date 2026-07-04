@@ -1,9 +1,9 @@
 {
-  "name": "DimolLink",
-  "displayName": "디몰링크",
+  "name": "Bium",
+  "displayName": "비움",
   "expo": {
-    "name": "디몰링크",
-    "slug": "dimol-link",
+    "name": "비움",
+    "slug": "bium",
     "version": "1.0.0",
     "sdkVersion": "52.0.0",
     "platforms": [
@@ -11,8 +11,22 @@
       "android",
       "web"
     ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.bium.app"
+    },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-asset",
