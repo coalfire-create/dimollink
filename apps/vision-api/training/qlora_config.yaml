@@ -1,0 +1,40 @@
+# 디몰비전 파인튜닝 레시피 v1 (기획서 §4.2 단계적 고도화, §6.2 학습 비용 최소화)
+# ⚠️ 실행은 GPU 필요(스팟 인스턴스). 여기서는 하이퍼파라미터·데이터 경로만 고정한다.
+# 과업별로 나눠 학습한다: 1패스(인식)를 먼저, 2패스(생성)는 루브릭 채점 후 필요 시.
+
+base_model: Qwen/Qwen3-VL-8B      # 오픈 웨이트, Apache-2.0
+method: qlora                      # 4bit 양자화 + LoRA (§6.2 학습 비용 최소화)
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]  # 실제 모듈명은 모델 구조에 맞춰 조정
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
+
+train:
+  epochs: 3
+  lr: 1.0e-4
+  batch_size: 4
+  grad_accum: 4
+  warmup_ratio: 0.03
+  max_seq_len: 4096
+  seed: 42
+
+# 과업별 데이터셋(JSONL). app/feedback/export.py 산출물 + AI Hub·자체 수집 라벨.
+tasks:
+  recognition:
+    train: data/train_recognition.jsonl   # image → site_summary/materials/hazards
+    output_adapter: adapters/recognition-v1
+  generation:
+    train: data/train_generation.jsonl     # 인식+근거 → process_steps/waste_plan
+    output_adapter: adapters/generation-v1
+    enabled: false   # 루브릭 채점 결과 필요 시 활성화(§4.2)
+
+# 종료 기준(§V3)은 scripts/eval.py 로 판정: 주요 5종 재현율 0.85, 석면 재현율 0.95.
+eval:
+  evalset: eval_samples/sample_evalset.jsonl   # 실제는 30현장 평가셋으로 교체
