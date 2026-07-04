@@ -19,7 +19,8 @@ export type Route =
   | { name: 'requestDetail'; requestId: string }
   | { name: 'chat'; requestId: string; counterpartyId: string }
   | { name: 'payment'; requestId: string }
-  | { name: 'estimate' };
+  | { name: 'estimate' }
+  | { name: 'siteAnalysis' };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

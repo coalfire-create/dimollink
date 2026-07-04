@@ -17,6 +17,7 @@ import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-coll
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
+import { ClaudeSiteAnalyzer, MockSiteAnalyzer } from './site-analysis/analyzer.js';
 import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { NotificationService } from './notifications/service.js';
@@ -43,6 +44,7 @@ import { createPaymentsRouter } from './routes/payments.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createChatRouter } from './routes/chat.js';
 import { createEstimationRouter } from './routes/estimation.js';
+import { createSiteAnalysisRouter } from './routes/site-analysis.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -200,6 +202,16 @@ export function createApp(
     createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))),
   );
   app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
+  // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
+  const mockSiteAnalyzer = new MockSiteAnalyzer();
+  const siteAnalyzer = env.ai.anthropicApiKey
+    ? new ClaudeSiteAnalyzer({
+        apiKey: env.ai.anthropicApiKey,
+        model: env.ai.anthropicModel,
+        timeoutMs: env.ai.anthropicTimeoutMs,
+      })
+    : mockSiteAnalyzer;
+  app.use('/api', createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer));
   app.use(
     '/api',
     createAdminRouter(

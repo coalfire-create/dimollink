@@ -27,6 +27,7 @@ import { PaymentScreen } from './src/screens/PaymentScreen';
 import { RequestDetailScreen } from './src/screens/RequestDetailScreen';
 import { RequestFormScreen } from './src/screens/RequestFormScreen';
 import { RequestListScreen } from './src/screens/RequestListScreen';
+import { SiteAnalysisScreen } from './src/screens/SiteAnalysisScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 
 /** 세션: 로그인 회원(UserProfile) / 게스트('guest') / 미진입(null). */
@@ -148,6 +149,8 @@ export default function App() {
         return <PaymentScreen requestId={route.requestId} />;
       case 'estimate':
         return <EstimateScreen />;
+      case 'siteAnalysis':
+        return <SiteAnalysisScreen />;
     }
   }
 

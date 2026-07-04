@@ -15,7 +15,8 @@ import type { TabName } from './navigation';
 /** 홈 카드가 이동할 목적지. */
 export type HomeActionRoute =
   | { name: 'requestForm'; kind: RequestKind }
-  | { name: 'estimate' };
+  | { name: 'estimate' }
+  | { name: 'siteAnalysis' };
 
 export interface HomeAction {
   key: string;
@@ -80,6 +81,13 @@ const ESTIMATE_ACTION: HomeAction = {
   description: '건물 면적으로 대략적인 양을 알아봐요',
   route: { name: 'estimate' },
 };
+const SITE_ANALYSIS_ACTION: HomeAction = {
+  key: 'siteAnalysis',
+  icon: '📷',
+  title: '현장 사진 분석',
+  description: '사진으로 소재·철거 공정을 알아봐요',
+  route: { name: 'siteAnalysis' },
+};
 
 export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
   CONSUMER: {
@@ -93,6 +101,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
         description: '건물·구조물 철거를 맡겨요',
         route: { name: 'requestForm', kind: 'DEMOLITION' },
       },
+      SITE_ANALYSIS_ACTION,
       ESTIMATE_ACTION,
     ],
     showAvailability: false,
@@ -120,6 +129,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
         description: '폐기물 반입 일정을 잡아요',
         route: { name: 'requestForm', kind: 'DISPOSAL_RESERVATION' },
       },
+      SITE_ANALYSIS_ACTION,
       ESTIMATE_ACTION,
     ],
     showAvailability: false,

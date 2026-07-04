@@ -94,6 +94,13 @@ export const env = {
     uploadUrlTtlSec: Number(process.env.STORAGE_UPLOAD_URL_TTL_SEC ?? 300),
     viewUrlTtlSec: Number(process.env.STORAGE_VIEW_URL_TTL_SEC ?? 600),
   },
+  ai: {
+    // 현장 사진 비전 분석(Claude). 미설정 시 목(mock) 분석으로 폴백(키·비용 없이 동작).
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    // 비전 분석 모델. 기본은 비용 대비 성능이 좋은 Sonnet.
+    anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+    anthropicTimeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
+  },
   portone: {
     baseUrl: process.env.PORTONE_API_BASE_URL ?? 'https://api.portone.io',
     apiSecret: process.env.PORTONE_API_SECRET,

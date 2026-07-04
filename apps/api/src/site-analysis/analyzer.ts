@@ -1,0 +1,157 @@
+import {
+  SITE_ANALYSIS_DISCLAIMER,
+  type DetectedMaterial,
+  type DemolitionStep,
+  type SiteAnalysis,
+} from '@dimol/shared';
+
+/**
+ * 현장 사진 AI 분석 어댑터 (로드맵 Phase 6).
+ * 올바로/포트원과 동일하게 "목 ↔ 실제" 를 인터페이스 뒤에 두고, 키 유무로 선택한다.
+ * - MockSiteAnalyzer: 키·비용 없이 동작(파일럿 기본). 결정적 샘플.
+ * - ClaudeSiteAnalyzer: 사진을 Claude 비전으로 분석(ANTHROPIC_API_KEY 필요).
+ * 결과는 항상 참고용이며 안전 고지(disclaimer)를 포함한다.
+ */
+
+export class SiteAnalysisValidationError extends Error {}
+
+export interface AnalyzeSiteInput {
+  /** 현장 사진 base64 (data: 접두사 없는 순수 base64). */
+  imageBase64?: string;
+  /** image/jpeg | image/png 등. 기본 image/jpeg. */
+  mimeType?: string;
+  /** 사용자가 덧붙이는 현장 메모(선택) — 분석 힌트. */
+  note?: string;
+}
+
+export interface SiteAnalyzer {
+  analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis>;
+}
+
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/** 공통 입력 검증 — 목·실제 모두 사용. */
+export function assertValidImage(input: AnalyzeSiteInput): {
+  imageBase64: string;
+  mimeType: string;
+} {
+  const imageBase64 = (input.imageBase64 ?? '').replace(/^data:[^,]+,/, '').trim();
+  if (imageBase64.length < 100) {
+    throw new SiteAnalysisValidationError('현장 사진(imageBase64)이 필요합니다.');
+  }
+  const mimeType = input.mimeType ?? 'image/jpeg';
+  if (!ALLOWED_MIME.has(mimeType)) {
+    throw new SiteAnalysisValidationError('지원 형식은 JPEG·PNG·WEBP 입니다.');
+  }
+  return { imageBase64, mimeType };
+}
+
+/** 결정적 목 — 건설폐기물(철거) 파일럿 범위의 대표 결과. */
+export class MockSiteAnalyzer implements SiteAnalyzer {
+  async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    assertValidImage(input);
+    const materials: DetectedMaterial[] = [
+      { category: 'CONCRETE', name: '철근콘크리트 벽체·슬래브', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '순환골재로 재활용 가능' },
+      { category: 'STEEL', name: '철근·형강', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '고철로 분리 매각' },
+      { category: 'BRICK', name: '벽돌·조적 마감', confidence: 'LOW', recyclable: true, hazardous: false },
+      { category: 'HAZARD', name: '슬레이트 지붕(석면 의심)', confidence: 'LOW', recyclable: false, hazardous: true, note: '석면 조사 전 임의 철거 금지 — 전문 업체 위탁' },
+    ];
+    const demolitionSteps: DemolitionStep[] = [
+      { order: 1, title: '사전 조사·신고', description: '구조안전 검토와 석면 조사 후 해체계획서·신고를 완료합니다.', caution: '석면 확인 시 지정 업체가 우선 제거' },
+      { order: 2, title: '내부 마감재 철거', description: '창호·석고보드·단열재 등 비구조 마감재를 먼저 분리합니다.' },
+      { order: 3, title: '지붕·비구조체 해체', description: '지붕재와 비내력벽을 상부에서 하부 순으로 해체합니다.', caution: '석면 슬레이트는 습식·밀봉 후 특별관리' },
+      { order: 4, title: '구조체 해체', description: '철근콘크리트 골조를 층별로 해체하며 살수로 분진을 억제합니다.' },
+      { order: 5, title: '분리·반출', description: '콘크리트·철근·목재를 종류별로 분리해 반출하고 인계서로 처리합니다.' },
+    ];
+    return {
+      summary: '철근콘크리트 주구조에 조적 마감, 석면 의심 지붕재가 관찰됩니다.',
+      materials,
+      demolitionSteps,
+      hazards: ['석면 의심 지붕재 — 조사 전 철거 금지', '해체 중 구조 붕괴·낙하물 주의', '분진 발생 — 살수·보호구 필수'],
+      method: 'MOCK',
+      confidence: 'LOW',
+      disclaimer: SITE_ANALYSIS_DISCLAIMER,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+}
+
+export interface ClaudeAnalyzerConfig {
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  baseUrl?: string;
+}
+
+const SYSTEM_PROMPT =
+  '당신은 한국의 건설폐기물 철거 현장 분석 보조자입니다. 제공된 현장 사진을 보고 ' +
+  '구성 소재와 권장 철거 공정, 위험 요소를 분석합니다. 반드시 지정된 JSON 스키마로만 ' +
+  '응답하고, 불확실하면 confidence 를 낮추세요. 석면 등 위험 소재는 hazardous=true 로 표시하고 ' +
+  '임의 제거를 권하지 마세요. 모든 텍스트는 한국어로 작성합니다.';
+
+const USER_INSTRUCTION =
+  '이 철거 현장 사진을 분석해 아래 JSON 스키마로만 답하세요(코드블록·설명 없이 JSON 객체 하나):\n' +
+  '{"summary": string, "materials": [{"category": "CONCRETE|STEEL|BRICK|WOOD|GLASS|GYPSUM|INSULATION|ROOFING|HAZARD|OTHER", "name": string, "confidence": "LOW|MEDIUM|HIGH", "recyclable": boolean, "hazardous": boolean, "note"?: string}], "demolitionSteps": [{"order": number, "title": string, "description": string, "caution"?: string}], "hazards": string[], "confidence": "LOW|MEDIUM|HIGH"}';
+
+/** 실제 Claude 비전 분석 — 실패 시 예외를 던진다(라우터가 목으로 폴백). */
+export class ClaudeSiteAnalyzer implements SiteAnalyzer {
+  constructor(private readonly config: ClaudeAnalyzerConfig) {}
+
+  async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    const { imageBase64, mimeType } = assertValidImage(input);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    let text: string;
+    try {
+      const res = await fetch(`${this.config.baseUrl ?? 'https://api.anthropic.com'}/v1/messages`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': this.config.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: this.config.model,
+          max_tokens: 1500,
+          system: SYSTEM_PROMPT,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+                { type: 'text', text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`anthropic ${res.status}`);
+      const body = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+      text = body.content?.find((c) => c.type === 'text')?.text ?? '';
+    } finally {
+      clearTimeout(timer);
+    }
+    return this.parse(text);
+  }
+
+  /** 모델 텍스트에서 JSON 추출·검증 후 SiteAnalysis 로 정규화. */
+  private parse(text: string): SiteAnalysis {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start < 0 || end <= start) throw new Error('AI 응답 파싱 실패');
+    const raw = JSON.parse(text.slice(start, end + 1)) as Partial<SiteAnalysis>;
+    return {
+      summary: typeof raw.summary === 'string' ? raw.summary : '현장 분석 결과',
+      materials: Array.isArray(raw.materials) ? (raw.materials as DetectedMaterial[]) : [],
+      demolitionSteps: Array.isArray(raw.demolitionSteps)
+        ? (raw.demolitionSteps as DemolitionStep[])
+        : [],
+      hazards: Array.isArray(raw.hazards) ? raw.hazards.filter((h): h is string => typeof h === 'string') : [],
+      method: 'AI_VISION',
+      confidence: raw.confidence === 'HIGH' || raw.confidence === 'MEDIUM' ? raw.confidence : 'LOW',
+      disclaimer: SITE_ANALYSIS_DISCLAIMER,
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+}

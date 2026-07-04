@@ -17,6 +17,7 @@ import type {
   RequestKind,
   ServiceRequest,
   SettlementPlan,
+  SiteAnalysis,
   UserApprovalStatus,
   UserProfile,
   UserType,
@@ -203,6 +204,10 @@ export const sendMessage = (requestId: string, senderId: string, content: string
     method: 'POST',
     body: JSON.stringify({ senderId, content }),
   });
+
+// ── 현장 사진 AI 분석 (Phase 6): 소재 식별 + 철거 공정 안내
+export const analyzeSite = (input: { imageBase64: string; mimeType?: string; note?: string }) =>
+  api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
 
 // ── 물량 추정 (Phase 6)
 export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
