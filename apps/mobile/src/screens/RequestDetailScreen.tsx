@@ -26,6 +26,7 @@ import {
   SectionTitle,
   StatusBadge,
 } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -160,35 +161,49 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         </View>
 
         {!cancelled ? (
-          <Card>
-            {TIMELINE.map((step, index) => {
-              const reached = index <= activeIndex;
-              const isCurrent = index === activeIndex;
-              return (
-                <View key={step} style={styles.timelineRow}>
-                  <Text style={[styles.timelineDot, reached && { color: colors.primary }]}>
-                    {reached ? '●' : '○'}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.timelineLabel,
-                      reached && { color: colors.text },
-                      isCurrent && { fontWeight: '800', color: colors.primary },
-                    ]}
-                  >
-                    {REQUEST_STATUS_LABELS[step]}
-                  </Text>
-                </View>
-              );
-            })}
-          </Card>
+          <FadeInUp delay={40}>
+            <Card>
+              {TIMELINE.map((step, index) => {
+                const reached = index <= activeIndex;
+                const isCurrent = index === activeIndex;
+                const isLast = index === TIMELINE.length - 1;
+                return (
+                  <View key={step} style={styles.timelineRow}>
+                    <View style={styles.timelineMarker}>
+                      <View
+                        style={[
+                          styles.timelineDot,
+                          reached && styles.timelineDotReached,
+                          isCurrent && styles.timelineDotCurrent,
+                        ]}
+                      />
+                      {!isLast ? (
+                        <View style={[styles.timelineLine, reached && styles.timelineLineReached]} />
+                      ) : null}
+                    </View>
+                    <Text
+                      style={[
+                        styles.timelineLabel,
+                        reached && { color: colors.text },
+                        isCurrent && { fontWeight: '800', color: colors.primary },
+                      ]}
+                    >
+                      {REQUEST_STATUS_LABELS[step]}
+                    </Text>
+                  </View>
+                );
+              })}
+            </Card>
+          </FadeInUp>
         ) : (
-          <Card>
-            <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
-            {request.cancelReason ? (
-              <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
-            ) : null}
-          </Card>
+          <FadeInUp delay={40}>
+            <Card>
+              <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
+              {request.cancelReason ? (
+                <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
+              ) : null}
+            </Card>
+          </FadeInUp>
         )}
 
         <SectionTitle>요청 정보</SectionTitle>
@@ -224,7 +239,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         {quotes.length > 0 ? (
           <>
             <SectionTitle>받은 견적 ({quotes.length})</SectionTitle>
-            <Text style={styles.quoteHint}>가격을 비교하고 하나를 선택하면 그 업체로 매칭돼요.</Text>
+            <Text style={styles.quoteHint}>가격을 비교하고 선택하세요.</Text>
             {[...quotes]
               .sort((a, b) => a.amount - b.amount)
               .map((q, i) => (
@@ -250,7 +265,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             <SectionTitle>결제</SectionTitle>
             <Card>
               <Text style={styles.payAmount}>{request.agreedFee.toLocaleString('ko-KR')}원</Text>
-              <Text style={styles.quoteHint}>매칭된 업체와 합의된 금액이에요. 결제하면 작업이 시작돼요.</Text>
+              <Text style={styles.quoteHint}>합의 금액 · 결제하면 작업이 시작돼요.</Text>
               <AppButton
                 label="결제하기"
                 onPress={() => nav.push({ name: 'payment', requestId: request.id })}
@@ -300,12 +315,12 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             <Card>
               {request.status === 'PAID' ? (
                 <>
-                  <Text style={styles.quoteHint}>결제가 완료됐어요. 현장에 도착하면 작업을 시작하세요.</Text>
+                  <Text style={styles.quoteHint}>현장 도착 후 작업을 시작하세요.</Text>
                   <AppButton label="작업 시작" onPress={() => advance('IN_PROGRESS')} loading={advancing} />
                 </>
               ) : (
                 <>
-                  <Text style={styles.quoteHint}>작업이 끝나면 완료 처리하세요. 완료 후 정산이 진행돼요.</Text>
+                  <Text style={styles.quoteHint}>작업이 끝나면 완료 처리하세요.</Text>
                   <AppButton label="작업 완료" onPress={() => advance('COMPLETED')} loading={advancing} />
                 </>
               )}
@@ -373,19 +388,44 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   timelineRow: {
-    alignItems: 'center',
     flexDirection: 'row',
-    paddingVertical: spacing.xs,
   },
-  timelineDot: {
-    color: colors.border,
-    fontSize: font.body,
+  timelineMarker: {
+    alignItems: 'center',
     marginRight: spacing.sm,
     width: spacing.md,
+  },
+  timelineDot: {
+    backgroundColor: colors.border,
+    borderRadius: 999,
+    height: 12,
+    marginTop: 4,
+    width: 12,
+  },
+  timelineDotReached: {
+    backgroundColor: colors.primary,
+  },
+  timelineDotCurrent: {
+    borderColor: colors.primarySoft,
+    borderWidth: 4,
+    height: 18,
+    marginTop: 1,
+    width: 18,
+  },
+  timelineLine: {
+    backgroundColor: colors.border,
+    flex: 1,
+    marginVertical: 2,
+    minHeight: 20,
+    width: 2,
+  },
+  timelineLineReached: {
+    backgroundColor: colors.primary,
   },
   timelineLabel: {
     color: colors.textMuted,
     fontSize: font.body,
+    paddingBottom: spacing.sm,
   },
   cancelledTitle: {
     color: colors.error,

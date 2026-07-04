@@ -116,13 +116,22 @@ export interface FieldProps extends TextInputProps {
   hint?: string;
 }
 
-export function Field({ label, hint, style, ...inputProps }: FieldProps) {
+export function Field({ label, hint, style, onFocus, onBlur, ...inputProps }: FieldProps) {
+  const [focused, setFocused] = React.useState(false);
   return (
-    <View style={{ marginBottom: spacing.sm }}>
+    <View style={{ marginBottom: spacing.md }}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         placeholderTextColor={colors.textMuted}
-        style={[styles.fieldInput, style]}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        style={[styles.fieldInput, focused && styles.fieldInputFocused, style]}
         {...inputProps}
       />
       {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
@@ -130,9 +139,14 @@ export function Field({ label, hint, style, ...inputProps }: FieldProps) {
   );
 }
 
-// ── 섹션 제목
+// ── 섹션 제목 (작고 절제된 라벨 톤)
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
+}
+
+// ── 하단 고정 CTA 바 (결제/접수 등 핵심 동작을 화면 하단에 고정)
+export function StickyFooter({ children }: { children: React.ReactNode }) {
+  return <View style={styles.stickyFooter}>{children}</View>;
 }
 
 // ── 라벨-값 행 (상세 화면용)
@@ -228,14 +242,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   fieldInput: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderColor: 'transparent',
     borderRadius: radius.button,
-    borderWidth: 1,
+    borderWidth: 2,
     color: colors.text,
     fontSize: font.bodyLarge,
-    minHeight: touch.minButtonHeight,
+    minHeight: touch.primaryButtonHeight,
     paddingHorizontal: spacing.sm,
+  },
+  fieldInputFocused: {
+    backgroundColor: colors.background,
+    borderColor: colors.primary,
   },
   fieldHint: {
     color: colors.textMuted,
@@ -244,10 +262,17 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.text,
-    fontSize: font.title,
-    fontWeight: '700',
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
     marginBottom: spacing.sm,
     marginTop: spacing.md,
+  },
+  stickyFooter: {
+    backgroundColor: colors.background,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   infoRow: {
     borderBottomColor: colors.border,

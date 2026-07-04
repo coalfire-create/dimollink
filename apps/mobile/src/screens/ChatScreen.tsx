@@ -3,7 +3,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
 import { CHAT_MESSAGE_MAX_LENGTH, type ChatMessage } from '@dimol/shared';
 import { ApiError, listMessages, sendMessage } from '../api/client';
 import { EmptyState, ErrorBanner } from '../components/ui';
+import { PressableScale } from '../components/motion';
 import { ScreenHeader, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -109,25 +109,24 @@ export function ChatScreen({ requestId }: { requestId: string }) {
           multiline
           style={styles.input}
         />
-        <Pressable
+        <PressableScale
           accessibilityRole="button"
           accessibilityLabel="보내기"
           onPress={submit}
           disabled={sending || draft.trim().length === 0}
-          style={({ pressed }) => [
+          style={[
             styles.sendButton,
             (sending || draft.trim().length === 0) && { opacity: 0.4 },
-            pressed && { opacity: 0.7 },
           ]}
         >
-          <Text style={styles.sendLabel}>보내기</Text>
-        </Pressable>
+          <Text style={styles.sendLabel}>↑</Text>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const { colors, font, spacing, touch, radius } = theme;
+const { colors, font, spacing, touch } = theme;
 
 const styles = StyleSheet.create({
   screen: {
@@ -143,15 +142,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   bubble: {
-    borderRadius: radius.card,
+    borderRadius: 22,
     maxWidth: '80%',
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
   },
   bubbleMine: {
     backgroundColor: colors.primary,
+    borderBottomRightRadius: 6,
   },
   bubbleOther: {
     backgroundColor: colors.surface,
+    borderBottomLeftRadius: 6,
   },
   bubbleText: {
     color: colors.text,
@@ -164,34 +166,37 @@ const styles = StyleSheet.create({
   },
   inputBar: {
     alignItems: 'flex-end',
+    backgroundColor: colors.background,
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    padding: spacing.xs,
+    padding: spacing.sm,
   },
   input: {
     backgroundColor: colors.surface,
-    borderRadius: radius.button,
+    borderRadius: 24,
     color: colors.text,
     flex: 1,
     fontSize: font.body,
     marginRight: spacing.xs,
     maxHeight: 120,
     minHeight: touch.minButtonHeight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
   },
   sendButton: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: radius.button,
+    borderRadius: 999,
     height: touch.minButtonHeight,
     justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
+    width: touch.minButtonHeight,
+    ...theme.shadow.primary,
   },
   sendLabel: {
     color: colors.background,
-    fontSize: font.body,
-    fontWeight: '700',
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+    lineHeight: font.titleLarge + 2,
   },
 });

@@ -98,7 +98,7 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
           onPress={() => nav.pop()}
           style={styles.backButton}
         >
-          <Text style={styles.backLabel}>‹ 뒤로</Text>
+          <Text style={styles.backLabel}>‹</Text>
         </Pressable>
       ) : null}
       <Text style={styles.headerTitle}>{title}</Text>
@@ -114,6 +114,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
+    paddingBottom: spacing.xs,
   },
   tabItem: {
     alignItems: 'center',
@@ -137,27 +138,30 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: colors.background,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: touch.primaryButtonHeight,
-    paddingHorizontal: spacing.sm,
+    minHeight: touch.primaryButtonHeight + spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
   },
   backButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    height: touch.minButtonHeight,
     justifyContent: 'center',
     marginRight: spacing.sm,
-    minHeight: touch.minButtonHeight,
-    minWidth: touch.minButtonHeight,
+    width: touch.minButtonHeight,
   },
   backLabel: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+    lineHeight: font.title + 2,
   },
   headerTitle: {
     color: colors.text,
     flexShrink: 1,
     fontSize: font.title,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

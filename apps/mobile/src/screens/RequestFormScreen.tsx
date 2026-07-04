@@ -6,7 +6,8 @@ import {
   type RequestKind,
 } from '@dimol/shared';
 import { ApiError, createRequest } from '../api/client';
-import { AppButton, ErrorBanner, Field } from '../components/ui';
+import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
+import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -68,10 +69,11 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
     <View style={styles.screen}>
       <ScreenHeader title={KIND_TITLES[kind]} canGoBack />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.pilotNote}>
-          접수 지역: {PILOT.region} · 건설폐기물 (파일럿 기간)
-        </Text>
+        <View style={styles.pilotChip}>
+          <Text style={styles.pilotChipText}>{PILOT.region} · 건설폐기물</Text>
+        </View>
 
+       <FadeInUp delay={40}>
         {kind === 'DEMOLITION' ? (
           <Field
             label="현장 주소"
@@ -114,15 +116,17 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
           keyboardType="numeric"
           hint="잘 모르면 홈의 '폐기물 양 미리 계산'을 이용해 보세요."
         />
+       </FadeInUp>
 
         {allbaroMandatory ? (
-          <View style={styles.mandatoryNotice}>
-            <Text style={styles.mandatoryTitle}>올바로 신고 대상이에요</Text>
-            <Text style={styles.mandatoryBody}>
-              건설폐기물 {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 올바로(환경부) 전자인계서
-              신고 의무 대상입니다. 아래를 켜 두시면 저희가 대신 처리해 드려요.
-            </Text>
-          </View>
+          <FadeInUp>
+            <View style={styles.mandatoryNotice}>
+              <Text style={styles.mandatoryTitle}>♻️ 올바로 신고 대상</Text>
+              <Text style={styles.mandatoryBody}>
+                {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜 두면 자동으로 처리해 드려요.
+              </Text>
+            </View>
+          </FadeInUp>
         ) : null}
 
         <Pressable
@@ -133,21 +137,18 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
         >
           <Text style={styles.checkboxMark}>{allbaroRequested ? '☑' : '☐'}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.checkboxLabel}>올바로 전자인계서 신고가 필요한 건인가요?</Text>
+            <Text style={styles.checkboxLabel}>올바로 전자인계서 신고</Text>
             <Text style={styles.checkboxHint}>
-              {allbaroRequested
-                ? '네 — 전자인계서를 자동으로 발행해 드려요.'
-                : '아니요 — 자체 간이 확인서를 발급해 드려요.'}
+              {allbaroRequested ? '자동 발행해 드려요' : '자체 간이 확인서로 대체'}
             </Text>
           </View>
         </Pressable>
 
         <ErrorBanner message={error} />
-        <AppButton label="접수하기" onPress={submit} loading={submitting} />
-        <Text style={styles.footNote}>
-          접수 후 업체가 매칭되면 알림으로 알려 드려요. 결제는 매칭 확정 후에 진행돼요.
-        </Text>
       </ScrollView>
+      <StickyFooter>
+        <AppButton label="접수하기" onPress={submit} loading={submitting} />
+      </StickyFooter>
     </View>
   );
 }
@@ -160,24 +161,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.sm,
+    padding: spacing.md,
     paddingBottom: spacing.lg,
   },
-  pilotNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginBottom: spacing.sm,
+  pilotChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  pilotChipText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
   },
   mandatoryNotice: {
-    backgroundColor: '#E7EFFC',
+    backgroundColor: colors.primarySoft,
+    borderLeftColor: colors.primary,
+    borderLeftWidth: 4,
     borderRadius: radius.card,
-    marginBottom: spacing.sm,
-    padding: spacing.sm,
+    marginBottom: spacing.md,
+    padding: spacing.md,
   },
   mandatoryTitle: {
     color: '#1E5FBF',
     fontSize: font.bodyLarge,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   mandatoryBody: {
     color: '#1E5FBF',
@@ -186,15 +197,17 @@ const styles = StyleSheet.create({
   },
   checkboxRow: {
     alignItems: 'center',
-    borderColor: colors.border,
+    backgroundColor: colors.background,
+    borderColor: 'transparent',
     borderRadius: radius.card,
     borderWidth: 2,
     flexDirection: 'row',
     marginBottom: spacing.sm,
-    padding: spacing.sm,
+    padding: spacing.md,
+    ...theme.shadow.card,
   },
   checkboxRowChecked: {
-    backgroundColor: '#E7EFFC',
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
   checkboxMark: {
@@ -204,18 +217,12 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     color: colors.text,
-    fontSize: font.body,
+    fontSize: font.bodyLarge,
     fontWeight: '700',
   },
   checkboxHint: {
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs / 2,
-  },
-  footNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginTop: spacing.sm,
-    textAlign: 'center',
   },
 });
