@@ -22,6 +22,11 @@ gpu = [
     # "vllm>=0.6",
     # "torch",
 ]
+# RAG KB 적재(실제 BGE-M3 임베딩 + Postgres 저장). 로컬/CI 는 mock+JSONL 로 검증.
+kb = [
+    "FlagEmbedding>=1.2",
+    "psycopg[binary]>=3.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

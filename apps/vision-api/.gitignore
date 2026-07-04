@@ -12,3 +12,5 @@ vision_jobs.db-shm
 *.db
 *.db-wal
 *.db-shm
+# KB 적재 CLI 기본 출력(생성물)
+kb_chunks.jsonl
