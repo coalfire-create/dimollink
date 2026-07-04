@@ -124,15 +124,77 @@
     };
   }
 
-  function createSupabaseClient() {
-    // TODO(V1): Supabase 업로드(서명 URL) → analyses insert → Edge Function 트리거 →
-    //           Realtime 구독으로 stage/result 반영. 현재는 미구현.
-    throw new Error("Supabase 연동은 아직 미구현입니다. config.mock=true 로 사용하세요.");
+  function createSupabaseClient(config) {
+    // 실제 흐름(기획서 §3.2): sign-upload → Storage 직접 업로드 → create-analysis →
+    // analyses 행 Realtime 구독으로 stage/result 반영. Edge Functions 배포 필요.
+    // ⚠️ 미검증(로컬에 Supabase 프로젝트 없음). 로그인 세션(supabase.auth) 전제.
+    var sb = null;
+    var channel = null;
+
+    async function ensureClient() {
+      if (sb) return sb;
+      var mod = await import("https://esm.sh/@supabase/supabase-js@2");
+      sb = mod.createClient(config.supabaseUrl, config.supabaseAnonKey);
+      return sb;
+    }
+
+    async function invoke(name, payload) {
+      var client = await ensureClient();
+      var res = await client.functions.invoke(name, { body: payload });
+      if (res.error) throw new Error(name + " 실패: " + res.error.message);
+      return res.data;
+    }
+
+    return {
+      cancel: function () {
+        if (channel && sb) sb.removeChannel(channel);
+      },
+      analyze: async function (files, meta, handlers) {
+        var onStage = handlers.onStage || function () {};
+        var onDone = handlers.onDone || function () {};
+        var onError = handlers.onError || function () {};
+        try {
+          var client = await ensureClient();
+          // 1) 업로드 서명 URL
+          var signed = await invoke("sign-upload", {
+            files: files.map(function (f) { return { content_type: f.type }; }),
+          });
+          // 2) Storage 직접 업로드
+          for (var i = 0; i < files.length; i++) {
+            var up = signed.uploads[i];
+            var r = await client.storage.from(signed.bucket).uploadToSignedUrl(up.path, up.token, files[i]);
+            if (r.error) throw new Error("업로드 실패: " + r.error.message);
+          }
+          // 3) 분석 생성(트리거)
+          var created = await invoke("create-analysis", {
+            photo_paths: signed.uploads.map(function (u) { return u.path; }),
+            input_meta: meta,
+          });
+          var analysisId = created.analysis_id;
+          // 4) Realtime 구독으로 진행/결과 반영
+          channel = client
+            .channel("analysis-" + analysisId)
+            .on(
+              "postgres_changes",
+              { event: "UPDATE", schema: "public", table: "analyses", filter: "id=eq." + analysisId },
+              function (payload) {
+                var row = payload.new;
+                if (row.status === "done") { onDone(row.result); client.removeChannel(channel); }
+                else if (row.status === "failed") { onError(new Error(row.error || "분석 실패")); client.removeChannel(channel); }
+                else if (row.stage) { onStage(row.stage); }
+              },
+            )
+            .subscribe();
+        } catch (e) {
+          onError(e);
+        }
+      },
+    };
   }
 
   DV.createClient = function (config) {
     var useMock = !config || config.mock || !config.supabaseUrl || !config.supabaseAnonKey;
-    return useMock ? createMockClient() : createSupabaseClient();
+    return useMock ? createMockClient() : createSupabaseClient(config);
   };
   DV._sampleReport = sampleReport; // 테스트용
 })(typeof window !== "undefined" ? window : globalThis);
