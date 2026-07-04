@@ -10,12 +10,21 @@ export interface CollectionPersistence<T> {
   save(items: T[]): void;
 }
 
-/** 컬렉션 이름 → 영속화 어댑터 생성. JSON 파일 또는 PostgreSQL 구현을 주입한다. */
+/**
+ * 컬렉션 이름 → 영속화 어댑터 생성.
+ * keyOf: 엔티티의 고유 키 추출자(PostgreSQL 행 단위 저장의 PK). 기본은 item.id.
+ * 대부분 컬렉션은 `id` 를 쓰고, 결제는 `paymentId`, 세션은 `token` 을 넘긴다.
+ */
 export interface PersistenceFactory {
-  <T>(name: string): CollectionPersistence<T>;
+  <T>(name: string, keyOf?: (item: T) => string): CollectionPersistence<T>;
 }
 
-/** JSON 파일 기반 영속화 팩토리(기본). `<name>.json` 파일에 저장한다. */
+/** 기본 키 추출자 — item.id. */
+export function defaultKeyOf<T>(item: T): string {
+  return (item as { id?: unknown }).id as string;
+}
+
+/** JSON 파일 기반 영속화 팩토리(기본). `<name>.json` 파일에 저장한다(keyOf 무시). */
 export function jsonPersistenceFactory(dataDir: string): PersistenceFactory {
   return <T>(name: string): CollectionPersistence<T> =>
     new JsonCollectionFile<T>(dataDir, `${name}.json`);

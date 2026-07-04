@@ -1,16 +1,21 @@
 import pg from 'pg';
-import type { CollectionPersistence, PersistenceFactory } from './json-collection.js';
+import {
+  defaultKeyOf,
+  type CollectionPersistence,
+  type PersistenceFactory,
+} from './json-collection.js';
 
 /**
- * PostgreSQL 영속화 어댑터.
+ * PostgreSQL 영속화 어댑터 — 엔티티(행) 단위 저장.
  *
- * 각 컬렉션을 kv_collections 테이블의 한 행(JSONB 배열)으로 저장한다. 부팅 시 전체를
- * 메모리로 프리로드해 동기 인터페이스(load/save)를 만족시키고, save 는 백그라운드로
- * 직렬화해 upsert 한다(재시작·배포에도 데이터 유지).
+ * 각 엔티티를 entities(collection, id, data jsonb) 테이블의 한 행으로 저장한다.
+ * 부팅 시 컬렉션 전체를 메모리로 프리로드해 동기 인터페이스(load/save)를 만족시키고,
+ * save 는 변경 엔티티만 백그라운드로 upsert 한다.
  *
- * ⚠️ 컬렉션 단위 전체 저장이라 단일 라이터(단일 인스턴스) 기준이다. 다중 인스턴스
- *   동시 쓰기가 필요하면 엔티티별 행(row) 저장소로 확장한다.
- * ⚠️ save 는 비동기 백그라운드 기록 — 크래시 시 마지막 쓰기 유실 가능(작은 창).
+ * 장점(통짜 JSONB 대비): 서로 다른 엔티티를 동시에 쓰는 인스턴스끼리 클로버링하지 않음
+ *   (행 단위 upsert). 같은 엔티티 동시 쓰기는 last-write-wins.
+ * 한계: 여전히 컬렉션 전체를 메모리 캐시로 들고, 필드 단위 컬럼/인덱스는 없음(대규모 시 정규화 필요).
+ *   현재 앱은 하드 삭제가 없으므로(취소/정지는 상태 전이) 삭제 전파는 다루지 않는다.
  */
 
 /** 저장 대상 컬렉션 이름(부팅 시 프리로드). */
@@ -32,7 +37,7 @@ export interface PgQueryable {
   query(text: string, params?: unknown[]): Promise<{ rows: Array<Record<string, unknown>> }>;
 }
 
-export class PgCollectionStore<T> implements CollectionPersistence<T> {
+export class PgEntityStore<T> implements CollectionPersistence<T> {
   private cache: T[];
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -40,6 +45,7 @@ export class PgCollectionStore<T> implements CollectionPersistence<T> {
     private readonly pool: PgQueryable,
     private readonly name: string,
     initial: T[],
+    private readonly keyOf: (item: T) => string,
   ) {
     this.cache = initial;
   }
@@ -49,18 +55,32 @@ export class PgCollectionStore<T> implements CollectionPersistence<T> {
   }
 
   save(items: T[]): void {
+    // 이전 캐시 대비 변경/추가된 엔티티만 골라 행 단위 upsert(전체 재작성 안 함).
+    const prev = new Map(this.cache.map((it) => [this.keyOf(it), JSON.stringify(it)]));
+    const changed: T[] = [];
+    for (const item of items) {
+      const key = this.keyOf(item);
+      const serialized = JSON.stringify(item);
+      if (prev.get(key) !== serialized) changed.push(item);
+    }
     this.cache = items;
-    const snapshot = JSON.stringify(items);
-    // 컬렉션별 쓰기를 순서 보장(직렬화)하고 실패는 로그만 남긴다(동기 인터페이스 유지).
+    if (changed.length === 0) return;
+
     this.writeChain = this.writeChain.then(async () => {
-      try {
-        await this.pool.query(
-          `INSERT INTO kv_collections(name, data, updated_at) VALUES($1, $2::jsonb, now())
-           ON CONFLICT(name) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-          [this.name, snapshot],
-        );
-      } catch (err) {
-        console.error(`[pg] '${this.name}' 저장 실패`, err instanceof Error ? err.message : 'error');
+      for (const item of changed) {
+        try {
+          await this.pool.query(
+            `INSERT INTO entities(collection, id, data, updated_at)
+             VALUES($1, $2, $3::jsonb, now())
+             ON CONFLICT(collection, id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+            [this.name, this.keyOf(item), JSON.stringify(item)],
+          );
+        } catch (err) {
+          console.error(
+            `[pg] '${this.name}' 엔티티 저장 실패`,
+            err instanceof Error ? err.message : 'error',
+          );
+        }
       }
     });
   }
@@ -72,22 +92,26 @@ export async function initPgPersistence(
   names: readonly string[] = COLLECTION_NAMES,
 ): Promise<PersistenceFactory> {
   await pool.query(
-    `CREATE TABLE IF NOT EXISTS kv_collections(
-       name text PRIMARY KEY,
-       data jsonb NOT NULL DEFAULT '[]'::jsonb,
-       updated_at timestamptz NOT NULL DEFAULT now()
+    `CREATE TABLE IF NOT EXISTS entities(
+       collection text NOT NULL,
+       id text NOT NULL,
+       data jsonb NOT NULL,
+       updated_at timestamptz NOT NULL DEFAULT now(),
+       PRIMARY KEY(collection, id)
      )`,
   );
   const preloaded = new Map<string, unknown[]>();
-  const { rows } = await pool.query(`SELECT name, data FROM kv_collections WHERE name = ANY($1)`, [
-    [...names],
-  ]);
+  for (const name of names) preloaded.set(name, []);
+  const { rows } = await pool.query(
+    `SELECT collection, data FROM entities WHERE collection = ANY($1)`,
+    [[...names]],
+  );
   for (const row of rows) {
-    const name = row.name as string;
-    preloaded.set(name, Array.isArray(row.data) ? (row.data as unknown[]) : []);
+    const list = preloaded.get(row.collection as string);
+    if (list) list.push(row.data);
   }
-  return <T>(name: string): CollectionPersistence<T> =>
-    new PgCollectionStore<T>(pool, name, (preloaded.get(name) as T[] | undefined) ?? []);
+  return <T>(name: string, keyOf: (item: T) => string = defaultKeyOf): CollectionPersistence<T> =>
+    new PgEntityStore<T>(pool, name, (preloaded.get(name) as T[] | undefined) ?? [], keyOf);
 }
 
 /** 운영용 pg Pool 생성(연결 문자열 기반). */

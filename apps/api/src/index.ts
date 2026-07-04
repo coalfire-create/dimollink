@@ -5,7 +5,7 @@ import { StatelessSessionStore } from './auth/stateless-session-store.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { createPgPool, initPgPersistence } from './lib/pg-collection.js';
-import { createRedisClient } from './lib/redis.js';
+import { createRedisClient, createUpstashRedis } from './lib/redis.js';
 import { RedisRateLimitStore } from './middleware/redis-rate-limit-store.js';
 
 /**
@@ -42,12 +42,21 @@ async function buildPersistence(): Promise<PersistenceFactory> {
   return jsonPersistenceFactory(env.dataDir);
 }
 
-/** 다중 인스턴스 공유 상태 구성: Redis > 무상태 세션(SESSION_SECRET) > 인메모리. */
+/** 다중 인스턴스 공유 상태 구성: Redis(TCP) > Upstash(REST) > 무상태 세션 > 인메모리. */
 async function buildSharedStores(): Promise<SharedStores> {
   const sessionTtlMs = env.auth.sessionTtlDays * 24 * 60 * 60 * 1000;
   if (env.redisUrl) {
     const redis = await createRedisClient(env.redisUrl);
     console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
+    return {
+      sessionStore: new RedisSessionStore(redis, sessionTtlMs),
+      rateLimitStore: new RedisRateLimitStore(redis),
+      otpKv: new RedisOtpKv(redis),
+    };
+  }
+  if (env.upstash.restUrl && env.upstash.restToken) {
+    const redis = createUpstashRedis(env.upstash.restUrl, env.upstash.restToken);
+    console.log('[dimol-api] 공유 상태: Upstash Redis REST (세션·OTP·레이트리밋)');
     return {
       sessionStore: new RedisSessionStore(redis, sessionTtlMs),
       rateLimitStore: new RedisRateLimitStore(redis),

@@ -138,7 +138,7 @@ export function createApp(
     shared.sessionStore ??
     new SessionTokenStore({
       ttlMs: env.auth.sessionTtlDays * 24 * 60 * 60 * 1000,
-      persistence: persistence<PersistedSession>('sessions'),
+      persistence: persistence<PersistedSession>('sessions', (s) => s.token),
     });
   const reviewStore = new ReviewStore(
     requestStore,
@@ -147,7 +147,9 @@ export function createApp(
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
-  const paymentStore = new PaymentStore(persistence<PaymentRecord>('payments'));
+  const paymentStore = new PaymentStore(
+    persistence<PaymentRecord>('payments', (p) => p.paymentId),
+  );
 
   // ── 인증 게이트: 로그인(세션 토큰)이 필요한 경로. 회원가입·로그인·헬스·조회성 일부는 공개.
   const requireAuth = createRequireAuth(sessionStore, userStore);

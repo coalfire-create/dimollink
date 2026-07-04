@@ -19,9 +19,22 @@
 2. `npx vercel integration add neon` (DATABASE_URL 자동 주입)
 3. `npx vercel --prod` 재배포. → 요청·결제 데이터가 인스턴스 간 영속.
 
+### 세션·OTP(Upstash) 붙이기 — 한 번만
+서버리스에서 로그인·OTP·레이트리밋을 인스턴스 간 공유하려면 Redis 가 필요하다.
+Vercel 마켓플레이스로 붙이면 **REST 방식**(`UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`)이
+자동 주입되고, 앱이 이를 감지해 세션·OTP·레이트리밋 저장소로 쓴다(TCP `REDIS_URL` 불필요).
+1. 브라우저에서 마켓플레이스 약관 동의(최초 1회):
+   `https://vercel.com/semi2colon/~/integrations/accept-terms/upstash?source=cli`
+2. `npx vercel integration add upstash` (REST URL·TOKEN 자동 주입)
+3. `npx vercel --prod` 재배포. → 세션·OTP 가 인스턴스 간 유지.
+
+> `SESSION_SECRET`(무상태 세션)만 있으면 세션 유지는 되지만 OTP·레이트리밋은 인스턴스별이다.
+> Upstash 를 붙이면 셋 다 공유된다. 우선순위: `REDIS_URL`(TCP) > Upstash(REST) > `SESSION_SECRET`.
+
 ## 0. 사전 준비 (무료 티어)
 
-- **Upstash Redis**: [upstash.com](https://upstash.com) → Redis DB 생성 → `REDIS_URL`(rediss://...).
+- **Upstash Redis**: Vercel 마켓플레이스 연동 권장(위 참조) → REST URL·TOKEN 자동 주입.
+  외부 계정 사용 시 REST 콘솔에서 `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` 확보.
 - **Neon Postgres**: [neon.tech](https://neon.tech) → 프로젝트 생성 → `DATABASE_URL`(postgres://...).
 - Vercel 계정(이미 프로젝트 링크됨: 팀/프로젝트 "mobile").
 
@@ -38,7 +51,9 @@ Vercel 대시보드 → 프로젝트 Settings:
 | 변수 | 값(예) | 용도 |
 |---|---|---|
 | `DATABASE_URL` | postgres://... (Neon) | 데이터 유지 |
-| `REDIS_URL` | rediss://... (Upstash) | 세션·OTP 유지(서버리스 필수) |
+| `UPSTASH_REDIS_REST_URL` | https://...upstash.io (Upstash) | 세션·OTP·레이트리밋 공유(마켓플레이스 자동 주입) |
+| `UPSTASH_REDIS_REST_TOKEN` | (Upstash 토큰) | 위와 함께 설정 |
+| `REDIS_URL` | rediss://... | (대안) TCP Redis 사용 시 |
 | `CORS_ORIGINS` | https://<배포도메인> | 운영 모드 기동 필수 |
 | `ADMIN_TOKEN` | (임의 강한 문자열) | 백오피스·기동 필수 |
 | `ALLOW_TEST_OTP` | true | 테스트 OTP 코드(123456) 허용 |
@@ -80,7 +95,7 @@ Vercel 대시보드 → 프로젝트 Settings:
 
 ## 문제 해결
 
-- **로그인 안 됨/세션 끊김**: `REDIS_URL` 미설정이면 서버리스에서 세션이 유지되지 않는다 → Upstash 등록.
+- **로그인 안 됨/세션 끊김**: Upstash(`UPSTASH_REDIS_REST_*`) 또는 `SESSION_SECRET` 미설정이면 서버리스에서 세션이 유지되지 않는다 → Upstash 마켓플레이스 연동.
 - **기동 실패(로그)**: 운영 모드는 `CORS_ORIGINS`·`ADMIN_TOKEN` 없으면 중단 → 등록 확인.
 - **api 404**: Vercel Root Directory 가 루트인지, rewrites 가 적용됐는지 확인.
 - **데이터가 사라짐**: `DATABASE_URL` 미설정이면 서버리스 파일저장은 휘발 → Neon 등록.

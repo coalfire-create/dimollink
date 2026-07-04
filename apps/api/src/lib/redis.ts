@@ -1,3 +1,4 @@
+import { Redis as UpstashClient } from '@upstash/redis';
 import { createClient } from 'redis';
 
 /**
@@ -21,4 +22,39 @@ export async function createRedisClient(url: string): Promise<RedisLike> {
   );
   await client.connect();
   return client as unknown as RedisLike;
+}
+
+/**
+ * Upstash Redis(REST) 어댑터 — 서버리스(Vercel)에서 TCP 연결 대신 사용.
+ * 저장값은 원시 문자열이므로 자동 JSON 역직렬화를 끈다(automaticDeserialization: false).
+ * 명령 이름 매핑: set{PX}→px, pExpire→pexpire, pTTL→pttl.
+ */
+export function createUpstashRedis(restUrl: string, restToken: string): RedisLike {
+  const client = new UpstashClient({
+    url: restUrl,
+    token: restToken,
+    automaticDeserialization: false,
+  });
+  return {
+    async get(key) {
+      return (await client.get<string>(key)) ?? null;
+    },
+    set(key, value, options) {
+      return options?.PX !== undefined
+        ? client.set(key, value, { px: options.PX })
+        : client.set(key, value);
+    },
+    del(key) {
+      return client.del(key);
+    },
+    incr(key) {
+      return client.incr(key);
+    },
+    pExpire(key, ms) {
+      return client.pexpire(key, ms);
+    },
+    pTTL(key) {
+      return client.pttl(key);
+    },
+  };
 }

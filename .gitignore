@@ -44,3 +44,5 @@ coverage/
 # local tooling artifacts
 .npm-cache/
 .claude/
+.env*
+.vercel/
