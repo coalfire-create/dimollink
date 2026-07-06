@@ -126,11 +126,14 @@ def train(config: Dict, task: str, dry_run: bool) -> None:
         from datasets import Dataset  # noqa: F401
         from peft import LoraConfig, get_peft_model  # noqa: F401
         from transformers import (  # noqa: F401
-            AutoModelForVision2Seq,
             AutoProcessor,
             BitsAndBytesConfig,
             TrainingArguments,
         )
+        try:  # Qwen3-VL 등 최신 VLM 표준 클래스(transformers>=4.46)
+            from transformers import AutoModelForImageTextToText as _VLM
+        except ImportError:  # 구버전 폴백
+            from transformers import AutoModelForVision2Seq as _VLM
     except ModuleNotFoundError as e:
         raise SystemExit(
             f"실학습 의존성 미설치({e.name}). Colab에서 training/colab_qlora.ipynb 사용 또는:\n"
@@ -144,7 +147,7 @@ def train(config: Dict, task: str, dry_run: bool) -> None:
         bnb_4bit_compute_dtype=getattr(torch, q["bnb_4bit_compute_dtype"]),
     )
     processor = AutoProcessor.from_pretrained(config["base_model"], trust_remote_code=True)
-    model = AutoModelForVision2Seq.from_pretrained(
+    model = _VLM.from_pretrained(
         config["base_model"], quantization_config=bnb, device_map="auto", trust_remote_code=True
     )
     lora = config["lora"]
