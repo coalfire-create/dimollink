@@ -126,6 +126,6 @@ def test_harvest_cli_mock_end_to_end(tmp_path):
     )
     assert r.returncode == 0, r.stderr
     summary = json.loads(r.stdout)
-    assert summary["nationwide"] is True
+    assert summary["regions_with_data"] >= 3
     assert summary["asbestos_suspect_examples"] >= 1
-    assert len(summary["regions"]) >= 3
+    assert summary["regions_targeted"] >= summary["regions_with_data"]

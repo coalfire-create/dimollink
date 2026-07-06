@@ -55,32 +55,44 @@ class RealBuildingRegistry:
 
     ENDPOINT = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo"
 
-    def __init__(self, key: str):
+    def __init__(self, key: str, page_size: int = 100, max_per_region: int = 300):
         self.key = key
+        self.page_size = page_size
+        self.max_per_region = max_per_region
 
     def query(self, region: str) -> Iterable[Dict]:
         import httpx
 
         sigungu, bjdong = region[:5], (region[5:] or "")
-        params = {
-            "serviceKey": self.key, "sigunguCd": sigungu, "bjdongCd": bjdong,
-            "numOfRows": "1000", "_type": "json",
-        }
-        r = httpx.get(self.ENDPOINT, params=params, timeout=30.0)
-        r.raise_for_status()
-        items = (r.json().get("response", {}).get("body", {})
-                 .get("items", {}).get("item", []))
-        for it in items if isinstance(items, list) else [items]:
-            # 표제부 응답엔 좌표가 없다 → 주소를 넘겨 지오코딩 단계에서 좌표 확보.
-            yield {
-                "region": region,
-                "lat": None, "lon": None,
-                "address": it.get("newPlatPlc") or it.get("platPlc"),  # 도로명 우선
-                "address_type": "road" if it.get("newPlatPlc") else "parcel",
-                "structure": it.get("strctCdNm"), "roof": it.get("roofCdNm"),
-                "approval_year": _year(it.get("useAprDay")),
-                "pk": it.get("mgmBldrgstPk"),
+        fetched = 0
+        page = 1
+        while fetched < self.max_per_region:
+            params = {
+                "serviceKey": self.key, "sigunguCd": sigungu, "bjdongCd": bjdong,
+                "numOfRows": str(self.page_size), "pageNo": str(page), "_type": "json",
             }
+            r = httpx.get(self.ENDPOINT, params=params, timeout=30.0)
+            r.raise_for_status()
+            body = r.json().get("response", {}).get("body", {})
+            items = (body.get("items") or {}).get("item", [])
+            items = items if isinstance(items, list) else [items]
+            if not items:
+                break
+            for it in items:
+                # 표제부 응답엔 좌표가 없다 → 주소를 넘겨 지오코딩 단계에서 좌표 확보.
+                yield {
+                    "region": region,
+                    "lat": None, "lon": None,
+                    "address": it.get("newPlatPlc") or it.get("platPlc"),  # 도로명 우선
+                    "address_type": "road" if it.get("newPlatPlc") else "parcel",
+                    "structure": it.get("strctCdNm"), "roof": it.get("roofCdNm"),
+                    "approval_year": _year(it.get("useAprDay")),
+                    "pk": it.get("mgmBldrgstPk"),
+                }
+                fetched += 1
+            if fetched >= int(body.get("totalCount", 0)):
+                break
+            page += 1
 
 
 def lonlat_to_tile(lon: float, lat: float, zoom: int) -> "tuple[int, int]":
@@ -204,7 +216,10 @@ def _year(v) -> Optional[int]:
 
 def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
             imagery: OrthoImagery, geocoder: Optional[Geocoder] = None,
-            *, asbestos_only: bool = False, limit: Optional[int] = None) -> List[Dict]:
+            *, asbestos_only: bool = False, limit: Optional[int] = None,
+            sleep: float = 0.0, on_example=None) -> List[Dict]:
+    import time
+
     os.makedirs(images_dir, exist_ok=True)
     examples: List[Dict] = []
     for region in regions:
@@ -216,6 +231,9 @@ def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
             codes = labels_for_building(b.get("structure"), b.get("roof"))
             if not codes:
                 continue
+            img_path = os.path.join(images_dir, f"{b['region']}_{b['pk']}.jpg")
+            if os.path.exists(img_path):
+                continue  # 재개(resume): 이미 받은 건 건너뜀
             lat, lon = b.get("lat"), b.get("lon")
             # 건축물대장은 좌표를 안 주므로 주소를 지오코딩(VWorld)해 좌표 확보
             if (lat is None or lon is None) and geocoder and b.get("address"):
@@ -224,10 +242,11 @@ def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
                     lat, lon = coord
             if lat is None or lon is None:
                 continue
-            img_path = os.path.join(images_dir, f"{b['region']}_{b['pk']}.jpg")
             if not imagery.fetch(lat, lon, img_path):
                 continue
-            examples.append({
+            if sleep:
+                time.sleep(sleep)
+            ex = {
                 "image": img_path,
                 "materials": codes,
                 "hazards": hazards_for(codes),
@@ -239,7 +258,10 @@ def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
                     "approval_year": b.get("approval_year"),
                     "label": "weak",  # 건축물대장 기반 약라벨(실태조사로 검증 권장)
                 },
-            })
+            }
+            examples.append(ex)
+            if on_example:  # 스트리밍 저장(장시간 실행 중 유실 방지)
+                on_example(ex)
     return examples
 
 
@@ -255,38 +277,68 @@ def _build_clients(mock: bool):
     return RealBuildingRegistry(bkey), RealOrthoImagery(vkey), RealGeocoder(vkey)
 
 
+def _resolve_regions(args) -> List[str]:
+    """수집 대상 법정동코드(10자리) 목록 확정.
+
+    --slate-dense: 전국 슬레이트 밀집 군을 juso 로 리 단위까지 자동 전개.
+    --gun: 지정 군 코드(5자리)들을 리 단위로 전개.
+    --regions: 명시 코드(쉼표) 또는 'all'(mock 전용).
+    """
+    if args.slate_dense or args.gun:
+        from training.region_codes import SLATE_DENSE_GUN, expand_regions
+        gun = SLATE_DENSE_GUN if args.slate_dense else [g.strip() for g in args.gun.split(",")]
+        leaves = expand_regions(gun)
+        print(f"[지역전개] 군 {len(gun)}개 → 말단 법정동 {len(leaves)}개", file=sys.stderr)
+        return [leaf["code"] for leaf in leaves]
+    if args.regions and args.regions.strip().lower() == "all":
+        if args.mock:
+            return list(_MOCK_REGIONS)
+        raise SystemExit("'all' 실수집은 --slate-dense/--gun 으로 대체하세요.")
+    if not args.regions:
+        raise SystemExit("--regions, --gun, --slate-dense 중 하나가 필요합니다.")
+    return [r.strip() for r in args.regions.split(",") if r.strip()]
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description="전국 국가데이터 → 디몰비전 학습 JSONL")
-    p.add_argument("--regions", required=True, help="시군구/법정동 코드(쉼표) 또는 'all'")
+    p.add_argument("--regions", help="법정동코드(10자리, 쉼표) 또는 'all'(mock)")
+    p.add_argument("--gun", help="군 시군구코드(5자리, 쉼표) → 리 단위 자동 전개")
+    p.add_argument("--slate-dense", action="store_true",
+                   help="전국 슬레이트 밀집 군(SLATE_DENSE_GUN) 자동 전개 수집")
     p.add_argument("--images", required=True, help="항공영상 저장 디렉토리")
     p.add_argument("--out", required=True, help="출력 JSONL 경로")
     p.add_argument("--mock", action="store_true", help="키 없이 전국 다지역 배선 검증")
     p.add_argument("--asbestos-only", action="store_true", help="석면 의심(슬레이트)만 수집")
-    p.add_argument("--limit", type=int, default=None, help="총 수집 표본 상한(테스트·레이트 제어)")
+    p.add_argument("--limit", type=int, default=None, help="총 수집 표본 상한")
+    p.add_argument("--sleep", type=float, default=0.0, help="영상요청 간 대기(초, 레이트 제어)")
     args = p.parse_args()
 
-    if args.regions.strip().lower() == "all":
-        regions = list(_MOCK_REGIONS) if args.mock else []
-        if not regions:
-            raise SystemExit("'all' 실수집은 대상 시군구 코드 목록이 필요합니다(전국 코드표 주입).")
-    else:
-        regions = [r.strip() for r in args.regions.split(",") if r.strip()]
-
+    regions = _resolve_regions(args)
     registry, imagery, geocoder = _build_clients(args.mock)
-    examples = harvest(regions, args.images, registry, imagery, geocoder,
-                       asbestos_only=args.asbestos_only, limit=args.limit)
 
+    # 스트리밍 저장(append) — 장시간 실행 중 중단돼도 여기까지는 보존, 재실행 시 resume.
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as f:
-        for ex in examples:
-            f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+    mode = "a" if os.path.exists(args.out) else "w"
+    out_f = open(args.out, mode, encoding="utf-8")
+
+    def _write(ex):
+        out_f.write(json.dumps(ex, ensure_ascii=False) + "\n")
+        out_f.flush()
+
+    try:
+        examples = harvest(regions, args.images, registry, imagery, geocoder,
+                           asbestos_only=args.asbestos_only, limit=args.limit,
+                           sleep=args.sleep, on_example=_write)
+    finally:
+        out_f.close()
 
     asbestos = sum(1 for e in examples if any(h["type"] == "ASBESTOS_SUSPECT" for h in e["hazards"]))
     regions_seen = sorted({e["meta"]["region"] for e in examples})
     print(json.dumps({
         "out": args.out, "examples": len(examples),
         "asbestos_suspect_examples": asbestos,
-        "regions": regions_seen, "nationwide": len(regions_seen) > 1,
+        "regions_with_data": len(regions_seen),
+        "regions_targeted": len(regions),
     }, ensure_ascii=False, indent=2))
     return 0
 
