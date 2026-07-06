@@ -29,10 +29,10 @@ train:
 tasks:
   recognition:
     train: data/train_recognition.jsonl   # image → site_summary/materials/hazards
-    output_adapter: adapters/recognition-v1
+    output_adapter: training/adapters/recognition-v1
   generation:
     train: data/train_generation.jsonl     # 인식+근거 → process_steps/waste_plan
-    output_adapter: adapters/generation-v1
+    output_adapter: training/adapters/generation-v1
     enabled: false   # 루브릭 채점 결과 필요 시 활성화(§4.2)
 
 # 종료 기준(§V3)은 scripts/eval.py 로 판정: 주요 5종 재현율 0.85, 석면 재현율 0.95.

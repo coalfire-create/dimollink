@@ -14,3 +14,6 @@ vision_jobs.db-shm
 *.db-shm
 # KB 적재 CLI 기본 출력(생성물)
 kb_chunks.jsonl
+# 학습 산출물(공개데이터 변환 JSONL, 다운로드 데이터, LoRA 어댑터)
+data/
+training/adapters/
