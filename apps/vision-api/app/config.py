@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     callback_secret: str = ""
 
     # 모델 식별 — 모든 result.model_version 에 base + adapter 해시로 기록(§5.1).
-    model_base: str = "Qwen/Qwen3-VL-8B"
+    model_base: str = "Qwen/Qwen3-VL-8B-Instruct"
     model_adapter_hash: str = "mock"
 
     # 추론 파이프라인 선택: mock(로컬/CI) | vllm(GPU 서빙).

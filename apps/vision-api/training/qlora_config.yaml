@@ -2,7 +2,7 @@
 # ⚠️ 실행은 GPU 필요(스팟 인스턴스). 여기서는 하이퍼파라미터·데이터 경로만 고정한다.
 # 과업별로 나눠 학습한다: 1패스(인식)를 먼저, 2패스(생성)는 루브릭 채점 후 필요 시.
 
-base_model: Qwen/Qwen3-VL-8B      # 오픈 웨이트, Apache-2.0
+base_model: Qwen/Qwen3-VL-8B-Instruct   # 오픈 웨이트(HF 실제 repo id). GCP L4 실학습 검증됨
 method: qlora                      # 4bit 양자화 + LoRA (§6.2 학습 비용 최소화)
 
 lora:

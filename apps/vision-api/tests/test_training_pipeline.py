@@ -117,7 +117,7 @@ def test_train_dry_run_wires_registry(tmp_path):
         # 대장 레코드가 생성되었는지
         adapter = API_DIR / "training" / "adapters" / "recognition-v1"
         version = json.loads((adapter / "model_version.json").read_text(encoding="utf-8"))
-        assert version["model_version"].startswith("Qwen/Qwen3-VL-8B+")
+        assert version["model_version"].startswith("Qwen/Qwen3-VL-8B-Instruct+")
         assert version["status"] == "dry-run"
     finally:
         if created:

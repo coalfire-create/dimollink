@@ -66,6 +66,23 @@ python scripts/eval.py --evalset eval_samples/sample_evalset.jsonl
 주요 5종 재현율 ≥ 0.85, 석면 의심 재현율 ≥ 0.95. 미달 시 데이터 보강 반복.
 합격한 어댑터만 `model_versions` 대장에 평가 결과와 함께 기록 후 배포(`POST /admin/reload`).
 
+## 실학습 결과 (2026-07-07, GCP L4 실행·검증됨)
+
+전국 국가데이터 4,000장(슬레이트 2,001/비석면 1,999, train 3,400/eval 600)으로 실제 QLoRA 학습 완료.
+
+- **환경**: GCP `g2-standard-8`(NVIDIA L4 23GB), Deep Learning 이미지(PyTorch 2.9/CUDA 12.9), asia-northeast3.
+- **모델**: `Qwen/Qwen3-VL-8B-Instruct` 4bit + LoRA(r16, 15.3M 학습, 0.17%). 1 epoch/850스텝/~3.05h.
+- **loss**: 11.98 → 3.08(step200) → 3.32(최종 평균). 포맷·과업 학습 확인.
+- **eval 40장 추론 검증**: JSON 포맷 40/40, **석면 슬레이트 재현율 14/14 = 1.00(목표 0.95 초과)**,
+  자재 전체 precision 0.47/recall 0.61(약라벨 콜드스타트 한계 — 실태조사 검증라벨·지상사진·추가 epoch으로 개선).
+- 실행 스크립트: `training/train_gpu.py`(4bit+LoRA+kbit준비+그래디언트 체크포인트), `training/infer_test.py`(추론 검증).
+
+### GCP L4 환경 셋업 주의(실측)
+1. `Qwen/Qwen3-VL-8B`는 없음 → **`Qwen/Qwen3-VL-8B-Instruct`** 사용.
+2. DLVM 사전설치 `torchaudio`가 torch와 불일치 → transformers 임포트 깨짐. **torchaudio 제거**.
+3. `jinja2>=3.1.0` 필요(채팅 템플릿). 4. Trainer에 `remove_unused_columns=False`(image/answer 컬럼 유지).
+5. GPU 쿼터: 신규/체험 계정은 GPUS_ALL_REGIONS=0 → **유료 전환 후** 전역+리전(L4) 쿼터 증설.
+
 ## 서빙 비용 (§6.1, 미실행)
 
 FP8/AWQ 양자화로 24GB GPU 서빙, RunPod serverless scale-to-zero, vLLM prefix caching.
