@@ -85,13 +85,26 @@ def fetch_leaf_regions(gun_code: str, source: Optional[RegcodeSource] = None) ->
     return leaf_beopjeong(src.regcodes(f"{gun_code}*"))
 
 
-def expand_regions(gun_codes: List[str], source: Optional[RegcodeSource] = None) -> List[Dict]:
-    """여러 군 코드를 전부 말단 법정동으로 펼친다(중복 제거)."""
+def expand_regions(gun_codes: List[str], source: Optional[RegcodeSource] = None,
+                   interleave: bool = True) -> List[Dict]:
+    """여러 군 코드를 말단 법정동으로 펼친다(중복 제거).
+
+    interleave=True: 군별 리 목록을 라운드로빈으로 섞는다. 순차 수집이 limit 에 걸려도
+    전국(여러 도)에 고루 분산되도록 하기 위함(안 그러면 첫 군에서 다 채워짐).
+    """
+    per_gun = [fetch_leaf_regions(gun, source) for gun in gun_codes]
     seen = set()
     out: List[Dict] = []
-    for gun in gun_codes:
-        for leaf in fetch_leaf_regions(gun, source):
-            if leaf["code"] not in seen:
-                seen.add(leaf["code"])
-                out.append(leaf)
+    if interleave:
+        for i in range(max((len(p) for p in per_gun), default=0)):
+            for leaves in per_gun:
+                if i < len(leaves) and leaves[i]["code"] not in seen:
+                    seen.add(leaves[i]["code"])
+                    out.append(leaves[i])
+    else:
+        for leaves in per_gun:
+            for leaf in leaves:
+                if leaf["code"] not in seen:
+                    seen.add(leaf["code"])
+                    out.append(leaf)
     return out

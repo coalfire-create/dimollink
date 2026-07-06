@@ -60,6 +60,20 @@ def test_expand_regions_dedups_across_gun():
     assert len(out) == 2  # 리 2개, 중복 제거
 
 
+def test_expand_interleaves_across_gun_for_nationwide_spread():
+    # 두 군의 리가 라운드로빈으로 섞여야 앞쪽만 잘라도 전국 분산이 유지된다
+    rows = [
+        {"code": "4183038021", "name": "경기 양평군 서종면 문호리"},
+        {"code": "4183038022", "name": "경기 양평군 서종면 정배리"},
+        {"code": "4773025021", "name": "경북 의성군 의성읍 A리"},
+        {"code": "4773025022", "name": "경북 의성군 의성읍 B리"},
+    ]
+    src = _FakeRegcodes(rows)
+    out = expand_regions(["41830", "47730"], source=src, interleave=True)
+    # 앞 2개가 서로 다른 군이어야 함(양평, 의성)
+    assert out[0]["sigunguCd"] != out[1]["sigunguCd"]
+
+
 def test_slate_dense_gun_list_is_valid_sigungu_codes():
     assert SLATE_DENSE_GUN and all(len(c) == 5 and c.isdigit() for c in SLATE_DENSE_GUN)
     assert "41830" in SLATE_DENSE_GUN  # 양평(파일럿) 포함
