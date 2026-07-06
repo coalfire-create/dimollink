@@ -76,22 +76,40 @@ class RealBuildingRegistry:
             }
 
 
-class RealOrthoImagery:
-    """국토지리정보원 VWorld 항공정사영상 타일."""
+def lonlat_to_tile(lon: float, lat: float, zoom: int) -> "tuple[int, int]":
+    """경위도 → WMTS 슬리피 타일 (x, y). VWorld 는 Web Mercator(GoogleMapsCompatible)."""
+    import math
 
-    def __init__(self, key: str):
+    lat = max(min(lat, 85.05112878), -85.05112878)
+    n = 2 ** zoom
+    x = int((lon + 180.0) / 360.0 * n)
+    lat_rad = math.radians(lat)
+    y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+    return x, y
+
+
+class RealOrthoImagery:
+    """국토지리정보원 VWorld 항공정사영상. WMTS 'Satellite' 타일(가장 안정적).
+
+    엔드포인트: https://api.vworld.kr/req/wmts/1.0.0/{KEY}/Satellite/{z}/{y}/{x}.jpeg
+    zoom 18~19 면 지붕 판독 가능. VWorld 는 등록 도메인 referer 를 검사할 수 있어
+    Referer 헤더를 함께 보낸다(인증키 발급 시 등록한 URL 로 설정).
+    """
+
+    def __init__(self, key: str, zoom: int = 18, referer: Optional[str] = None):
         self.key = key
+        self.zoom = zoom
+        self.referer = referer or os.environ.get("VISION_VWORLD_REFERER", "http://localhost")
 
     def fetch(self, lat: float, lon: float, out_path: str) -> bool:
         import httpx
 
-        # VWorld 이미지 API(정사영상 배경) — 좌표 중심 타일. 실제 파라미터는 문서 기준 조정.
-        params = {"service": "image", "request": "getmap", "key": self.key,
-                  "format": "png", "size": "512,512", "crs": "EPSG:4326",
-                  "center": f"{lon},{lat}", "zoom": "19", "basemap": "PHOTO"}
+        x, y = lonlat_to_tile(lon, lat, self.zoom)
+        url = (f"https://api.vworld.kr/req/wmts/1.0.0/{self.key}"
+               f"/Satellite/{self.zoom}/{y}/{x}.jpeg")
         try:
-            r = httpx.get("https://api.vworld.kr/req/image", params=params, timeout=30.0)
-            if r.status_code == 200 and r.content[:3] in (b"\x89PN", b"\xff\xd8\xff"):
+            r = httpx.get(url, headers={"Referer": self.referer}, timeout=30.0)
+            if r.status_code == 200 and r.content[:3] == b"\xff\xd8\xff":  # jpeg
                 with open(out_path, "wb") as f:
                     f.write(r.content)
                 return True

@@ -12,7 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.harvest_korea import MockBuildingRegistry, MockOrthoImagery, harvest
+from scripts.harvest_korea import (
+    MockBuildingRegistry,
+    MockOrthoImagery,
+    harvest,
+    lonlat_to_tile,
+)
 from training.korea_sources import (
     is_asbestos_building,
     labels_for_building,
@@ -67,6 +72,15 @@ def test_harvest_asbestos_only_filters_slate(tmp_path):
         assert "ROOFING_SLATE" in e["materials"]
     # 석면 표본이 여러 지역에서 모였는지(전국 석면 데이터셋)
     assert len({e["meta"]["region"] for e in examples}) >= 3
+
+
+def test_vworld_tile_math_is_web_mercator():
+    # zoom 1: 원점(0,0)은 4분면 경계 → (1,1)
+    assert lonlat_to_tile(0.0, 0.0, 1) == (1, 1)
+    # 서울시청(126.978, 37.5665) zoom 18 → 한국 영역의 유효 타일, 결정적
+    x, y = lonlat_to_tile(126.9780, 37.5665, 18)
+    assert 0 <= x < 2 ** 18 and 0 <= y < 2 ** 18
+    assert lonlat_to_tile(126.9780, 37.5665, 18) == (x, y)
 
 
 def test_harvest_cli_mock_end_to_end(tmp_path):
