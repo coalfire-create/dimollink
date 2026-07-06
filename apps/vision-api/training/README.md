@@ -25,8 +25,27 @@
 | **AI Hub 산업폐기물** | 무료, 활용승인 필요 | +GLASS 등 | aihub.or.kr (산업 폐기물 이미지) |
 | **CDW-Seg / Roboflow** | 공개 | 보강 | Nature Sci Data / Roboflow Universe |
 
-**석면 슬레이트(ROOFING_SLATE)와 철근콘크리트 구분은 공개 라벨이 없다** — 자체 수집 필수(핵심 자산).
-석면은 안전-치명 지표(재현율 0.95)라 양평 근접 촬영으로만 확보. `SELF_COLLECT_REQUIRED` 참고.
+### 전국 국가데이터 수집(양평 한정 탈피, 수작업 촬영 최소화)
+
+석면 슬레이트는 이미지 공개 라벨이 없지만, **한국 국가데이터로 전국에서 약라벨을 뽑을 수 있다**
+(`training/korea_sources.py`, `scripts/harvest_korea.py`):
+
+- **건축물대장 표제부**(건축HUB OpenAPI, data.go.kr 15134735) — `주구조코드명`·`지붕코드명`으로
+  전국 건물의 자재를 약라벨. **`지붕코드명=슬레이트` → ROOFING_SLATE**(석면 의심 최초 확보 경로).
+- **VWorld 항공정사영상**(국토지리정보원 OpenAPI) — 좌표별 지붕 top-down 영상 취득.
+- **환경부 석면관리종합정보망(슬레이트 실태조사)** — 검증된 슬레이트 정답(면적·준공연도)으로 크로스체크.
+
+```bash
+# 배선 검증(키 불필요, 전국 다지역 mock)
+python scripts/harvest_korea.py --mock --regions all --images data/korea/img --out data/train_korea.jsonl
+# 실수집(.env 에 VISION_BLDG_LEDGER_KEY, VISION_VWORLD_KEY): 석면만 우선
+python scripts/harvest_korea.py --regions 41830,47130,26110 --asbestos-only \
+    --images data/korea/img --out data/train_korea.jsonl
+```
+
+⚠️ 항공영상은 지붕 top-down 이라 지상 촬영과 도메인 갭이 있다. 석면 지붕 인식엔 정합적이나,
+지상 근접 자재는 앱 플라이휠(§V5)·소량 자체촬영으로 보완. 약라벨은 실태조사로 검증 후 승격.
+⚠️ 서비스 파일럿은 양평 유지(비즈니스 규칙). **학습 데이터만** 전국 대상(일반화 목적).
 
 ### 실행 순서
 
