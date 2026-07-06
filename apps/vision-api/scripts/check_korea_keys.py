@@ -62,6 +62,20 @@ def check_building_ledger(sigungu: str) -> bool:
     return False
 
 
+def check_geocoder(address: str) -> bool:
+    from scripts.harvest_korea import RealGeocoder
+
+    key = os.environ.get("VISION_VWORLD_KEY", "")
+    if not key:
+        return False
+    coord = RealGeocoder(key).geocode(address)
+    if coord:
+        print(f"✓ VWorld 지오코더 OK  '{address}' → 위경도 {coord[0]:.5f},{coord[1]:.5f}")
+        return True
+    print(f"✗ VWorld 지오코더 실패 — 주소 '{address}' 변환 불가(키/referer 확인)")
+    return False
+
+
 def check_vworld(lat: float, lon: float, save: str) -> bool:
     from scripts.harvest_korea import RealOrthoImagery
 
@@ -90,10 +104,11 @@ def main() -> int:
 
     print("== 전국 수집 키 점검 ==")
     a = check_building_ledger(args.sigungu)
+    g = check_geocoder("서울특별시 종로구 자하문로36길 16-14")
     b = check_vworld(args.lat, args.lon, args.save)
     print("---")
-    if a and b:
-        print("✅ 두 키 모두 정상 → scripts/harvest_korea.py 실수집 가능")
+    if a and g and b:
+        print("✅ 세 단계(건축물대장→지오코딩→항공영상) 모두 정상 → 실수집 가능")
         return 0
     print("⚠️ 위 실패 항목을 해결 후 다시 실행. (환경부 석면 실태조사는 별도 신청 — 필수 아님)")
     return 1

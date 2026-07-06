@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.harvest_korea import (
     MockBuildingRegistry,
+    MockGeocoder,
     MockOrthoImagery,
     harvest,
     lonlat_to_tile,
@@ -81,6 +82,36 @@ def test_vworld_tile_math_is_web_mercator():
     x, y = lonlat_to_tile(126.9780, 37.5665, 18)
     assert 0 <= x < 2 ** 18 and 0 <= y < 2 ** 18
     assert lonlat_to_tile(126.9780, 37.5665, 18) == (x, y)
+
+
+class _AddressOnlyRegistry:
+    """실 건축물대장처럼 좌표 없이 주소만 주는 레지스트리(지오코딩 필요)."""
+
+    def query(self, region):
+        yield {
+            "region": region, "lat": None, "lon": None,
+            "address": "서울특별시 종로구 자하문로36길 16-14", "address_type": "road",
+            "structure": "벽돌구조", "roof": "슬레이트",
+            "approval_year": 1985, "pk": f"{region}-addr",
+        }
+
+
+def test_harvest_geocodes_when_registry_gives_only_address(tmp_path):
+    # 좌표 없는 건물도 지오코더로 좌표를 채워 항공영상까지 이어져야 한다
+    examples = harvest(["11110"], str(tmp_path / "img"),
+                       _AddressOnlyRegistry(), MockOrthoImagery(), MockGeocoder())
+    assert len(examples) == 1
+    e = examples[0]
+    assert e["meta"]["lat"] is not None and e["meta"]["lon"] is not None
+    assert e["meta"]["address"].startswith("서울")
+    assert "ROOFING_SLATE" in e["materials"]
+
+
+def test_harvest_skips_when_no_coord_and_no_geocoder(tmp_path):
+    # 지오코더가 없으면 좌표 없는 건물은 건너뛴다(항공영상 못 받음)
+    examples = harvest(["11110"], str(tmp_path / "img"),
+                       _AddressOnlyRegistry(), MockOrthoImagery(), geocoder=None)
+    assert examples == []
 
 
 def test_harvest_cli_mock_end_to_end(tmp_path):

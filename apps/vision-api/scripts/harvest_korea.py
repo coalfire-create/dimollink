@@ -45,6 +45,10 @@ class OrthoImagery(Protocol):
     def fetch(self, lat: float, lon: float, out_path: str) -> bool: ...
 
 
+class Geocoder(Protocol):
+    def geocode(self, address: str) -> "Optional[tuple[float, float]]": ...
+
+
 # ---- 실 클라이언트(키 필요, httpx). 키 없으면 mock 사용. ----
 class RealBuildingRegistry:
     """국토교통부 건축HUB 건축물대장 표제부 OpenAPI."""
@@ -67,9 +71,12 @@ class RealBuildingRegistry:
         items = (r.json().get("response", {}).get("body", {})
                  .get("items", {}).get("item", []))
         for it in items if isinstance(items, list) else [items]:
+            # 표제부 응답엔 좌표가 없다 → 주소를 넘겨 지오코딩 단계에서 좌표 확보.
             yield {
                 "region": region,
-                "lat": _f(it.get("lat")), "lon": _f(it.get("lon")),
+                "lat": None, "lon": None,
+                "address": it.get("newPlatPlc") or it.get("platPlc"),  # 도로명 우선
+                "address_type": "road" if it.get("newPlatPlc") else "parcel",
                 "structure": it.get("strctCdNm"), "roof": it.get("roofCdNm"),
                 "approval_year": _year(it.get("useAprDay")),
                 "pk": it.get("mgmBldrgstPk"),
@@ -118,7 +125,43 @@ class RealOrthoImagery:
         return False
 
 
+class RealGeocoder:
+    """VWorld 지오코더: 주소 → (lat, lon). 건축물대장 주소를 좌표로 변환."""
+
+    def __init__(self, key: str, referer: Optional[str] = None):
+        self.key = key
+        self.referer = referer or os.environ.get("VISION_VWORLD_REFERER", "http://localhost")
+
+    def geocode(self, address: str, address_type: str = "road") -> "Optional[tuple[float, float]]":
+        import httpx
+
+        params = {"service": "address", "request": "getcoord", "version": "2.0",
+                  "crs": "epsg:4326", "type": address_type, "address": address,
+                  "format": "json", "key": self.key}
+        try:
+            r = httpx.get("https://api.vworld.kr/req/address", params=params,
+                          headers={"Referer": self.referer}, timeout=30.0)
+            data = r.json().get("response", {})
+            if data.get("status") != "OK":
+                # 도로명 실패 시 지번(parcel)으로 1회 폴백
+                if address_type == "road":
+                    return self.geocode(address, "parcel")
+                return None
+            pt = data["result"]["point"]
+            return (float(pt["y"]), float(pt["x"]))  # (lat, lon)
+        except Exception:
+            return None
+
+
 # ---- Mock(키 불필요, 전국 다지역). 배선/매핑 검증용. ----
+class MockGeocoder:
+    def geocode(self, address: str, address_type: str = "road") -> "Optional[tuple[float, float]]":
+        # 주소 해시로 결정적 좌표(한국 대략 범위). 배선 검증용.
+        h = abs(hash(address))
+        return (35.0 + (h % 500) / 100.0, 126.0 + (h // 500 % 400) / 100.0)
+
+
+
 _MOCK_REGIONS = {
     "11110": [("철근콘크리트구조", "(철근)콘크리트"), ("벽돌구조", "슬레이트")],   # 서울 종로
     "26110": [("철골구조", "금속판"), ("목구조", "슬레이트")],                    # 부산 중구
@@ -160,20 +203,29 @@ def _year(v) -> Optional[int]:
 
 
 def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
-            imagery: OrthoImagery, *, asbestos_only: bool = False) -> List[Dict]:
+            imagery: OrthoImagery, geocoder: Optional[Geocoder] = None,
+            *, asbestos_only: bool = False, limit: Optional[int] = None) -> List[Dict]:
     os.makedirs(images_dir, exist_ok=True)
     examples: List[Dict] = []
     for region in regions:
         for b in registry.query(region):
+            if limit is not None and len(examples) >= limit:
+                return examples
             if asbestos_only and not is_asbestos_building(b.get("roof")):
                 continue
             codes = labels_for_building(b.get("structure"), b.get("roof"))
             if not codes:
                 continue
-            if b.get("lat") is None or b.get("lon") is None:
+            lat, lon = b.get("lat"), b.get("lon")
+            # 건축물대장은 좌표를 안 주므로 주소를 지오코딩(VWorld)해 좌표 확보
+            if (lat is None or lon is None) and geocoder and b.get("address"):
+                coord = geocoder.geocode(b["address"], b.get("address_type", "road"))
+                if coord:
+                    lat, lon = coord
+            if lat is None or lon is None:
                 continue
-            img_path = os.path.join(images_dir, f"{b['region']}_{b['pk']}.png")
-            if not imagery.fetch(b["lat"], b["lon"], img_path):
+            img_path = os.path.join(images_dir, f"{b['region']}_{b['pk']}.jpg")
+            if not imagery.fetch(lat, lon, img_path):
                 continue
             examples.append({
                 "image": img_path,
@@ -182,7 +234,8 @@ def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
                 "source": "korea_building_ledger",
                 "task": "recognition",
                 "meta": {
-                    "region": b["region"], "lat": b["lat"], "lon": b["lon"],
+                    "region": b["region"], "lat": lat, "lon": lon,
+                    "address": b.get("address"),
                     "approval_year": b.get("approval_year"),
                     "label": "weak",  # 건축물대장 기반 약라벨(실태조사로 검증 권장)
                 },
@@ -192,13 +245,14 @@ def harvest(regions: List[str], images_dir: str, registry: BuildingRegistry,
 
 def _build_clients(mock: bool):
     if mock:
-        return MockBuildingRegistry(), MockOrthoImagery()
+        return MockBuildingRegistry(), MockOrthoImagery(), MockGeocoder()
     bkey = os.environ.get("VISION_BLDG_LEDGER_KEY")
     vkey = os.environ.get("VISION_VWORLD_KEY")
     if not bkey or not vkey:
         raise SystemExit("실수집엔 VISION_BLDG_LEDGER_KEY, VISION_VWORLD_KEY(.env) 필요. "
                          "또는 --mock 으로 배선 검증.")
-    return RealBuildingRegistry(bkey), RealOrthoImagery(vkey)
+    # 지오코더도 VWorld 키 사용(건축물대장 주소 → 좌표 → 항공영상)
+    return RealBuildingRegistry(bkey), RealOrthoImagery(vkey), RealGeocoder(vkey)
 
 
 def main() -> int:
@@ -208,6 +262,7 @@ def main() -> int:
     p.add_argument("--out", required=True, help="출력 JSONL 경로")
     p.add_argument("--mock", action="store_true", help="키 없이 전국 다지역 배선 검증")
     p.add_argument("--asbestos-only", action="store_true", help="석면 의심(슬레이트)만 수집")
+    p.add_argument("--limit", type=int, default=None, help="총 수집 표본 상한(테스트·레이트 제어)")
     args = p.parse_args()
 
     if args.regions.strip().lower() == "all":
@@ -217,9 +272,9 @@ def main() -> int:
     else:
         regions = [r.strip() for r in args.regions.split(",") if r.strip()]
 
-    registry, imagery = _build_clients(args.mock)
-    examples = harvest(regions, args.images, registry, imagery,
-                       asbestos_only=args.asbestos_only)
+    registry, imagery, geocoder = _build_clients(args.mock)
+    examples = harvest(regions, args.images, registry, imagery, geocoder,
+                       asbestos_only=args.asbestos_only, limit=args.limit)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
