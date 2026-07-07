@@ -77,6 +77,20 @@ python scripts/eval.py --evalset eval_samples/sample_evalset.jsonl
   자재 전체 precision 0.47/recall 0.61(약라벨 콜드스타트 한계 — 실태조사 검증라벨·지상사진·추가 epoch으로 개선).
 - 실행 스크립트: `training/train_gpu.py`(4bit+LoRA+kbit준비+그래디언트 체크포인트), `training/infer_test.py`(추론 검증).
 
+## 정확도 개선: 지상 자재 데이터(MINC) 결합 (2026-07-07, 검증됨)
+
+항공 모델의 약점 진단: **항공(top-down)은 지붕만 보여** 지붕재(석면 슬레이트)는 100% 잡지만
+구조재(콘크리트·벽돌·목재·금속)는 안 보여 P/R이 낮았다(0.47/0.61). 앱은 **지상 근접 사진**이 입력이라
+도메인도 불일치. → **지상 자재 데이터셋 MINC-2500** 결합으로 해결.
+
+- `training/minc_prep.py`: MINC-2500(지상 자재 패치, 무인증 다운로드) → 8개 카테고리를 우리 taxonomy로
+  (brick·stone→BRICK_MASONRY, wood→WOOD, metal→METAL, glass→GLASS, tile·ceramic→SANITARY_TILE, plastic→WASTE_SYNTHETIC_RESIN).
+- 학습셋: MINC 지상자재 2,400 + Korea 슬레이트 800 = 3,200(석면 능력 유지). 1 epoch/GCP L4/~4.25h.
+- **eval(60장) 결과: 자재 precision 0.79 / recall 0.79** (항공 0.47/0.61 대비 대폭 향상). JSON 100%.
+  클래스별: 벽돌 8/8·수지 8/8·목재 6/7·금속 7/9·타일 9/11·유리 5/7.
+- `training/infer_robust.py`: 생성 타임아웃 + `use_cache=True` 강제(추론 hang 방지) 검증 스크립트.
+- 어댑터 `dist/recognition-ground-v1.zip`. 다음: 콘크리트/석고보드 지상 라벨 보강, 다중자재 씬 데이터.
+
 ### GCP L4 환경 셋업 주의(실측)
 1. `Qwen/Qwen3-VL-8B`는 없음 → **`Qwen/Qwen3-VL-8B-Instruct`** 사용.
 2. DLVM 사전설치 `torchaudio`가 torch와 불일치 → transformers 임포트 깨짐. **torchaudio 제거**.
