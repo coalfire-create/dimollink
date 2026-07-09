@@ -41,8 +41,25 @@ worker 의 `validate_report`(최종 방어선) → 리포트 저장/콜백 → �
 ## 3. 검증
 
 - 배선/보강 로직: `tests/test_vllm_integration.py` (GPU 불필요, _chat 목킹).
-- 실추론 정확도: `training/infer_robust.py` (자재 P/R 0.79, 석면 재현율 100%).
+- 실추론 정확도: `training/infer_robust.py` (v2 자재 P/R 0.83/0.85, 석면 재현율 100%).
 - 어댑터 교체(롤백/AB): `POST /admin/reload` + `VISION_VLLM_LORA` 전환.
+
+### 실 서빙 E2E 검증 완료 (2026-07-10, GCP L4)
+
+vLLM 0.24.0 으로 `Qwen/Qwen3-VL-8B-Instruct` + LoRA `recognition-ground-v2` 서빙 성공.
+L4 24GB 는 bf16 8B 에 KV캐시 부족 → **fp8 양자화 필수**:
+
+```bash
+python3 -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen3-VL-8B-Instruct \
+  --enable-lora --lora-modules recognition-ground-v2=<어댑터경로> --max-lora-rank 16 \
+  --quantization fp8 --kv-cache-dtype fp8 \
+  --max-model-len 3072 --enforce-eager --gpu-memory-utilization 0.95 --port 8000
+```
+
+OpenAI 호환 `/v1/chat/completions` 에 `model=recognition-ground-v2` + 이미지(data URL) + 학습 프롬프트로
+요청 → `{"materials":[코드]}` 정상 반환 확인(타일/금속/콘크리트/목재 정답). 앱 `VLLMPipeline._pass1`
+이 바로 이 경로를 호출한다. (A100 사용 시 fp8 불필요, 더 긴 컨텍스트 가능.)
 
 ## 주의
 - 인식 어댑터는 자재 '존재'만 식별한다(물량·개별 신뢰도 미학습). 물량은 2패스 생성·현장 실측이 채운다.
