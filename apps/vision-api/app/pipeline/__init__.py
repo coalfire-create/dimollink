@@ -48,5 +48,6 @@ def get_pipeline(settings: Settings) -> AnalysisPipeline:
             retriever=retriever,
             top_k=settings.kb_top_k,
             timeout=settings.job_timeout_seconds,
+            lora=settings.vllm_lora,
         )
     return MockPipeline(settings.model_version, retriever=retriever, top_k=settings.kb_top_k)

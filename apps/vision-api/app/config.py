@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # vLLM OpenAI 호환 엔드포인트(§3.3 — GPU 서빙). pipeline=vllm 일 때 사용.
     vllm_base_url: str = "http://localhost:8000/v1"
     vllm_api_key: str = ""
+    # LoRA 어댑터 이름(vLLM --enable-lora 서빙 시). 설정하면 채팅 요청의 model 로 사용
+    # (예: recognition-ground-v1). 비우면 base 모델을 그대로 호출.
+    vllm_lora: str = ""
 
     environment: str = "local"
 

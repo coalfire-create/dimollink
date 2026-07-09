@@ -32,19 +32,77 @@ from ..schemas import (
 from ..taxonomy import (
     ASBESTOS_SUSPECT_GUIDANCE,
     MATERIAL_CODES,
+    MATERIAL_TAXONOMY_V1,
     REPORT_DISCLAIMER,
     is_allbaro_manifest_required,
+    is_asbestos_suspect_material,
 )
 from .base import StageCallback
 
+# 학습된 인식 어댑터(recognition-ground-v1)의 실제 계약 — image → {"materials":[코드]}.
+# 학습 시 사용한 시스템 프롬프트/질문과 정확히 일치해야 어댑터가 제대로 동작한다.
 _RECOGNITION_SYSTEM = (
-    "너는 철거 현장 사진을 분석하는 전문가다. 주어진 사진에서 구성 자재와 위험 요소를 식별해 "
-    "JSON 으로만 답한다. 자재 category 는 반드시 다음 코드 중에서 고른다: "
-    + ", ".join(MATERIAL_CODES)
-    + ". confidence 는 0~1. 물량은 확정 수치가 아닌 범위(value_min/value_max)로만 표기한다. "
-    "석면은 유무를 확정하지 말고 '의심'까지만 표현한다. 슬레이트·뿜칠재가 보이면 "
-    "hazards 에 type=ASBESTOS_SUSPECT 를 포함한다."
+    "너는 철거현장 자재 인식기다. 이미지의 해체 자재를 12종 코드로만 답한다. "
+    'JSON {"materials":[코드,...]}. 석면 의심(ROOFING_SLATE)은 "확정"이 아닌 "의심"으로만.'
 )
+_RECOGNITION_USER = "이 현장의 자재는?"
+
+# 인식 어댑터가 내놓는 자재 코드 목록의 guided_json 스키마(enum 고정).
+_RECOGNITION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "materials": {"type": "array", "items": {"type": "string", "enum": MATERIAL_CODES}},
+    },
+    "required": ["materials"],
+}
+
+# 인식 모델은 자재 '존재'만 식별한다(품질/물량/개별 신뢰도는 미학습).
+# 개별 신뢰도는 명목값으로 채우고, 물량은 2패스(생성)/현장 실측이 채운다.
+_PRESENCE_CONFIDENCE = 0.8
+
+_STRUCTURE_BY_CODE = {
+    "REINFORCED_CONCRETE": "RC", "PLAIN_CONCRETE": "RC",
+    "BRICK_MASONRY": "MASONRY", "WOOD": "WOOD", "METAL": "STEEL",
+}
+
+
+def enrich_recognition(codes: List[str], input_meta: dict) -> dict:
+    """인식 어댑터의 자재 코드 목록 → 리포트 1패스 계약(site_summary/materials/hazards).
+
+    석면 의심 코드는 taxonomy 기준으로 hazards(ASBESTOS_SUSPECT)를 자동 유도한다(§7.1).
+    """
+    seen: list = []
+    for c in codes:
+        if c in MATERIAL_TAXONOMY_V1 and c not in seen:
+            seen.append(c)
+
+    materials = [
+        {
+            "category": c,
+            "confidence": _PRESENCE_CONFIDENCE,
+            "location_note": str(MATERIAL_TAXONOMY_V1[c]["label"]),
+            # 물량 미측정 — 2패스 생성 및 현장 실측이 채운다(임의 수치 금지).
+            "quantity_estimate": {"value_min": 0.0, "value_max": 0.0, "unit": "ton"},
+        }
+        for c in seen
+    ]
+    hazards = [
+        {
+            "type": "ASBESTOS_SUSPECT",
+            "description": f"{MATERIAL_TAXONOMY_V1[c]['label']} 관찰 — 석면 의심(확정 아님)",
+            "guidance": ASBESTOS_SUSPECT_GUIDANCE,
+        }
+        for c in seen
+        if is_asbestos_suspect_material(c)
+    ]
+    structure = next((_STRUCTURE_BY_CODE[c] for c in seen if c in _STRUCTURE_BY_CODE), "UNKNOWN")
+    site_summary = {
+        "building_type": str(input_meta.get("building_use") or input_meta.get("building_type") or "미상"),
+        "structure": structure,
+        "scale_estimate": str(input_meta.get("scale") or "미상 — 현장 실측 필요"),
+        "photo_quality_warnings": [],
+    }
+    return {"site_summary": site_summary, "materials": materials, "hazards": hazards}
 
 _GENERATION_SYSTEM = (
     "너는 철거 공정·폐기물 처리 계획을 세우는 전문가다. 1패스 인식 결과와 제공된 안전지침 근거만을 "
@@ -64,8 +122,11 @@ class VLLMPipeline:
         retriever=None,
         top_k: int = 3,
         timeout: float = 180.0,
+        lora: str = "",
     ) -> None:
         self._model = model
+        # LoRA 어댑터가 서빙되면 채팅 요청의 model 로 어댑터 이름을 쓴다(vLLM --enable-lora).
+        self._serve_model = lora or model
         self._model_version = model_version
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
@@ -78,7 +139,7 @@ class VLLMPipeline:
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         payload = {
-            "model": self._model,
+            "model": self._serve_model,
             "messages": messages,
             "temperature": 0.2,
             # vLLM 구조화 디코딩 — 스키마 고정 출력.
@@ -97,30 +158,20 @@ class VLLMPipeline:
         return [{"type": "image_url", "image_url": {"url": u}} for u in photo_urls]
 
     async def _pass1(self, request: JobCreateRequest) -> dict:
-        schema = {
-            "type": "object",
-            "properties": {
-                "site_summary": SiteSummary.model_json_schema(),
-                "materials": {"type": "array", "items": {"type": "object"}},
-                "hazards": {"type": "array", "items": {"type": "object"}},
-            },
-            "required": ["site_summary", "materials", "hazards"],
-        }
+        """인식 어댑터 호출(image → {"materials":[코드]}) 후 리포트 계약으로 보강."""
         user_content = [
-            {
-                "type": "text",
-                "text": "다음 사진들을 분석해 site_summary/materials/hazards 를 채워라. "
-                f"부가정보: {json.dumps(request.input_meta, ensure_ascii=False)}",
-            },
+            {"type": "text", "text": _RECOGNITION_USER},
             *self._image_content(request.photo_urls),
         ]
-        return await self._chat(
+        result = await self._chat(
             [
                 {"role": "system", "content": _RECOGNITION_SYSTEM},
                 {"role": "user", "content": user_content},
             ],
-            schema,
+            _RECOGNITION_SCHEMA,
         )
+        codes = result.get("materials", []) if isinstance(result, dict) else []
+        return enrich_recognition(codes, request.input_meta)
 
     async def _pass2(self, recognition: dict, request: JobCreateRequest, guidelines: list) -> dict:
         schema = {
