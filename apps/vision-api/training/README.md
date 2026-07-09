@@ -89,7 +89,18 @@ python scripts/eval.py --evalset eval_samples/sample_evalset.jsonl
 - **eval(60장) 결과: 자재 precision 0.79 / recall 0.79** (항공 0.47/0.61 대비 대폭 향상). JSON 100%.
   클래스별: 벽돌 8/8·수지 8/8·목재 6/7·금속 7/9·타일 9/11·유리 5/7.
 - `training/infer_robust.py`: 생성 타임아웃 + `use_cache=True` 강제(추론 hang 방지) 검증 스크립트.
-- 어댑터 `dist/recognition-ground-v1.zip`. 다음: 콘크리트/석고보드 지상 라벨 보강, 다중자재 씬 데이터.
+- 어댑터 `dist/recognition-ground-v1.zip`.
+
+### v2 — 콘크리트 클래스 추가 + MINC 확장 (2026-07-10, 검증됨)
+
+빠진 콘크리트 클래스를 채우고 MINC 를 확장해 재학습. 콘크리트는 HF `mohammadnajeeb/concrete_crack_images`
+(24k 지상 콘크리트 표면) → REINFORCED_CONCRETE.
+
+- 학습셋 5,600(MINC 4,000[500/클래스] + 콘크리트 600 + 슬레이트 1,000), 8개 자재 클래스.
+  loss step100 평탄화 → **checkpoint-800 조기 종료**(v1과 동일 3,200 노출, 시간 절약).
+- **eval(96장): 자재 P/R 0.83/0.85 (v1 0.79/0.79 대비 향상), JSON 100%.**
+  클래스별: 벽돌 14/14·**콘크리트 13/13(신규)**·슬레이트 2/2·금속 5/6·타일 14/18·목재 7/9·수지 7/9·유리 6/8.
+- 어댑터 `dist/recognition-ground-v2.zip`. 다음: 석고보드/단열재 라벨, 다중자재 씬 데이터.
 
 ### GCP L4 환경 셋업 주의(실측)
 1. `Qwen/Qwen3-VL-8B`는 없음 → **`Qwen/Qwen3-VL-8B-Instruct`** 사용.
