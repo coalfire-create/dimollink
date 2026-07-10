@@ -102,6 +102,17 @@ python scripts/eval.py --evalset eval_samples/sample_evalset.jsonl
   클래스별: 벽돌 14/14·**콘크리트 13/13(신규)**·슬레이트 2/2·금속 5/6·타일 14/18·목재 7/9·수지 7/9·유리 6/8.
 - 어댑터 `dist/recognition-ground-v2.zip`. 다음: 석고보드/단열재 라벨, 다중자재 씬 데이터.
 
+### 다중 자재 씬 — 시도·보류 (2026-07-11)
+
+앱의 최대 약점은 **단일 자재 패치로 학습 ↔ 실제는 다중 자재 씬** 도메인 갭. 공개 다중객체 C&D
+데이터(CODD 등)는 무인증 다운로드 불가라, `training/scene_gen.py`로 단일 패치를 합성해 다중 자재
+씬을 만들어 재학습을 시도함(train 4,900, 다중자재 59%).
+
+- ⚠️ **보류**: 512px 합성 씬이 L4 에서 GPU 21%·31s/step(10h/epoch)로 비효율 + 그리드 합성이라
+  실제 씬과 갭. ROI 부족으로 중단.
+- 재개 시: (a) 씬 이미지 256~320px 로 축소 + `min/max_pixels` 캡, (b) A100 사용, 또는
+  (c) **Roboflow Universe** 실제 C&D 다중객체 데이터(무료 API 키 필요)로 교체 — 이게 정도(正道).
+
 ### GCP L4 환경 셋업 주의(실측)
 1. `Qwen/Qwen3-VL-8B`는 없음 → **`Qwen/Qwen3-VL-8B-Instruct`** 사용.
 2. DLVM 사전설치 `torchaudio`가 torch와 불일치 → transformers 임포트 깨짐. **torchaudio 제거**.
