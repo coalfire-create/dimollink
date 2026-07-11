@@ -18,9 +18,13 @@ export type Route =
   | { name: 'requestForm'; kind: RequestKind }
   | { name: 'requestDetail'; requestId: string }
   | { name: 'chat'; requestId: string; counterpartyId: string }
-  | { name: 'payment'; requestId: string }
+  | { name: 'payment'; requestId: string; source?: 'waste' | 'interior' }
   | { name: 'estimate' }
-  | { name: 'siteAnalysis' };
+  | { name: 'siteAnalysis' }
+  // 인테리어 밀봉 역경매 (파일럿 밖 · FEATURE_INTERIOR)
+  | { name: 'interiorForm' }
+  | { name: 'interiorList'; scope: 'mine' | 'open' }
+  | { name: 'interiorDetail'; requestId: string };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

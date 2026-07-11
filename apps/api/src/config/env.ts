@@ -44,6 +44,13 @@ export const env = {
    */
   allowTestOtp: process.env.ALLOW_TEST_OTP === 'true',
   seedTestAccounts: process.env.SEED_TEST_ACCOUNTS === 'true',
+  /**
+   * 기능 플래그. 파일럿(양평/철거) 범위 밖 기능은 기본 off 로 두고 명시적으로 켠다.
+   * - interior: 소비자↔인테리어 업체 밀봉 역경매. 로드맵 Phase 편입 전까지 off 기본.
+   */
+  features: {
+    interior: process.env.FEATURE_INTERIOR === 'true',
+  },
   // PostgreSQL 접속 문자열. 설정 시 JSON 파일 대신 DB 영속화를 사용한다.
   databaseUrl: process.env.DATABASE_URL,
   // Redis 접속 문자열(TCP). 설정 시 세션·레이트리밋을 인스턴스 간 공유(다중 인스턴스).

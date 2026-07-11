@@ -16,7 +16,9 @@ import type { TabName } from './navigation';
 export type HomeActionRoute =
   | { name: 'requestForm'; kind: RequestKind }
   | { name: 'estimate' }
-  | { name: 'siteAnalysis' };
+  | { name: 'siteAnalysis' }
+  | { name: 'interiorForm' }
+  | { name: 'interiorList'; scope: 'mine' | 'open' };
 
 export interface HomeAction {
   key: string;
@@ -179,6 +181,25 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     marketRateParty: 'DISPOSAL',
     listTitle: '반입 예약',
     listEmpty: '반입 예약이 없어요.',
+    tabs: [TAB_HOME('홈'), TAB_NOTI, TAB_MYPAGE],
+  },
+  // 인테리어 업체 — 소비자 시공 요청에 밀봉 입찰(파일럿 밖 · FEATURE_INTERIOR).
+  // 폐기물 일감 피드(jobFeed)를 쓰지 않고, 전용 인테리어 일감 목록으로 이동한다.
+  INTERIOR_COMPANY: {
+    homeGreetingSuffix: '님, 새 시공 요청을 확인하세요',
+    homeIntro: '인테리어 일감',
+    homeActions: [
+      {
+        key: 'interiorOpen',
+        icon: '🛠️',
+        title: '들어온 시공 요청',
+        description: '요청을 보고 비밀 견적을 넣어요',
+        route: { name: 'interiorList', scope: 'open' },
+      },
+    ],
+    showAvailability: false,
+    listTitle: '시공 요청',
+    listEmpty: '들어온 시공 요청이 없어요.',
     tabs: [TAB_HOME('홈'), TAB_NOTI, TAB_MYPAGE],
   },
 };

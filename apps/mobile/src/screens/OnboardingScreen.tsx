@@ -23,6 +23,7 @@ const TYPE_OPTIONS: Array<{ type: UserType; title: string; description: string }
   { type: 'DEMOLITION_COMPANY', title: '철거업체', description: '철거 작업을 수주하고 싶어요' },
   { type: 'TRANSPORT_COMPANY', title: '운반업체', description: '폐기물 운반 콜을 받고 싶어요' },
   { type: 'WASTE_TREATMENT_PLANT', title: '처리장', description: '폐기물 반입 예약을 받고 싶어요' },
+  { type: 'INTERIOR_COMPANY', title: '인테리어 업체', description: '인테리어 시공 견적을 넣고 싶어요' },
 ];
 
 export function OnboardingScreen({

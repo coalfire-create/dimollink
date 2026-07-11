@@ -11,6 +11,8 @@ import type { GeoPoint } from './geo.js';
  * - TRANSPORT_COMPANY: 운반업체 — 사업자등록번호 필수, 올바로 회원 검증 대상. 콜대기(online/offline) 흐름 사용
  * - WASTE_TREATMENT_PLANT: 철거폐기물 처리장 — 사업자등록번호 필수, 올바로 회원 검증 대상
  * - CONSUMER: 소비자(일반 배출자) — 사업자등록번호 없이 가입, 올바로 검증 생략
+ * - INTERIOR_COMPANY: 인테리어 업체 — 소비자 시공 요청에 밀봉 입찰(파일럿 밖 · FEATURE_INTERIOR).
+ *   폐기물 회원이 아니므로 올바로 검증·사업자번호 필수 대상이 아니다(COMPANY_USER_TYPES 제외).
  *
  * 매칭/정산에서의 지급 대상 역할(운반/처리)은 ProviderRole·PayoutParty 로 별도 관리한다.
  */
@@ -18,6 +20,7 @@ export type UserType =
   | 'DEMOLITION_COMPANY'
   | 'TRANSPORT_COMPANY'
   | 'WASTE_TREATMENT_PLANT'
+  | 'INTERIOR_COMPANY'
   | 'CONSUMER';
 
 /** 가입 유형 목록(회원가입 화면 렌더링·서버 검증용). CONSUMER를 첫 화면 기본값으로 둔다. */
@@ -26,6 +29,7 @@ export const USER_TYPES: readonly UserType[] = [
   'DEMOLITION_COMPANY',
   'TRANSPORT_COMPANY',
   'WASTE_TREATMENT_PLANT',
+  'INTERIOR_COMPANY',
 ];
 
 /** 가입 유형 한글 라벨(화면 표기용). */
@@ -33,6 +37,7 @@ export const USER_TYPE_LABELS: Record<UserType, string> = {
   DEMOLITION_COMPANY: '철거업체',
   TRANSPORT_COMPANY: '운반업체',
   WASTE_TREATMENT_PLANT: '철거폐기물 처리장',
+  INTERIOR_COMPANY: '인테리어 업체',
   CONSUMER: '소비자',
 };
 
