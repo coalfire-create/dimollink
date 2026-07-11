@@ -81,8 +81,8 @@
     mat.appendChild(matList);
     container.appendChild(mat);
 
-    // 세부 공정
-    var proc = section("세부 공정");
+    // 예상 철거 공정 (대략적인 철거 과정 안내)
+    var proc = section("예상 철거 공정");
     var procList = el("ol", "report-list");
     (report.process_steps || []).forEach(function (step) {
       var li = el("li", null);

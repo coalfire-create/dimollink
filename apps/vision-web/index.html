@@ -21,16 +21,19 @@
       <section id="upload-view" class="card" aria-labelledby="upload-heading">
         <h2 id="upload-heading" class="section-title">현장 사진 올리기</h2>
 
-        <label class="field-label" for="photo-input">사진 (최대 10장)</label>
+        <label class="field-label" for="photo-input">사진 — 건물 내부 위주로 많이 (최대 40장)</label>
         <input
           id="photo-input"
           class="file-input"
           type="file"
           accept="image/*"
-          capture="environment"
           multiple
         />
-        <p id="photo-hint" class="hint">외부 4방향·내부 실별·지붕재 근접 사진이 정확도를 높입니다.</p>
+        <p id="photo-hint" class="hint">
+          <strong>건물 내부를 방마다 여러 장씩, 최대한 많이 올려주세요.</strong>
+          사진이 많을수록 자재 인식과 철거 과정 안내가 정확해집니다.
+          외부 4방향·지붕재 근접 사진도 함께 넣으면 더 좋습니다.
+        </p>
         <div id="thumbs" class="thumbs" aria-live="polite"></div>
 
         <fieldset class="fieldset">

@@ -14,7 +14,9 @@ window.DimolVision.config = {
   supabaseUrl: "",
   supabaseAnonKey: "",
 
-  maxPhotos: 10,
+  // 철거 분석은 사진이 많을수록 정확하다(촬영 프로토콜: 현장당 20~40장). 내부 위주로 많이 유도.
+  // ⚠️ 백엔드와 일치해야 함: supabase/functions/_shared/env.ts, apps/vision-api/app/config.py (VISION_MAX_PHOTOS 기본 40).
+  maxPhotos: 40,
   // 사진 1장 최대 크기(10MB) — packages/shared SITE_PHOTO_MAX_BYTES 미러.
   maxBytesPerPhoto: 10 * 1024 * 1024,
 };

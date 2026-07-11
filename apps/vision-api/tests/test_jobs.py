@@ -51,10 +51,11 @@ def test_get_missing_job_404(client):
 
 
 def test_photo_count_limit(client):
+    # 기본 상한 40장 초과(41장)는 거부. 상한은 VISION_MAX_PHOTOS 로 조정 가능.
     r = client.post(
         "/v1/jobs",
         headers={"X-API-Key": API_KEY},
-        json={"photo_urls": [f"https://x/{i}.jpg" for i in range(11)]},
+        json={"photo_urls": [f"https://x/{i}.jpg" for i in range(41)]},
     )
     assert r.status_code == 422
 

@@ -19,5 +19,5 @@ export const CONFIG = {
   callbackSecret: () => Deno.env.get("VISION_CALLBACK_SECRET") ?? "",
   // 서명 다운로드 URL 유효시간(초) — AI 서버가 사진을 가져갈 시간.
   signedUrlTtl: () => Number(Deno.env.get("VISION_SIGNED_URL_TTL") ?? "600"),
-  maxPhotos: () => Number(Deno.env.get("VISION_MAX_PHOTOS") ?? "10"),
+  maxPhotos: () => Number(Deno.env.get("VISION_MAX_PHOTOS") ?? "40"),
 };
