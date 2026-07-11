@@ -19,3 +19,5 @@ kb_chunks.jsonl
 data/
 training/adapters/
 dist/
+# 플라이휠 재학습 사이클 산출물(병합 학습셋·어댑터·배포 매니페스트) — 런타임 생성물
+runs/
