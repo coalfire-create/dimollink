@@ -21,10 +21,18 @@ styles.css        브랜드 토큰 미러(디자인 접근성 기준)
 config.js         런타임 설정(mock 플래그, Supabase 공개값)
 taxonomy.js       자재/위험/단계 라벨(shared 미러)
 lib/format.js     순수 포맷 헬퍼(DOM 비의존, 테스트 가능)
-lib/client.js     분석 클라이언트(mock + Supabase 스텁)
+lib/client.js     분석 클라이언트(mock + Supabase) + submitFeedback
 lib/report.js     VisionReport → DOM 렌더
+lib/feedback.js   피드백 수집 UI/로직(별점·자재 교정·석면) — 플라이휠 원천
 app.js            화면 전환·이벤트 배선
 ```
+
+## 피드백 수집 (데이터 플라이휠 원천, §V5)
+
+리포트 하단 "이 분석 평가하기": 별점(1~5) + 자재 교정 칩(인식분 사전선택) + 석면 의심 확인
++ 의견 → `feedback` 테이블 직접 insert(RLS `feedback_insert_own`, 본인 분석만). 교정 자재는
+학습 계약(카테고리 코드 배열)에 맞춰 저장돼 `apps/vision-api` 의 `app/feedback/source.py`
+→ `scripts/retrain_cycle.py` 재학습으로 흐른다. 로직 검증: `node --check` + DOM 스텁 하네스.
 
 ## 로컬 실행
 
@@ -40,4 +48,4 @@ python3 -m http.server 5173
 
 - Supabase 연동: 업로드 서명 URL, `analyses` insert, Edge Function 트리거, Realtime 구독 — §3.2
 - `prefill-btn` → 디몰링크 매칭 신청 프리필(waste_plan) 연동 — Phase V4(본체 로드맵 도달 후)
-- PDF 저장, 사용자 피드백(정확/부정확) 수집 — §2.1
+- PDF 저장 — §2.1

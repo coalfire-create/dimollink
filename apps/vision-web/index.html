@@ -61,6 +61,17 @@
       <section id="report-view" class="card" aria-labelledby="report-heading" hidden>
         <h2 id="report-heading" class="section-title">분석 리포트</h2>
         <div id="report-body"></div>
+
+        <!-- 피드백 수집 (데이터 플라이휠 원천, §V5) -->
+        <section id="feedback-block" class="feedback-block" aria-labelledby="feedback-heading">
+          <h3 id="feedback-heading" class="section-title">이 분석 평가하기</h3>
+          <div id="feedback-form"></div>
+          <button id="feedback-submit" class="btn btn-primary" type="button" disabled>
+            평가 보내기
+          </button>
+          <p id="feedback-status" class="hint" role="status" aria-live="polite" hidden></p>
+        </section>
+
         <div class="report-actions">
           <button id="prefill-btn" class="btn btn-primary" type="button">
             매칭 신청에 이 결과 사용
@@ -76,6 +87,7 @@
     <script src="./lib/format.js"></script>
     <script src="./lib/client.js"></script>
     <script src="./lib/report.js"></script>
+    <script src="./lib/feedback.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

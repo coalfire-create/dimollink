@@ -100,12 +100,14 @@
 
   function createMockClient() {
     var canceled = false;
+    var analysisId = null;
     return {
       cancel: function () {
         canceled = true;
       },
       analyze: function (files, meta, handlers) {
         canceled = false;
+        analysisId = "mock-" + Date.now();
         var onStage = handlers.onStage || function () {};
         var onDone = handlers.onDone || function () {};
         var i = 0;
@@ -121,6 +123,15 @@
         }
         setTimeout(next, 300);
       },
+      // 목: 저장 없이 성공만 흉내낸다(UI 흐름 검증용).
+      submitFeedback: function (feedback) {
+        return new Promise(function (resolve, reject) {
+          setTimeout(function () {
+            if (!analysisId) reject(new Error("먼저 분석을 실행해 주세요."));
+            else resolve({ analysis_id: analysisId });
+          }, 400);
+        });
+      },
     };
   }
 
@@ -130,6 +141,7 @@
     // ⚠️ 미검증(로컬에 Supabase 프로젝트 없음). 로그인 세션(supabase.auth) 전제.
     var sb = null;
     var channel = null;
+    var currentAnalysisId = null;
 
     async function ensureClient() {
       if (sb) return sb;
@@ -171,6 +183,7 @@
             input_meta: meta,
           });
           var analysisId = created.analysis_id;
+          currentAnalysisId = analysisId; // 피드백 저장 시 참조
           // 4) Realtime 구독으로 진행/결과 반영
           channel = client
             .channel("analysis-" + analysisId)
@@ -188,6 +201,20 @@
         } catch (e) {
           onError(e);
         }
+      },
+      // feedback 테이블 직접 insert. RLS(feedback_insert_own)가 본인 분석만 허용.
+      // Edge Function 불필요 — 로그인 세션의 anon 키로 안전하게 기록된다.
+      submitFeedback: async function (feedback) {
+        if (!currentAnalysisId) throw new Error("먼저 분석을 실행해 주세요.");
+        var client = await ensureClient();
+        var res = await client.from("feedback").insert({
+          analysis_id: currentAnalysisId,
+          rating: feedback.rating || null,
+          corrected_result: feedback.corrected_result || null,
+          comment: feedback.comment || null,
+        });
+        if (res.error) throw new Error("피드백 저장 실패: " + res.error.message);
+        return { analysis_id: currentAnalysisId };
       },
     };
   }

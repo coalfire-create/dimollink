@@ -251,3 +251,80 @@ body {
 .report-actions {
   margin-top: var(--sp-md);
 }
+
+/* 피드백 블록 (데이터 플라이휠 원천) */
+.feedback-block {
+  margin-top: var(--sp-md);
+  padding: var(--sp-md);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+.feedback-block .section-title {
+  font-size: var(--fs-body-lg);
+}
+
+/* 별점 */
+.rating {
+  display: flex;
+  gap: var(--sp-xs);
+  margin-top: var(--sp-xs);
+}
+.rating .star {
+  min-width: var(--btn-h);
+  min-height: var(--btn-h);
+  font-size: 30px;
+  line-height: 1;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-secondary);
+  cursor: pointer;
+}
+.rating .star.on {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+/* 자재 교정 칩 */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs);
+  margin-top: var(--sp-xs);
+}
+.chips .chip {
+  min-height: var(--btn-h);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  padding: var(--sp-xs) var(--sp-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.chips .chip.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+
+/* 석면 확인 체크 행 */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  min-height: var(--btn-h);
+  margin-top: var(--sp-sm);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+.check-row input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+}
