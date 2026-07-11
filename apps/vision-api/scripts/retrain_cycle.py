@@ -29,6 +29,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from app.config import get_settings
+from app.feedback import PgFeedbackSource, export_feedback
 from app.flywheel import run_cycle
 from training.train import _load_yaml
 
@@ -38,6 +40,9 @@ def main() -> int:
     p.add_argument("--config", default="training/qlora_config.yaml")
     p.add_argument("--task", default="recognition", choices=["recognition", "generation"])
     p.add_argument("--feedback", help="피드백 JSONL(app/feedback 형식). 없으면 재평가만.")
+    p.add_argument("--from-db", action="store_true",
+                   help="실 저장소(Supabase config.db_url)에서 피드백을 직접 끌어와 사용")
+    p.add_argument("--since", help="--from-db 증분 기준 ISO 시각(직전 사이클 이후)")
     p.add_argument("--base", help="기존 학습셋 JSONL(병합 대상). 없으면 피드백만으로 구성.")
     p.add_argument("--evalset", default="eval_samples/sample_evalset.jsonl")
     p.add_argument("--out", required=True, help="이번 사이클 산출물 디렉토리")
@@ -45,12 +50,24 @@ def main() -> int:
     p.add_argument("--gpu", action="store_true", help="실 QLoRA 학습(GPU 필요). 기본은 dry-run 배선")
     args = p.parse_args()
 
+    # --from-db: 실 저장소에서 피드백을 먼저 내려받아 이번 사이클 입력으로 쓴다.
+    feedback_path = args.feedback
+    if args.from_db:
+        dsn = get_settings().db_url
+        if not dsn:
+            print("--from-db 에는 VISION_DB_URL 이 필요합니다.", file=sys.stderr)
+            return 2
+        os.makedirs(args.out, exist_ok=True)
+        feedback_path = os.path.join(args.out, "feedback.jsonl")
+        n = export_feedback(PgFeedbackSource(dsn), feedback_path, since=args.since)
+        print(f"실 피드백 {n}건 → {feedback_path}", file=sys.stderr)
+
     config = _load_yaml(args.config)
     result = run_cycle(
         config,
         evalset_path=args.evalset,
         out_dir=args.out,
-        feedback_path=args.feedback,
+        feedback_path=feedback_path,
         base_train_path=args.base,
         task=args.task,
         do_train=args.gpu,
