@@ -3,9 +3,9 @@ import { Router } from 'express';
 import { authUserId } from '../middleware/auth.js';
 import { PaymentService } from '../payment/payment-service.js';
 import type { PaymentStore } from '../payment/payment-store.js';
-import { PortOneError, type PayMethod } from '../payment/portone-client.js';
+import { PortOneError } from '../payment/portone-client.js';
 import type { QuoteStore } from '../quotes/store.js';
-import type { RequestStore } from '../requests/store.js';
+import type { PayableRequestStore } from '../payment/payable-request.js';
 import type { UserStore } from '../users/store.js';
 import { buildSettlementPlan, type BuildSettlementPlanInput } from '../settlement/plan.js';
 import { CancellationNotAllowedError, calculateRefund } from '../settlement/refund.js';
@@ -15,6 +15,11 @@ const STATUS_BY_CODE: Record<string, number> = {
   CONFIG_MISSING: 503,
   LIVE_BLOCKED: 409,
   INVALID_AMOUNT: 400,
+  AMOUNT_MISMATCH: 409,
+  PAYMENT_NOT_FOUND: 404,
+  PAYMENT_NOT_PAID: 409,
+  WEBHOOK_INVALID: 400,
+  NOT_CONFIGURED: 501,
   TIMEOUT: 504,
   UPSTREAM_ERROR: 502,
 };
@@ -70,13 +75,14 @@ function parsePlanInput(body: unknown): BuildSettlementPlanInput | string {
  * DI를 위해 service를 주입받을 수 있게 한다.
  */
 /**
- * @param requestStore 선결제 요청자 본인 검증용(선택).
+ * @param requestStore 선결제 요청자 본인 검증·금액 권위·상태 전이용(선택). 폐기물/인테리어
+ *                     요청을 합친 창구(PayableRequestStore)를 주입해 두 흐름을 모두 처리한다.
  * @param quoteStore   선결제 금액을 수락된 견적에서 산출(금액 권위, 선택). 주입 시 클라이언트 금액 무시.
  * @param paymentStore 결제 기록(취소 시 결제자 검증·환불 기준금액, 선택).
  */
 export function createPaymentsRouter(
   service: PaymentService = new PaymentService(),
-  requestStore?: RequestStore,
+  requestStore?: PayableRequestStore,
   quoteStore?: QuoteStore,
   paymentStore?: PaymentStore,
   userStore?: UserStore,
@@ -105,11 +111,20 @@ export function createPaymentsRouter(
     res.json(buildSettlementPlan(parsed));
   });
 
-  // POST /api/payments/prepay  배출자 선결제 요청
+  // POST /api/payments/prepay  선결제 확정 — 앱 포트원 SDK 체크아웃으로 만든 결제(paymentId)를
+  // 서버가 검증(금액·상태)하고 결제완료(PAID)로 반영한다. (V2는 서버가 결제를 생성하지 않는다.)
   router.post('/payments/prepay', async (req, res) => {
-    const matchRequestId = (req.body as { matchRequestId?: unknown })?.matchRequestId;
+    const body0 = (req.body ?? {}) as Record<string, unknown>;
+    const matchRequestId = body0.matchRequestId;
     if (typeof matchRequestId !== 'string' || matchRequestId.trim() === '') {
       res.status(400).json({ error: 'matchRequestId(문자열)가 필요합니다.' });
+      return;
+    }
+    const paymentId = body0.paymentId;
+    if (typeof paymentId !== 'string' || paymentId.trim() === '') {
+      res.status(400).json({
+        error: 'paymentId(문자열)가 필요합니다. 앱에서 포트원 결제를 먼저 완료하세요.',
+      });
       return;
     }
     const payerId = authUserId(req);
@@ -159,27 +174,62 @@ export function createPaymentsRouter(
       completedDate: dateParsed.completedDate,
       holidays: dateParsed.holidays,
     });
-    const payMethod = (req.body as { payMethod?: PayMethod })?.payMethod;
-
     try {
-      const prepayment = await service.prepay(matchRequestId, plan, payMethod);
+      // 포트원에서 결제 상태·금액(=합의 금액)을 검증한다. 금액 불일치/미결제면 예외.
+      const payment = await service.confirmPrepayment(paymentId, plan);
       paymentStore?.record({
-        paymentId: prepayment.paymentId,
+        paymentId: payment.paymentId,
         matchRequestId,
         payerId,
         amount: plan.prepaymentAmount,
       });
-      // 매칭 상태면 결제완료(PAID)로 전이하고 결제 id 를 기록한다.
-      if (requestStore?.get(matchRequestId)?.status === 'MATCHED') {
+      // 결제 완료(PAID)면 매칭→결제완료로 전이. 가상계좌 발급만 된 상태(paid=false)면
+      // 입금 완료 웹훅(Transaction.Paid)이 올 때까지 매칭 상태를 유지한다.
+      if (payment.paid && requestStore?.get(matchRequestId)?.status === 'MATCHED') {
         try {
-          requestStore.changeStatus(matchRequestId, 'PAID', { paymentId: prepayment.paymentId });
+          requestStore.changeStatus(matchRequestId, 'PAID', { paymentId: payment.paymentId });
         } catch {
           // 상태 전이 실패가 결제 응답을 막지 않게 한다(결제는 이미 성립).
         }
       }
-      res.json({ plan, prepayment });
+      res.json({ plan, payment });
     } catch (err) {
-      sendPortOneError(res, err, '선결제 요청 처리 중 오류가 발생했습니다.');
+      sendPortOneError(res, err, '선결제 확정 처리 중 오류가 발생했습니다.');
+    }
+  });
+
+  // POST /api/payments/webhook  포트원 웹훅 — 가상계좌 입금 완료(Transaction.Paid) 등 수신.
+  // 서명 검증에 원본 바디가 필요하므로 app.ts에서 이 경로만 express.raw 로 파싱한다(req.body=Buffer).
+  router.post('/payments/webhook', async (req, res) => {
+    const raw = Buffer.isBuffer(req.body)
+      ? req.body.toString('utf8')
+      : typeof req.body === 'string'
+        ? req.body
+        : JSON.stringify(req.body ?? {});
+    try {
+      const event = await service.verifyWebhook(raw, req.headers);
+      // 결제 승인 이벤트면 결제 건을 재검증하고 해당 요청을 PAID 로 확정한다.
+      if (
+        (event.type === 'Transaction.Paid' || event.type === 'Transaction.VirtualAccountIssued') &&
+        'data' in event &&
+        event.data &&
+        typeof (event.data as { paymentId?: unknown }).paymentId === 'string'
+      ) {
+        const evPaymentId = (event.data as { paymentId: string }).paymentId;
+        if (event.type === 'Transaction.Paid') {
+          const record = paymentStore?.get(evPaymentId);
+          if (record && requestStore?.get(record.matchRequestId)?.status === 'MATCHED') {
+            try {
+              requestStore.changeStatus(record.matchRequestId, 'PAID', { paymentId: evPaymentId });
+            } catch {
+              // 이미 전이됨 등 — 웹훅 응답을 막지 않는다.
+            }
+          }
+        }
+      }
+      res.json({ received: true });
+    } catch (err) {
+      sendPortOneError(res, err, '웹훅 처리 중 오류가 발생했습니다.');
     }
   });
 

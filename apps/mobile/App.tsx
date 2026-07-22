@@ -27,6 +27,9 @@ import { PaymentScreen } from './src/screens/PaymentScreen';
 import { RequestDetailScreen } from './src/screens/RequestDetailScreen';
 import { RequestFormScreen } from './src/screens/RequestFormScreen';
 import { RequestListScreen } from './src/screens/RequestListScreen';
+import { InteriorFormScreen } from './src/screens/InteriorFormScreen';
+import { InteriorListScreen } from './src/screens/InteriorListScreen';
+import { InteriorDetailScreen } from './src/screens/InteriorDetailScreen';
 import { SiteAnalysisScreen } from './src/screens/SiteAnalysisScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 
@@ -146,11 +149,17 @@ export default function App() {
       case 'chat':
         return <ChatScreen requestId={route.requestId} />;
       case 'payment':
-        return <PaymentScreen requestId={route.requestId} />;
+        return <PaymentScreen requestId={route.requestId} source={route.source ?? 'waste'} />;
       case 'estimate':
         return <EstimateScreen />;
       case 'siteAnalysis':
         return <SiteAnalysisScreen />;
+      case 'interiorForm':
+        return <InteriorFormScreen />;
+      case 'interiorList':
+        return <InteriorListScreen scope={route.scope} />;
+      case 'interiorDetail':
+        return <InteriorDetailScreen requestId={route.requestId} />;
     }
   }
 

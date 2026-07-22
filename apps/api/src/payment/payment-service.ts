@@ -4,10 +4,9 @@ import {
   PortOneClient,
   createPortOneClient,
   type CancelPaymentResult,
-  type PayMethod,
   type PayoutResult,
-  type PrepaymentResult,
   type TaxInvoiceResult,
+  type VerifiedPayment,
 } from './portone-client.js';
 
 /**
@@ -21,17 +20,16 @@ import {
 export class PaymentService {
   constructor(private readonly client: PortOneClient = createPortOneClient()) {}
 
-  /** 매칭 확정 시 배출자 선결제(운반비+처리비 총액) 요청. */
-  async prepay(
-    matchRequestId: string,
+  /**
+   * 앱 포트원 SDK 체크아웃으로 생성된 결제(paymentId)를 서버가 검증한다.
+   * 금액 권위: 서버 합의금액(plan.prepaymentAmount)과 실제 결제 총액 일치를 포트원에서 확인한다.
+   * (V2는 서버가 결제를 생성하지 않는다 — 구 서버 선결제 생성 방식 폐기.)
+   */
+  async confirmPrepayment(
+    paymentId: string,
     plan: SettlementPlan,
-    payMethod?: PayMethod,
-  ): Promise<PrepaymentResult> {
-    return this.client.requestPrepayment({
-      matchRequestId,
-      amount: plan.prepaymentAmount,
-      payMethod,
-    });
+  ): Promise<VerifiedPayment> {
+    return this.client.verifyPayment({ paymentId, expectedAmount: plan.prepaymentAmount });
   }
 
   /**
@@ -73,6 +71,11 @@ export class PaymentService {
       );
     }
     return results;
+  }
+
+  /** 포트원 웹훅 서명 검증 후 이벤트를 반환한다(가상계좌 입금 완료 등 확정용). */
+  async verifyWebhook(payload: string, headers: Record<string, string | string[] | undefined>) {
+    return this.client.verifyWebhook(payload, headers);
   }
 
   /**

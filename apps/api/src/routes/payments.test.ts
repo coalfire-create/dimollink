@@ -22,12 +22,14 @@ let sessionStore: SessionTokenStore;
 
 // 포트원 호출을 대체하는 가짜 결제 서비스.
 const fakeService = {
-  prepay: async (_matchRequestId: string, plan: { prepaymentAmount: number }) => ({
+  // 앱 체크아웃으로 만든 결제(paymentId)를 검증하는 모델. 여기선 항상 완료(PAID)로 가정.
+  confirmPrepayment: async (_paymentId: string, plan: { prepaymentAmount: number }) => ({
     paymentId: 'pay-test',
-    status: 'READY',
     amount: plan.prepaymentAmount,
-    environment: 'sandbox',
+    status: 'PAID',
+    paid: true,
   }),
+  verifyWebhook: async () => ({ type: 'noop' }),
   cancel: async () => ({
     breakdown: { stage: 'BEFORE_DISPATCH', cancellable: true, paidAmount: 0, penaltyAmount: 0, refundAmount: 0 },
   }),
@@ -90,6 +92,7 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
     const request = makeRequest(owner.id);
     const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
       matchRequestId: request.id,
+      paymentId: 'pay-test',
       completedDate: '2026-07-10',
     });
     expect(res.status).toBe(409);
@@ -104,6 +107,7 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
 
     const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
       matchRequestId: request.id,
+      paymentId: 'pay-test',
       completedDate: '2026-07-10',
       transportFee: 999999, // 조작 시도 — 무시되어야 함
       disposalFee: 999999,
@@ -123,6 +127,7 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
     });
     const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
       matchRequestId: request.id,
+      paymentId: 'pay-test',
       completedDate: '2026-07-10',
     });
     expect(res.status).toBe(200);
@@ -136,6 +141,7 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
     acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
     const res = await post('/api/payments/prepay', sessionStore.issue(other.id), {
       matchRequestId: request.id,
+      paymentId: 'pay-test',
       completedDate: '2026-07-10',
     });
     expect(res.status).toBe(403);
@@ -147,6 +153,7 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
     acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
     await post('/api/payments/prepay', sessionStore.issue(owner.id), {
       matchRequestId: request.id,
+      paymentId: 'pay-test',
       completedDate: '2026-07-10',
     });
   }

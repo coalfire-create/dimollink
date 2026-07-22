@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PLATFORM_FEE_RATE, REQUEST_KIND_LABELS, type ServiceRequest } from '@dimol/shared';
-import { ApiError, getRequest, prepay } from '../api/client';
+import {
+  INTERIOR_CATEGORY_LABELS,
+  PLATFORM_FEE_RATE,
+  REQUEST_KIND_LABELS,
+  type InteriorRequest,
+  type ServiceRequest,
+} from '@dimol/shared';
+import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
@@ -18,19 +24,31 @@ function todayKST(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function PaymentScreen({ requestId }: { requestId: string }) {
+/** 인테리어 요청인지 판별(합의 금액·표시 라벨을 종류별로 다르게 구성). */
+function isInterior(r: ServiceRequest | InteriorRequest): r is InteriorRequest {
+  return r.kind === 'INTERIOR';
+}
+
+export function PaymentScreen({
+  requestId,
+  source = 'waste',
+}: {
+  requestId: string;
+  source?: 'waste' | 'interior';
+}) {
   const nav = useNavigation();
-  const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [request, setRequest] = useState<ServiceRequest | InteriorRequest | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('VBANK');
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    getRequest(requestId)
+    const fetchRequest = source === 'interior' ? getInteriorRequest(requestId) : getRequest(requestId);
+    fetchRequest
       .then(setRequest)
       .catch((err) => setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.'));
-  }, [requestId]);
+  }, [requestId, source]);
 
   async function pay() {
     setError(null);
@@ -57,6 +75,9 @@ export function PaymentScreen({ requestId }: { requestId: string }) {
 
   const amount = request.agreedFee ?? 0;
   const fee = Math.round(amount * PLATFORM_FEE_RATE);
+  const headline = isInterior(request)
+    ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
+    : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
 
   if (done) {
     return (
@@ -88,7 +109,7 @@ export function PaymentScreen({ requestId }: { requestId: string }) {
       <ScrollView contentContainerStyle={styles.content}>
         <FadeInUp delay={40}>
           <View style={styles.heroCard}>
-            <Text style={styles.amountLabel}>{REQUEST_KIND_LABELS[request.kind]} · {request.wasteTons}톤</Text>
+            <Text style={styles.amountLabel}>{headline}</Text>
             <Text style={styles.amount}>{amount.toLocaleString('ko-KR')}원</Text>
             <Text style={styles.feeNote}>
               수수료 {Math.round(PLATFORM_FEE_RATE * 100)}%({fee.toLocaleString('ko-KR')}원)는 업체 정산 시 차감돼요

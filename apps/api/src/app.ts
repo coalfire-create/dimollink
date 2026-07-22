@@ -4,6 +4,8 @@ import type {
   AppNotification,
   ChatMessage,
   Incident,
+  InteriorBid,
+  InteriorRequest,
   MatchOffer,
   Quote,
   Review,
@@ -22,6 +24,8 @@ import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { NotificationService } from './notifications/service.js';
 import { OfferStore } from './offers/store.js';
+import { InteriorStore } from './interior/store.js';
+import { compositePayableStore } from './payment/payable-request.js';
 import { PaymentStore, type PaymentRecord } from './payment/payment-store.js';
 import { QuoteStore } from './quotes/store.js';
 import { RequestStore } from './requests/store.js';
@@ -49,6 +53,7 @@ import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
 import { createOffersRouter } from './routes/offers.js';
+import { createInteriorRouter } from './routes/interior.js';
 import { createQuotesRouter } from './routes/quotes.js';
 import { createRequestsRouter } from './routes/requests.js';
 import { createReviewsRouter } from './routes/reviews.js';
@@ -87,6 +92,8 @@ export function createApp(
   const metrics = new Metrics();
   app.use(metricsMiddleware(metrics));
   app.use(requestLogger());
+  // 포트원 웹훅은 서명 검증에 원본 바디가 필요하므로 이 경로만 raw 로 받는다(전역 json 이전).
+  app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
@@ -149,6 +156,11 @@ export function createApp(
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
+  // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
+  const interiorStore = new InteriorStore(
+    persistence<InteriorRequest>('interior-requests'),
+    persistence<InteriorBid>('interior-bids'),
+  );
   const paymentStore = new PaymentStore(
     persistence<PaymentRecord>('payments', (p) => p.paymentId),
   );
@@ -167,6 +179,7 @@ export function createApp(
   app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
+  if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
 
   // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
   const requireAdmin = createAdminAuth(env.adminToken);
@@ -185,7 +198,17 @@ export function createApp(
   app.use('/api/allbaro/manifest/failures', requireAdmin);
 
   app.use('/api', createAllbaroRouter());
-  app.use('/api', createPaymentsRouter(undefined, requestStore, quoteStore, paymentStore, userStore));
+  // 결제/정산은 폐기물·인테리어 요청을 합친 창구로 처리(합의 금액=agreedFee 기준 선결제·정산).
+  app.use(
+    '/api',
+    createPaymentsRouter(
+      undefined,
+      compositePayableStore(requestStore, interiorStore),
+      quoteStore,
+      paymentStore,
+      userStore,
+    ),
+  );
   app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
@@ -194,6 +217,8 @@ export function createApp(
   app.use('/api', createUsersRouter(userStore, otpService, sessionStore));
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore));
+  // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).
+  if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
   app.use('/api', createOffersRouter(offerStore));
   app.use('/api', createNotificationsRouter(notificationService));
   app.use('/api', createLocationsRouter(new LocationStore(requestStore)));

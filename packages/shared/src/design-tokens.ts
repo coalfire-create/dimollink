@@ -43,20 +43,20 @@ export function isValidSpacing(px: number): boolean {
  */
 export const COLORS = {
   /** 메인 — 주요 버튼, 활성 상태. 로고 워드마크 딥블루. */
-  primary: '#2F6BD8',
+  primary: '#2C55E9',
   /** 메인 진한 톤 — 눌림/헤더/그라데이션 하단. */
-  primaryDark: '#1E4FA8',
+  primaryDark: '#193CB5',
   /** 메인 연한 톤 — 선택·강조 배경(연한 브랜드 틴트). */
-  primarySoft: '#E7EFFC',
-  /** 보조 — 로고 밝은 스카이블루. 강조 배지·아이콘 포인트. */
-  secondary: '#6FB4F0',
+  primarySoft: '#EAEFFD',
+  /** 보조 — 로고 오렌지색. 강조 배지·아이콘 포인트. */
+  secondary: '#FF5D28',
   /** 본문 텍스트 (흰 배경 대비 15.3:1). */
   text: '#1A1A1A',
   /** 보조 텍스트 — 대비 4.5:1 이상 유지. */
   textMuted: '#595959',
   background: '#FFFFFF',
   /** 카드·섹션 배경 — 아주 옅은 블루그레이(브랜드 톤). */
-  surface: '#F4F7FC',
+  surface: '#F6F7F9',
   border: '#DCE3F0',
   /** 오류/필수 경고 전용. */
   error: '#C62828',

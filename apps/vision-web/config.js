@@ -14,6 +14,12 @@ window.DimolVision.config = {
   supabaseUrl: "",
   supabaseAnonKey: "",
 
+  // 로컬/직접 연동: FastAPI 잡 서버(apps/vision-api)를 직접 호출(개발·데모용).
+  // 설정 시 Supabase 대신 REST 경로 사용. 프로덕션은 Edge Function 경유(§3.1) 권장.
+  restBaseUrl: "",   // 예: "http://localhost:8080/v1"
+  restApiKey: "",    // 예: "dev-edge-key" (VISION_API_KEY)
+  // 사진을 서버에 업로드할 수 없는 로컬 데모에서는 photo_urls 대신 개수만 전달.
+
   maxPhotos: 10,
   // 사진 1장 최대 크기(10MB) — packages/shared SITE_PHOTO_MAX_BYTES 미러.
   maxBytesPerPhoto: 10 * 1024 * 1024,

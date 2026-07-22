@@ -1,22 +1,30 @@
+import { PaymentClient, Webhook } from '@portone/server-sdk';
 import { maskBusinessNumber, type PayoutParty } from '@dimol/shared';
 import { env } from '../config/env.js';
 
 /**
- * 포트원(PortOne) 지급대행 클라이언트 — 배출자 선결제 + 셀러별 정산 지급대행.
+ * 포트원(PortOne) V2 서버 SDK 래퍼 — @portone/server-sdk 실연동.
  *
  * ⚠️ CLAUDE.md「사람이 반드시 직접 diff를 검토해야 하는 영역」— 결제/정산 로직.
  *   자동 커밋/머지 금지. 사람이 diff 검토 + 포트원 테스트 모드로 검증 후 반영한다.
- * ⚠️ 운영(live) 키로 먼저 테스트하지 않는다. 기본 모드는 test이며, live 호출은
- *   PORTONE_ALLOW_LIVE=true 를 명시해야만 가능하다.
- * ⚠️ 엔드포인트/요청·응답 필드는 실제 포트원 지급대행 API(또는 @portone/server-sdk)
- *   규격에 맞춰 확정해야 한다. 아래 경로·매핑은 규격 확정 전 임시 가정이다.
+ *
+ * V2 결제 모델(중요):
+ * - 결제 "생성"(가상계좌 발급·카드 승인)은 서버가 아니라 앱/브라우저 포트원 SDK가
+ *   `requestPayment` 로 수행하고 paymentId 를 채번한다.
+ * - 서버는 그 paymentId 를 `getPayment` 로 조회해 상태·금액을 검증(verifyPayment)하고,
+ *   가상계좌 입금 완료는 웹훅(Transaction.Paid)으로 통지받아 확정한다.
+ * - 취소/환불은 서버가 `cancelPayment` 로 수행한다.
+ * 따라서 "서버가 결제를 만든다"는 개념은 없다(구 requestPrepayment 제거).
  */
 
 export type PortOneErrorCode =
-  | 'CONFIG_MISSING' // apiSecret 미설정
+  | 'CONFIG_MISSING' // apiSecret/웹훅시크릿 미설정
   | 'LIVE_BLOCKED' // 테스트 검증 전 실거래 호출 차단
-  | 'INVALID_AMOUNT' // 금액이 양의 정수가 아님
-  | 'TIMEOUT'
+  | 'PAYMENT_NOT_FOUND' // 조회 결과 없음
+  | 'PAYMENT_NOT_PAID' // 결제 상태가 완료(PAID)가 아님
+  | 'AMOUNT_MISMATCH' // 결제 금액이 합의 금액과 불일치
+  | 'WEBHOOK_INVALID' // 웹훅 서명 검증 실패
+  | 'NOT_CONFIGURED' // 지급대행/세금계산서: 파트너정산(Platform)·B2B 미연동
   | 'UPSTREAM_ERROR';
 
 export class PortOneError extends Error {
@@ -29,267 +37,242 @@ export class PortOneError extends Error {
   }
 }
 
-export interface PortOneClientConfig {
-  baseUrl: string;
-  apiSecret?: string;
-  storeId?: string;
-  mode: 'test' | 'live';
-  allowLive: boolean;
-  timeoutMs: number;
-}
-
 /** 결제수단. CLAUDE.md: 계좌이체(가상계좌) 기본 노출 + 카드 병행. */
 export type PayMethod = 'VIRTUAL_ACCOUNT' | 'CARD';
 
-export interface PrepaymentRequest {
-  matchRequestId: string;
-  /** 선결제 총액(원, 운반비+처리비). */
-  amount: number;
-  /** 기본 가상계좌. 카드도 병행 지원. */
-  payMethod?: PayMethod;
-  customerName?: string;
-}
-
-export interface PrepaymentResult {
+/** 서버가 검증한 결제 결과(우리 도메인 형태로 정규화). */
+export interface VerifiedPayment {
   paymentId: string;
+  /** 포트원이 확인한 실제 결제 총액(원). */
   amount: number;
-  method: PayMethod;
+  /** 포트원 결제 상태(PAID / VIRTUAL_ACCOUNT_ISSUED 등). */
   status: string;
-  environment: 'test' | 'live';
-}
-
-export interface PayoutRequest {
-  /** 정산 단위 고유 멱등키(중복 지급 방지). */
-  payoutId: string;
-  party: PayoutParty;
-  /** 지급액(원, 수수료 차감 후). */
-  amount: number;
-  businessNumber?: string;
-}
-
-export interface PayoutResult {
-  payoutId: string;
-  amount: number;
-  status: string;
-  environment: 'test' | 'live';
-}
-
-export interface CancelPaymentRequest {
-  paymentId: string;
-  /** 환불(취소) 금액. 원금 전액이면 전액취소, 일부면 부분취소. */
-  amount: number;
-  reason?: string;
+  /** 결제 완료 여부(PAID). 가상계좌 발급만 된 상태면 false(입금 대기). */
+  paid: boolean;
 }
 
 export interface CancelPaymentResult {
   paymentId: string;
   cancelledAmount: number;
   status: string;
-  environment: 'test' | 'live';
 }
 
-export interface TaxInvoiceRequest {
-  /** 대응하는 정산 지급 멱등키(중복 발행 방지). */
+// ── 정산 지급대행/세금계산서 결과 타입(파트너정산 연동 시 사용). 현재는 미연동.
+export interface PayoutResult {
   payoutId: string;
-  /** 공급자(정산 받는 셀러: 운반업체/처리장) 사업자번호. */
-  businessNumber: string;
-  /** 공급가액(원, 지급액 기준). */
   amount: number;
-  /** 품목명. */
-  itemName?: string;
+  status: string;
 }
-
 export interface TaxInvoiceResult {
   taxInvoiceId: string;
   status: string;
-  environment: 'test' | 'live';
 }
 
-function assertPositiveInt(amount: number): void {
-  if (!Number.isInteger(amount) || amount <= 0) {
-    throw new PortOneError('INVALID_AMOUNT', `금액은 양의 정수여야 합니다: ${amount}`);
-  }
+/**
+ * SDK PaymentClient 중 우리가 쓰는 부분만 추린 인터페이스(주입식 — 테스트에서 대체).
+ * 실제 구현은 @portone/server-sdk 의 PaymentClient 를 어댑트한다.
+ */
+export interface SdkPaymentClient {
+  getPayment(options: {
+    paymentId: string;
+  }): Promise<{ status: string; amount?: { total: number } }>;
+  cancelPayment(options: { paymentId: string; amount?: number; reason: string }): Promise<unknown>;
 }
+
+export interface PortOneClientConfig {
+  apiSecret?: string;
+  storeId?: string;
+  baseUrl: string;
+  mode: 'test' | 'live';
+  allowLive: boolean;
+  webhookSecret?: string;
+}
+
+/** 완료로 간주하는 결제 상태(가상계좌 발급만 된 상태는 입금 대기이므로 제외). */
+const PAID_STATUS = 'PAID';
 
 export class PortOneClient {
+  private readonly payment?: SdkPaymentClient;
+
   constructor(
     private readonly config: PortOneClientConfig,
-    private readonly fetchFn: typeof fetch = fetch,
-  ) {}
-
-  /**
-   * 배출자 선결제 요청(가상계좌 기본 / 카드 병행). 성공 시 결제 식별자 반환.
-   * 금액만 로그에 남기고 고객/계좌 등 식별정보는 남기지 않는다.
-   */
-  async requestPrepayment(req: PrepaymentRequest): Promise<PrepaymentResult> {
-    assertPositiveInt(req.amount);
-    const method: PayMethod = req.payMethod ?? 'VIRTUAL_ACCOUNT';
-    const paymentId = `pay-${req.matchRequestId}-${Date.now()}`;
-
-    // 엔드포인트/요청 스펙은 실제 포트원 API 규격에 맞춰 확정 필요.
-    const data = await this.post(
-      `/payments/${encodeURIComponent(paymentId)}/prepare`,
-      {
-        storeId: this.config.storeId,
-        amount: req.amount,
-        payMethod: method,
-        orderName: `비움 매칭 ${req.matchRequestId}`,
-      },
-      `payment=${paymentId}`,
-    );
-
-    return {
-      paymentId,
-      amount: req.amount,
-      method,
-      status: typeof data.status === 'string' ? data.status : 'PENDING',
-      environment: this.config.mode,
-    };
+    /** 테스트에서 SDK 대신 주입. 미주입 시 설정이 있으면 실제 SDK PaymentClient 를 만든다. */
+    paymentClient?: SdkPaymentClient,
+  ) {
+    if (paymentClient) {
+      this.payment = paymentClient;
+    } else if (config.apiSecret) {
+      // 실제 포트원 V2 SDK. Payment 응답은 상태별 유니온이라 경계에서 최소 형태로 어댑트한다.
+      this.payment = PaymentClient({
+        secret: config.apiSecret,
+        baseUrl: config.baseUrl,
+        ...(config.storeId ? { storeId: config.storeId } : {}),
+      }) as unknown as SdkPaymentClient;
+    }
   }
 
-  /**
-   * 셀러(운반업체/처리장) 지급대행 지급. payoutId를 멱등키로 사용해 중복 지급을 막는다.
-   * 사업자번호(PII)는 로그에 마스킹 값만 남긴다.
-   */
-  async createPayout(req: PayoutRequest): Promise<PayoutResult> {
-    assertPositiveInt(req.amount);
-
-    const data = await this.post(
-      '/payouts',
-      {
-        storeId: this.config.storeId,
-        payoutId: req.payoutId,
-        party: req.party,
-        amount: req.amount,
-        // 사업자번호는 페이로드로만 전송, 로그엔 남기지 않음.
-        businessNumber: req.businessNumber,
-      },
-      `payout=${req.payoutId} (${req.businessNumber ? maskBusinessNumber(req.businessNumber) : '-'})`,
-    );
-
-    return {
-      payoutId: req.payoutId,
-      amount: req.amount,
-      status: typeof data.status === 'string' ? data.status : 'REQUESTED',
-      environment: this.config.mode,
-    };
-  }
-
-  /**
-   * 결제 취소/환불. 취소 정책상 환불액(=원금-위약금)만큼 부분/전액 취소한다.
-   * 위약금은 플랫폼이 보유하므로 취소 금액은 환불액과 같다.
-   */
-  async cancelPayment(req: CancelPaymentRequest): Promise<CancelPaymentResult> {
-    assertPositiveInt(req.amount);
-
-    // 엔드포인트/요청 스펙은 실제 포트원 결제취소 API 규격에 맞춰 확정 필요.
-    const data = await this.post(
-      `/payments/${encodeURIComponent(req.paymentId)}/cancel`,
-      { storeId: this.config.storeId, amount: req.amount, reason: req.reason },
-      `payment=${req.paymentId}`,
-    );
-
-    return {
-      paymentId: req.paymentId,
-      cancelledAmount: req.amount,
-      status: typeof data.status === 'string' ? data.status : 'CANCELLED',
-      environment: this.config.mode,
-    };
-  }
-
-  /**
-   * 전자세금계산서 발행 — 정산 확정 시 셀러(운반업체/처리장) 공급분에 대해 발행한다.
-   * payoutId 를 멱등키로 사용해 중복 발행을 막는다. 사업자번호(PII)는 마스킹 로그만 남긴다.
-   * ⚠️ 엔드포인트/필드는 실제 포트원 전자세금계산서 API 규격에 맞춰 확정 필요(임시 가정).
-   */
-  async issueTaxInvoice(req: TaxInvoiceRequest): Promise<TaxInvoiceResult> {
-    assertPositiveInt(req.amount);
-    const taxInvoiceId = `tax-${req.payoutId}`;
-
-    const data = await this.post(
-      '/tax-invoices',
-      {
-        storeId: this.config.storeId,
-        taxInvoiceId,
-        businessNumber: req.businessNumber,
-        supplyAmount: req.amount,
-        itemName: req.itemName ?? '폐기물 운반·처리 용역',
-      },
-      `taxinvoice=${taxInvoiceId} (${maskBusinessNumber(req.businessNumber)})`,
-    );
-
-    return {
-      taxInvoiceId,
-      status: typeof data.status === 'string' ? data.status : 'ISSUED',
-      environment: this.config.mode,
-    };
-  }
-
-  /** 공통 POST: 실거래 가드 + 설정 가드 + 타임아웃 + 업스트림 오류 매핑. */
-  private async post(
-    path: string,
-    body: unknown,
-    logKey: string,
-  ): Promise<Record<string, unknown>> {
+  /** 실거래·설정 가드. 각 API 호출 진입 시 확인한다. */
+  private ensureReady(): SdkPaymentClient {
     if (this.config.mode === 'live' && !this.config.allowLive) {
       throw new PortOneError(
         'LIVE_BLOCKED',
         '실거래(live) 포트원 호출이 차단되었습니다. 테스트 검증 완료 후 PORTONE_ALLOW_LIVE=true 로 전환하세요.',
       );
     }
-
-    if (!this.config.apiSecret) {
+    if (!this.payment) {
       throw new PortOneError(
         'CONFIG_MISSING',
         '포트원 설정(PORTONE_API_SECRET)이 없습니다. apps/api/.env 를 확인하세요.',
       );
     }
+    return this.payment;
+  }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+  /**
+   * 앱 SDK 가 만든 결제(paymentId)를 서버가 검증한다.
+   * 금액 권위: 포트원이 확인한 실제 결제 총액이 합의 금액(expectedAmount)과 일치해야 한다.
+   * 결제 완료(PAID)면 paid=true, 가상계좌 발급만 된 상태면 paid=false(입금은 웹훅으로 확정).
+   */
+  async verifyPayment(input: {
+    paymentId: string;
+    expectedAmount: number;
+  }): Promise<VerifiedPayment> {
+    const client = this.ensureReady();
 
-    let response: Response;
+    let payment: { status: string; amount?: { total: number } };
     try {
-      response = await this.fetchFn(`${this.config.baseUrl}${path}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `PortOne ${this.config.apiSecret}`,
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
+      payment = await client.getPayment({ paymentId: input.paymentId });
+    } catch (err) {
+      throw mapSdkError(err, `결제 조회 실패(paymentId=${input.paymentId})`);
+    }
+
+    const status = typeof payment.status === 'string' ? payment.status : 'UNKNOWN';
+    const total = payment.amount?.total;
+    if (typeof total !== 'number') {
+      throw new PortOneError('PAYMENT_NOT_FOUND', '결제 정보를 확인할 수 없습니다.');
+    }
+    if (total !== input.expectedAmount) {
+      // 위·변조 방지: 클라이언트가 임의 금액으로 결제했더라도 서버 합의금액과 다르면 거부.
+      throw new PortOneError(
+        'AMOUNT_MISMATCH',
+        `결제 금액이 합의 금액과 다릅니다(결제 ${total} ≠ 합의 ${input.expectedAmount}).`,
+      );
+    }
+
+    return { paymentId: input.paymentId, amount: total, status, paid: status === PAID_STATUS };
+  }
+
+  /**
+   * 결제 취소/환불(부분/전액). 취소 정책상 환불액만큼 취소하며 위약금은 플랫폼이 보유한다.
+   * reason 은 포트원 V2 필수 값이다.
+   */
+  async cancelPayment(input: {
+    paymentId: string;
+    amount: number;
+    reason?: string;
+  }): Promise<CancelPaymentResult> {
+    const client = this.ensureReady();
+    assertPositiveInt(input.amount);
+    try {
+      await client.cancelPayment({
+        paymentId: input.paymentId,
+        amount: input.amount,
+        reason: input.reason?.trim() || '고객 요청 취소',
       });
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.warn(`[portone] POST ${path} timeout (${logKey})`);
-        throw new PortOneError('TIMEOUT', '포트원 응답이 시간 내 도착하지 않았습니다.');
-      }
-      console.warn(`[portone] POST ${path} network error (${logKey})`);
-      throw new PortOneError('UPSTREAM_ERROR', '포트원 API 호출에 실패했습니다.');
-    } finally {
-      clearTimeout(timer);
+      throw mapSdkError(err, `결제 취소 실패(paymentId=${input.paymentId})`);
     }
+    return { paymentId: input.paymentId, cancelledAmount: input.amount, status: 'CANCELLED' };
+  }
 
-    if (!response.ok) {
-      console.warn(`[portone] POST ${path} upstream ${response.status} (${logKey})`);
-      throw new PortOneError('UPSTREAM_ERROR', `포트원 API 오류(status=${response.status}).`);
+  /**
+   * 포트원 웹훅 서명 검증. 가상계좌 입금 완료(Transaction.Paid) 등을 신뢰 가능하게 수신한다.
+   * payload 는 원본 문자열(파싱 전), headers 는 webhook-id/-signature/-timestamp 포함.
+   */
+  async verifyWebhook(
+    payload: string,
+    headers: Record<string, string | string[] | undefined>,
+  ): Promise<Awaited<ReturnType<typeof Webhook.verify>>> {
+    if (!this.config.webhookSecret) {
+      throw new PortOneError(
+        'CONFIG_MISSING',
+        '포트원 웹훅 시크릿(PORTONE_WEBHOOK_SECRET)이 없습니다.',
+      );
     }
+    try {
+      return await Webhook.verify(this.config.webhookSecret, payload, headers);
+    } catch (err) {
+      throw new PortOneError(
+        'WEBHOOK_INVALID',
+        `웹훅 검증 실패: ${err instanceof Error ? err.message : '알 수 없는 오류'}`,
+      );
+    }
+  }
 
-    return (await response.json()) as Record<string, unknown>;
+  /**
+   * 셀러 지급대행. 포트원 파트너정산(Platform) 상품 연동이 필요하다.
+   * platform.payout / platform.partnerSettlement 로 별도 구현해야 하며, 파트너 등록·정산정책이
+   * 선행돼야 한다. 현재는 미연동 상태를 명시적으로 알린다(임의 지급 방지).
+   */
+  async createPayout(req: {
+    payoutId: string;
+    party: PayoutParty;
+    amount: number;
+    businessNumber?: string;
+  }): Promise<PayoutResult> {
+    assertPositiveInt(req.amount);
+    console.warn(
+      `[portone] payout 미연동 요청 무시 payout=${req.payoutId} (${req.businessNumber ? maskBusinessNumber(req.businessNumber) : '-'})`,
+    );
+    throw new PortOneError(
+      'NOT_CONFIGURED',
+      '지급대행(정산)은 포트원 파트너정산(Platform) 연동이 필요합니다. platform.payout 으로 구현하세요.',
+    );
+  }
+
+  /** 전자세금계산서 발행 — 포트원 B2B(전자세금계산서) 상품 연동 필요. 현재 미연동. */
+  async issueTaxInvoice(req: {
+    payoutId: string;
+    businessNumber: string;
+    amount: number;
+  }): Promise<TaxInvoiceResult> {
+    assertPositiveInt(req.amount);
+    console.warn(`[portone] 세금계산서 미연동 요청 무시 (${maskBusinessNumber(req.businessNumber)})`);
+    throw new PortOneError(
+      'NOT_CONFIGURED',
+      '전자세금계산서는 포트원 B2B 연동이 필요합니다. b2b.taxInvoice 로 구현하세요.',
+    );
   }
 }
 
+function assertPositiveInt(amount: number): void {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    throw new PortOneError('AMOUNT_MISMATCH', `금액은 양의 정수여야 합니다: ${amount}`);
+  }
+}
+
+/** SDK 에러를 우리 PortOneError 로 정규화. data.type 이 있으면 참고해 코드를 맞춘다. */
+function mapSdkError(err: unknown, fallbackMsg: string): PortOneError {
+  if (err instanceof PortOneError) return err;
+  const type = (err as { data?: { type?: string } })?.data?.type;
+  if (type === 'PAYMENT_NOT_FOUND') {
+    return new PortOneError('PAYMENT_NOT_FOUND', '결제 건을 찾을 수 없습니다.');
+  }
+  console.warn(`[portone] SDK 오류: ${fallbackMsg}`, type ?? (err instanceof Error ? err.message : err));
+  return new PortOneError('UPSTREAM_ERROR', '포트원 API 호출에 실패했습니다.');
+}
+
 /** 환경변수 기반 기본 클라이언트 팩토리. */
-export function createPortOneClient(fetchFn: typeof fetch = fetch): PortOneClient {
+export function createPortOneClient(paymentClient?: SdkPaymentClient): PortOneClient {
   return new PortOneClient(
     {
-      baseUrl: env.portone.baseUrl,
       apiSecret: env.portone.apiSecret,
       storeId: env.portone.storeId,
+      baseUrl: env.portone.baseUrl,
       mode: env.portone.mode,
       allowLive: env.portone.allowLive,
-      timeoutMs: env.portone.timeoutMs,
+      webhookSecret: env.portone.webhookSecret,
     },
-    fetchFn,
+    paymentClient,
   );
 }

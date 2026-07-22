@@ -117,6 +117,8 @@ export const env = {
     // live 호출을 명시적으로 허용하지 않으면 클라이언트가 실거래 호출을 거부한다.
     allowLive: process.env.PORTONE_ALLOW_LIVE === 'true',
     timeoutMs: Number(process.env.PORTONE_TIMEOUT_MS ?? 10_000),
+    // 웹훅 서명 검증 시크릿(포트원 콘솔 발급). 가상계좌 입금 완료(Transaction.Paid) 수신 검증에 사용.
+    webhookSecret: process.env.PORTONE_WEBHOOK_SECRET,
   },
 };
 

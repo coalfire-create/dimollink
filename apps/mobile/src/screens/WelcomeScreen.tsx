@@ -1,13 +1,13 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { PILOT } from '@dimol/shared';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
-import brandmark from '../../assets/brandmark.png';
+import welcomeSofa from '../../assets/welcome_sofa.png';
 
 /**
  * 진입 게이트 — 앱을 열면 가장 먼저 보이는 화면.
+ * 레퍼런스 디자인(007~009.png): 파란 전면 배경 + 대형 타이포 + 소파 일러스트 + 하단 흰 시트.
  * 로그인 / 회원가입으로만 서비스에 들어갈 수 있고, 둘러보기(게스트)는 별도 경로.
  */
 export function WelcomeScreen({
@@ -23,42 +23,62 @@ export function WelcomeScreen({
 }) {
   return (
     <View style={styles.container}>
-      <View style={styles.hero}>
+      {/* 상단: 파란색 배경 + 타이포 + 소파 일러스트 */}
+      <View style={styles.heroSection}>
         <FadeInUp delay={40}>
-          <Image
-            source={brandmark}
-            style={styles.brandmark}
-            resizeMode="contain"
-            accessibilityLabel="비움 로고"
-          />
+          <Text style={styles.heroTitle}>
+            {'새롭게\n비우는 공식\n비움'}
+          </Text>
         </FadeInUp>
         <FadeInUp delay={160}>
-          <Text style={styles.appName}>비움</Text>
+          <Text style={styles.heroSubtitle}>
+            {'대형폐기물을 비우는\n가장 빠르고 간편한 방법'}
+          </Text>
         </FadeInUp>
-        <FadeInUp delay={260}>
-          <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
-        </FadeInUp>
-        <FadeInUp delay={360}>
-          <View style={styles.pilotChip}>
-            <Text style={styles.pilotChipText}>{PILOT.region} · 건설폐기물</Text>
-          </View>
+
+        {/* 소파 일러스트 */}
+        <FadeInUp delay={280}>
+          <Image
+            source={welcomeSofa}
+            style={styles.sofaImage}
+            resizeMode="contain"
+            accessibilityLabel="소파 일러스트"
+          />
         </FadeInUp>
       </View>
 
-      <FadeInUp delay={460} style={styles.actions}>
-        <AppButton label="로그인" onPress={onLogin} />
-        <View style={{ height: theme.spacing.sm }} />
-        <AppButton label="회원가입" variant="outline" onPress={onSignup} />
-        <View style={{ height: theme.spacing.sm }} />
-        <Text accessibilityRole="button" onPress={onGuest} style={styles.guestLink}>
-          로그인 없이 둘러보기
-        </Text>
-        {onAdmin ? (
-          <Text accessibilityRole="button" onPress={onAdmin} style={styles.adminLink}>
-            관리자
-          </Text>
-        ) : null}
-      </FadeInUp>
+      {/* 하단: 흰색 라운드 시트 */}
+      <View style={styles.bottomSheet}>
+        {/* 말풍선 */}
+        <FadeInUp delay={360}>
+          <View style={styles.speechBubble}>
+            <Text style={styles.speechBubbleText}>10초만에 빠른가입</Text>
+            <View style={styles.speechBubbleTail} />
+          </View>
+        </FadeInUp>
+
+        <FadeInUp delay={420}>
+          <AppButton label="로그인" onPress={onLogin} />
+          <View style={{ height: theme.spacing.sm }} />
+          <AppButton label="회원가입" variant="outline" onPress={onSignup} />
+        </FadeInUp>
+
+        <FadeInUp delay={480}>
+          <View style={styles.linksRow}>
+            <Pressable onPress={onGuest}>
+              <Text style={styles.linkText}>로그인 없이 둘러보기</Text>
+            </Pressable>
+            {onAdmin ? (
+              <>
+                <Text style={styles.linkDivider}>|</Text>
+                <Pressable onPress={onAdmin}>
+                  <Text style={styles.linkText}>관리자</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </FadeInUp>
+      </View>
     </View>
   );
 }
@@ -67,62 +87,100 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.primary,
     flex: 1,
-    justifyContent: 'space-between',
-    padding: spacing.md,
   },
-  hero: {
-    alignItems: 'center',
+  heroSection: {
     flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg + spacing.md,
+    justifyContent: 'flex-start',
+    position: 'relative',
   },
-  brandmark: {
-    height: 112,
-    marginBottom: spacing.sm,
-    width: 112,
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 38,
+    fontWeight: '900',
+    lineHeight: 50,
+    letterSpacing: -0.5,
   },
-  appName: {
-    color: colors.primary,
-    fontSize: font.titleLarge + 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  slogan: {
-    color: colors.textMuted,
-    fontSize: font.bodyLarge,
+  heroSubtitle: {
+    color: 'rgba(255, 255, 255, 0.75)',
+    fontSize: font.body,
     fontWeight: '600',
+    lineHeight: font.body + 8,
     marginTop: spacing.sm,
-    textAlign: 'center',
   },
-  pilotChip: {
+  sofaImage: {
+    width: 240,
+    height: 200,
+    position: 'absolute',
+    right: -spacing.sm,
+    bottom: 20,
+    alignSelf: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg + spacing.sm,
+    paddingTop: spacing.lg,
+    position: 'relative',
+  },
+  speechBubble: {
     alignSelf: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
+    marginTop: -spacing.lg - spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  pilotChipText: {
+  speechBubbleText: {
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
+    textAlign: 'center',
   },
-  actions: {
-    paddingBottom: spacing.lg,
+  speechBubbleTail: {
+    position: 'absolute',
+    bottom: -8,
+    alignSelf: 'center',
+    left: '50%',
+    marginLeft: -6,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.border,
   },
-  guestLink: {
+  linksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
+  linkText: {
     color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
-    marginTop: spacing.md,
     paddingVertical: spacing.xs,
-    textAlign: 'center',
+    paddingHorizontal: spacing.xs,
   },
-  adminLink: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginTop: spacing.md,
-    textAlign: 'center',
+  linkDivider: {
+    color: colors.border,
+    fontSize: font.body,
+    marginHorizontal: spacing.xs / 2,
   },
 });

@@ -68,7 +68,7 @@ export function useAuthActions(): AuthActions {
 export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
   const user = useSession();
-  const tabs = ROLE_CONFIG[user.userType].tabs;
+  const tabs = ROLE_CONFIG.CONSUMER.tabs;
   return (
     <View style={styles.tabBar}>
       {tabs.map(({ tab, label, icon }) => {
@@ -139,15 +139,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tabIconWrapActive: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: 'transparent',
   },
   tabIcon: {
     fontSize: font.bodyLarge,
   },
+  tabIconActive: {
+    // active icon inherits color from tabLabelActive via parent
+  },
   tabLabel: {
     color: colors.textMuted,
-    fontSize: font.caption,
+    fontSize: font.caption - 6,
     fontWeight: '600',
+    marginTop: 2,
   },
   tabLabelActive: {
     color: colors.primary,

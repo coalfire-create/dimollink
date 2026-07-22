@@ -192,7 +192,66 @@
     };
   }
 
+  // REST 클라이언트 — FastAPI 잡 서버(apps/vision-api)를 직접 호출(개발·데모).
+  // 흐름: POST /v1/jobs → GET /v1/jobs/{id} 폴링(stage/status/result 반영).
+  // 로컬 데모라 사진 업로드 대신 개수만큼 플레이스홀더 URL 을 보낸다(mock 파이프라인).
+  function createRestClient(config) {
+    var base = String(config.restBaseUrl).replace(/\/$/, "");
+    var polling = null;
+
+    function headers() {
+      var h = { "Content-Type": "application/json" };
+      if (config.restApiKey) h["X-API-Key"] = config.restApiKey;
+      return h;
+    }
+
+    return {
+      cancel: function () {
+        if (polling) { clearTimeout(polling); polling = null; }
+      },
+      analyze: async function (files, meta, handlers) {
+        var onStage = handlers.onStage || function () {};
+        var onDone = handlers.onDone || function () {};
+        var onError = handlers.onError || function () {};
+        try {
+          var urls = files.map(function (_, i) {
+            return "local://demo/photo-" + (i + 1) + ".jpg";
+          });
+          var res = await fetch(base + "/jobs", {
+            method: "POST",
+            headers: headers(),
+            body: JSON.stringify({ photo_urls: urls, input_meta: meta || {}, callback_url: null }),
+          });
+          if (!res.ok) throw new Error("잡 생성 실패(" + res.status + ")");
+          var job = await res.json();
+          var id = job.id;
+          var lastStage = null;
+
+          function poll() {
+            fetch(base + "/jobs/" + id, { headers: headers() })
+              .then(function (r) {
+                if (!r.ok) throw new Error("잡 조회 실패(" + r.status + ")");
+                return r.json();
+              })
+              .then(function (j) {
+                if (j.stage && j.stage !== lastStage) { lastStage = j.stage; onStage(j.stage); }
+                if (j.status === "done") { onDone(j.result); return; }
+                if (j.status === "failed") { onError(new Error(j.error || "분석 실패")); return; }
+                if (j.status === "canceled") { return; }
+                polling = setTimeout(poll, 800);
+              })
+              .catch(function (e) { onError(e); });
+          }
+          poll();
+        } catch (e) {
+          onError(e);
+        }
+      },
+    };
+  }
+
   DV.createClient = function (config) {
+    if (config && config.restBaseUrl) return createRestClient(config);
     var useMock = !config || config.mock || !config.supabaseUrl || !config.supabaseAnonKey;
     return useMock ? createMockClient() : createSupabaseClient(config);
   };

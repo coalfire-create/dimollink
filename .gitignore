@@ -46,3 +46,6 @@ coverage/
 .claude/
 .env*
 .vercel/
+
+# Local Netlify folder
+.netlify
