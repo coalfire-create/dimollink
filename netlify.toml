@@ -1,0 +1,23 @@
+# Netlify 배포 설정 — 정적 웹(expo export) + Express API(Netlify Functions)
+[build]
+  command = "npm run build:shared && npm run build -w @dimol/api && npm run build -w @dimol/mobile"
+  publish = "apps/mobile/dist"
+  functions = "netlify/functions"
+
+[functions]
+  # Express/pg 등 node_modules 를 함수 번들에 포함.
+  node_bundler = "esbuild"
+  external_node_modules = ["pg", "pg-native"]
+
+# API 는 함수로 라우팅(원본 경로 /api/* 유지 → Express 가 /api 마운트로 매칭).
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+# 그 외는 SPA(index.html) 폴백.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
