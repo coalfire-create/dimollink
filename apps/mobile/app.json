@@ -6,6 +6,7 @@
     "slug": "bium",
     "version": "1.0.0",
     "sdkVersion": "52.0.0",
+    "scheme": "dimollink",
     "platforms": [
       "ios",
       "android",
@@ -30,7 +31,8 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      "@portone/react-native-sdk"
     ]
   }
 }

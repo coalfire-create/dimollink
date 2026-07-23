@@ -7,11 +7,19 @@ import {
   type InteriorRequest,
   type ServiceRequest,
 } from '@dimol/shared';
+import * as PortOne from '@portone/react-native-sdk';
+import type { PaymentRequest, PaymentResponse } from '@portone/browser-sdk/v2';
 import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
+import { PORTONE } from '../config';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
 import { theme } from '../theme';
+
+/** 결제 건 고유 식별자(앱에서 채번, PortOne·서버가 이 값으로 결제를 추적). */
+function newPaymentId(): string {
+  return `payment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 /**
  * 선결제 화면 — 매칭 확정(금액 합의)된 요청의 총액을 선결제한다.
@@ -42,6 +50,8 @@ export function PaymentScreen({
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
+  // PortOne 결제창(WebView)을 띄울 요청. null 이면 결제창 미표시.
+  const [payRequest, setPayRequest] = useState<Omit<PaymentRequest, 'requestUrl'> | null>(null);
 
   useEffect(() => {
     const fetchRequest = source === 'interior' ? getInteriorRequest(requestId) : getRequest(requestId);
@@ -50,17 +60,54 @@ export function PaymentScreen({
       .catch((err) => setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.'));
   }, [requestId, source]);
 
-  async function pay() {
+  /** 결제하기 → PortOne 결제창(WebView) 오픈. paymentId 를 채번해 결제를 시작한다. */
+  function pay() {
     setError(null);
+    if (!request) return;
+    const total = request.agreedFee ?? 0;
+    if (total <= 0) {
+      setError('결제 금액을 확인할 수 없습니다.');
+      return;
+    }
+    const orderName = isInterior(request)
+      ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
+      : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
+    setPayRequest({
+      storeId: PORTONE.storeId,
+      channelKey: PORTONE.channelKey,
+      paymentId: newPaymentId(),
+      orderName,
+      totalAmount: total,
+      currency: 'CURRENCY_KRW',
+      payMethod: payMethod === 'VBANK' ? 'VIRTUAL_ACCOUNT' : 'CARD',
+    });
+  }
+
+  /** 결제창 완료 콜백 → 서버가 결제를 조회·검증(금액 일치)하고 선결제를 확정한다. */
+  async function onPaymentComplete(res: PaymentResponse) {
+    setPayRequest(null);
+    if ('code' in res && res.code != null) {
+      setError(res.message || '결제에 실패했어요. 다시 시도해 주세요.');
+      return;
+    }
+    if (!res.paymentId) {
+      setError('결제 정보를 확인하지 못했어요.');
+      return;
+    }
     setPaying(true);
     try {
-      await prepay({ matchRequestId: requestId, completedDate: todayKST(), payMethod });
+      await prepay({ matchRequestId: requestId, paymentId: res.paymentId, completedDate: todayKST(), payMethod });
       setDone(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : '결제 처리에 실패했습니다.');
+      setError(err instanceof ApiError ? err.message : '결제 검증에 실패했습니다.');
     } finally {
       setPaying(false);
     }
+  }
+
+  function onPaymentError(err: Error) {
+    setPayRequest(null);
+    setError(err.message || '결제가 취소되었거나 실패했습니다.');
   }
 
   if (!request) {
@@ -99,6 +146,15 @@ export function PaymentScreen({
         <StickyFooter>
           <AppButton label="확인" onPress={() => nav.pop()} />
         </StickyFooter>
+      </View>
+    );
+  }
+
+  // 결제창 활성화 시 PortOne WebView 를 전체화면으로 띄운다.
+  if (payRequest) {
+    return (
+      <View style={styles.screen}>
+        <PortOne.Payment request={payRequest} onError={onPaymentError} onComplete={onPaymentComplete} />
       </View>
     );
   }
