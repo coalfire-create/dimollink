@@ -31,8 +31,7 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font",
-      "@portone/react-native-sdk"
+      "expo-font"
     ]
   }
 }
