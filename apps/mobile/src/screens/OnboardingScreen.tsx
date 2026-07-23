@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PILOT, isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
+import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { FadeInUp } from '../components/motion';
@@ -15,7 +15,7 @@ function isPhoneLike(value: string): boolean {
 /**
  * 온보딩 — 가입 유형 선택 후 가입 (Phase 1 /users).
  * 소비자는 즉시 승인, 업체는 사업자등록번호 + 올바로 회원 검증 후 관리자 승인 대기.
- * 파일럿 지역은 양평 고정 — 지역 선택 UI를 두지 않는다.
+ * 활동 지역을 직접 입력받는다(전국 이용 가능).
  */
 
 const TYPE_OPTIONS: Array<{ type: UserType; title: string; description: string }> = [
@@ -40,6 +40,7 @@ export function OnboardingScreen({
 }) {
   const [userType, setUserType] = useState<UserType>('CONSUMER');
   const [name, setName] = useState(social?.prefillName ?? '');
+  const [region, setRegion] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -75,6 +76,10 @@ export function OnboardingScreen({
       setError(isCompany ? '업체명을 입력해 주세요.' : '이름을 입력해 주세요.');
       return;
     }
+    if (region.trim().length === 0) {
+      setError('활동 지역을 입력해 주세요. (예: 서울, 경기 양평)');
+      return;
+    }
     if (!isPhoneLike(phone)) {
       setError('휴대폰번호를 정확히 입력해 주세요.');
       return;
@@ -95,7 +100,7 @@ export function OnboardingScreen({
       const session = await createUser({
         userType,
         name: name.trim(),
-        region: PILOT.region,
+        region: region.trim(),
         phone: phone.trim(),
         businessNumber: isCompany ? businessNumber.trim() : undefined,
         ...(social?.ticket ? { socialTicket: social.ticket } : {}),
@@ -156,7 +161,14 @@ export function OnboardingScreen({
         label={isCompany ? '업체명' : '이름'}
         value={name}
         onChangeText={setName}
-        placeholder={isCompany ? '예) 양평철거(주)' : '예) 김양평'}
+        placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
+      />
+      <Field
+        label="활동 지역"
+        value={region}
+        onChangeText={setRegion}
+        placeholder="예) 서울, 경기 양평, 부산"
+        hint="주로 활동하는 지역을 입력해 주세요. (전국 이용 가능)"
       />
       <Field
         label="휴대폰번호"

@@ -27,6 +27,7 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
   const nav = useNavigation();
   const user = useSession();
   const [wasteTons, setWasteTons] = useState('');
+  const [region, setRegion] = useState(user.region ?? '');
   const [siteAddress, setSiteAddress] = useState('');
   const [loadAddress, setLoadAddress] = useState('');
   const [unloadAddress, setUnloadAddress] = useState('');
@@ -41,12 +42,16 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
 
   async function submit() {
     setError(null);
+    if (region.trim().length === 0) {
+      setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await createRequest({
         kind,
         requesterId: user.id,
-        region: PILOT.region,
+        region: region.trim(),
         wasteCategory: PILOT.wasteCategory,
         wasteTons: tons,
         allbaroRequested,
@@ -70,16 +75,23 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
       <ScreenHeader title={KIND_TITLES[kind]} canGoBack />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.pilotChip}>
-          <Text style={styles.pilotChipText}>{PILOT.region} · 건설폐기물</Text>
+          <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
         </View>
 
        <FadeInUp delay={40}>
+        <Field
+          label="지역"
+          value={region}
+          onChangeText={setRegion}
+          placeholder="예) 서울, 경기 양평, 부산"
+          hint="현장이 위치한 지역이에요."
+        />
         {kind === 'DEMOLITION' ? (
           <Field
             label="현장 주소"
             value={siteAddress}
             onChangeText={setSiteAddress}
-            placeholder="예) 양평군 양평읍 ○○리 12-3"
+            placeholder="예) ○○시 ○○구 ○○동 12-3"
           />
         ) : null}
         {kind === 'TRANSPORT' ? (
@@ -88,13 +100,13 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
               label="상차지 주소 (폐기물을 싣는 곳)"
               value={loadAddress}
               onChangeText={setLoadAddress}
-              placeholder="예) 양평군 양평읍 ○○리 12-3"
+              placeholder="예) ○○시 ○○구 ○○동 12-3"
             />
             <Field
               label="하차지 주소 (폐기물을 내리는 곳)"
               value={unloadAddress}
               onChangeText={setUnloadAddress}
-              placeholder="예) 양평군 용문면 처리장"
+              placeholder="예) ○○시 ○○구 처리장"
             />
           </>
         ) : null}

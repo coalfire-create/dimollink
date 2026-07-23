@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { INTERIOR_CATEGORY_LABELS, PILOT, type InteriorCategory } from '@dimol/shared';
+import { INTERIOR_CATEGORY_LABELS, type InteriorCategory } from '@dimol/shared';
 import { ApiError, createInteriorRequest } from '../api/client';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
@@ -18,6 +18,7 @@ const CATEGORIES: InteriorCategory[] = ['RESIDENTIAL', 'COMMERCIAL'];
 export function InteriorFormScreen() {
   const nav = useNavigation();
   const [category, setCategory] = useState<InteriorCategory>('RESIDENTIAL');
+  const [region, setRegion] = useState('');
   const [title, setTitle] = useState('');
   const [siteAddress, setSiteAddress] = useState('');
   const [description, setDescription] = useState('');
@@ -35,11 +36,15 @@ export function InteriorFormScreen() {
       setError('현장 주소를 입력해 주세요.');
       return;
     }
+    if (region.trim().length === 0) {
+      setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
+      return;
+    }
     const budgetNum = Number(budget.replace(/\D/g, ''));
     setSubmitting(true);
     try {
       const created = await createInteriorRequest({
-        region: PILOT.region,
+        region: region.trim(),
         category,
         title: title.trim(),
         description: description.trim(),
@@ -94,10 +99,16 @@ export function InteriorFormScreen() {
             placeholder="예) 30평 아파트 전체 리모델링"
           />
           <Field
+            label="지역"
+            value={region}
+            onChangeText={setRegion}
+            placeholder="예) 서울, 경기 양평, 부산"
+          />
+          <Field
             label="현장 주소"
             value={siteAddress}
             onChangeText={setSiteAddress}
-            placeholder="예) 양평군 양평읍 ○○리 12-3"
+            placeholder="예) ○○시 ○○구 ○○동 12-3"
           />
           <Field
             label="상세 요구사항"

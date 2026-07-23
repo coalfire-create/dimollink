@@ -70,11 +70,9 @@ describe('RequestStore.create — 3종 요청', () => {
     );
   });
 
-  it('파일럿 범위 밖(지역/카테고리) 거부', () => {
+  it('전국 어느 지역이든 접수 가능(전국구), 건설폐기물 외 카테고리만 거부', () => {
     const store = new RequestStore();
-    expect(() => store.create({ ...demolition, region: '서울' })).toThrow(
-      RequestValidationError,
-    );
+    expect(store.create({ ...demolition, region: '서울' }).region).toBe('서울');
     expect(() => store.create({ ...demolition, wasteCategory: 'HOUSEHOLD' })).toThrow(
       RequestValidationError,
     );

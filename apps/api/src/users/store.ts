@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  PILOT,
   USER_TYPES,
   isCompanyType,
   isValidBusinessNumber,
@@ -83,8 +82,8 @@ export class UserStore {
     if (typeof input.name !== 'string' || input.name.trim().length === 0) {
       throw new UserValidationError('name(상호/이름)이 필요합니다.');
     }
-    if (input.region !== PILOT.region) {
-      throw new UserValidationError(`파일럿 기간에는 ${PILOT.region} 지역만 가입할 수 있습니다.`);
+    if (typeof input.region !== 'string' || input.region.trim().length === 0) {
+      throw new UserValidationError('지역(활동 지역)이 필요합니다.');
     }
 
     // 휴대폰번호 = 로그인 식별자 → 필수 + 고유. PII 이므로 오류에 값을 노출하지 않는다.
@@ -120,7 +119,7 @@ export class UserStore {
       id: randomUUID(),
       userType: input.userType,
       name: input.name.trim(),
-      region: input.region,
+      region: input.region.trim(),
       phone,
       ...(businessNumber ? { businessNumber } : {}),
       ...(input.location ? { location: input.location } : {}),
@@ -204,8 +203,8 @@ export class UserStore {
 
   update(id: string, input: UpdateUserInput): UserProfile {
     const user = this.requireUser(id);
-    if (input.region !== undefined && input.region !== PILOT.region) {
-      throw new UserValidationError(`파일럿 기간에는 ${PILOT.region} 지역만 지원합니다.`);
+    if (input.region !== undefined && input.region.trim().length === 0) {
+      throw new UserValidationError('지역(활동 지역)이 필요합니다.');
     }
     // 휴대폰번호는 로그인 식별자 → 비우기 불가, 변경 시 형식·고유성 검증.
     let phonePatch: { phone?: string } = {};
@@ -228,7 +227,7 @@ export class UserStore {
     const updated: UserProfile = {
       ...user,
       ...(input.name?.trim() ? { name: input.name.trim() } : {}),
-      ...(input.region ? { region: input.region } : {}),
+      ...(input.region?.trim() ? { region: input.region.trim() } : {}),
       ...phonePatch,
       ...(input.location ? { location: input.location } : {}),
       updatedAt: new Date().toISOString(),

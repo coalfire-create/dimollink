@@ -1,6 +1,5 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PILOT } from '@dimol/shared';
 import { AppButton, Card } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
@@ -36,7 +35,7 @@ export function GuestHomeScreen({
           <Text style={styles.appName}>비움</Text>
           <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
           <View style={styles.pilotChip}>
-            <Text style={styles.pilotChipText}>{PILOT.region} · 건설폐기물</Text>
+            <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
           </View>
         </FadeInUp>
 

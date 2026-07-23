@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   CALL_AVAILABILITY_LABELS,
-  PILOT,
   USER_APPROVAL_LABELS,
   USER_TYPE_LABELS,
   isCompanyType,
@@ -42,7 +41,7 @@ export function MyPageScreen() {
               <View style={styles.profileInfo}>
                 <Text style={styles.name}>{user.name}</Text>
                 <Text style={styles.role}>
-                  {USER_TYPE_LABELS[user.userType] ?? user.userType} · {PILOT.region}
+                  {USER_TYPE_LABELS[user.userType] ?? user.userType} · {user.region}
                 </Text>
               </View>
             </View>
@@ -130,7 +129,7 @@ export function MyPageScreen() {
         <View style={{ height: theme.spacing.md }} />
         <AppButton label="로그아웃" variant="outline" onPress={logout} />
 
-        <Text style={styles.footer}>비움 · {PILOT.region} 파일럿</Text>
+        <Text style={styles.footer}>디몰링크 · 전국 건설폐기물</Text>
       </ScrollView>
       <TabBar active="mypage" />
     </View>

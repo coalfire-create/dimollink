@@ -117,14 +117,10 @@ export class RequestStore {
       throw new RequestValidationError(`kind 는 ${REQUEST_KINDS.join(' | ')} 중 하나여야 합니다.`);
     }
     const requesterId = requireText(input.requesterId, 'requesterId 가 필요합니다.');
-    // 파일럿 범위 한정 (CLAUDE.md 핵심 비즈니스 규칙): 양평 · 건설폐기물.
-    if (input.region !== PILOT.region) {
-      throw new RequestValidationError(
-        `파일럿 기간에는 ${PILOT.region} 지역만 접수할 수 있습니다.`,
-      );
-    }
+    // 서비스 범위: 전국(지역 자유) · 건설폐기물. 지역은 필수(현장 지역 식별).
+    requireText(input.region, '지역(현장 지역)이 필요합니다.');
     if (input.wasteCategory !== PILOT.wasteCategory) {
-      throw new RequestValidationError('파일럿 기간에는 건설폐기물만 접수할 수 있습니다.');
+      throw new RequestValidationError('건설폐기물만 접수할 수 있습니다.');
     }
     if (!Number.isFinite(input.wasteTons) || input.wasteTons <= 0) {
       throw new RequestValidationError('wasteTons(예상 중량, 톤)은 양수여야 합니다.');
@@ -137,7 +133,7 @@ export class RequestStore {
     const base = {
       id: randomUUID(),
       requesterId,
-      region: input.region,
+      region: input.region.trim(),
       wasteCategory: PILOT.wasteCategory,
       wasteTons: input.wasteTons,
       allbaroRequested: input.allbaroRequested === true,

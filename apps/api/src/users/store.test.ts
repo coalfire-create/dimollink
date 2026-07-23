@@ -76,9 +76,13 @@ describe('UserStore.create — 온보딩', () => {
     ).toThrow(UserValidationError);
   });
 
-  it('파일럿 지역(양평) 외 가입 거부', () => {
+  it('전국 어느 지역이든 가입 가능(전국구), 빈 지역만 거부', () => {
     const store = new UserStore();
-    expect(() => store.create({ ...consumer, region: '서울' })).toThrow(UserValidationError);
+    expect(store.create({ ...consumer, region: '서울' }).region).toBe('서울');
+    expect(store.create({ ...consumer, phone: '010-9999-0000', region: '부산' }).region).toBe('부산');
+    expect(() => store.create({ ...consumer, phone: '010-9999-0001', region: '  ' })).toThrow(
+      UserValidationError,
+    );
   });
 
   it('휴대폰번호 필수 (로그인 식별자)', () => {
