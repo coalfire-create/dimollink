@@ -42,6 +42,8 @@ import { createRateLimiter, requestId, requestLogger, securityHeaders } from './
 import { Metrics, metricsMiddleware } from './observability/metrics.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
+import { createOAuthRouter } from './routes/oauth.js';
+import { OAuthService } from './auth/oauth/oauth-service.js';
 import { healthRouter } from './routes/health.js';
 import { createMatchingRouter } from './routes/matching.js';
 import { createPaymentsRouter } from './routes/payments.js';
@@ -214,7 +216,18 @@ export function createApp(
   app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
   app.use('/api', createJobsRouter(requestStore, userStore));
   app.use('/api', createAuthRouter(userStore, otpService, sessionStore));
-  app.use('/api', createUsersRouter(userStore, otpService, sessionStore));
+  // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.
+  const oauthService = new OAuthService({
+    credentials: {
+      kakao: { clientId: env.oauth.kakao.clientId ?? '', clientSecret: env.oauth.kakao.clientSecret ?? '' },
+      google: { clientId: env.oauth.google.clientId ?? '', clientSecret: env.oauth.google.clientSecret ?? '' },
+      naver: { clientId: env.oauth.naver.clientId ?? '', clientSecret: env.oauth.naver.clientSecret ?? '' },
+    },
+    redirectBase: env.oauth.redirectBase,
+    secret: env.oauth.secret,
+  });
+  app.use('/api', createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect));
+  app.use('/api', createUsersRouter(userStore, otpService, sessionStore, undefined, oauthService));
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore));
   // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).

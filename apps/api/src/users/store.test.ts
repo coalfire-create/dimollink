@@ -161,3 +161,39 @@ describe('UserStore — 콜대기·배지·인증·승인 갱신', () => {
     expect(store.list({ approvalStatus: 'PENDING' })).toHaveLength(1);
   });
 });
+
+describe('UserStore — 소셜 신원 연결', () => {
+  const identity = {
+    provider: 'kakao' as const,
+    providerUserId: 'kakao-123',
+    email: 'a@k.com',
+    linkedAt: '2026-07-24T00:00:00.000Z',
+  };
+
+  it('가입 시 소셜 신원을 함께 저장하고 조회한다', () => {
+    const store = new UserStore();
+    const u = store.create({ ...consumer, socialIdentity: identity });
+    expect(u.socialIdentities).toEqual([identity]);
+    expect(store.getBySocialIdentity('kakao', 'kakao-123')?.id).toBe(u.id);
+    expect(store.getBySocialIdentity('kakao', '없음')).toBeUndefined();
+    expect(store.getBySocialIdentity('naver', 'kakao-123')).toBeUndefined();
+  });
+
+  it('로그인 계정에 소셜 신원을 연결(멱등)한다', () => {
+    const store = new UserStore();
+    const u = store.create(consumer);
+    const linked = store.linkSocialIdentity(u.id, identity);
+    expect(linked.socialIdentities).toEqual([identity]);
+    // 동일 신원 재연결은 그대로.
+    expect(store.linkSocialIdentity(u.id, identity).socialIdentities).toHaveLength(1);
+  });
+
+  it('공급자당 하나만 유지 — 같은 공급자 재연결은 교체', () => {
+    const store = new UserStore();
+    const u = store.create(consumer);
+    store.linkSocialIdentity(u.id, identity);
+    const replaced = store.linkSocialIdentity(u.id, { ...identity, providerUserId: 'kakao-999' });
+    expect(replaced.socialIdentities).toHaveLength(1);
+    expect(replaced.socialIdentities?.[0]?.providerUserId).toBe('kakao-999');
+  });
+});

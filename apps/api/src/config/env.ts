@@ -63,17 +63,47 @@ export const env = {
   // 파일럿 단계 요청 데이터 JSON 저장 경로 (DATABASE_URL 미설정 시 폴백).
   dataDir: process.env.DATA_DIR ?? '.data',
   sms: {
-    // 실 SMS 발송 REST API. 미설정 시 콘솔 발송(개발)로 폴백.
+    // 발송 공급자 선택: auto(기본, 설정된 것 자동) | solapi | http | console.
+    provider: (process.env.SMS_PROVIDER ?? 'auto') as 'auto' | 'solapi' | 'http' | 'console',
+    // 발신번호 — Solapi/범용 REST 공통. 공급자 콘솔에 사전 등록·인증한 번호여야 한다.
+    sender: process.env.SMS_SENDER,
+    timeoutMs: Number(process.env.SMS_TIMEOUT_MS ?? 5000),
+    // Solapi(구 CoolSMS) — HMAC-SHA256 서명 인증. 권장 공급자.
+    solapi: {
+      apiKey: process.env.SOLAPI_API_KEY,
+      apiSecret: process.env.SOLAPI_API_SECRET,
+    },
+    // 범용 REST 발송 API(Bearer 인증). 미설정 시 콘솔 발송(개발)로 폴백.
     apiUrl: process.env.SMS_API_URL,
     apiKey: process.env.SMS_API_KEY,
-    sender: process.env.SMS_SENDER, // 발신번호(사전 등록 필요).
-    timeoutMs: Number(process.env.SMS_TIMEOUT_MS ?? 5000),
   },
   geocode: {
     // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 미설정 시 좌표 없이 진행.
     provider: (process.env.GEOCODE_PROVIDER ?? 'none') as 'kakao' | 'none',
     kakaoRestKey: process.env.KAKAO_REST_API_KEY,
     timeoutMs: Number(process.env.GEOCODE_TIMEOUT_MS ?? 5000),
+  },
+  oauth: {
+    // 콜백 베이스 URL(공개 API 주소). 공급자 콘솔에 등록한 redirect_uri 와 일치해야 한다.
+    // 예: https://api.디몰링크.com → 콜백은 {base}/api/auth/oauth/{provider}/callback
+    redirectBase: process.env.OAUTH_REDIRECT_BASE ?? '',
+    // 콜백 후 앱으로 복귀할 딥링크(예: dimollink://auth). 미설정 시 콜백이 JSON 을 반환(웹/테스트).
+    appRedirect: process.env.OAUTH_APP_REDIRECT ?? '',
+    // state·가입 티켓 서명 시크릿. 미설정 시 세션 시크릿을 재사용(둘 다 없으면 소셜 로그인 비활성).
+    secret: process.env.OAUTH_STATE_SECRET ?? process.env.SESSION_SECRET ?? '',
+    // 카카오: client_id 는 앱의 REST API 키. client_secret 은 콘솔에서 활성화 후 사용(권장).
+    kakao: {
+      clientId: process.env.KAKAO_CLIENT_ID,
+      clientSecret: process.env.KAKAO_CLIENT_SECRET,
+    },
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    },
+    naver: {
+      clientId: process.env.NAVER_CLIENT_ID,
+      clientSecret: process.env.NAVER_CLIENT_SECRET,
+    },
   },
   // 관리자 백오피스 API 토큰 (Phase 5). 미설정 시 /api/admin/* 전체가 503 으로 잠긴다.
   adminToken: process.env.ADMIN_TOKEN,

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BackHandler, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import { BackHandler, Linking, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
 import type { AuthSession, UserProfile } from '@dimol/shared';
 import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
+import { parseAuthDeepLink } from './src/lib/social-auth';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
 import {
   AuthActionsContext,
@@ -47,6 +48,10 @@ export default function App() {
   const [session, setSession] = useState<Session>(null);
   const [token, setToken] = useState<string | null>(null);
   const [authRoute, setAuthRoute] = useState<AuthRoute>('welcome');
+  // 소셜 로그인 콜백으로 미가입 신원이 돌아온 경우 — 회원가입에 티켓/프리필을 전달.
+  const [pendingSocial, setPendingSocial] = useState<{ ticket: string; prefillName?: string } | null>(
+    null,
+  );
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabName>('home');
   const [stack, setStack] = useState<Route[]>([]);
@@ -82,6 +87,29 @@ export default function App() {
     void saveToken(authSession.token);
     setSession(authSession.user);
   }, []);
+
+  // 소셜 로그인 콜백 딥링크(dimollink://auth?...) 수신 — 로그인/회원가입 분기.
+  useEffect(() => {
+    async function handleUrl(url: string | null) {
+      const result = url ? parseAuthDeepLink(url) : null;
+      if (!result) return;
+      if (result.status === 'login') {
+        try {
+          const user = await getMe(result.token);
+          handleAuthenticated({ token: result.token, user });
+        } catch {
+          // 토큰이 무효/만료면 로그인 화면을 유지한다.
+        }
+      } else if (result.status === 'signup') {
+        setSession(null);
+        setPendingSocial({ ticket: result.ticket, prefillName: result.name });
+        setAuthRoute('signup');
+      }
+    }
+    const sub = Linking.addEventListener('url', (e) => void handleUrl(e.url));
+    void Linking.getInitialURL().then(handleUrl);
+    return () => sub.remove();
+  }, [handleAuthenticated]);
 
   const navigation = useMemo<Navigation>(
     () => ({
@@ -206,9 +234,16 @@ export default function App() {
       case 'signup':
         return (
           <OnboardingScreen
-            onComplete={handleAuthenticated}
-            onBack={() => setAuthRoute('welcome')}
+            onComplete={(s) => {
+              setPendingSocial(null);
+              handleAuthenticated(s);
+            }}
+            onBack={() => {
+              setPendingSocial(null);
+              setAuthRoute('welcome');
+            }}
             onLogin={() => setAuthRoute('login')}
+            social={pendingSocial ?? undefined}
           />
         );
       case 'admin':

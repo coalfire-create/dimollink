@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { AuthSession } from '@dimol/shared';
+import type { AuthSession, SocialProvider } from '@dimol/shared';
+import { SOCIAL_PROVIDERS, SOCIAL_PROVIDER_LABELS } from '@dimol/shared';
 import { ApiError, requestOtp, verifyOtp } from '../api/client';
+import { startSocialLogin } from '../lib/social-auth';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { theme } from '../theme';
 
@@ -44,6 +46,21 @@ export function LoginScreen({
       setNotice('인증코드를 발송했어요. 문자로 받은 6자리를 입력해 주세요.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '인증코드 발송에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function socialLogin(provider: SocialProvider) {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+    try {
+      await startSocialLogin(provider);
+      // 브라우저에서 인증 후 앱으로 복귀(딥링크)하면 App 이 세션을 처리한다.
+      setNotice(`${SOCIAL_PROVIDER_LABELS[provider]}(으)로 이동합니다. 인증을 마치면 앱으로 돌아와요.`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '소셜 로그인을 시작하지 못했어요.');
     } finally {
       setBusy(false);
     }
@@ -121,6 +138,22 @@ export function LoginScreen({
       <ErrorBanner message={error} />
 
       <View style={{ height: theme.spacing.md }} />
+      <View style={styles.dividerRow}>
+        <View style={styles.divider} />
+        <Text style={styles.dividerText}>또는 간편 로그인</Text>
+        <View style={styles.divider} />
+      </View>
+      {SOCIAL_PROVIDERS.map((provider) => (
+        <AppButton
+          key={provider}
+          label={`${SOCIAL_PROVIDER_LABELS[provider]}로 로그인`}
+          variant="outline"
+          onPress={() => void socialLogin(provider)}
+          loading={busy}
+        />
+      ))}
+
+      <View style={{ height: theme.spacing.md }} />
       <Text style={styles.helper}>아직 계정이 없으신가요?</Text>
       <AppButton label="회원가입" variant="outline" onPress={onSignup} />
     </View>
@@ -168,5 +201,20 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginBottom: spacing.sm,
     textAlign: 'center',
+  },
+  dividerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  divider: {
+    backgroundColor: colors.border,
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    paddingHorizontal: spacing.sm,
   },
 });

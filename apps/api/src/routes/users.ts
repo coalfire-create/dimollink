@@ -11,6 +11,7 @@ import {
 import { Router, type Request, type Response } from 'express';
 import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
 import type { OtpService } from '../auth/otp-service.js';
+import type { OAuthService } from '../auth/oauth/oauth-service.js';
 import type { SessionStore } from '../auth/session-store.js';
 import { authUserId } from '../middleware/auth.js';
 import { UserStore, UserValidationError, type CreateUserInput } from '../users/store.js';
@@ -39,6 +40,7 @@ export function createUsersRouter(
   otpService: OtpService,
   sessionStore: SessionStore,
   allbaro: AllbaroClient = createAllbaroClient(),
+  oauth?: OAuthService,
 ): Router {
   const router = Router();
 
@@ -108,6 +110,27 @@ export function createUsersRouter(
       }
     }
 
+    // 소셜 로그인으로 진입한 가입: 티켓(신원 검증됨)을 계정에 함께 연결한다.
+    let socialIdentity: CreateUserInput['socialIdentity'];
+    if (typeof body.socialTicket === 'string') {
+      const parsed = oauth?.verifySignupTicket(body.socialTicket);
+      if (!parsed) {
+        res.status(400).json({ error: '소셜 인증이 만료되었습니다. 다시 로그인해 주세요.', code: 'SOCIAL_TICKET_INVALID' });
+        return;
+      }
+      const linkedElsewhere = store.getBySocialIdentity(parsed.provider, parsed.providerUserId);
+      if (linkedElsewhere) {
+        res.status(409).json({ error: '이미 가입된 소셜 계정입니다. 로그인해 주세요.', code: 'SOCIAL_ALREADY_LINKED' });
+        return;
+      }
+      socialIdentity = {
+        provider: parsed.provider,
+        providerUserId: parsed.providerUserId,
+        ...(parsed.email ? { email: parsed.email } : {}),
+        linkedAt: new Date().toISOString(),
+      };
+    }
+
     try {
       const created = store.create({
         userType: userType as UserType,
@@ -116,6 +139,7 @@ export function createUsersRouter(
         phone,
         businessNumber,
         location: parseGeoPoint(body.location),
+        ...(socialIdentity ? { socialIdentity } : {}),
       } as CreateUserInput);
       // 올바로 검증 성공 시 [올바로 인증 업체] 배지 부여.
       const user = allbaroVerifiedAt

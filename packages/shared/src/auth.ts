@@ -1,4 +1,4 @@
-import type { UserProfile } from './user.js';
+import type { SocialProvider, UserProfile } from './user.js';
 
 /**
  * 인증(휴대폰 OTP 로그인) 공통 타입.
@@ -32,3 +32,28 @@ export interface AuthSession {
   token: string;
   user: UserProfile;
 }
+
+/**
+ * 소셜 로그인 시작 결과. authorizeUrl 을 브라우저(외부/인앱)로 열어 공급자 인증을 진행한다.
+ * state 는 CSRF 방지용 서명값(콜백에서 검증).
+ */
+export interface OAuthStartResult {
+  authorizeUrl: string;
+  state: string;
+}
+
+/** 소셜 신원으로 회원가입 화면을 채울 프리필(신원은 검증됐지만 아직 미가입). */
+export interface SocialSignupPrefill {
+  provider: SocialProvider;
+  name?: string;
+  email?: string;
+}
+
+/**
+ * 소셜 로그인 콜백 결과.
+ * - 이미 연결된 계정: 즉시 로그인(session).
+ * - 미가입 신원: 단기 가입 티켓(ticket) + 프리필 → 회원가입(전화 인증 포함) 후 계정 생성·연결.
+ */
+export type OAuthCallbackResult =
+  | { status: 'login'; session: AuthSession }
+  | { status: 'signup'; ticket: string; prefill: SocialSignupPrefill };

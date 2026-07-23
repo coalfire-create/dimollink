@@ -21,6 +21,7 @@ import type {
   ServiceRequest,
   SettlementPlan,
   SiteAnalysis,
+  SocialProvider,
   UserApprovalStatus,
   UserProfile,
   UserType,
@@ -104,6 +105,14 @@ export const verifyOtp = (phone: string, code: string) =>
 export const getMe = (token: string) =>
   api<UserProfile>('/auth/me', { headers: { authorization: `Bearer ${token}` } });
 
+// ── 소셜 로그인 (카카오/구글/네이버 OAuth)
+/**
+ * 소셜 로그인 인가 URL 요청. 반환된 authorizeUrl 을 브라우저로 열어 인증을 진행한다.
+ * 공급자 미설정 시 503(ApiError) — 화면에서 안내 문구로 노출한다.
+ */
+export const fetchSocialAuthorizeUrl = (provider: SocialProvider) =>
+  api<{ authorizeUrl: string }>(`/auth/oauth/${provider}/start`);
+
 /** 서버 토큰 회수(로그아웃). 실패해도 로컬 세션은 정리한다. */
 export const logoutServer = (token: string) =>
   api<{ ok: boolean }>('/auth/logout', {
@@ -121,6 +130,8 @@ export interface CreateUserInput {
   businessNumber?: string;
   /** 업체 기준 좌표(거리 기반 일감 추천용, 선택). */
   location?: GeoPoint;
+  /** 소셜 로그인으로 진입한 가입이면 콜백에서 받은 티켓 — 계정에 소셜 신원을 연결한다. */
+  socialTicket?: string;
 }
 
 /** 회원가입 → 세션(토큰+프로필) 반환. 가입 즉시 로그인 상태가 된다. */

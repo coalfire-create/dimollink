@@ -30,13 +30,16 @@ export function OnboardingScreen({
   onComplete,
   onBack,
   onLogin,
+  social,
 }: {
   onComplete: (session: AuthSession) => void;
   onBack?: () => void;
   onLogin?: () => void;
+  /** 소셜 로그인으로 진입한 가입 — 티켓으로 계정에 소셜 신원을 연결하고 이름을 프리필한다. */
+  social?: { ticket: string; prefillName?: string };
 }) {
   const [userType, setUserType] = useState<UserType>('CONSUMER');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(social?.prefillName ?? '');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -95,6 +98,7 @@ export function OnboardingScreen({
         region: PILOT.region,
         phone: phone.trim(),
         businessNumber: isCompany ? businessNumber.trim() : undefined,
+        ...(social?.ticket ? { socialTicket: social.ticket } : {}),
       });
       onComplete(session);
     } catch (err) {

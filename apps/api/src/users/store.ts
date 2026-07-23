@@ -9,6 +9,8 @@ import {
   usesCallAvailability,
   type CallAvailability,
   type GeoPoint,
+  type SocialIdentity,
+  type SocialProvider,
   type UserApprovalStatus,
   type UserProfile,
   type UserType,
@@ -43,6 +45,8 @@ export interface CreateUserInput {
   businessNumber?: string;
   /** 업체 기준 좌표(거리 기반 일감 추천용, 선택). */
   location?: GeoPoint;
+  /** 소셜 로그인으로 가입 시 함께 연결할 신원(선택). */
+  socialIdentity?: SocialIdentity;
 }
 
 export interface UpdateUserInput {
@@ -120,6 +124,7 @@ export class UserStore {
       phone,
       ...(businessNumber ? { businessNumber } : {}),
       ...(input.location ? { location: input.location } : {}),
+      ...(input.socialIdentity ? { socialIdentities: [input.socialIdentity] } : {}),
       // 소비자는 즉시 이용 가능, 업체는 관리자 승인 후 매칭 노출.
       approvalStatus: company ? 'PENDING' : 'APPROVED',
       // 운반업체는 콜대기 흐름 — 가입 직후엔 대기 종료(OFFLINE)로 시작.
@@ -147,6 +152,44 @@ export class UserStore {
     const key = normalizePhone(phoneInput);
     if (key.length < 10) return undefined;
     return [...this.users.values()].find((u) => u.phone && normalizePhone(u.phone) === key);
+  }
+
+  /**
+   * 소셜 신원(공급자 + 공급자 고유 id)으로 계정 조회 — 소셜 로그인 매칭 키.
+   * email 이 아니라 providerUserId 로만 매칭한다(이메일 변경/사칭 대비).
+   */
+  getBySocialIdentity(provider: SocialProvider, providerUserId: string): UserProfile | undefined {
+    return [...this.users.values()].find((u) =>
+      u.socialIdentities?.some(
+        (s) => s.provider === provider && s.providerUserId === providerUserId,
+      ),
+    );
+  }
+
+  /**
+   * 계정에 소셜 신원을 연결(멱등). 공급자당 1개만 유지한다.
+   * 이미 같은 신원이 있으면 그대로 반환한다.
+   */
+  linkSocialIdentity(userId: string, identity: SocialIdentity): UserProfile {
+    const user = this.requireUser(userId);
+    const existing = user.socialIdentities ?? [];
+    if (
+      existing.some(
+        (s) => s.provider === identity.provider && s.providerUserId === identity.providerUserId,
+      )
+    ) {
+      return user;
+    }
+    // 공급자당 하나 — 기존 같은 공급자 연결은 교체한다.
+    const kept = existing.filter((s) => s.provider !== identity.provider);
+    const updated: UserProfile = {
+      ...user,
+      socialIdentities: [...kept, identity],
+      updatedAt: new Date().toISOString(),
+    };
+    this.users.set(userId, updated);
+    this.persist();
+    return updated;
   }
 
   list(filter: ListUsersFilter = {}): UserProfile[] {

@@ -77,6 +77,31 @@ export const CALL_AVAILABILITY_LABELS: Record<CallAvailability, string> = {
   OFFLINE: '대기 종료',
 };
 
+/** 소셜 로그인 공급자(파일럿: 카카오·구글·네이버). */
+export const SOCIAL_PROVIDERS = ['kakao', 'google', 'naver'] as const;
+export type SocialProvider = (typeof SOCIAL_PROVIDERS)[number];
+
+export function isSocialProvider(value: unknown): value is SocialProvider {
+  return typeof value === 'string' && (SOCIAL_PROVIDERS as readonly string[]).includes(value);
+}
+
+export const SOCIAL_PROVIDER_LABELS: Record<SocialProvider, string> = {
+  kakao: '카카오',
+  google: '구글',
+  naver: '네이버',
+};
+
+/**
+ * 계정에 연결된 소셜 로그인 신원.
+ * providerUserId 는 공급자의 안정적 고유 id(로그인 매칭 키). email 은 참고용(식별 키로 쓰지 않는다).
+ */
+export interface SocialIdentity {
+  provider: SocialProvider;
+  providerUserId: string;
+  email?: string;
+  linkedAt: string;
+}
+
 export interface UserProfile {
   id: string;
   userType: UserType;
@@ -110,6 +135,8 @@ export interface UserProfile {
   insuranceRegistered: boolean;
   /** 폐기물처리업 허가증 등록 확인 (Phase 2 인증 고도화). */
   permitRegistered: boolean;
+  /** 연결된 소셜 로그인(카카오/구글/네이버). 공급자당 최대 1개. 미연결이면 undefined. */
+  socialIdentities?: SocialIdentity[];
   createdAt: string;
   updatedAt: string;
 }
