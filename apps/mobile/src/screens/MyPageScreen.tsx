@@ -8,7 +8,7 @@ import {
   type RatingSummary,
 } from '@dimol/shared';
 import { getRating } from '../api/client';
-import { AppButton, Card, InfoRow, SectionTitle } from '../components/ui';
+import { Card, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
@@ -31,20 +31,22 @@ export function MyPageScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader title="마이페이지" />
-      <ScrollView contentContainerStyle={styles.content}>
-        <FadeInUp delay={40}>
-          <Card style={styles.profileCard}>
-            <View style={styles.profileRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{user.name.trim().charAt(0) || '비'}</Text>
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.name}>{user.name}</Text>
-                <Text style={styles.role}>
-                  {USER_TYPE_LABELS[user.userType] ?? user.userType} · {user.region}
-                </Text>
-              </View>
+
+      {/* Hero profile section — sits above ScrollView for sticky feel */}
+      <FadeInUp delay={40}>
+        <View style={styles.heroSection}>
+          <View style={styles.profileRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user.name.trim().charAt(0) || '비'}</Text>
             </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.name}>{user.name}</Text>
+              <Text style={styles.role}>
+                {USER_TYPE_LABELS[user.userType] ?? user.userType} · {user.region}
+              </Text>
+            </View>
+          </View>
+          {(user.allbaroCertified || user.insuranceRegistered || user.permitRegistered) ? (
             <View style={styles.badgeRow}>
               {user.allbaroCertified ? (
                 <View style={styles.badge}>
@@ -62,14 +64,18 @@ export function MyPageScreen() {
                 </View>
               ) : null}
             </View>
-          </Card>
-        </FadeInUp>
+          ) : null}
+        </View>
+      </FadeInUp>
 
+      <ScrollView contentContainerStyle={styles.content}>
         <SectionTitle>내 활동</SectionTitle>
         <Card style={styles.menuGroupCard}>
           <Pressable style={styles.menuItem} onPress={() => nav.switchTab('requests')}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>📋</Text>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>📋</Text>
+              </View>
               <Text style={styles.menuLabel}>내 요청 목록</Text>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
@@ -77,7 +83,9 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable style={styles.menuItem} onPress={() => nav.switchTab('notifications')}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>🔔</Text>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>🔔</Text>
+              </View>
               <Text style={styles.menuLabel}>알림</Text>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
@@ -85,7 +93,9 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'siteAnalysis' })}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>📷</Text>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>📷</Text>
+              </View>
               <Text style={styles.menuLabel}>현장 사진 분석</Text>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
@@ -93,7 +103,9 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'estimate' })}>
             <View style={styles.menuLeft}>
-              <Text style={styles.menuIcon}>📐</Text>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>📐</Text>
+              </View>
               <Text style={styles.menuLabel}>폐기물 양 계산</Text>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
@@ -113,21 +125,29 @@ export function MyPageScreen() {
         {isCompanyType(user.userType) ? (
           <>
             <SectionTitle>평가</SectionTitle>
-            <Card>
-              <InfoRow
-                label="평균 평점"
-                value={
-                  rating && rating.average !== null
-                    ? `★ ${rating.average} (${rating.reviewCount}건)`
-                    : '아직 평가가 없어요'
-                }
-              />
-            </Card>
+            {rating && rating.average !== null ? (
+              <View style={styles.ratingRow}>
+                <View style={styles.ratingCard}>
+                  <Text style={styles.ratingNumber}>★ {rating.average}</Text>
+                  <Text style={styles.ratingLabel}>평균 평점</Text>
+                </View>
+                <View style={styles.ratingCard}>
+                  <Text style={styles.ratingNumber}>{rating.reviewCount}</Text>
+                  <Text style={styles.ratingLabel}>리뷰 건수</Text>
+                </View>
+              </View>
+            ) : (
+              <Card>
+                <InfoRow label="평균 평점" value="아직 평가가 없어요" />
+              </Card>
+            )}
           </>
         ) : null}
 
-        <View style={{ height: theme.spacing.md }} />
-        <AppButton label="로그아웃" variant="outline" onPress={logout} />
+        <View style={{ height: theme.spacing.lg }} />
+        <Pressable onPress={logout} style={styles.logoutButton}>
+          <Text style={styles.logoutText}>로그아웃</Text>
+        </Pressable>
 
         <Text style={styles.footer}>디몰링크 · 전국 건설폐기물</Text>
       </ScrollView>
@@ -140,23 +160,19 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     flex: 1,
   },
-  content: {
+  heroSection: {
+    backgroundColor: colors.primary,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     padding: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  profileCard: {
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
   profileRow: {
     alignItems: 'center',
@@ -164,15 +180,15 @@ const styles = StyleSheet.create({
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.background,
     borderRadius: 999,
-    height: 60,
+    height: 72,
     justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 60,
+    width: 72,
   },
   avatarText: {
-    color: colors.background,
+    color: colors.primary,
     fontSize: font.titleLarge,
     fontWeight: '800',
   },
@@ -180,12 +196,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    color: colors.text,
+    color: colors.background,
     fontSize: font.titleLarge,
     fontWeight: '800',
   },
   role: {
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.75)',
     fontSize: font.body,
     marginTop: spacing.xs / 2,
   },
@@ -195,17 +211,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   badge: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: radius.badge,
     marginRight: spacing.xs,
-    marginTop: spacing.xs,
+    marginTop: spacing.xs / 2,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
   badgeText: {
-    color: colors.primary,
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
+  },
+  content: {
+    padding: spacing.md,
+    paddingBottom: spacing.lg,
   },
   menuGroupCard: {
     backgroundColor: colors.background,
@@ -228,9 +248,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  menuIcon: {
-    fontSize: font.title,
+  menuIconCircle: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 999,
+    height: 40,
+    justifyContent: 'center',
     marginRight: spacing.sm,
+    width: 40,
+  },
+  menuIcon: {
+    fontSize: font.body,
   },
   menuLabel: {
     fontSize: font.body,
@@ -246,10 +274,46 @@ const styles = StyleSheet.create({
     fontSize: font.titleLarge,
     color: colors.textMuted,
   },
+  ratingRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  ratingCard: {
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: radius.card,
+    flex: 1,
+    paddingVertical: spacing.md,
+    shadowColor: '#0B1B3A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  ratingNumber: {
+    color: colors.text,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+  },
+  ratingLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: 4,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  logoutText: {
+    color: colors.error,
+    fontSize: font.body,
+    fontWeight: '600',
+  },
   footer: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
 });

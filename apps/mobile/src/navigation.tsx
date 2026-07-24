@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { RequestKind, UserProfile } from '@dimol/shared';
 import { ROLE_CONFIG } from './roleConfig';
 import { theme } from './theme';
@@ -82,6 +82,7 @@ export function TabBar({ active }: { active: TabName }) {
             onPress={() => nav.switchTab(tab)}
             style={styles.tabItem}
           >
+            {isActive ? <View style={styles.tabIndicator} /> : <View style={styles.tabIndicatorPlaceholder} />}
             <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
               <Text style={styles.tabIcon}>{icon}</Text>
             </View>
@@ -105,10 +106,10 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
           onPress={() => nav.pop()}
           style={styles.backButton}
         >
-          <Text style={styles.backLabel}>‹</Text>
+          <Text style={styles.backLabel}>← 뒤로</Text>
         </Pressable>
       ) : null}
-      <Text style={styles.headerTitle}>{title}</Text>
+      <Text style={[styles.headerTitle, !canGoBack && styles.headerTitleCentered]}>{title}</Text>
     </View>
   );
 }
@@ -121,7 +122,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    paddingBottom: spacing.xs,
+    paddingBottom: Platform.OS === 'ios' ? 12 : spacing.xs,
+    // Subtle upward shadow
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 8,
   },
   tabItem: {
     alignItems: 'center',
@@ -130,26 +137,35 @@ const styles = StyleSheet.create({
     minHeight: touch.primaryButtonHeight + spacing.xs,
     paddingVertical: spacing.xs,
   },
+  tabIndicator: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    height: 3,
+    marginBottom: 4,
+    width: 24,
+  },
+  tabIndicatorPlaceholder: {
+    height: 3,
+    marginBottom: 4,
+    width: 24,
+  },
   tabIconWrap: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: 12,
     justifyContent: 'center',
     marginBottom: 2,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 8,
     paddingVertical: 4,
   },
   tabIconWrapActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.primarySoft,
   },
   tabIcon: {
     fontSize: font.bodyLarge,
   },
-  tabIconActive: {
-    // active icon inherits color from tabLabelActive via parent
-  },
   tabLabel: {
     color: colors.textMuted,
-    fontSize: font.caption - 6,
+    fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -160,30 +176,40 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: colors.background,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     minHeight: touch.primaryButtonHeight + spacing.xs,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
+    // Subtle downward shadow
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   backButton: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
     borderRadius: 999,
     height: touch.minButtonHeight,
     justifyContent: 'center',
     marginRight: spacing.sm,
-    width: touch.minButtonHeight,
+    paddingHorizontal: spacing.sm,
   },
   backLabel: {
-    color: colors.text,
-    fontSize: font.title,
-    fontWeight: '800',
-    lineHeight: font.title + 2,
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
   },
   headerTitle: {
     color: colors.text,
     flexShrink: 1,
     fontSize: font.title,
     fontWeight: '800',
+  },
+  headerTitleCentered: {
+    flex: 1,
+    textAlign: 'center',
   },
 });
