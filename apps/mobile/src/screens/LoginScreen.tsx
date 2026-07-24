@@ -208,7 +208,7 @@ export function LoginScreen({
             <Text style={s.logoText}>D</Text>
           </View>
           <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
-            반가워요! 👋{'\n'}디몰링크에 로그인하세요
+            반가워요! 👋{'\n'}비움에 로그인하세요
           </Text>
           <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
             철거·운반·처리장 매칭 및 전자인계서 서비스

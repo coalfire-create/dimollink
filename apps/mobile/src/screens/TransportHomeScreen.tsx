@@ -113,7 +113,7 @@ export function TransportHomeScreen() {
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>안전하고 신속한 운반</Text>
-              <Text style={styles.bannerSubtitle}>디몰링크 파트너스</Text>
+              <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
             <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🚚</Text>
           </View>
