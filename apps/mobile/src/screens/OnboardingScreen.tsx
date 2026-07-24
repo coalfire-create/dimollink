@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
-import { FadeInUp } from '../components/motion';
+import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
 
@@ -18,12 +18,48 @@ function isPhoneLike(value: string): boolean {
  * 활동 지역을 직접 입력받는다(전국 이용 가능).
  */
 
-const TYPE_OPTIONS: Array<{ type: UserType; title: string; description: string }> = [
-  { type: 'CONSUMER', title: '소비자', description: '철거·폐기물 처리를 맡기고 싶어요' },
-  { type: 'DEMOLITION_COMPANY', title: '철거업체', description: '철거 작업을 수주하고 싶어요' },
-  { type: 'TRANSPORT_COMPANY', title: '운반업체', description: '폐기물 운반 콜을 받고 싶어요' },
-  { type: 'WASTE_TREATMENT_PLANT', title: '처리장', description: '폐기물 반입 예약을 받고 싶어요' },
-  { type: 'INTERIOR_COMPANY', title: '인테리어 업체', description: '인테리어 시공 견적을 넣고 싶어요' },
+const TYPE_OPTIONS: Array<{
+  type: UserType;
+  title: string;
+  description: string;
+  icon: string;
+  badge?: string;
+}> = [
+  {
+    type: 'CONSUMER',
+    title: '소비자',
+    description: '철거·폐기물 처리를 맡기고 싶어요',
+    icon: '🏠',
+    badge: '개인/기업',
+  },
+  {
+    type: 'DEMOLITION_COMPANY',
+    title: '철거업체',
+    description: '철거 작업을 수주하고 싶어요',
+    icon: '🏗️',
+    badge: '파트너',
+  },
+  {
+    type: 'TRANSPORT_COMPANY',
+    title: '운반업체',
+    description: '폐기물 운반 콜을 받고 싶어요',
+    icon: '🚚',
+    badge: '파트너',
+  },
+  {
+    type: 'WASTE_TREATMENT_PLANT',
+    title: '처리장',
+    description: '폐기물 반입 예약을 받고 싶어요',
+    icon: '🏭',
+    badge: '파트너',
+  },
+  {
+    type: 'INTERIOR_COMPANY',
+    title: '인테리어 업체',
+    description: '인테리어 시공 견적을 넣고 싶어요',
+    icon: '🎨',
+    badge: '파트너',
+  },
 ];
 
 export function OnboardingScreen({
@@ -115,111 +151,182 @@ export function OnboardingScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {/* 상단 뒤로가기 내비 */}
       {onBack ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          onPress={onBack}
-          style={styles.back}
-        >
-          <Text style={styles.backLabel}>‹ 뒤로</Text>
-        </Pressable>
+        <FadeInUp delay={20}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            onPress={onBack}
+            style={styles.back}
+          >
+            <Text style={styles.backLabel}>‹ 뒤로</Text>
+          </Pressable>
+        </FadeInUp>
       ) : null}
-      <FadeInUp delay={40}>
-        <Image
-          source={brandmark}
-          style={styles.brandmark}
-          resizeMode="contain"
-          accessibilityLabel="비움 로고"
-        />
-        <Text style={styles.appName}>비움</Text>
+
+      {/* 브랜드 타이틀 헤더 */}
+      <FadeInUp delay={60}>
+        <View style={styles.headerWrap}>
+          <Image
+            source={brandmark}
+            style={styles.brandmark}
+            resizeMode="contain"
+            accessibilityLabel="비움 로고"
+          />
+          <Text style={styles.appName}>비움 회원가입</Text>
+          <Text style={styles.appSubtitle}>
+            {social ? '소셜 계정 인증이 완료되었습니다. 회원 정보를 입력해 주세요.' : '10초만에 가입하고 신속한 매칭 서비스를 이용하세요.'}
+          </Text>
+        </View>
       </FadeInUp>
 
-      <Text style={styles.stepTitle}>어떤 일로 오셨나요?</Text>
+      {/* Step 1: 가입 유형 선택 */}
+      <FadeInUp delay={100}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>1단계</Text>
+          </View>
+          <Text style={styles.stepTitle}>어떤 역할로 가입하시나요?</Text>
+        </View>
+      </FadeInUp>
+
       {TYPE_OPTIONS.map((option, i) => {
         const selected = userType === option.type;
         return (
-          <FadeInUp key={option.type} delay={120 + i * 70}>
-          <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selected }}
-            onPress={() => setUserType(option.type)}
-            style={[styles.roleCard, selected && styles.roleCardSelected]}
-          >
-            <Text style={[styles.roleTitle, selected && { color: theme.colors.primary }]}>
-              {selected ? '✓ ' : ''}
-              {option.title}
-            </Text>
-            <Text style={styles.roleDescription}>{option.description}</Text>
-          </Pressable>
+          <FadeInUp key={option.type} delay={120 + i * 50}>
+            <PressableScale
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
+              onPress={() => setUserType(option.type)}
+              style={[styles.roleCard, selected && styles.roleCardSelected]}
+            >
+              <View style={[styles.iconCircle, selected && styles.iconCircleSelected]}>
+                <Text style={styles.iconText}>{option.icon}</Text>
+              </View>
+              <View style={styles.roleInfo}>
+                <View style={styles.roleHeaderRow}>
+                  <Text style={[styles.roleTitle, selected && { color: colors.primary }]}>
+                    {option.title}
+                  </Text>
+                  {option.badge ? (
+                    <View style={[styles.tagBadge, selected && styles.tagBadgeSelected]}>
+                      <Text style={[styles.tagBadgeText, selected && { color: colors.primary }]}>
+                        {option.badge}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.roleDescription}>{option.description}</Text>
+              </View>
+              <View style={[styles.radioCheck, selected && styles.radioCheckSelected]}>
+                {selected && <Text style={styles.radioCheckMark}>✓</Text>}
+              </View>
+            </PressableScale>
           </FadeInUp>
         );
       })}
 
-      <View style={{ height: theme.spacing.md }} />
-      <Field
-        label={isCompany ? '업체명' : '이름'}
-        value={name}
-        onChangeText={setName}
-        placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
-      />
-      <Field
-        label="활동 지역"
-        value={region}
-        onChangeText={setRegion}
-        placeholder="예) 서울, 경기 양평, 부산"
-        hint="주로 활동하는 지역을 입력해 주세요. (전국 이용 가능)"
-      />
-      <Field
-        label="휴대폰번호"
-        value={phone}
-        onChangeText={setPhone}
-        placeholder="010-0000-0000"
-        keyboardType="phone-pad"
-        editable={!codeSent}
-        hint="로그인할 때 사용하는 번호예요."
-      />
-      <AppButton
-        label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
-        variant="outline"
-        onPress={sendCode}
-        loading={busy && !codeSent}
-      />
-      {codeSent ? (
-        <>
-          <View style={{ height: theme.spacing.sm }} />
+      {/* Step 2: 기본 정보 및 인증 입력 */}
+      <FadeInUp delay={380}>
+        <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>2단계</Text>
+          </View>
+          <Text style={styles.stepTitle}>가입 상세 정보를 입력해 주세요</Text>
+        </View>
+
+        <View style={styles.formCard}>
           <Field
-            label="인증코드"
-            value={code}
-            onChangeText={setCode}
-            placeholder="6자리 숫자"
-            keyboardType="number-pad"
-            maxLength={6}
+            label={isCompany ? '업체명 *' : '이름 *'}
+            value={name}
+            onChangeText={setName}
+            placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
+            hint={isCompany ? '사업자등록증 상의 정확한 상호를 입력하세요.' : '실명을 입력하세요.'}
           />
-        </>
+          <Field
+            label="활동 지역 *"
+            value={region}
+            onChangeText={setRegion}
+            placeholder="예) 서울, 경기 양평, 부산"
+            hint="주로 활동하는 지역을 입력해 주세요. (전국 서비스 이용 가능)"
+          />
+          <Field
+            label="휴대폰번호 *"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="010-0000-0000"
+            keyboardType="phone-pad"
+            editable={!codeSent}
+            hint="로그인 및 매칭 알림 수신에 활용됩니다."
+          />
+          <AppButton
+            label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
+            variant={codeSent ? 'outline' : 'primary'}
+            onPress={sendCode}
+            loading={busy && !codeSent}
+          />
+
+          {codeSent ? (
+            <View style={{ marginTop: spacing.md }}>
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeBoxText}>
+                  ✓ 인증코드를 발송했어요. 문자로 받은 6자리를 입력하세요.
+                </Text>
+              </View>
+              <Field
+                label="인증코드 6자리 *"
+                value={code}
+                onChangeText={setCode}
+                placeholder="000000"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+          ) : null}
+
+          {isCompany ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <Field
+                label="사업자등록번호 *"
+                value={businessNumber}
+                onChangeText={setBusinessNumber}
+                placeholder="000-00-00000"
+                keyboardType="number-pad"
+                hint="가입 후 관리자 승인이 완료되면 매칭 수주가 활성화됩니다."
+              />
+            </View>
+          ) : null}
+        </View>
+      </FadeInUp>
+
+      {notice && !codeSent ? (
+        <FadeInUp delay={420}>
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeBoxText}>{notice}</Text>
+          </View>
+        </FadeInUp>
       ) : null}
 
-      {isCompany ? (
-        <Field
-          label="사업자등록번호"
-          value={businessNumber}
-          onChangeText={setBusinessNumber}
-          placeholder="000-00-00000"
-          keyboardType="number-pad"
-          hint="가입 후 관리자 승인이 끝나면 매칭을 받을 수 있어요."
-        />
-      ) : null}
-
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       <ErrorBanner message={error} />
-      <AppButton label="시작하기" onPress={submit} loading={busy} />
 
+      {/* 제출 CTA 버튼 */}
+      <FadeInUp delay={440}>
+        <View style={{ marginTop: spacing.md }}>
+          <AppButton label="가입 완료하고 시작하기" onPress={submit} loading={busy} />
+        </View>
+      </FadeInUp>
+
+      {/* 로그인 링크 */}
       {onLogin ? (
-        <>
-          <View style={{ height: theme.spacing.md }} />
-          <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
-          <AppButton label="로그인" variant="outline" onPress={onLogin} />
-        </>
+        <FadeInUp delay={480}>
+          <View style={styles.loginCard}>
+            <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
+            <PressableScale onPress={onLogin} style={styles.loginBtn}>
+              <Text style={styles.loginBtnText}>로그인 화면으로 이동 ➔</Text>
+            </PressableScale>
+          </View>
+        </FadeInUp>
       ) : null}
     </ScrollView>
   );
@@ -232,70 +339,195 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flexGrow: 1,
     padding: spacing.md,
+    paddingBottom: 56,
   },
   back: {
     justifyContent: 'center',
     minHeight: theme.touch.minButtonHeight,
-    minWidth: theme.touch.minButtonHeight,
+    paddingRight: spacing.sm,
+    alignSelf: 'flex-start',
   },
   backLabel: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  loginHelper: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  notice: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
+  // 브랜드 헤더
+  headerWrap: {
+    alignItems: 'center',
+    marginVertical: spacing.md,
   },
   brandmark: {
-    alignSelf: 'center',
-    height: 72,
-    marginTop: spacing.lg,
-    width: 72,
+    height: 64,
+    width: 64,
+    marginBottom: spacing.xs,
   },
   appName: {
-    color: colors.primary,
+    color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginTop: spacing.xs,
+    fontWeight: '900',
     textAlign: 'center',
+  },
+  appSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    textAlign: 'center',
+    marginTop: spacing.xs / 2,
+  },
+  // 섹션 타이틀
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  stepBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
+  },
+  stepBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   stepTitle: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-    marginTop: spacing.lg,
+    fontWeight: '800',
   },
+  // 가입 유형 선택 카드
   roleCard: {
     backgroundColor: colors.background,
-    borderColor: 'transparent',
+    borderColor: colors.border,
     borderRadius: radius.card,
-    borderWidth: 2,
+    borderWidth: 1.5,
     marginBottom: spacing.sm,
     padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
     ...theme.shadow.card,
   },
   roleCardSelected: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  iconCircleSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  iconText: {
+    fontSize: 24,
+  },
+  roleInfo: {
+    flex: 1,
+  },
+  roleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   roleTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  tagBadge: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tagBadgeSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  tagBadgeText: {
+    color: colors.textMuted,
+    fontSize: 12,
     fontWeight: '700',
   },
   roleDescription: {
     color: colors.textMuted,
     fontSize: font.body,
+    marginTop: 2,
+  },
+  radioCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: spacing.xs,
+  },
+  radioCheckSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  radioCheckMark: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  // 폼 카드
+  formCard: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    ...theme.shadow.card,
+  },
+  noticeBox: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.button,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#C5D6FA',
+  },
+  noticeBoxText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  // 하단 로그인 이동
+  loginCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  loginHelper: {
+    color: colors.textMuted,
+    fontSize: font.body,
+  },
+  loginBtn: {
+    minHeight: theme.touch.minButtonHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
     marginTop: spacing.xs / 2,
+  },
+  loginBtnText: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
   },
 });

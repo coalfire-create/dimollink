@@ -11,6 +11,7 @@ import type { AuthSession, SocialProvider } from '@dimol/shared';
 import { ApiError, requestOtp, verifyOtp } from '../api/client';
 import { startSocialLogin } from '../lib/social-auth';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
+import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
 
 function isPhoneLike(value: string): boolean {
@@ -20,13 +21,14 @@ function isPhoneLike(value: string): boolean {
 // 소셜 버튼 브랜드 스펙
 const SOCIAL_CONFIG: Record<
   SocialProvider,
-  { label: string; bg: string; fg: string; borderColor?: string; icon: string }
+  { label: string; bg: string; fg: string; borderColor?: string; icon: string; badgeText?: string }
 > = {
   kakao: {
     label: '카카오로 시작하기',
     bg: '#FEE500',
     fg: '#191919',
     icon: '💬',
+    badgeText: '빠른 로그인',
   },
   naver: {
     label: '네이버로 시작하기',
@@ -38,7 +40,7 @@ const SOCIAL_CONFIG: Record<
     label: 'Google로 시작하기',
     bg: '#FFFFFF',
     fg: '#1F1F1F',
-    borderColor: '#E0E0E0',
+    borderColor: '#E2E8F0',
     icon: 'G',
   },
 };
@@ -55,18 +57,18 @@ function SocialButton({
   const cfg = SOCIAL_CONFIG[provider];
   const isGoogle = provider === 'google';
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={cfg.label}
       onPress={onPress}
       disabled={loading}
-      style={({ pressed }) => [
+      style={[
         s.socialBtn,
         {
           backgroundColor: cfg.bg,
-          borderWidth: isGoogle ? 1 : 0,
+          borderWidth: isGoogle ? 1.5 : 0,
           borderColor: cfg.borderColor ?? 'transparent',
-          opacity: pressed ? 0.8 : 1,
+          opacity: loading ? 0.7 : 1,
         },
       ]}
     >
@@ -93,10 +95,16 @@ function SocialButton({
             </Text>
           </View>
           <Text style={[s.socialLabel, { color: cfg.fg }]}>{cfg.label}</Text>
-          <View style={s.socialIconWrap} />
+          {cfg.badgeText ? (
+            <View style={s.socialBadge}>
+              <Text style={s.socialBadgeText}>{cfg.badgeText}</Text>
+            </View>
+          ) : (
+            <View style={s.socialIconWrap} />
+          )}
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -128,7 +136,7 @@ export function LoginScreen({
     try {
       await requestOtp(phone.trim());
       setCodeSent(true);
-      setNotice('인증코드를 발송했어요. 문자로 받은 6자리를 입력해 주세요.');
+      setNotice('인증코드를 발송했습니다. 문자로 받은 6자리를 입력해 주세요.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '인증코드 발송에 실패했습니다.');
     } finally {
@@ -179,103 +187,133 @@ export function LoginScreen({
       contentContainerStyle={s.container}
       keyboardShouldPersistTaps="handled"
     >
-      {/* 상단 내비 */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="뒤로 가기"
-        onPress={onBack}
-        style={s.back}
-      >
-        <Text style={[s.backLabel, { color: colors.primary, fontSize: font.bodyLarge }]}>
-          ‹ 뒤로
-        </Text>
-      </Pressable>
-
-      {/* 브랜드 헤더 */}
-      <View style={s.header}>
-        <View style={[s.logoMark, { backgroundColor: colors.primary }]}>
-          <Text style={s.logoText}>D</Text>
-        </View>
-        <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>로그인</Text>
-        <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
-          가입하신 휴대폰번호로 인증해 주세요
-        </Text>
-      </View>
-
-      {/* 소셜 로그인 */}
-      <View style={s.socialSection}>
-        {(['kakao', 'google', 'naver'] as SocialProvider[]).map((provider) => (
-          <SocialButton
-            key={provider}
-            provider={provider}
-            onPress={() => void socialLogin(provider)}
-            loading={activeSocial === provider}
-          />
-        ))}
-      </View>
-
-      {/* 구분선 */}
-      <View style={s.dividerRow}>
-        <View style={[s.divider, { backgroundColor: colors.border }]} />
-        <Text style={[s.dividerText, { color: colors.textMuted, fontSize: font.body }]}>
-          휴대폰 번호로 로그인
-        </Text>
-        <View style={[s.divider, { backgroundColor: colors.border }]} />
-      </View>
-
-      {/* OTP 폼 */}
-      <View style={s.otpSection}>
-        <Field
-          label="휴대폰번호"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="010-0000-0000"
-          keyboardType="phone-pad"
-          editable={!codeSent}
-          autoFocus={false}
-        />
-        <AppButton
-          label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
-          variant={codeSent ? 'outline' : 'primary'}
-          onPress={sendCode}
-          loading={busy && !codeSent}
-        />
-
-        {codeSent && (
-          <View style={{ marginTop: spacing.md }}>
-            <Field
-              label="인증코드"
-              value={code}
-              onChangeText={setCode}
-              placeholder="6자리 숫자"
-              keyboardType="number-pad"
-              maxLength={6}
-            />
-            <AppButton label="로그인" onPress={submit} loading={busy} />
-          </View>
-        )}
-      </View>
-
-      {notice ? (
-        <Text style={[s.notice, { color: colors.primary, fontSize: font.body }]}>{notice}</Text>
-      ) : null}
-      <ErrorBanner message={error} />
-
-      {/* 회원가입 */}
-      <View style={s.signupRow}>
-        <Text style={[s.helper, { color: colors.textMuted, fontSize: font.body }]}>
-          아직 계정이 없으신가요?
-        </Text>
+      {/* 상단 뒤로가기 버튼 */}
+      <FadeInUp delay={20}>
         <Pressable
           accessibilityRole="button"
-          onPress={onSignup}
-          style={s.signupLink}
+          accessibilityLabel="뒤로 가기"
+          onPress={onBack}
+          style={s.backBtn}
         >
-          <Text style={[s.signupLinkText, { color: colors.primary, fontSize: font.body }]}>
-            회원가입
+          <Text style={[s.backLabel, { color: colors.primary, fontSize: font.bodyLarge }]}>
+            ‹ 뒤로
           </Text>
         </Pressable>
-      </View>
+      </FadeInUp>
+
+      {/* 브랜드 헤더 */}
+      <FadeInUp delay={60}>
+        <View style={s.header}>
+          <View style={[s.logoMark, { backgroundColor: colors.primary }]}>
+            <Text style={s.logoText}>D</Text>
+          </View>
+          <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
+            반가워요! 👋{'\n'}비움에 로그인하세요
+          </Text>
+          <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
+            철거·운반·처리장 매칭 및 전자인계서 서비스
+          </Text>
+        </View>
+      </FadeInUp>
+
+      {/* 소셜 로그인 섹션 */}
+      <FadeInUp delay={120}>
+        <View style={s.socialSection}>
+          {(['kakao', 'naver', 'google'] as SocialProvider[]).map((provider) => (
+            <SocialButton
+              key={provider}
+              provider={provider}
+              onPress={() => void socialLogin(provider)}
+              loading={activeSocial === provider}
+            />
+          ))}
+        </View>
+      </FadeInUp>
+
+      {/* 구분선 */}
+      <FadeInUp delay={180}>
+        <View style={s.dividerRow}>
+          <View style={[s.divider, { backgroundColor: colors.border }]} />
+          <Text style={[s.dividerText, { color: colors.textMuted, fontSize: font.body }]}>
+            또는 휴대폰 번호로 로그인
+          </Text>
+          <View style={[s.divider, { backgroundColor: colors.border }]} />
+        </View>
+      </FadeInUp>
+
+      {/* OTP 로그인 폼 카드 */}
+      <FadeInUp delay={240}>
+        <View style={s.cardContainer}>
+          <Field
+            label="휴대폰번호"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="010-0000-0000"
+            keyboardType="phone-pad"
+            editable={!codeSent}
+            autoFocus={false}
+            hint={codeSent ? '번호 수정 시 인증코드를 다시 요청해 주세요.' : '등록하신 휴대폰번호를 입력해 주세요.'}
+          />
+          <AppButton
+            label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
+            variant={codeSent ? 'outline' : 'primary'}
+            onPress={sendCode}
+            loading={busy && !codeSent}
+          />
+
+          {codeSent && (
+            <View style={{ marginTop: spacing.md }}>
+              <View style={s.noticeBox}>
+                <Text style={s.noticeBoxText}>
+                  ✓ 인증코드가 발송되었습니다. 문자로 받은 6자리를 입력하세요.
+                </Text>
+              </View>
+              <Field
+                label="인증코드 6자리"
+                value={code}
+                onChangeText={setCode}
+                placeholder="000000"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              <AppButton label="로그인하기" onPress={submit} loading={busy} />
+            </View>
+          )}
+        </View>
+      </FadeInUp>
+
+      {notice && !codeSent ? (
+        <FadeInUp delay={300}>
+          <View style={s.noticeBox}>
+            <Text style={s.noticeBoxText}>{notice}</Text>
+          </View>
+        </FadeInUp>
+      ) : null}
+
+      <ErrorBanner message={error} />
+
+      {/* 하단 회원가입 이동 카드 */}
+      <FadeInUp delay={320}>
+        <View style={s.signupCard}>
+          <Text style={[s.signupCardTitle, { color: colors.text, fontSize: font.bodyLarge }]}>
+            아직 계정이 없으신가요?
+          </Text>
+          <Text style={[s.signupCardDesc, { color: colors.textMuted, fontSize: font.body }]}>
+            10초만에 빠르게 가입하고 바로 서비스를 이용해 보세요.
+          </Text>
+          <View style={{ height: spacing.xs }} />
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel="회원가입 하기"
+            onPress={onSignup}
+            style={s.signupBtn}
+          >
+            <Text style={[s.signupBtnText, { color: colors.primary, fontSize: font.bodyLarge }]}>
+              회원가입 하기 ➔
+            </Text>
+          </PressableScale>
+        </View>
+      </FadeInUp>
     </ScrollView>
   );
 }
@@ -283,28 +321,28 @@ export function LoginScreen({
 const s = StyleSheet.create({
   container: {
     padding: theme.spacing.md,
-    paddingBottom: 48,
+    paddingBottom: 56,
   },
-  back: {
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-    minHeight: theme.touch.minButtonHeight,
+  backBtn: {
     alignSelf: 'flex-start',
+    justifyContent: 'center',
+    marginBottom: theme.spacing.xs,
+    minHeight: theme.touch.minButtonHeight,
     paddingRight: theme.spacing.sm,
   },
   backLabel: {
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  // 헤더
+  // 브랜드 헤더
   header: {
     alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
   },
   logoMark: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: theme.spacing.sm,
@@ -312,11 +350,13 @@ const s = StyleSheet.create({
   },
   logoText: {
     color: '#FFFFFF',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
   },
   title: {
     fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 36,
     marginBottom: theme.spacing.xs,
   },
   subtitle: {
@@ -331,22 +371,21 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: theme.radius.button,
+    borderRadius: theme.radius.card,
     height: theme.touch.primaryButtonHeight,
     paddingHorizontal: theme.spacing.sm,
     ...theme.shadow.card,
   },
   socialIconWrap: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   socialIcon: {
-    fontSize: 16,
-    fontWeight: '700',
-    lineHeight: 20,
+    fontSize: 18,
+    fontWeight: '800',
   },
   socialLabel: {
     flex: 1,
@@ -354,11 +393,22 @@ const s = StyleSheet.create({
     fontSize: theme.font.bodyLarge,
     fontWeight: '700',
   },
+  socialBadge: {
+    backgroundColor: '#191919',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  socialBadgeText: {
+    color: '#FEE500',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   // 구분선
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginVertical: theme.spacing.md,
   },
   divider: {
     flex: 1,
@@ -366,35 +416,56 @@ const s = StyleSheet.create({
   },
   dividerText: {
     paddingHorizontal: theme.spacing.sm,
-    fontWeight: '500',
-  },
-  // OTP
-  otpSection: {
-    marginBottom: theme.spacing.sm,
-  },
-  notice: {
     fontWeight: '600',
-    marginTop: theme.spacing.sm,
+  },
+  // 메인 카드 컨테이너
+  cardContainer: {
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.card,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    ...theme.shadow.card,
+  },
+  noticeBox: {
+    backgroundColor: theme.colors.primarySoft,
+    borderRadius: theme.radius.button,
+    padding: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#C5D6FA',
+  },
+  noticeBoxText: {
+    color: theme.colors.primary,
+    fontSize: theme.font.body,
+    fontWeight: '700',
     textAlign: 'center',
   },
-  // 회원가입
-  signupRow: {
-    flexDirection: 'row',
+  // 회원가입 하단 카드
+  signupCard: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.card,
+    padding: theme.spacing.md,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.xs,
+    marginTop: theme.spacing.sm,
   },
-  helper: {
-    fontWeight: '400',
+  signupCardTitle: {
+    fontWeight: '800',
+    marginBottom: 4,
   },
-  signupLink: {
+  signupCardDesc: {
+    textAlign: 'center',
+  },
+  signupBtn: {
     minHeight: theme.touch.minButtonHeight,
     justifyContent: 'center',
-    paddingHorizontal: theme.spacing.xs,
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
   },
-  signupLinkText: {
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+  signupBtnText: {
+    fontWeight: '800',
   },
 });
