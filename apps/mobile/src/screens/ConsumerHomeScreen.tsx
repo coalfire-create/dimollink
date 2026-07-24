@@ -123,7 +123,7 @@ export function ConsumerHomeScreen() {
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
-              <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
+              <Text style={styles.bannerSubtitle}>디몰링크 — 전국 건설폐기물 매칭</Text>
             </View>
             <Image source={homeWasteBed} style={styles.bannerImage} resizeMode="contain" />
           </View>

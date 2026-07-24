@@ -1,9 +1,9 @@
 {
-  "name": "Bium",
-  "displayName": "비움",
+  "name": "dimollink",
+  "displayName": "디몰링크",
   "expo": {
-    "name": "비움",
-    "slug": "bium",
+    "name": "디몰링크",
+    "slug": "dimollink",
     "version": "1.0.0",
     "sdkVersion": "52.0.0",
     "scheme": "dimollink",
@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.bium.app"
+      "package": "com.dimollink.app"
     },
     "web": {
       "bundler": "metro",

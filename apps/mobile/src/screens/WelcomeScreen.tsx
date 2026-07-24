@@ -27,7 +27,7 @@ export function WelcomeScreen({
       <View style={styles.heroSection}>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
-            {'새롭게\n비우는 공식\n비움'}
+            {'전국 건설폐기물 매칭 플랫폼\n디몰링크'}
           </Text>
         </FadeInUp>
         <FadeInUp delay={160}>
