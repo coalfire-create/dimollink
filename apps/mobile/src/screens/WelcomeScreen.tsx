@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
-import welcomeSofa from '../../assets/welcome_sofa.png';
+import brandmark from '../../assets/brandmark.png';
 
 /**
  * 진입 게이트 — 앱을 열면 가장 먼저 보이는 화면.
@@ -36,14 +36,16 @@ export function WelcomeScreen({
           </Text>
         </FadeInUp>
 
-        {/* 소파 일러스트 */}
+        {/* 비움 로고 */}
         <FadeInUp delay={280}>
-          <Image
-            source={welcomeSofa}
-            style={styles.sofaImage}
-            resizeMode="contain"
-            accessibilityLabel="소파 일러스트"
-          />
+          <View style={styles.logoWrap}>
+            <Image
+              source={brandmark}
+              style={styles.logoImage}
+              resizeMode="contain"
+              accessibilityLabel="비움 로고"
+            />
+          </View>
         </FadeInUp>
       </View>
 
@@ -111,13 +113,17 @@ const styles = StyleSheet.create({
     lineHeight: font.body + 8,
     marginTop: spacing.sm,
   },
-  sofaImage: {
-    width: 240,
-    height: 200,
+  logoWrap: {
     position: 'absolute',
-    right: -spacing.sm,
-    bottom: 20,
-    alignSelf: 'flex-end',
+    right: spacing.md,
+    bottom: spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 28,
+    padding: spacing.sm,
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
   },
   bottomSheet: {
     backgroundColor: colors.background,
