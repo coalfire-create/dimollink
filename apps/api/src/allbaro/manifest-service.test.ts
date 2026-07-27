@@ -6,14 +6,47 @@ import { InMemoryRetryQueue } from './retry-queue.js';
 
 const sandboxConfig: AllbaroClientConfig = {
   baseUrl: 'https://sandbox.allbaro.example',
-  apiKey: 'test-key',
+  apiCertKey: 'test-cert-key',
+  companyCode: '254269674',
+  userId: '254269674',
+  password: 'allbarosys',
   mode: 'sandbox',
   allowProduction: false,
   timeoutMs: 5_000,
 };
 
-function jsonResponse(body: unknown, ok = true, status = 200): Response {
-  return { ok, status, json: async () => body } as unknown as Response;
+// 올바로 API 표준 응답 (resultCode '0000' + dataList)
+function allbaroManifestResponse(manfNum: string, ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    json: async () => ({
+      ifid: 'T200_5001_01',
+      txid: 'T200_5001_01-20260728-0001',
+      resultCode: '0000',
+      resultMessage: '정상',
+      errorMessage: null,
+      dataList: [{ manf_num: manfNum }],
+    }),
+  } as unknown as Response;
+}
+
+function allbaroErrorResponse(resultCode = '9999', ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    json: async () => ({
+      ifid: 'T200_5001_01',
+      resultCode,
+      resultMessage: '오류',
+      errorMessage: `오류코드 ${resultCode}`,
+      dataList: [],
+    }),
+  } as unknown as Response;
+}
+
+function httpErrorResponse(status = 500): Response {
+  return { ok: false, status, json: async () => ({}) } as unknown as Response;
 }
 
 function abortError(): Error {
@@ -55,7 +88,7 @@ describe('ManifestService.issue', () => {
   });
 
   it('ON + 성공 → 올바로 자동발행(ALLBARO_API)', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ manifestNo: 'ALB-2026-0001' }));
+    const fetchFn = vi.fn().mockResolvedValue(allbaroManifestResponse('ALB-2026-0001'));
     const queue = new InMemoryRetryQueue();
     const service = new ManifestService(makeClient(fetchFn), queue);
 
@@ -69,7 +102,7 @@ describe('ManifestService.issue', () => {
   });
 
   it('ON + 업스트림 장애 → 간이확인서 폴백 + 재시도 큐 적재(RETRY_QUEUED)', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({}, false, 500));
+    const fetchFn = vi.fn().mockResolvedValue(httpErrorResponse(500));
     const queue = new InMemoryRetryQueue();
     const service = new ManifestService(makeClient(fetchFn), queue);
 
@@ -96,7 +129,7 @@ describe('ManifestService.issue', () => {
   it('ON + 비일시적 오류(PRODUCTION_BLOCKED)는 폴백 없이 예외 전파', async () => {
     const fetchFn = vi.fn();
     const client = new AllbaroClient(
-      { ...sandboxConfig, mode: 'production', allowProduction: false },
+      { ...sandboxConfig, mode: 'production', allowProduction: false } as AllbaroClientConfig,
       fetchFn as unknown as typeof fetch,
     );
     const queue = new InMemoryRetryQueue();
@@ -112,7 +145,7 @@ describe('ManifestService.issue', () => {
 
 describe('processRetryQueue', () => {
   it('도래한 항목 재발행 성공 → SUCCEEDED + manifestNo', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ manifestNo: 'ALB-RETRY-1' }));
+    const fetchFn = vi.fn().mockResolvedValue(allbaroManifestResponse('ALB-RETRY-1'));
     const queue = new InMemoryRetryQueue();
     queue.enqueue(makeRequest(true), { now: 0 });
 
@@ -126,7 +159,7 @@ describe('processRetryQueue', () => {
   });
 
   it('일시 장애 + 시도 여유 → PENDING 재적재, 백오프로 순연', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({}, false, 503));
+    const fetchFn = vi.fn().mockResolvedValue(httpErrorResponse(503));
     const queue = new InMemoryRetryQueue();
     queue.enqueue(makeRequest(true), { now: 0, maxAttempts: 3 });
 
@@ -145,7 +178,7 @@ describe('processRetryQueue', () => {
   });
 
   it('최대 시도 초과 → EXHAUSTED', async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({}, false, 500));
+    const fetchFn = vi.fn().mockResolvedValue(httpErrorResponse(500));
     const queue = new InMemoryRetryQueue();
     const item = queue.enqueue(makeRequest(true), { now: 0, maxAttempts: 1 });
     // 이미 0회 → 이번 시도가 1회째이자 마지막.
@@ -160,7 +193,7 @@ describe('processRetryQueue', () => {
   it('비일시적 오류는 즉시 EXHAUSTED', async () => {
     const fetchFn = vi.fn();
     const client = new AllbaroClient(
-      { ...sandboxConfig, apiKey: undefined }, // CONFIG_MISSING (비일시적)
+      { ...sandboxConfig, apiCertKey: undefined } as AllbaroClientConfig, // CONFIG_MISSING (비일시적)
       fetchFn as unknown as typeof fetch,
     );
     const queue = new InMemoryRetryQueue();

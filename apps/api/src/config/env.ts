@@ -108,8 +108,17 @@ export const env = {
   // 관리자 백오피스 API 토큰 (Phase 5). 미설정 시 /api/admin/* 전체가 503 으로 잠긴다.
   adminToken: process.env.ADMIN_TOKEN,
   allbaro: {
+    // 올바로 Open API 개발 가이드 v1.9.1 기준
+    // End Point: https://api.allbaro.or.kr:27000/restApi
     baseUrl: process.env.ALLBARO_API_BASE_URL,
-    apiKey: process.env.ALLBARO_API_KEY,
+    // 업체 발급 인증키 (api_cert_key, 24자리)
+    apiCertKey: process.env.ALLBARO_API_CERT_KEY,
+    // 업체코드 (entn_lkcd, 테스트: 9자리 업체번호)
+    companyCode: process.env.ALLBARO_COMPANY_CODE,
+    // Basic auth 아이디 (테스트: 업체번호)
+    userId: process.env.ALLBARO_USER_ID,
+    // Basic auth 비밀번호 (테스트: allbarosys)
+    password: process.env.ALLBARO_PASSWORD,
     // 기본은 sandbox. 운영 전환은 CLAUDE.md 규칙상 샌드박스 검증 완료 후에만 한다.
     mode: (process.env.ALLBARO_ENV ?? 'sandbox') as 'sandbox' | 'production',
     // 운영 호출을 명시적으로 허용하지 않으면 클라이언트가 production 호출을 거부한다.

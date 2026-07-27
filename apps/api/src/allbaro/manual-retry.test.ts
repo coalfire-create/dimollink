@@ -6,14 +6,30 @@ import { InMemoryRetryQueue } from './retry-queue.js';
 
 const sandboxConfig: AllbaroClientConfig = {
   baseUrl: 'https://sandbox.allbaro.example',
-  apiKey: 'test-key',
+  apiCertKey: 'test-cert-key',
+  companyCode: '254269674',
+  userId: '254269674',
+  password: 'allbarosys',
   mode: 'sandbox',
   allowProduction: false,
   timeoutMs: 5_000,
 };
 
-function jsonResponse(body: unknown, ok = true, status = 200): Response {
-  return { ok, status, json: async () => body } as unknown as Response;
+function httpError(status = 500): Response {
+  return { ok: false, status, json: async () => ({}) } as unknown as Response;
+}
+
+function allbaroSuccess(manfNum: string): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      ifid: 'T200_5001_01',
+      resultCode: '0000',
+      resultMessage: '정상',
+      dataList: [{ manf_num: manfNum }],
+    }),
+  } as unknown as Response;
 }
 
 function makeRequest(): ManifestIssueRequest {
@@ -35,7 +51,7 @@ function makeClient(fetchFn: unknown): AllbaroClient {
 /** 소진(EXHAUSTED) 항목을 만든다: maxAttempts=1 로 적재 후 실패 1회. */
 async function exhaustedItem(queue: InMemoryRetryQueue, onExhausted?: (item: unknown) => void) {
   queue.enqueue(makeRequest(), { maxAttempts: 1 });
-  const failing = makeClient(vi.fn().mockResolvedValue(jsonResponse({}, false, 500)));
+  const failing = makeClient(vi.fn().mockResolvedValue(httpError(500)));
   await processRetryQueue(failing, queue, {
     onExhausted: onExhausted as never,
   });
@@ -71,7 +87,7 @@ describe('requeueForManualRetry — 수동 재처리 (Phase 6)', () => {
     expect(requeued.attempts).toBe(0);
     expect(requeued.lastError).toContain('MANUAL_RETRY');
 
-    const healthy = makeClient(vi.fn().mockResolvedValue(jsonResponse({ manifestNo: 'ALB-9' })));
+    const healthy = makeClient(vi.fn().mockResolvedValue(allbaroSuccess('ALB-9')));
     const summary = await processRetryQueue(healthy, queue);
     expect(summary.succeeded).toBe(1);
     expect(queue.all()[0].status).toBe('SUCCEEDED');

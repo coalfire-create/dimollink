@@ -129,6 +129,15 @@ export function createAllbaroRouter(
     res.json(getDefaultRetryQueue().all().map(toSafeQueueView));
   });
 
+  // GET /api/allbaro/common-codes  공통코드 조회 (T100_3001_02) — 연결 테스트 겸용
+  router.get('/allbaro/common-codes', async (_req, res) => {
+    try {
+      res.json(await client.getCommonCodes());
+    } catch (err) {
+      sendAllbaroError(res, err, '공통코드 조회 중 오류가 발생했습니다.');
+    }
+  });
+
   // GET /api/allbaro/manifest/failures  재시도 소진 건 목록 (수동 재처리 대상, Phase 6)
   router.get('/allbaro/manifest/failures', (_req, res) => {
     res.json(
