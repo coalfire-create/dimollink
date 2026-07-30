@@ -35,7 +35,25 @@ import type {
  */
 const HOST = Platform.select({ android: '10.0.2.2', default: 'localhost' });
 const isWeb = Platform.OS === 'web';
-export const API_BASE_URL = (isWeb && !__DEV__) ? '/api' : `http://${HOST}:4000/api`;
+/**
+ * 운영(release) 빌드가 접속할 백엔드 API 주소. 기본값은 Railway 운영 서비스.
+ * 커스텀 도메인(api.디몰링크.com 등)으로 옮길 땐 코드 수정 없이 빌드 시
+ * EXPO_PUBLIC_API_BASE_URL 환경변수로 오버라이드한다.
+ */
+const PROD_API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://demolink-api-production.up.railway.app/api';
+/**
+ * 베이스 URL 선택:
+ *  - 웹 운영: 동일 오리진의 '/api' (정적 호스팅 리다이렉트).
+ *  - 개발(__DEV__): 로컬 서버(에뮬레이터는 10.0.2.2).
+ *  - 네이티브 운영(안드로이드/iOS 릴리스): Railway 운영 API.
+ */
+export const API_BASE_URL =
+  isWeb && !__DEV__
+    ? '/api'
+    : __DEV__
+      ? `http://${HOST}:4000/api`
+      : PROD_API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(
