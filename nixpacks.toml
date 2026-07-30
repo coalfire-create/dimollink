@@ -1,0 +1,11 @@
+# Railway(Nixpacks) 빌드 설정.
+# NODE_ENV=production 이면 npm 이 devDependencies(@types/*, typescript)를 생략해
+# tsc 빌드가 실패하므로, 설치 단계에서 --include=dev 로 강제 포함한다.
+[phases.install]
+cmds = ["npm ci --include=dev"]
+
+[phases.build]
+cmds = ["npm run build:shared && npm run build -w @dimol/api"]
+
+[start]
+cmd = "node apps/api/dist/index.js"
