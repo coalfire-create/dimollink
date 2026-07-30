@@ -27,12 +27,12 @@ export function WelcomeScreen({
       <View style={styles.heroSection}>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
-            {'새롭게\n비우는 공식\n비움'}
+            {'철거부터\n처리까지\n비움'}
           </Text>
         </FadeInUp>
         <FadeInUp delay={160}>
           <Text style={styles.heroSubtitle}>
-            {'대형폐기물을 비우는\n가장 빠르고 간편한 방법'}
+            {'건설폐기물 전국 매칭 플랫폼\n올바로 전자인계서 자동화'}
           </Text>
         </FadeInUp>
 
@@ -54,7 +54,7 @@ export function WelcomeScreen({
         {/* 말풍선 */}
         <FadeInUp delay={360}>
           <View style={styles.speechBubble}>
-            <Text style={styles.speechBubbleText}>10초만에 빠른가입</Text>
+            <Text style={styles.speechBubbleText}>전국 서비스 · 10초 가입</Text>
             <View style={styles.speechBubbleTail} />
           </View>
         </FadeInUp>

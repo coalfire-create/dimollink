@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   CALL_AVAILABILITY_LABELS,
   USER_APPROVAL_LABELS,
@@ -144,12 +144,54 @@ export function MyPageScreen() {
           </>
         ) : null}
 
+        <SectionTitle>지원</SectionTitle>
+        <Card style={styles.menuGroupCard}>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/terms')}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>📄</Text>
+              </View>
+              <Text style={styles.menuLabel}>이용약관</Text>
+            </View>
+            <Text style={styles.arrowIcon}>›</Text>
+          </Pressable>
+          <View style={styles.menuDivider} />
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/privacy')}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>🔒</Text>
+              </View>
+              <Text style={styles.menuLabel}>개인정보처리방침</Text>
+            </View>
+            <Text style={styles.arrowIcon}>›</Text>
+          </Pressable>
+          <View style={styles.menuDivider} />
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => Linking.openURL('mailto:coalfireant@gmail.com')}
+          >
+            <View style={styles.menuLeft}>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIcon}>💬</Text>
+              </View>
+              <Text style={styles.menuLabel}>고객센터</Text>
+            </View>
+            <Text style={styles.arrowIcon}>›</Text>
+          </Pressable>
+        </Card>
+
         <View style={{ height: theme.spacing.lg }} />
         <Pressable onPress={logout} style={styles.logoutButton}>
           <Text style={styles.logoutText}>로그아웃</Text>
         </Pressable>
 
-        <Text style={styles.footer}>디몰링크 · 전국 건설폐기물</Text>
+        <Text style={styles.footer}>비움 v1.0.0 · 디몰링크 · 전국 건설폐기물</Text>
       </ScrollView>
       <TabBar active="mypage" />
     </View>

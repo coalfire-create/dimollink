@@ -1,111 +1,19 @@
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import type { AuthSession, SocialProvider } from '@dimol/shared';
+import type { AuthSession } from '@dimol/shared';
 import { ApiError, requestOtp, verifyOtp } from '../api/client';
-import { startSocialLogin } from '../lib/social-auth';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
 
 function isPhoneLike(value: string): boolean {
   return value.replace(/\D/g, '').length >= 10;
-}
-
-// 소셜 버튼 브랜드 스펙
-const SOCIAL_CONFIG: Record<
-  SocialProvider,
-  { label: string; bg: string; fg: string; borderColor?: string; icon: string; badgeText?: string }
-> = {
-  kakao: {
-    label: '카카오로 시작하기',
-    bg: '#FEE500',
-    fg: '#191919',
-    icon: '💬',
-    badgeText: '빠른 로그인',
-  },
-  naver: {
-    label: '네이버로 시작하기',
-    bg: '#03C75A',
-    fg: '#FFFFFF',
-    icon: 'N',
-  },
-  google: {
-    label: 'Google로 시작하기',
-    bg: '#FFFFFF',
-    fg: '#1F1F1F',
-    borderColor: '#E2E8F0',
-    icon: 'G',
-  },
-};
-
-function SocialButton({
-  provider,
-  onPress,
-  loading,
-}: {
-  provider: SocialProvider;
-  onPress: () => void;
-  loading: boolean;
-}) {
-  const cfg = SOCIAL_CONFIG[provider];
-  const isGoogle = provider === 'google';
-  return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={cfg.label}
-      onPress={onPress}
-      disabled={loading}
-      style={[
-        s.socialBtn,
-        {
-          backgroundColor: cfg.bg,
-          borderWidth: isGoogle ? 1.5 : 0,
-          borderColor: cfg.borderColor ?? 'transparent',
-          opacity: loading ? 0.7 : 1,
-        },
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color={cfg.fg} size="small" />
-      ) : (
-        <>
-          <View
-            style={[
-              s.socialIconWrap,
-              provider === 'naver' && { backgroundColor: '#FFFFFF' },
-              provider === 'google' && { backgroundColor: '#FFFFFF' },
-            ]}
-          >
-            <Text
-              style={[
-                s.socialIcon,
-                provider === 'naver' && { color: '#03C75A', fontWeight: '900' },
-                provider === 'google' && { color: '#4285F4', fontWeight: '900' },
-                provider === 'kakao' && { fontSize: 18 },
-              ]}
-            >
-              {cfg.icon}
-            </Text>
-          </View>
-          <Text style={[s.socialLabel, { color: cfg.fg }]}>{cfg.label}</Text>
-          {cfg.badgeText ? (
-            <View style={s.socialBadge}>
-              <Text style={s.socialBadgeText}>{cfg.badgeText}</Text>
-            </View>
-          ) : (
-            <View style={s.socialIconWrap} />
-          )}
-        </>
-      )}
-    </PressableScale>
-  );
 }
 
 export function LoginScreen({
@@ -123,7 +31,6 @@ export function LoginScreen({
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [activeSocial, setActiveSocial] = useState<SocialProvider | null>(null);
 
   async function sendCode() {
     setError(null);
@@ -141,20 +48,6 @@ export function LoginScreen({
       setError(err instanceof ApiError ? err.message : '인증코드 발송에 실패했습니다.');
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function socialLogin(provider: SocialProvider) {
-    setError(null);
-    setNotice(null);
-    setActiveSocial(provider);
-    try {
-      await startSocialLogin(provider);
-      setNotice(`${SOCIAL_CONFIG[provider].label.split('로')[0]}(으)로 이동합니다. 인증 후 앱으로 돌아와요.`);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '소셜 로그인을 시작하지 못했어요.');
-    } finally {
-      setActiveSocial(null);
     }
   }
 
@@ -187,7 +80,6 @@ export function LoginScreen({
       contentContainerStyle={s.container}
       keyboardShouldPersistTaps="handled"
     >
-      {/* 상단 뒤로가기 버튼 */}
       <FadeInUp delay={20}>
         <Pressable
           accessibilityRole="button"
@@ -201,7 +93,6 @@ export function LoginScreen({
         </Pressable>
       </FadeInUp>
 
-      {/* 브랜드 헤더 */}
       <FadeInUp delay={60}>
         <View style={s.header}>
           <View style={[s.logoMark, { backgroundColor: colors.primary }]}>
@@ -211,38 +102,12 @@ export function LoginScreen({
             반가워요! 👋{'\n'}비움에 로그인하세요
           </Text>
           <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
-            철거·운반·처리장 매칭 및 전자인계서 서비스
+            휴대폰 번호로 안전하게 로그인하세요
           </Text>
         </View>
       </FadeInUp>
 
-      {/* 소셜 로그인 섹션 */}
-      <FadeInUp delay={120}>
-        <View style={s.socialSection}>
-          {(['kakao', 'naver', 'google'] as SocialProvider[]).map((provider) => (
-            <SocialButton
-              key={provider}
-              provider={provider}
-              onPress={() => void socialLogin(provider)}
-              loading={activeSocial === provider}
-            />
-          ))}
-        </View>
-      </FadeInUp>
-
-      {/* 구분선 */}
-      <FadeInUp delay={180}>
-        <View style={s.dividerRow}>
-          <View style={[s.divider, { backgroundColor: colors.border }]} />
-          <Text style={[s.dividerText, { color: colors.textMuted, fontSize: font.body }]}>
-            또는 휴대폰 번호로 로그인
-          </Text>
-          <View style={[s.divider, { backgroundColor: colors.border }]} />
-        </View>
-      </FadeInUp>
-
-      {/* OTP 로그인 폼 카드 */}
-      <FadeInUp delay={240}>
+      <FadeInUp delay={160}>
         <View style={s.cardContainer}>
           <Field
             label="휴대폰번호"
@@ -283,7 +148,7 @@ export function LoginScreen({
       </FadeInUp>
 
       {notice && !codeSent ? (
-        <FadeInUp delay={300}>
+        <FadeInUp delay={260}>
           <View style={s.noticeBox}>
             <Text style={s.noticeBoxText}>{notice}</Text>
           </View>
@@ -292,8 +157,7 @@ export function LoginScreen({
 
       <ErrorBanner message={error} />
 
-      {/* 하단 회원가입 이동 카드 */}
-      <FadeInUp delay={320}>
+      <FadeInUp delay={300}>
         <View style={s.signupCard}>
           <Text style={[s.signupCardTitle, { color: colors.text, fontSize: font.bodyLarge }]}>
             아직 계정이 없으신가요?
@@ -333,7 +197,6 @@ const s = StyleSheet.create({
   backLabel: {
     fontWeight: '800',
   },
-  // 브랜드 헤더
   header: {
     alignItems: 'center',
     paddingVertical: theme.spacing.sm,
@@ -362,63 +225,6 @@ const s = StyleSheet.create({
   subtitle: {
     textAlign: 'center',
   },
-  // 소셜 버튼
-  socialSection: {
-    gap: 12,
-    marginBottom: theme.spacing.md,
-  },
-  socialBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: theme.radius.card,
-    height: theme.touch.primaryButtonHeight,
-    paddingHorizontal: theme.spacing.sm,
-    ...theme.shadow.card,
-  },
-  socialIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  socialIcon: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  socialLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: theme.font.bodyLarge,
-    fontWeight: '700',
-  },
-  socialBadge: {
-    backgroundColor: '#191919',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  socialBadgeText: {
-    color: '#FEE500',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  // 구분선
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: theme.spacing.md,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    paddingHorizontal: theme.spacing.sm,
-    fontWeight: '600',
-  },
-  // 메인 카드 컨테이너
   cardContainer: {
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
@@ -442,7 +248,6 @@ const s = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  // 회원가입 하단 카드
   signupCard: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,

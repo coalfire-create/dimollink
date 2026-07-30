@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
@@ -81,6 +81,7 @@ export function OnboardingScreen({
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [businessNumber, setBusinessNumber] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -108,6 +109,10 @@ export function OnboardingScreen({
 
   async function submit() {
     setError(null);
+    if (!termsAccepted) {
+      setError('이용약관 및 개인정보처리방침에 동의해 주세요.');
+      return;
+    }
     if (name.trim().length === 0) {
       setError(isCompany ? '업체명을 입력해 주세요.' : '이름을 입력해 주세요.');
       return;
@@ -310,6 +315,37 @@ export function OnboardingScreen({
 
       <ErrorBanner message={error} />
 
+      {/* 이용약관 동의 */}
+      <FadeInUp delay={430}>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: termsAccepted }}
+          onPress={() => setTermsAccepted((v) => !v)}
+          style={styles.termsRow}
+        >
+          <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+            {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
+          </View>
+          <Text style={styles.termsText}>
+            {'(필수) '}
+            <Text
+              style={styles.termsLink}
+              onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/terms')}
+            >
+              이용약관
+            </Text>
+            {' 및 '}
+            <Text
+              style={styles.termsLink}
+              onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/privacy')}
+            >
+              개인정보처리방침
+            </Text>
+            에 동의합니다
+          </Text>
+        </Pressable>
+      </FadeInUp>
+
       {/* 제출 CTA 버튼 */}
       <FadeInUp delay={440}>
         <View style={{ marginTop: spacing.md }}>
@@ -503,6 +539,44 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  // 이용약관 동의
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.xs,
+    backgroundColor: colors.background,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxMark: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  termsText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: font.body,
+    lineHeight: font.body + 6,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   // 하단 로그인 이동
   loginCard: {

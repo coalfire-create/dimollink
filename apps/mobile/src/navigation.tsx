@@ -68,7 +68,7 @@ export function useAuthActions(): AuthActions {
 export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
   const user = useSession();
-  const tabs = ROLE_CONFIG.CONSUMER.tabs;
+  const tabs = ROLE_CONFIG[user.userType]?.tabs ?? ROLE_CONFIG.CONSUMER.tabs;
   return (
     <View style={styles.tabBar}>
       {tabs.map(({ tab, label, icon }) => {

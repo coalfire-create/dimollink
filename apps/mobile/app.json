@@ -7,6 +7,7 @@
     "version": "1.0.0",
     "sdkVersion": "52.0.0",
     "scheme": "dimollink",
+    "description": "전국 건설폐기물 철거·운반·처리 매칭 플랫폼. 견적부터 올바로 전자인계서까지 한 번에.",
     "platforms": [
       "ios",
       "android",
@@ -18,12 +19,26 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
+    "ios": {
+      "bundleIdentifier": "com.demolink.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "현장 사진 분석 기능에 사용됩니다.",
+        "NSPhotoLibraryUsageDescription": "현장 사진 업로드에 사용됩니다.",
+        "NSLocationWhenInUseUsageDescription": "가까운 업체 매칭에 사용됩니다."
+      }
+    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.bium.app"
+      "package": "com.demolink.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
