@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type {
@@ -97,6 +99,17 @@ export function createApp(
   // 포트원 웹훅은 서명 검증에 원본 바디가 필요하므로 이 경로만 raw 로 받는다(전역 json 이전).
   app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
+
+  // ── 정적 법적 고지 페이지(약관·개인정보처리방침·랜딩). Railway 단일 호스팅으로 Netlify 대체.
+  //    앱/스토어 심사가 요구하는 공개 URL. dist/app.js 기준 ../public = apps/api/public.
+  const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
+  for (const [route, file] of [
+    ['/', 'index.html'],
+    ['/privacy', 'privacy.html'],
+    ['/terms', 'terms.html'],
+  ] as const) {
+    app.get(route, (_req: Request, res: Response) => res.sendFile(join(publicDir, file)));
+  }
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);

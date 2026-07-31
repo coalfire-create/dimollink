@@ -7,7 +7,7 @@ import {
   isCompanyType,
   type RatingSummary,
 } from '@dimol/shared';
-import { getRating } from '../api/client';
+import { getRating, WEB_BASE_URL } from '../api/client';
 import { Card, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
@@ -148,7 +148,7 @@ export function MyPageScreen() {
         <Card style={styles.menuGroupCard}>
           <Pressable
             style={styles.menuItem}
-            onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/terms')}
+            onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms`)}
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
@@ -161,7 +161,7 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable
             style={styles.menuItem}
-            onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/privacy')}
+            onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy`)}
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>

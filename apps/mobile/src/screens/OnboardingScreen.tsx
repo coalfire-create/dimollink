@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
-import { ApiError, createUser, requestOtp, verifyOtp } from '../api/client';
+import { ApiError, createUser, requestOtp, verifyOtp, WEB_BASE_URL } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
@@ -330,14 +330,14 @@ export function OnboardingScreen({
             {'(필수) '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/terms')}
+              onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms`)}
             >
               이용약관
             </Text>
             {' 및 '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://xn--2z1bs2gqua694d.com/privacy')}
+              onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy`)}
             >
               개인정보처리방침
             </Text>

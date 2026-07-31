@@ -55,6 +55,12 @@ export const API_BASE_URL =
       ? `http://${HOST}:4000/api`
       : PROD_API_BASE_URL;
 
+/**
+ * 웹 페이지(약관·개인정보처리방침·랜딩) 베이스 — API 와 동일 호스트의 루트(/api 제외).
+ * Express 가 /privacy·/terms 를 서빙하므로 앱에서 이 주소로 링크한다.
+ */
+export const WEB_BASE_URL = API_BASE_URL.replace(/\/api$/, '');
+
 export class ApiError extends Error {
   constructor(
     message: string,
