@@ -8,6 +8,9 @@
     "ios": "react-native run-ios",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "npx expo export --platform web",
+    "build:android": "eas build --platform android --profile production",
+    "build:android:preview": "eas build --platform android --profile preview",
+    "submit:android": "eas submit --platform android --profile production",
     "lint": "eslint ."
   },
   "dependencies": {
