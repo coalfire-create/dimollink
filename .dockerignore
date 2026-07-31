@@ -1,0 +1,15 @@
+# 빌드 컨텍스트에서 제외 — 이미지 경량화 + secret 유출 방지.
+node_modules
+**/node_modules
+.git
+.env
+.env.*
+!.env.example
+**/dist
+.data
+.claude
+*.log
+docs
+*.docx
+*.pdf
+*.png
