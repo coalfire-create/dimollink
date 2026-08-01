@@ -243,11 +243,14 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             {[...quotes]
               .sort((a, b) => a.amount - b.amount)
               .map((q, i) => (
-                <Card key={q.id}>
+                <Card key={q.id} style={i === 0 ? styles.bestQuoteCard : undefined}>
                   <View style={styles.quoteRow}>
-                    <Text style={styles.quoteAmount}>
-                      {q.amount.toLocaleString('ko-KR')}원{i === 0 ? ' · 최저가' : ''}
-                    </Text>
+                    <Text style={styles.quoteAmount}>{q.amount.toLocaleString('ko-KR')}원</Text>
+                    {i === 0 ? (
+                      <View style={styles.bestBadge}>
+                        <Text style={styles.bestBadgeText}>최저가</Text>
+                      </View>
+                    ) : null}
                   </View>
                   {q.memo ? <Text style={styles.quoteMemo}>{q.memo}</Text> : null}
                   <AppButton
@@ -452,6 +455,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginBottom: spacing.xs,
+  },
+  bestQuoteCard: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  bestBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+  },
+  bestBadgeText: {
+    color: colors.background,
+    fontSize: font.caption,
+    fontWeight: '800',
   },
   quoteRow: {
     alignItems: 'center',
