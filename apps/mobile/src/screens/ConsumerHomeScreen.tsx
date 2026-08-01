@@ -80,7 +80,10 @@ export function ConsumerHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>{homeActive.empty}</Text>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyCardIcon}>📋</Text>
+            <Text style={styles.emptyCardText}>{homeActive.empty}</Text>
+          </View>
         )}
       </>
     );
@@ -108,6 +111,7 @@ export function ConsumerHomeScreen() {
     <View style={styles.screen}>
       <View style={styles.customHeader}>
         <View style={styles.addressSelector}>
+          <Text style={styles.greetingHi}>안녕하세요 👋</Text>
           <Text style={styles.addressText}>{user.name}{config.homeGreetingSuffix}</Text>
         </View>
         <Pressable style={styles.notiButton} onPress={() => nav.switchTab('notifications')}>
@@ -149,7 +153,7 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'estimate' })}
               >
                 <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
-                <Text style={{fontSize: 72, textAlign: 'center', marginTop: 20}}>📐</Text>
+                <Text style={styles.cardLargeEmoji}>📐</Text>
               </Pressable>
             </FadeInUp>
           </View>
@@ -205,14 +209,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   addressSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  greetingHi: {
+    fontSize: font.caption,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
   addressText: {
     fontSize: font.bodyLarge,
     fontWeight: '800',
     color: colors.text,
-    marginRight: 4,
+    marginTop: 1,
   },
   notiButton: {
     padding: 6,
@@ -296,6 +305,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     alignSelf: 'center',
+  },
+  cardLargeEmoji: {
+    fontSize: 72,
+    textAlign: 'center',
+    marginTop: spacing.md,
   },
   cardSmall: {
     backgroundColor: colors.background,
@@ -405,9 +419,24 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginTop: spacing.xs,
   },
-  emptyText: {
+  emptyCard: {
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: 20,
+    borderStyle: 'dashed',
+    borderWidth: 1.5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  emptyCardIcon: {
+    fontSize: 34,
+    marginBottom: spacing.xs,
+  },
+  emptyCardText: {
     color: colors.textMuted,
     fontSize: font.body,
-    paddingVertical: spacing.sm,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

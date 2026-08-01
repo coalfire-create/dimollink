@@ -196,6 +196,11 @@ export function PaymentScreen({
           );
         })}
 
+        <View style={styles.trustBox}>
+          <Text style={styles.trustLine}>🔒 안전한 결제는 포트원(PortOne)이 처리해요</Text>
+          <Text style={styles.trustLine}>↩️ 배차 전 취소 시 전액 환불돼요</Text>
+        </View>
+
         <ErrorBanner message={error} />
       </ScrollView>
       <StickyFooter>
@@ -237,6 +242,14 @@ const styles = StyleSheet.create({
   methodSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   methodLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   methodHint: { color: colors.textMuted, fontSize: font.caption, marginTop: spacing.xs / 2 },
+  trustBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.button,
+    gap: spacing.xs / 2,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  trustLine: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
   doneBox: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.lg },
   doneCheck: {
     alignItems: 'center',
