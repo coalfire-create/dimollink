@@ -51,6 +51,14 @@
           "photosPermission": "현장 사진 업로드에 사용됩니다.",
           "cameraPermission": "현장 사진 촬영에 사용됩니다."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
       ]
     ],
     "extra": {
