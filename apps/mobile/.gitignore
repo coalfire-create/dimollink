@@ -1,2 +1,8 @@
 .vercel
 .env*
+
+# Expo CNG — 네이티브 폴더는 prebuild 로 생성(커밋 금지)
+/android
+/ios
+/.expo
+dist/
