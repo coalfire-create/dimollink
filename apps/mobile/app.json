@@ -47,6 +47,12 @@
     "plugins": [
       "expo-asset",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7cb32111-6814-4d39-9244-4a9c1991a95b"
+      }
+    },
+    "owner": "semi2colon"
   }
 }
