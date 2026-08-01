@@ -100,16 +100,16 @@ export function createApp(
   app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
-  // ── 정적 법적 고지 페이지(약관·개인정보처리방침·랜딩). Railway 단일 호스팅으로 Netlify 대체.
-  //    앱/스토어 심사가 요구하는 공개 URL. dist/app.js 기준 ../public = apps/api/public.
+  // ── 정적 자산: Expo 웹 앱(SPA) + 법적 고지 페이지. Railway 단일 호스팅(Netlify 대체).
+  //    dist/app.js 기준 ../public = apps/api/public. 웹 앱은 public/web(Expo export).
   const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
-  for (const [route, file] of [
-    ['/', 'index.html'],
-    ['/privacy', 'privacy.html'],
-    ['/terms', 'terms.html'],
-  ] as const) {
-    app.get(route, (_req: Request, res: Response) => res.sendFile(join(publicDir, file)));
-  }
+  const webDir = join(publicDir, 'web');
+  // 웹 앱 정적 자산(_expo·assets·favicon). index 자동제공은 끄고 SPA 폴백이 담당.
+  app.use(express.static(webDir, { index: false }));
+  // 법적 고지·랜딩 — 스토어/앱 링크가 요구하는 공개 URL(명시 경로).
+  app.get('/privacy', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'privacy.html')));
+  app.get('/terms', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'terms.html')));
+  app.get('/landing', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'index.html')));
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);
@@ -277,7 +277,12 @@ export function createApp(
     ),
   );
 
-  // 404 — 정의되지 않은 경로.
+  // SPA 폴백 — /api 외 GET 요청은 Expo 웹 앱 진입점으로(클라이언트 라우팅 지원).
+  app.get(/^(?!\/api(\/|$)).*/, (_req: Request, res: Response) => {
+    res.sendFile(join(webDir, 'index.html'));
+  });
+
+  // 404 — 정의되지 않은 경로(주로 /api/* 미매칭).
   app.use((_req, res) => {
     res.status(404).json({ error: '요청한 리소스를 찾을 수 없습니다.' });
   });
