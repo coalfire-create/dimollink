@@ -76,7 +76,8 @@ export function OnboardingScreen({
 }) {
   const [userType, setUserType] = useState<UserType>('CONSUMER');
   const [name, setName] = useState(social?.prefillName ?? '');
-  const [region, setRegion] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -117,16 +118,20 @@ export function OnboardingScreen({
       setError(isCompany ? '업체명을 입력해 주세요.' : '이름을 입력해 주세요.');
       return;
     }
-    if (region.trim().length === 0) {
-      setError('활동 지역을 입력해 주세요. (예: 서울, 경기 양평)');
-      return;
-    }
     if (!isPhoneLike(phone)) {
       setError('휴대폰번호를 정확히 입력해 주세요.');
       return;
     }
     if (!codeSent || code.trim().length === 0) {
       setError('휴대폰 인증코드를 받아 입력해 주세요.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('비밀번호를 6자 이상으로 설정해 주세요.');
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError('비밀번호가 일치하지 않습니다.');
       return;
     }
     setBusy(true);
@@ -141,8 +146,8 @@ export function OnboardingScreen({
       const session = await createUser({
         userType,
         name: name.trim(),
-        region: region.trim(),
         phone: phone.trim(),
+        password,
         businessNumber: isCompany ? businessNumber.trim() : undefined,
         ...(social?.ticket ? { socialTicket: social.ticket } : {}),
       });
@@ -250,13 +255,6 @@ export function OnboardingScreen({
             hint={isCompany ? '사업자등록증 상의 정확한 상호를 입력하세요.' : '실명을 입력하세요.'}
           />
           <Field
-            label="활동 지역 *"
-            value={region}
-            onChangeText={setRegion}
-            placeholder="예) 서울, 경기 양평, 부산"
-            hint="주로 활동하는 지역을 입력해 주세요. (전국 서비스 이용 가능)"
-          />
-          <Field
             label="휴대폰번호 *"
             value={phone}
             onChangeText={setPhone}
@@ -289,6 +287,22 @@ export function OnboardingScreen({
               />
             </View>
           ) : null}
+
+          <Field
+            label="비밀번호 *"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="6자 이상"
+            secureTextEntry
+            hint="다음 로그인부터 휴대폰번호와 이 비밀번호로 로그인해요."
+          />
+          <Field
+            label="비밀번호 확인 *"
+            value={passwordConfirm}
+            onChangeText={setPasswordConfirm}
+            placeholder="비밀번호를 한 번 더 입력"
+            secureTextEntry
+          />
 
           {isCompany ? (
             <View style={{ marginTop: spacing.sm }}>

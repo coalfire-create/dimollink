@@ -11,6 +11,7 @@ import {
 import { Router, type Request, type Response } from 'express';
 import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
 import type { OtpService } from '../auth/otp-service.js';
+import { isValidPassword, type CredentialStore } from '../auth/credential-store.js';
 import type { OAuthService } from '../auth/oauth/oauth-service.js';
 import type { SessionStore } from '../auth/session-store.js';
 import { authUserId } from '../middleware/auth.js';
@@ -39,6 +40,7 @@ export function createUsersRouter(
   store: UserStore,
   otpService: OtpService,
   sessionStore: SessionStore,
+  credentialStore: CredentialStore,
   allbaro: AllbaroClient = createAllbaroClient(),
   oauth?: OAuthService,
 ): Router {
@@ -76,6 +78,14 @@ export function createUsersRouter(
     // 휴대폰 OTP 인증을 마친 번호만 가입 허용(번호 소유 확인).
     if (!phone || !(await otpService.isPhoneVerified(phone))) {
       res.status(403).json({ error: '휴대폰 인증을 먼저 완료해 주세요.', code: 'PHONE_NOT_VERIFIED' });
+      return;
+    }
+
+    // 비밀번호 — 번호+비밀번호 로그인용. 소셜 가입(티켓)일 때는 선택.
+    const password = body.password;
+    const isSocialSignup = typeof body.socialTicket === 'string';
+    if (!isSocialSignup && !isValidPassword(password)) {
+      res.status(400).json({ error: '비밀번호를 6자 이상으로 설정해 주세요.' });
       return;
     }
 
@@ -135,7 +145,8 @@ export function createUsersRouter(
       const created = store.create({
         userType: userType as UserType,
         name: body.name,
-        region: body.region,
+        // 전국구 서비스 — 활동 지역은 입력받지 않고 기본값으로 둔다.
+        region: typeof body.region === 'string' && body.region.trim() ? body.region : '전국',
         phone,
         businessNumber,
         location: parseGeoPoint(body.location),
@@ -145,6 +156,10 @@ export function createUsersRouter(
       const user = allbaroVerifiedAt
         ? store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
         : created;
+      // 비밀번호 설정(번호+비밀번호 로그인). 소셜 가입은 비밀번호 없이 통과 가능.
+      if (isValidPassword(password)) {
+        credentialStore.setPassword(user.id, phone, password);
+      }
       // 번호 인증 창 소진 + 세션 토큰 발급(가입 즉시 로그인·자동 로그인).
       await otpService.consumePhoneVerification(phone);
       const session: AuthSession = { token: await sessionStore.issue(user.id), user };

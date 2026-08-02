@@ -34,6 +34,7 @@ import { RequestStore } from './requests/store.js';
 import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
 import { OtpService, type OtpKv } from './auth/otp-service.js';
+import { CredentialStore, type CredentialRecord } from './auth/credential-store.js';
 import { SessionTokenStore } from './auth/session-store.js';
 import { createSmsSender } from './auth/sms-sender.js';
 import { seedTestAccounts } from './dev/seed.js';
@@ -144,6 +145,10 @@ export function createApp(
     notificationService.notifyStatusChange(request),
   );
   const userStore = new UserStore(persistence<UserProfile>('users'));
+  // 번호+비밀번호 로그인용 자격증명(해시). UserProfile 과 분리 저장(응답 노출 방지).
+  const credentialStore = new CredentialStore(
+    persistence<CredentialRecord>('credentials', (c) => c.userId),
+  );
   // 테스트/스테이징 배포: 역할별 계정 시드(멱등). 운영에서는 SEED_TEST_ACCOUNTS 를 켜지 않는다.
   if (env.seedTestAccounts) seedTestAccounts(userStore);
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
@@ -228,7 +233,7 @@ export function createApp(
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
   app.use('/api', createJobsRouter(requestStore, userStore));
-  app.use('/api', createAuthRouter(userStore, otpService, sessionStore));
+  app.use('/api', createAuthRouter(userStore, otpService, sessionStore, credentialStore));
   // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.
   const oauthService = new OAuthService({
     credentials: {
@@ -240,7 +245,7 @@ export function createApp(
     secret: env.oauth.secret,
   });
   app.use('/api', createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect));
-  app.use('/api', createUsersRouter(userStore, otpService, sessionStore, undefined, oauthService));
+  app.use('/api', createUsersRouter(userStore, otpService, sessionStore, credentialStore, undefined, oauthService));
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore));
   // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).

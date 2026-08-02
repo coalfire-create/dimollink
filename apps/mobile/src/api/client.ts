@@ -125,6 +125,10 @@ export const verifyOtp = (phone: string, code: string) =>
     body: JSON.stringify({ phone, code }),
   });
 
+/** 번호+비밀번호 로그인 → 세션(토큰+프로필). OTP 불필요. */
+export const login = (phone: string, password: string) =>
+  api<AuthSession>('/auth/login', { method: 'POST', body: JSON.stringify({ phone, password }) });
+
 /** 저장된 토큰으로 세션 복원(자동 로그인). */
 export const getMe = (token: string) =>
   api<UserProfile>('/auth/me', { headers: { authorization: `Bearer ${token}` } });
@@ -148,9 +152,12 @@ export const logoutServer = (token: string) =>
 export interface CreateUserInput {
   userType: UserType;
   name: string;
-  region: string;
+  /** 전국구 서비스 — 활동 지역은 입력받지 않는다(서버가 '전국' 기본값). */
+  region?: string;
   /** OTP 인증을 마친 휴대폰번호(필수 · 로그인 식별자). */
   phone: string;
+  /** 번호+비밀번호 로그인용(소셜 가입이 아니면 필수 · 6자 이상). */
+  password?: string;
   businessNumber?: string;
   /** 업체 기준 좌표(거리 기반 일감 추천용, 선택). */
   location?: GeoPoint;

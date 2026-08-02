@@ -1,6 +1,7 @@
 import type { AuthSession } from '@dimol/shared';
 import { Router, type Request } from 'express';
 import { OtpError, OtpService } from '../auth/otp-service.js';
+import type { CredentialStore } from '../auth/credential-store.js';
 import type { SessionStore } from '../auth/session-store.js';
 import { UserStore } from '../users/store.js';
 
@@ -30,8 +31,32 @@ export function createAuthRouter(
   userStore: UserStore,
   otpService: OtpService,
   sessionStore: SessionStore,
+  credentialStore: CredentialStore,
 ): Router {
   const router = Router();
+
+  // POST /api/auth/login  { phone, password } — 번호+비밀번호 로그인(OTP 불필요)
+  router.post('/auth/login', async (req, res) => {
+    const body = (req.body ?? {}) as { phone?: unknown; password?: unknown };
+    if (typeof body.phone !== 'string' || typeof body.password !== 'string') {
+      res.status(400).json({ error: '휴대폰번호와 비밀번호를 입력해 주세요.' });
+      return;
+    }
+    const userId = credentialStore.verify(body.phone, body.password);
+    // 번호/비번 어느 쪽이 틀렸는지 알려주지 않는다(계정 열거 방지).
+    if (!userId) {
+      res.status(401).json({ error: '휴대폰번호 또는 비밀번호가 올바르지 않습니다.' });
+      return;
+    }
+    const user = userStore.get(userId);
+    if (!user) {
+      res.status(401).json({ error: '휴대폰번호 또는 비밀번호가 올바르지 않습니다.' });
+      return;
+    }
+    const token = await sessionStore.issue(user.id);
+    const session: AuthSession = { token, user };
+    res.json(session);
+  });
 
   // POST /api/auth/otp/request  { phone } — 인증코드 발송
   router.post('/auth/otp/request', async (req, res) => {

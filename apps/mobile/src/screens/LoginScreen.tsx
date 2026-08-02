@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import type { AuthSession } from '@dimol/shared';
-import { ApiError, requestOtp, verifyOtp } from '../api/client';
+import { ApiError, login } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
@@ -26,45 +26,24 @@ export function LoginScreen({
   onBack: () => void;
 }) {
   const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function sendCode() {
+  async function submit() {
     setError(null);
-    setNotice(null);
     if (!isPhoneLike(phone)) {
       setError('휴대폰번호를 정확히 입력해 주세요.');
       return;
     }
-    setBusy(true);
-    try {
-      await requestOtp(phone.trim());
-      setCodeSent(true);
-      setNotice('인증코드를 발송했습니다. 문자로 받은 6자리를 입력해 주세요.');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '인증코드 발송에 실패했습니다.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submit() {
-    setError(null);
-    if (code.trim().length === 0) {
-      setError('인증코드를 입력해 주세요.');
+    if (password.length === 0) {
+      setError('비밀번호를 입력해 주세요.');
       return;
     }
     setBusy(true);
     try {
-      const result = await verifyOtp(phone.trim(), code.trim());
-      if (result.session) {
-        onSuccess(result.session);
-        return;
-      }
-      setNotice('가입되지 않은 번호예요. 회원가입을 진행해 주세요.');
+      const session = await login(phone.trim(), password);
+      onSuccess(session);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '로그인에 실패했습니다.');
     } finally {
@@ -115,45 +94,18 @@ export function LoginScreen({
             onChangeText={setPhone}
             placeholder="010-0000-0000"
             keyboardType="phone-pad"
-            editable={!codeSent}
-            autoFocus={false}
-            hint={codeSent ? '번호 수정 시 인증코드를 다시 요청해 주세요.' : '등록하신 휴대폰번호를 입력해 주세요.'}
+            hint="가입하신 휴대폰번호를 입력해 주세요."
           />
-          <AppButton
-            label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
-            variant={codeSent ? 'outline' : 'primary'}
-            onPress={sendCode}
-            loading={busy && !codeSent}
+          <Field
+            label="비밀번호"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="비밀번호"
+            secureTextEntry
           />
-
-          {codeSent && (
-            <View style={{ marginTop: spacing.md }}>
-              <View style={s.noticeBox}>
-                <Text style={s.noticeBoxText}>
-                  ✓ 인증코드가 발송되었습니다. 문자로 받은 6자리를 입력하세요.
-                </Text>
-              </View>
-              <Field
-                label="인증코드 6자리"
-                value={code}
-                onChangeText={setCode}
-                placeholder="000000"
-                keyboardType="number-pad"
-                maxLength={6}
-              />
-              <AppButton label="로그인하기" onPress={submit} loading={busy} />
-            </View>
-          )}
+          <AppButton label="로그인" onPress={submit} loading={busy} />
         </View>
       </FadeInUp>
-
-      {notice && !codeSent ? (
-        <FadeInUp delay={260}>
-          <View style={s.noticeBox}>
-            <Text style={s.noticeBoxText}>{notice}</Text>
-          </View>
-        </FadeInUp>
-      ) : null}
 
       <ErrorBanner message={error} />
 

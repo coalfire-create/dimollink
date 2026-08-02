@@ -1,10 +1,12 @@
 import { createApp, type SharedStores } from './app.js';
 import { RedisOtpKv } from './auth/redis-otp-kv.js';
+import { PgOtpKv, ensureOtpSchema } from './auth/pg-otp-kv.js';
 import { RedisSessionStore } from './auth/redis-session-store.js';
 import { StatelessSessionStore } from './auth/stateless-session-store.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { createPgPool, initPgPersistence } from './lib/pg-collection.js';
+import type { Pool } from 'pg';
 import { createRedisClient, createUpstashRedis } from './lib/redis.js';
 import { RedisRateLimitStore } from './middleware/redis-rate-limit-store.js';
 
@@ -31,10 +33,10 @@ function assertProductionConfig(): void {
   }
 }
 
-/** 저장소 선택 — DATABASE_URL 이 있으면 PostgreSQL, 없으면 JSON 파일 폴백. */
-async function buildPersistence(): Promise<PersistenceFactory> {
-  if (env.databaseUrl) {
-    const factory = await initPgPersistence(createPgPool(env.databaseUrl));
+/** 저장소 선택 — pg 풀이 있으면 PostgreSQL, 없으면 JSON 파일 폴백. */
+async function buildPersistence(pool?: Pool): Promise<PersistenceFactory> {
+  if (pool) {
+    const factory = await initPgPersistence(pool);
     console.log('[dimol-api] 저장소: PostgreSQL');
     return factory;
   }
@@ -42,38 +44,44 @@ async function buildPersistence(): Promise<PersistenceFactory> {
   return jsonPersistenceFactory(env.dataDir);
 }
 
-/** 다중 인스턴스 공유 상태 구성: Redis(TCP) > Upstash(REST) > 무상태 세션 > 인메모리. */
-async function buildSharedStores(): Promise<SharedStores> {
+/**
+ * 공유 상태 구성: 세션·레이트리밋은 Redis(TCP) > Upstash(REST) > 무상태 서명.
+ * OTP 는 Redis 없으면 PostgreSQL(풀 있을 때)로 저장 — 서버 재시작·다중 인스턴스에도 유지.
+ */
+async function buildSharedStores(pool?: Pool): Promise<SharedStores> {
   const sessionTtlMs = env.auth.sessionTtlDays * 24 * 60 * 60 * 1000;
+  const shared: SharedStores = {};
   if (env.redisUrl) {
     const redis = await createRedisClient(env.redisUrl);
     console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
-    return {
-      sessionStore: new RedisSessionStore(redis, sessionTtlMs),
-      rateLimitStore: new RedisRateLimitStore(redis),
-      otpKv: new RedisOtpKv(redis),
-    };
-  }
-  if (env.upstash.restUrl && env.upstash.restToken) {
+    shared.sessionStore = new RedisSessionStore(redis, sessionTtlMs);
+    shared.rateLimitStore = new RedisRateLimitStore(redis);
+    shared.otpKv = new RedisOtpKv(redis);
+  } else if (env.upstash.restUrl && env.upstash.restToken) {
     const redis = createUpstashRedis(env.upstash.restUrl, env.upstash.restToken);
     console.log('[dimol-api] 공유 상태: Upstash Redis REST (세션·OTP·레이트리밋)');
-    return {
-      sessionStore: new RedisSessionStore(redis, sessionTtlMs),
-      rateLimitStore: new RedisRateLimitStore(redis),
-      otpKv: new RedisOtpKv(redis),
-    };
-  }
-  if (env.auth.sessionSecret) {
+    shared.sessionStore = new RedisSessionStore(redis, sessionTtlMs);
+    shared.rateLimitStore = new RedisRateLimitStore(redis);
+    shared.otpKv = new RedisOtpKv(redis);
+  } else if (env.auth.sessionSecret) {
     console.log('[dimol-api] 세션: 무상태(서명) — Redis 없이 다중 인스턴스 동작');
-    return { sessionStore: new StatelessSessionStore(env.auth.sessionSecret, sessionTtlMs) };
+    shared.sessionStore = new StatelessSessionStore(env.auth.sessionSecret, sessionTtlMs);
   }
-  return {};
+  // OTP: Redis 미사용 + pg 풀 있으면 Postgres 로(인메모리 대신 재시작에도 유지).
+  if (!shared.otpKv && pool) {
+    await ensureOtpSchema(pool);
+    shared.otpKv = new PgOtpKv(pool);
+    console.log('[dimol-api] OTP: PostgreSQL');
+  }
+  return shared;
 }
 
 async function main(): Promise<void> {
   assertProductionConfig();
-  const persistence = await buildPersistence();
-  const shared = await buildSharedStores();
+  // pg 풀은 한 번만 만들어 영속 저장소와 OTP 저장소가 공유한다.
+  const pool = env.databaseUrl ? createPgPool(env.databaseUrl) : undefined;
+  const persistence = await buildPersistence(pool);
+  const shared = await buildSharedStores(pool);
   const app = createApp(persistence, shared);
 
   const server = app.listen(env.port, () => {
