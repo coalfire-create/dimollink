@@ -166,6 +166,57 @@ export class GeminiSiteAnalyzer implements SiteAnalyzer {
   }
 }
 
+export interface GroqAnalyzerConfig {
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  baseUrl?: string;
+}
+
+/**
+ * Groq 비전 분석 — 무료 티어(카드 불필요). OpenAI 호환 chat/completions.
+ * qwen3 계열은 추론(<think>) 모델이라 reasoning_effort:'none' + JSON 강제로 깨끗한 결과를 받는다.
+ */
+export class GroqSiteAnalyzer implements SiteAnalyzer {
+  constructor(private readonly config: GroqAnalyzerConfig) {}
+
+  async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    const { imageBase64, mimeType } = assertValidImage(input);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const base = this.config.baseUrl ?? 'https://api.groq.com/openai/v1';
+    try {
+      const res = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${this.config.apiKey}` },
+        body: JSON.stringify({
+          model: this.config.model,
+          reasoning_effort: 'none',
+          response_format: { type: 'json_object' },
+          max_tokens: 1500,
+          temperature: 0,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
+                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(`groq ${res.status}`);
+      const body = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      return parseVisionJson(body.choices?.[0]?.message?.content ?? '');
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 /** 실제 Claude 비전 분석 — 실패 시 예외를 던진다(라우터가 목으로 폴백). */
 export class ClaudeSiteAnalyzer implements SiteAnalyzer {
   constructor(private readonly config: ClaudeAnalyzerConfig) {}

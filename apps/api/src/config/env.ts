@@ -141,9 +141,12 @@ export const env = {
     viewUrlTtlSec: Number(process.env.STORAGE_VIEW_URL_TTL_SEC ?? 600),
   },
   ai: {
-    // 현장 사진 비전 분석. 공급자 우선순위: Gemini > Claude > 목(mock).
+    // 현장 사진 비전 분석. 공급자 우선순위: Groq > Gemini > Claude > 목(mock).
     // 미설정 시 목 분석으로 폴백(키·비용 없이 동작).
-    // Google Gemini — 무료 티어 제공(초기 운영 권장). https://aistudio.google.com/apikey
+    // Groq — 무료 티어(카드 불필요). 비전은 qwen3 계열. https://console.groq.com
+    groqApiKey: process.env.GROQ_API_KEY,
+    groqModel: process.env.GROQ_MODEL ?? 'qwen/qwen3.6-27b',
+    // Google Gemini — 무료 티어(계정에 따라). https://aistudio.google.com/apikey
     geminiApiKey: process.env.GEMINI_API_KEY,
     geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
     // Anthropic Claude(유료).
