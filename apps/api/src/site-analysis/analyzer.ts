@@ -93,6 +93,79 @@ const USER_INSTRUCTION =
   '이 철거 현장 사진을 분석해 아래 JSON 스키마로만 답하세요(코드블록·설명 없이 JSON 객체 하나):\n' +
   '{"summary": string, "materials": [{"category": "CONCRETE|STEEL|BRICK|WOOD|GLASS|GYPSUM|INSULATION|ROOFING|HAZARD|OTHER", "name": string, "confidence": "LOW|MEDIUM|HIGH", "recyclable": boolean, "hazardous": boolean, "note"?: string}], "demolitionSteps": [{"order": number, "title": string, "description": string, "caution"?: string}], "hazards": string[], "confidence": "LOW|MEDIUM|HIGH"}';
 
+/** 모델 텍스트 응답에서 JSON 을 추출·검증해 SiteAnalysis 로 정규화(공급자 공용). */
+export function parseVisionJson(text: string): SiteAnalysis {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('AI 응답 파싱 실패');
+  const raw = JSON.parse(text.slice(start, end + 1)) as Partial<SiteAnalysis>;
+  return {
+    summary: typeof raw.summary === 'string' ? raw.summary : '현장 분석 결과',
+    materials: Array.isArray(raw.materials) ? (raw.materials as DetectedMaterial[]) : [],
+    demolitionSteps: Array.isArray(raw.demolitionSteps)
+      ? (raw.demolitionSteps as DemolitionStep[])
+      : [],
+    hazards: Array.isArray(raw.hazards) ? raw.hazards.filter((h): h is string => typeof h === 'string') : [],
+    method: 'AI_VISION',
+    confidence: raw.confidence === 'HIGH' || raw.confidence === 'MEDIUM' ? raw.confidence : 'LOW',
+    disclaimer: SITE_ANALYSIS_DISCLAIMER,
+    analyzedAt: new Date().toISOString(),
+  };
+}
+
+export interface GeminiAnalyzerConfig {
+  apiKey: string;
+  model: string;
+  timeoutMs: number;
+  baseUrl?: string;
+}
+
+/**
+ * Google Gemini 비전 분석 — 무료 티어 제공(초기 운영 권장). 실패 시 예외(라우터가 목 폴백).
+ * generateContent 에 이미지(inline_data)+지시문을 보내고 JSON 응답을 파싱한다.
+ */
+export class GeminiSiteAnalyzer implements SiteAnalyzer {
+  constructor(private readonly config: GeminiAnalyzerConfig) {}
+
+  async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    const { imageBase64, mimeType } = assertValidImage(input);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    const base = this.config.baseUrl ?? 'https://generativelanguage.googleapis.com';
+    try {
+      const res = await fetch(
+        `${base}/v1beta/models/${this.config.model}:generateContent?key=${this.config.apiKey}`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { inline_data: { mime_type: mimeType, data: imageBase64 } },
+                  { text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
+                ],
+              },
+            ],
+            generationConfig: { maxOutputTokens: 1500, responseMimeType: 'application/json' },
+          }),
+        },
+      );
+      if (!res.ok) throw new Error(`gemini ${res.status}`);
+      const body = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+      return parseVisionJson(text);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 /** 실제 Claude 비전 분석 — 실패 시 예외를 던진다(라우터가 목으로 폴백). */
 export class ClaudeSiteAnalyzer implements SiteAnalyzer {
   constructor(private readonly config: ClaudeAnalyzerConfig) {}
@@ -132,26 +205,6 @@ export class ClaudeSiteAnalyzer implements SiteAnalyzer {
     } finally {
       clearTimeout(timer);
     }
-    return this.parse(text);
-  }
-
-  /** 모델 텍스트에서 JSON 추출·검증 후 SiteAnalysis 로 정규화. */
-  private parse(text: string): SiteAnalysis {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start < 0 || end <= start) throw new Error('AI 응답 파싱 실패');
-    const raw = JSON.parse(text.slice(start, end + 1)) as Partial<SiteAnalysis>;
-    return {
-      summary: typeof raw.summary === 'string' ? raw.summary : '현장 분석 결과',
-      materials: Array.isArray(raw.materials) ? (raw.materials as DetectedMaterial[]) : [],
-      demolitionSteps: Array.isArray(raw.demolitionSteps)
-        ? (raw.demolitionSteps as DemolitionStep[])
-        : [],
-      hazards: Array.isArray(raw.hazards) ? raw.hazards.filter((h): h is string => typeof h === 'string') : [],
-      method: 'AI_VISION',
-      confidence: raw.confidence === 'HIGH' || raw.confidence === 'MEDIUM' ? raw.confidence : 'LOW',
-      disclaimer: SITE_ANALYSIS_DISCLAIMER,
-      analyzedAt: new Date().toISOString(),
-    };
+    return parseVisionJson(text);
   }
 }

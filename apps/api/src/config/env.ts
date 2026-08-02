@@ -141,10 +141,16 @@ export const env = {
     viewUrlTtlSec: Number(process.env.STORAGE_VIEW_URL_TTL_SEC ?? 600),
   },
   ai: {
-    // 현장 사진 비전 분석(Claude). 미설정 시 목(mock) 분석으로 폴백(키·비용 없이 동작).
+    // 현장 사진 비전 분석. 공급자 우선순위: Gemini > Claude > 목(mock).
+    // 미설정 시 목 분석으로 폴백(키·비용 없이 동작).
+    // Google Gemini — 무료 티어 제공(초기 운영 권장). https://aistudio.google.com/apikey
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+    // Anthropic Claude(유료).
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
-    // 비전 분석 모델. 기본은 비용 대비 성능이 좋은 Sonnet.
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+    // 비전 API 공통 요청 타임아웃(ms).
+    visionTimeoutMs: Number(process.env.VISION_TIMEOUT_MS ?? process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
     anthropicTimeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
   },
   portone: {
