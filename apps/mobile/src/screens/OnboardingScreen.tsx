@@ -265,7 +265,7 @@ export function OnboardingScreen({
           />
           <AppButton
             label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
-            variant={codeSent ? 'outline' : 'primary'}
+            variant="outline"
             onPress={sendCode}
             loading={busy && !codeSent}
           />
@@ -288,21 +288,24 @@ export function OnboardingScreen({
             </View>
           ) : null}
 
-          <Field
-            label="비밀번호 *"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="6자 이상"
-            secureTextEntry
-            hint="다음 로그인부터 휴대폰번호와 이 비밀번호로 로그인해요."
-          />
-          <Field
-            label="비밀번호 확인 *"
-            value={passwordConfirm}
-            onChangeText={setPasswordConfirm}
-            placeholder="비밀번호를 한 번 더 입력"
-            secureTextEntry
-          />
+          <View style={styles.pwSection}>
+            <Text style={styles.pwSectionLabel}>🔒 로그인 비밀번호</Text>
+            <Field
+              label="비밀번호 *"
+              value={password}
+              onChangeText={setPassword}
+              placeholder="6자 이상"
+              secureTextEntry
+              hint="다음 로그인부터 이 비밀번호로 로그인해요."
+            />
+            <Field
+              label="비밀번호 확인 *"
+              value={passwordConfirm}
+              onChangeText={setPasswordConfirm}
+              placeholder="비밀번호를 한 번 더 입력"
+              secureTextEntry
+            />
+          </View>
 
           {isCompany ? (
             <View style={{ marginTop: spacing.sm }}>
@@ -553,6 +556,19 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  // 로그인 비밀번호 섹션 — 인증 영역과 시각적으로 구분
+  pwSection: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+  },
+  pwSectionLabel: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
   },
   // 이용약관 동의
   termsRow: {
