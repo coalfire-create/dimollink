@@ -1,9 +1,8 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
-import brandmark from '../../assets/brandmark.png';
 
 /**
  * 진입 게이트 — 앱을 열면 가장 먼저 보이는 화면.
@@ -54,17 +53,6 @@ export function WelcomeScreen({
           </View>
         </FadeInUp>
 
-        {/* 비움 로고 */}
-        <FadeInUp delay={280}>
-          <View style={styles.logoWrap}>
-            <Image
-              source={brandmark}
-              style={styles.logoImage}
-              resizeMode="contain"
-              accessibilityLabel="비움 로고"
-            />
-          </View>
-        </FadeInUp>
       </View>
 
       {/* 하단: 흰색 라운드 시트 */}
