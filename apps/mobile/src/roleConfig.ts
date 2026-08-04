@@ -43,7 +43,7 @@ const TAB_MYPAGE: RoleTab = { tab: 'mypage', label: '내 정보', icon: '👤' }
 
 export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
   CONSUMER: {
-    homeGreetingSuffix: '님, 안녕하세요',
+    homeGreetingSuffix: '님',
     homeIntro: '무엇을 도와드릴까요?',
     homeActive: { title: '진행중인 요청', empty: '아직 요청이 없어요. 철거 요청을 시작해 보세요.' },
     marketRateParty: 'TRANSPORT',

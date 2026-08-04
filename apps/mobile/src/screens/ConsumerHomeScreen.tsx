@@ -167,8 +167,8 @@ export function ConsumerHomeScreen() {
             <Text style={styles.interiorEmoji}>🛠️</Text>
             <View style={styles.interiorTextBox}>
               <Text style={styles.interiorTitle}>인테리어 시공 견적받기</Text>
-              <Text style={styles.interiorSubtitle}>
-                여러 업체가 비밀 견적 · 나만 비교하고 골라요
+              <Text style={styles.interiorSubtitle} numberOfLines={2}>
+                여러 업체 비밀 견적 받고 골라요
               </Text>
             </View>
             <Text style={styles.interiorChevron}>›</Text>

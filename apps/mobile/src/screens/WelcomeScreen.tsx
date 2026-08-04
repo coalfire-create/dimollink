@@ -36,6 +36,24 @@ export function WelcomeScreen({
           </Text>
         </FadeInUp>
 
+        {/* 핵심 강점 — 빈 공간을 채우고 가치를 전달 */}
+        <FadeInUp delay={240}>
+          <View style={styles.features}>
+            {[
+              '전국 어디나 · 건설폐기물 전문',
+              '올바로 전자인계서 자동 처리',
+              '여러 업체 견적 비교 후 선택',
+            ].map((t) => (
+              <View key={t} style={styles.featureRow}>
+                <View style={styles.featureCheck}>
+                  <Text style={styles.featureCheckText}>✓</Text>
+                </View>
+                <Text style={styles.featureText}>{t}</Text>
+              </View>
+            ))}
+          </View>
+        </FadeInUp>
+
         {/* 비움 로고 */}
         <FadeInUp delay={280}>
           <View style={styles.logoWrap}>
@@ -112,6 +130,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: font.body + 8,
     marginTop: spacing.sm,
+  },
+  features: {
+    marginTop: spacing.lg + spacing.md,
+  },
+  featureRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: spacing.sm + 2,
+  },
+  featureCheck: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    height: 26,
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    width: 26,
+  },
+  featureCheckText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  featureText: {
+    color: 'rgba(255,255,255,0.95)',
+    fontSize: font.bodyLarge,
+    fontWeight: '600',
   },
   logoWrap: {
     position: 'absolute',
