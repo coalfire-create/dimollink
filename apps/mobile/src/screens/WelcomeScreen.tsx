@@ -161,14 +161,14 @@ const styles = StyleSheet.create({
   logoWrap: {
     position: 'absolute',
     right: spacing.md,
-    bottom: spacing.lg,
+    top: spacing.lg,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 28,
-    padding: spacing.sm,
+    borderRadius: 24,
+    padding: spacing.xs,
   },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 84,
+    height: 84,
   },
   bottomSheet: {
     backgroundColor: colors.background,
