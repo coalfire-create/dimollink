@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import biumLogo from '../../assets/bium_logo.png';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
@@ -22,8 +23,11 @@ export function WelcomeScreen({
 }) {
   return (
     <View style={styles.container}>
-      {/* 상단: 파란색 배경 + 타이포 + 소파 일러스트 */}
+      {/* 상단: 파란색 배경 + 로고 + 타이포 */}
       <View style={styles.heroSection}>
+        <View style={styles.logoWrap}>
+          <Image source={biumLogo} style={styles.logoImage} resizeMode="contain" />
+        </View>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
             {'철거부터\n처리까지\n비움'}

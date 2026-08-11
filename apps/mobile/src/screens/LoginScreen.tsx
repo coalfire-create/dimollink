@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import brandmark from '../../assets/brandmark.png';
+import biumLogo from '../../assets/bium_logo.png';
 import type { AuthSession } from '@dimol/shared';
 import { ApiError, login } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
@@ -74,9 +77,12 @@ export function LoginScreen({
 
       <FadeInUp delay={60}>
         <View style={s.header}>
-          <View style={[s.logoMark, { backgroundColor: colors.primary }]}>
-            <Text style={s.logoText}>D</Text>
-          </View>
+          <Image
+            source={biumLogo}
+            style={{ width: 140, height: 50, marginBottom: spacing.xs }}
+            resizeMode="contain"
+            accessibilityLabel="비움 로고"
+          />
           <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
             반가워요! 👋{'\n'}비움에 로그인하세요
           </Text>
@@ -154,19 +160,11 @@ const s = StyleSheet.create({
     paddingVertical: theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
-  logoMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: theme.spacing.sm,
-    ...theme.shadow.primary,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '900',
+  brandmark: {
+    width: 72,
+    height: 72,
+    alignSelf: 'center',
+    marginBottom: theme.spacing.xs,
   },
   title: {
     fontWeight: '800',

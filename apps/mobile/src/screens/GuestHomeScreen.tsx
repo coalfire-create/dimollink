@@ -24,12 +24,9 @@ export function GuestHomeScreen({
 }) {
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FadeInUp delay={40}>
           <View style={styles.heroSection}>
-            <View style={styles.logoMark}>
-              <Text style={styles.logoMarkText}>D</Text>
-            </View>
             <Image
               source={brandmark}
               style={styles.brandmark}
@@ -44,27 +41,30 @@ export function GuestHomeScreen({
           </View>
         </FadeInUp>
 
-        {STEPS.map((step, i) => (
-          <FadeInUp key={step.title} delay={180 + i * 90}>
-            <View style={styles.stepCard}>
-              <View style={styles.stepNumberBadge}>
-                <Text style={styles.stepNumber}>{i + 1}</Text>
+        <View style={styles.stepsContainer}>
+          {STEPS.map((step, i) => (
+            <FadeInUp key={step.title} delay={140 + i * 80}>
+              <View style={styles.stepCard}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumber}>{i + 1}</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                  <Text style={styles.stepDescription}>{step.description}</Text>
+                </View>
+                <View style={styles.stepIconWrap}>
+                  <Text style={styles.stepIcon}>{step.icon}</Text>
+                </View>
               </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>{step.title}</Text>
-                <Text style={styles.stepDescription}>{step.description}</Text>
-              </View>
-              <Text style={styles.stepIcon}>{step.icon}</Text>
-            </View>
-          </FadeInUp>
-        ))}
+            </FadeInUp>
+          ))}
+        </View>
       </ScrollView>
 
       <View style={styles.actions}>
-        <View style={styles.actionsDivider} />
         <View style={styles.actionsInner}>
           <AppButton label="로그인" onPress={onLogin} />
-          <View style={{ height: theme.spacing.sm }} />
+          <View style={{ height: theme.spacing.xs + 4 }} />
           <AppButton label="회원가입" variant="outline" onPress={onSignup} />
         </View>
       </View>
@@ -76,88 +76,86 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
     flex: 1,
   },
   content: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
   heroSection: {
     alignItems: 'center',
     marginBottom: spacing.md,
-  },
-  logoMark: {
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 18,
-    height: 64,
-    justifyContent: 'center',
-    marginBottom: spacing.xs,
-    width: 64,
-  },
-  logoMarkText: {
-    color: colors.background,
-    fontSize: font.titleLarge,
-    fontWeight: '900',
+    paddingTop: spacing.xs,
   },
   brandmark: {
     alignSelf: 'center',
-    height: 80,
-    width: 80,
+    height: 88,
+    width: 88,
+    marginBottom: spacing.xs,
   },
   appName: {
     color: colors.primary,
-    fontSize: font.titleLarge + 4,
+    fontSize: 32,
     fontWeight: '900',
-    marginTop: spacing.xs,
+    letterSpacing: -0.5,
+    marginTop: spacing.xs / 2,
     textAlign: 'center',
   },
   slogan: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '700',
-    marginTop: spacing.xs,
+    letterSpacing: -0.3,
+    marginTop: spacing.xs / 2,
     textAlign: 'center',
   },
   pilotChip: {
     alignSelf: 'center',
     backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    marginBottom: spacing.md,
+    borderColor: '#D4E2FA',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
     marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
   },
   pilotChipText: {
     color: colors.primary,
-    fontSize: font.body,
+    fontSize: font.body - 2,
     fontWeight: '700',
+  },
+  stepsContainer: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
   stepCard: {
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: radius.card,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+    borderRadius: 18,
+    borderWidth: 1,
+    elevation: 2,
     flexDirection: 'row',
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    shadowColor: '#0B1B3A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.09,
-    shadowRadius: 14,
-    elevation: 4,
+    padding: spacing.md - 4,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
   },
   stepNumberBadge: {
     alignItems: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 999,
-    height: 32,
+    borderRadius: 12,
+    height: 34,
     justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 32,
+    width: 34,
   },
   stepNumber: {
-    color: colors.background,
+    color: '#FFFFFF',
     fontSize: font.body,
     fontWeight: '800',
   },
@@ -168,22 +166,34 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '700',
+    marginBottom: 2,
   },
   stepDescription: {
     color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.xs / 2,
+    fontSize: font.body - 1,
+    lineHeight: 22,
+  },
+  stepIconWrap: {
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    height: 44,
+    justifyContent: 'center',
+    marginLeft: spacing.xs,
+    width: 44,
   },
   stepIcon: {
-    fontSize: font.titleLarge + 4,
-    marginLeft: spacing.sm,
+    fontSize: 22,
   },
   actions: {
-    backgroundColor: colors.background,
-  },
-  actionsDivider: {
-    backgroundColor: colors.border,
-    height: 1,
+    backgroundColor: '#FFFFFF',
+    borderTopColor: '#E2E8F0',
+    borderTopWidth: 1,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
   },
   actionsInner: {
     padding: spacing.md,

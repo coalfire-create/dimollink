@@ -147,6 +147,15 @@ export function ConsumerHomeScreen() {
           </View>
 
           <View style={styles.gridRight}>
+            <FadeInUp delay={160}>
+              <Pressable
+                style={[styles.cardLarge, { marginBottom: 12 }]}
+                onPress={() => nav.push({ name: 'siteAnalysis' })}
+              >
+                <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
+                <Text style={styles.cardLargeEmoji}>📸</Text>
+              </Pressable>
+            </FadeInUp>
             <FadeInUp delay={220}>
               <Pressable
                 style={styles.cardLarge}
