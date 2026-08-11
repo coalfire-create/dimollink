@@ -1,5 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BackHandler, Linking, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
+import {
+  BackHandler,
+  Linking,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type { AuthSession, UserProfile } from '@dimol/shared';
 import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
 import { parseAuthDeepLink } from './src/lib/social-auth';
@@ -44,17 +54,94 @@ type AuthRoute = 'welcome' | 'login' | 'signup' | 'admin';
  * 로그인/회원가입해야 서비스 기능에 들어갈 수 있고, 둘러보기는 게스트 화면으로 분리.
  * 세션 토큰은 단말에 저장해 재실행 시 자동 로그인한다.
  */
+const DEV_USERS: Record<string, UserProfile> = {
+  CONSUMER: {
+    id: '29b1ff65-e7c5-4975-9f6d-9b1f51b27040',
+    userType: 'CONSUMER',
+    name: '김양평 (개발/UI검증)',
+    region: '양평',
+    phone: '01011110001',
+    approvalStatus: 'APPROVED',
+    allbaroCertified: false,
+    insuranceRegistered: false,
+    permitRegistered: false,
+    createdAt: '2026-07-03T00:35:26.443Z',
+    updatedAt: '2026-07-03T00:35:26.443Z',
+  },
+  DEMOLITION: {
+    id: 'test-demo-company-id',
+    userType: 'DEMOLITION_COMPANY',
+    name: '대한철거(테스트)',
+    region: '양평',
+    phone: '01022220002',
+    businessNumber: '1234567890',
+    approvalStatus: 'APPROVED',
+    allbaroCertified: true,
+    insuranceRegistered: true,
+    permitRegistered: true,
+    createdAt: '2026-07-03T05:00:00.000Z',
+    updatedAt: '2026-07-03T05:00:00.000Z',
+  },
+  TRANSPORT: {
+    id: 'test-trans-company-id',
+    userType: 'TRANSPORT_COMPANY',
+    name: '신속운반(테스트)',
+    region: '양평',
+    phone: '01033330003',
+    businessNumber: '0987654321',
+    approvalStatus: 'APPROVED',
+    availability: 'ONLINE',
+    allbaroCertified: true,
+    insuranceRegistered: true,
+    permitRegistered: true,
+    createdAt: '2026-07-03T05:00:00.000Z',
+    updatedAt: '2026-07-03T05:00:00.000Z',
+  },
+  TREATMENT: {
+    id: 'test-disp-plant-id',
+    userType: 'WASTE_TREATMENT_PLANT',
+    name: '푸른처리장(테스트)',
+    region: '양평',
+    phone: '01044440004',
+    businessNumber: '1122334455',
+    approvalStatus: 'APPROVED',
+    allbaroCertified: true,
+    insuranceRegistered: true,
+    permitRegistered: true,
+    createdAt: '2026-07-03T05:00:00.000Z',
+    updatedAt: '2026-07-03T05:00:00.000Z',
+  },
+  INTERIOR: {
+    id: '9769ca44-afc5-42a8-9569-59e1e9a1b8c4',
+    userType: 'INTERIOR_COMPANY',
+    name: '가온인테리어(테스트)',
+    region: '양평',
+    phone: '01055550005',
+    approvalStatus: 'APPROVED',
+    allbaroCertified: false,
+    insuranceRegistered: false,
+    permitRegistered: false,
+    createdAt: '2026-07-11T03:38:22.629Z',
+    updatedAt: '2026-07-11T03:38:22.629Z',
+  },
+};
+
 export default function App() {
   const [session, setSession] = useState<Session>(null);
   const [token, setToken] = useState<string | null>(null);
   const [authRoute, setAuthRoute] = useState<AuthRoute>('welcome');
-  // 소셜 로그인 콜백으로 미가입 신원이 돌아온 경우 — 회원가입에 티켓/프리필을 전달.
   const [pendingSocial, setPendingSocial] = useState<{ ticket: string; prefillName?: string } | null>(
     null,
   );
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabName>('home');
   const [stack, setStack] = useState<Route[]>([]);
+
+  const handleDevRoleSelect = useCallback((roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
+    setSession(DEV_USERS[roleKey]);
+    setStack([]);
+    setTab('home');
+  }, []);
 
   // 자동 로그인 — 저장된 토큰으로 세션 복원. 실패/만료 시 게이트로.
   useEffect(() => {
@@ -256,6 +343,7 @@ export default function App() {
             onSignup={() => setAuthRoute('signup')}
             onGuest={() => setSession('guest')}
             onAdmin={() => setAuthRoute('admin')}
+            onDevRoleSelect={handleDevRoleSelect}
           />
         );
     }
@@ -264,6 +352,31 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
+      {/* 개발 / UI 검증용 상단 빠른 스위처 바 */}
+      <View style={styles.devHeaderBar}>
+        <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
+        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('CONSUMER')}>
+          <Text style={styles.devHeaderBtnText}>👤소비자</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('DEMOLITION')}>
+          <Text style={styles.devHeaderBtnText}>🏗철거</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TRANSPORT')}>
+          <Text style={styles.devHeaderBtnText}>🚚운반</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TREATMENT')}>
+          <Text style={styles.devHeaderBtnText}>🏭처리장</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('INTERIOR')}>
+          <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('admin'); }}>
+          <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
+        </Pressable>
+        <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
+          <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
+        </Pressable>
+      </View>
       {booting ? <LoadingView /> : renderBody()}
     </SafeAreaView>
   );
@@ -273,5 +386,32 @@ const styles = StyleSheet.create({
   root: {
     backgroundColor: theme.colors.background,
     flex: 1,
+  },
+  devHeaderBar: {
+    backgroundColor: '#1E293B',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 4,
+    flexWrap: 'wrap',
+    zIndex: 9999,
+  },
+  devHeaderTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginRight: 2,
+  },
+  devHeaderBtn: {
+    backgroundColor: '#334155',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  devHeaderBtnText: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

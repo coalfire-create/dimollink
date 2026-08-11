@@ -126,21 +126,29 @@ export function ConsumerHomeScreen() {
         <FadeInUp delay={40}>
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
-              <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
-              <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
+              <View style={styles.heroBadge}>
+                <Text style={styles.heroBadgeText}>⚡️ 원스톱 폐기물 매칭</Text>
+              </View>
+              <Text style={styles.bannerTitle}>철거를 더 쉽고,{'\n'}더 똑똑하게</Text>
+              <Text style={styles.bannerSubtitle}>전국 매칭 · 올바로 자동 전자인계서</Text>
             </View>
             <Image source={homeWasteBed} style={styles.bannerImage} resizeMode="contain" />
           </View>
         </FadeInUp>
 
+        {/* 메인 주요 기능 4분할 그리드 */}
         <View style={styles.gridContainer}>
           <View style={styles.gridLeft}>
             <FadeInUp delay={100}>
               <Pressable
-                style={styles.cardLarge}
+                style={[styles.cardLarge, styles.cardPrimaryGradient]}
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardBadgePill}>원스톱 신청</Text>
+                </View>
                 <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+                <Text style={styles.cardSubtext}>견적부터 인계서까지 한 번에</Text>
                 <Image source={homeHelmet} style={styles.cardLargeImage} resizeMode="contain" />
               </Pressable>
             </FadeInUp>
@@ -149,10 +157,14 @@ export function ConsumerHomeScreen() {
           <View style={styles.gridRight}>
             <FadeInUp delay={160}>
               <Pressable
-                style={[styles.cardLarge, { marginBottom: 12 }]}
+                style={[styles.cardLarge, styles.cardAiGradient]}
                 onPress={() => nav.push({ name: 'siteAnalysis' })}
               >
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardAiBadgePill}>✨ AI Vision</Text>
+                </View>
                 <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
+                <Text style={styles.cardSubtext}>사진 한 장으로 소재/공정 안내</Text>
                 <Text style={styles.cardLargeEmoji}>📸</Text>
               </Pressable>
             </FadeInUp>
@@ -162,6 +174,7 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'estimate' })}
               >
                 <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
+                <Text style={styles.cardSubtext}>부피/무게 빠른 계산기</Text>
                 <Text style={styles.cardLargeEmoji}>📐</Text>
               </Pressable>
             </FadeInUp>
@@ -175,9 +188,9 @@ export function ConsumerHomeScreen() {
           >
             <Text style={styles.interiorEmoji}>🛠️</Text>
             <View style={styles.interiorTextBox}>
-              <Text style={styles.interiorTitle}>인테리어 시공 견적받기</Text>
+              <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
               <Text style={styles.interiorSubtitle} numberOfLines={2}>
-                여러 업체 비밀 견적 받고 골라요
+                여러 전문 검증 업체 비밀 견적 비교 후 선택하세요
               </Text>
             </View>
             <Text style={styles.interiorChevron}>›</Text>
@@ -262,15 +275,71 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   bannerTitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: font.body,
-    fontWeight: '600',
-  },
-  bannerSubtitle: {
     color: '#FFFFFF',
     fontSize: font.title,
     fontWeight: '800',
+    lineHeight: font.title + 6,
+  },
+  bannerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: font.caption,
+    fontWeight: '600',
     marginTop: 4,
+  },
+  heroBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  heroBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  cardBadgePill: {
+    backgroundColor: '#2563EB',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  cardAiBadgePill: {
+    backgroundColor: '#7C3AED',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  cardSubtext: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  cardPrimaryGradient: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+  },
+  cardAiGradient: {
+    backgroundColor: '#F5F3FF',
+    borderColor: '#DDD6FE',
+    borderWidth: 1,
+    marginBottom: 12,
   },
   bannerImage: {
     width: 90,

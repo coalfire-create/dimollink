@@ -77,11 +77,32 @@ export function SiteAnalysisScreen() {
     }
   }
 
+  const SAMPLE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  function loadSampleAndAnalyze() {
+    setImage({
+      base64: SAMPLE_BASE64,
+      mimeType: 'image/png',
+      uri: 'data:image/png;base64,' + SAMPLE_BASE64,
+    });
+    setResult(null);
+    setError(null);
+    setLoading(true);
+    analyzeSite({ imageBase64: SAMPLE_BASE64, mimeType: 'image/png' })
+      .then((res) => setResult(res))
+      .catch((err) => setError(err instanceof ApiError ? err.message : '분석에 실패했어요.'))
+      .finally(() => setLoading(false));
+  }
+
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="현장 분석" canGoBack />
+      <ScreenHeader title="현장 AI 분석 (소재·공정)" canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.intro}>현장 사진 한 장으로 소재와 철거 공정을 알려드려요.</Text>
+        <View style={styles.heroCard}>
+          <Text style={styles.heroCardBadge}>✨ Vision AI 엔진</Text>
+          <Text style={styles.heroCardTitle}>현장 사진 한 장으로{'\n'}소재와 철거 공정을 분석해 드려요</Text>
+          <Text style={styles.heroCardDesc}>위험물(석면) 식별 · 공정 단계별 주의사항 · 재활용 분류</Text>
+        </View>
 
         {image ? (
           <FadeInUp>
@@ -89,8 +110,11 @@ export function SiteAnalysisScreen() {
           </FadeInUp>
         ) : (
           <View style={styles.pickBox}>
-            <Text style={styles.pickIcon}>📷</Text>
-            <Text style={styles.pickText}>철거 현장 사진을 올려주세요</Text>
+            <Text style={styles.pickIcon}>📸</Text>
+            <Text style={styles.pickText}>철거 현장 사진을 업로드해 주세요</Text>
+            <PressableScale style={styles.sampleQuickBtn} onPress={loadSampleAndAnalyze}>
+              <Text style={styles.sampleQuickBtnText}>⚡️ 샘플 사진으로 AI 즉시 분석 시연</Text>
+            </PressableScale>
           </View>
         )}
 
@@ -211,6 +235,35 @@ const { colors, font, spacing, radius } = theme;
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
+  heroCard: {
+    backgroundColor: '#1E1B4B',
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  heroCardBadge: {
+    backgroundColor: '#7C3AED',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
+    marginBottom: spacing.xs,
+  },
+  heroCardTitle: {
+    color: '#FFFFFF',
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+    lineHeight: font.bodyLarge + 6,
+  },
+  heroCardDesc: {
+    color: '#C7D2FE',
+    fontSize: font.caption,
+    marginTop: spacing.xs / 2,
+  },
   intro: { color: colors.textMuted, fontSize: font.body, marginBottom: spacing.md },
   preview: { borderRadius: radius.card, height: 220, width: '100%' },
   pickBox: {
@@ -219,6 +272,22 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     justifyContent: 'center',
     paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  sampleQuickBtn: {
+    backgroundColor: '#2563EB',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: spacing.sm,
+  },
+  sampleQuickBtnText: {
+    color: '#FFFFFF',
+    fontSize: font.caption,
+    fontWeight: '800',
   },
   pickIcon: { fontSize: 44, marginBottom: spacing.xs },
   pickText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },

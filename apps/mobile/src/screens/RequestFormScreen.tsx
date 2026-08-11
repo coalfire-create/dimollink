@@ -128,6 +128,20 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
           keyboardType="numeric"
           hint="잘 모르면 홈의 '폐기물 양 미리 계산'을 이용해 보세요."
         />
+        <View style={styles.presetRow}>
+          <Text style={styles.presetTitle}>빠른 선택:</Text>
+          {['3', '5', '10', '15'].map((t) => (
+            <Pressable
+              key={t}
+              style={[styles.presetChip, wasteTons === t && styles.presetChipActive]}
+              onPress={() => setWasteTons(t)}
+            >
+              <Text style={[styles.presetChipText, wasteTons === t && styles.presetChipTextActive]}>
+                {t}톤{t === '5' ? ' (의무)' : ''}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
        </FadeInUp>
 
         {allbaroMandatory ? (
@@ -188,6 +202,41 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
+  },
+  presetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  presetTitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+    marginRight: 4,
+  },
+  presetChip: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  presetChipText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  presetChipTextActive: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '800',
   },
   mandatoryNotice: {
     backgroundColor: colors.primarySoft,

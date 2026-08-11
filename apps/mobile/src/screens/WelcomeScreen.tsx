@@ -15,11 +15,13 @@ export function WelcomeScreen({
   onSignup,
   onGuest,
   onAdmin,
+  onDevRoleSelect,
 }: {
   onLogin: () => void;
   onSignup: () => void;
   onGuest: () => void;
   onAdmin?: () => void;
+  onDevRoleSelect?: (role: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => void;
 }) {
   return (
     <View style={styles.container}>
@@ -90,6 +92,33 @@ export function WelcomeScreen({
             ) : null}
           </View>
         </FadeInUp>
+
+        {/* UI 검증용 로그인 없는 빠른 진입 칩 */}
+        {onDevRoleSelect ? (
+          <FadeInUp delay={520}>
+            <View style={styles.devSection}>
+              <Text style={styles.devSectionTitle}>⚡️ UI 검증용 바로가기 (로그인 없이 바로 진입)</Text>
+
+              <View style={styles.devGrid}>
+                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('CONSUMER')}>
+                  <Text style={styles.devChipText}>👤 소비자</Text>
+                </Pressable>
+                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('DEMOLITION')}>
+                  <Text style={styles.devChipText}>🏗 철거</Text>
+                </Pressable>
+                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('TRANSPORT')}>
+                  <Text style={styles.devChipText}>🚚 운반</Text>
+                </Pressable>
+                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('TREATMENT')}>
+                  <Text style={styles.devChipText}>🏭 처리장</Text>
+                </Pressable>
+                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('INTERIOR')}>
+                  <Text style={styles.devChipText}>🛠 인테리어</Text>
+                </Pressable>
+              </View>
+            </View>
+          </FadeInUp>
+        ) : null}
       </View>
     </View>
   );
@@ -225,5 +254,37 @@ const styles = StyleSheet.create({
     color: colors.border,
     fontSize: font.body,
     marginHorizontal: spacing.xs / 2,
+  },
+  devSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  devSectionTitle: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  devGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  devChip: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+  },
+  devChipText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
