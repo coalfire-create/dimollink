@@ -294,7 +294,7 @@ export function createApp(
             timeoutMs: env.ai.visionTimeoutMs,
           })
         : mockSiteAnalyzer;
-  app.use('/api', createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer));
+  app.use('/api', createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, new HeuristicVolumeEstimator()));
   app.use(
     '/api',
     createAdminRouter(

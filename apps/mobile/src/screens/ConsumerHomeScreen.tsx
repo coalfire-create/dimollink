@@ -182,6 +182,23 @@ export function ConsumerHomeScreen() {
           </View>
         </View>
 
+        {/* 소비자가 직접 운반 차량을 부른다(사진으로 소재·무게 자동 채움 가능). */}
+        <FadeInUp delay={240}>
+          <Pressable
+            style={styles.transportCard}
+            onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
+          >
+            <Text style={styles.transportEmoji}>🚚</Text>
+            <View style={styles.transportTextBox}>
+              <Text style={styles.transportTitle}>운반 차량 직접 부르기</Text>
+              <Text style={styles.transportSubtitle} numberOfLines={2}>
+                사진 한 장이면 소재·무게를 자동으로 채워 드려요
+              </Text>
+            </View>
+            <Text style={styles.transportChevron}>›</Text>
+          </Pressable>
+        </FadeInUp>
+
         {/* 인테리어(밀봉 역경매)는 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출한다. */}
         {FEATURE_INTERIOR ? (
           <FadeInUp delay={260}>
@@ -423,6 +440,37 @@ const styles = StyleSheet.create({
   cardSmallImage: {
     width: 54,
     height: 54,
+  },
+  transportCard: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 20,
+    flexDirection: 'row',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  transportEmoji: {
+    fontSize: font.titleLarge,
+    marginRight: spacing.sm,
+  },
+  transportTextBox: {
+    flex: 1,
+  },
+  transportTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  transportSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: 2,
+  },
+  transportChevron: {
+    color: colors.primary,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
   },
   interiorCard: {
     alignItems: 'center',

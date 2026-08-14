@@ -267,6 +267,21 @@ export const sendMessage = (requestId: string, senderId: string, content: string
 export const analyzeSite = (input: { imageBase64: string; mimeType?: string; note?: string }) =>
   api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
 
+/** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
+export interface PhotoWasteItemsResult {
+  analysis: SiteAnalysis;
+  wasteItems: WasteItem[];
+}
+export const analyzeSiteWasteItems = (input: {
+  imageBase64: string;
+  mimeType?: string;
+  floorAreaM2?: number;
+}) =>
+  api<PhotoWasteItemsResult>('/site-analysis/waste-items', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
 // ── 물량 추정 (Phase 6)
 export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
   api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   PILOT,
@@ -7,7 +8,7 @@ import {
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, createRequest } from '../api/client';
+import { ApiError, analyzeSiteWasteItems, createRequest } from '../api/client';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import {
   WasteItemsInput,
@@ -56,6 +57,39 @@ export function RequestFormScreen({
   const [submitting, setSubmitting] = useState(false);
   // 처리장 예약 접수 직후 "운반요청도 함께 하기" 연계 스텝을 띄우기 위한 상태.
   const [reservationDone, setReservationDone] = useState<ServiceRequest | null>(null);
+  // 사진 기반 소재·무게 자동 채움 상태.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoSummary, setPhotoSummary] = useState<string | null>(null);
+
+  async function fillFromPhoto() {
+    setError(null);
+    setPhotoSummary(null);
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.5,
+    });
+    const asset = res.canceled ? undefined : res.assets[0];
+    if (!asset?.base64) return;
+    setPhotoBusy(true);
+    try {
+      const { analysis, wasteItems } = await analyzeSiteWasteItems({
+        imageBase64: asset.base64,
+        mimeType: asset.mimeType,
+      });
+      if (wasteItems.length === 0) {
+        setPhotoSummary('사진에서 소재를 찾지 못했어요. 직접 입력해 주세요.');
+        return;
+      }
+      setWasteDrafts(wasteItemsToDrafts(wasteItems));
+      const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
+      setPhotoSummary(`${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`);
+    } catch {
+      setError('사진 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const wasteItems = draftsToWasteItems(wasteDrafts);
   const tons = wasteItemsToTons(wasteItems);
@@ -216,6 +250,22 @@ export function RequestFormScreen({
           </>
         ) : null}
 
+        {kind === 'TRANSPORT' ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.photoFillBtn}
+              onPress={fillFromPhoto}
+              disabled={photoBusy}
+            >
+              <Text style={styles.photoFillText}>
+                {photoBusy ? '사진 분석 중…' : '📷 사진으로 소재·무게 자동 채우기'}
+              </Text>
+            </Pressable>
+            {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
+          </>
+        ) : null}
+
         <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
        </FadeInUp>
 
@@ -310,6 +360,27 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '700',
+  },
+  photoFillBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight,
+    borderRadius: radius.button,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: colors.primarySoft,
+    marginBottom: spacing.xs,
+  },
+  photoFillText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '800',
+  },
+  photoSummary: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginBottom: spacing.sm,
   },
   transportInfo: {
     backgroundColor: colors.surface,
