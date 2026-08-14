@@ -42,6 +42,8 @@ export interface CreateRequestInput {
   sitePhotoKeys?: string[];
   /** 현장 좌표(거리 기반 일감 추천용, 선택). */
   location?: GeoPoint;
+  /** 연결된 요청 id — 예약↔운반 세트 추적(선택). */
+  linkedRequestId?: string;
   /** DEMOLITION */
   siteAddress?: string;
   /** TRANSPORT */
@@ -173,6 +175,7 @@ export class RequestStore {
       allbaroRequested: input.allbaroRequested === true,
       sitePhotoKeys: normalizeSitePhotoKeys(input.sitePhotoKeys),
       ...(input.location ? { location: input.location } : {}),
+      ...(input.linkedRequestId ? { linkedRequestId: input.linkedRequestId } : {}),
       status: 'REQUESTED' as const,
       createdAt: now,
       updatedAt: now,

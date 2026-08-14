@@ -80,6 +80,7 @@ export function createRequestsRouter(
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,
         visitAt: body.visitAt,
+        linkedRequestId: typeof body.linkedRequestId === 'string' ? body.linkedRequestId : undefined,
       } as CreateRequestInput);
       res.status(201).json(request);
     } catch (err) {

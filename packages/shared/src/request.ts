@@ -122,6 +122,11 @@ interface ServiceRequestBase {
   /** 매칭 확정된 업체 id (MATCHED 전이 시 기록). */
   matchedProviderId?: string;
   /**
+   * 연결된 요청 id — 한 세트로 만든 요청을 묶는다.
+   * 예: 처리장 예약 후 "운반요청도 함께 하기"로 만든 운반요청이 그 예약 id 를 가리킨다(예약↔운반 세트 추적).
+   */
+  linkedRequestId?: string;
+  /**
    * 합의 금액(원) — 선결제 청구 기준. 선착순 수락 시 업체가 제시한 금액, 또는
    * 견적 비교 방식에서 요청자가 수락한 견적 금액이 여기 기록된다.
    */

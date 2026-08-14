@@ -139,6 +139,16 @@ describe('RequestStore.create — 소재별 kg 항목(wasteItems)', () => {
   });
 });
 
+describe('RequestStore.create — linkedRequestId(예약↔운반 세트)', () => {
+  it('연결 요청 id 를 저장하고, 미지정이면 필드가 없다', () => {
+    const store = new RequestStore();
+    const reservation = store.create(demolition);
+    const linked = store.create({ ...transport, linkedRequestId: reservation.id });
+    expect(linked.linkedRequestId).toBe(reservation.id);
+    expect(store.create(transport).linkedRequestId).toBeUndefined();
+  });
+});
+
 describe('RequestStore.changeStatus — 상태 전이', () => {
   /** REQUESTED 에서 목표 상태까지 정방향 전이로 이동시킨 요청 id. */
   function createAt(store: RequestStore, status: MatchStatus): string {

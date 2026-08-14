@@ -5,6 +5,7 @@ import {
   PILOT,
   wasteItemsToTons,
   type RequestKind,
+  type ServiceRequest,
 } from '@dimol/shared';
 import { ApiError, createRequest } from '../api/client';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
@@ -12,10 +13,11 @@ import {
   WasteItemsInput,
   draftsToWasteItems,
   emptyWasteDraft,
+  wasteItemsToDrafts,
   type WasteItemDraft,
 } from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
 import { theme } from '../theme';
 
 /**
@@ -30,18 +32,30 @@ const KIND_TITLES: Record<RequestKind, string> = {
   DISPOSAL_RESERVATION: '처리장 예약',
 };
 
-export function RequestFormScreen({ kind }: { kind: RequestKind }) {
+export function RequestFormScreen({
+  kind,
+  prefill,
+}: {
+  kind: RequestKind;
+  prefill?: RequestFormPrefill;
+}) {
   const nav = useNavigation();
   const user = useSession();
-  const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>([emptyWasteDraft()]);
-  const [region, setRegion] = useState(user.region ?? '');
+  const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>(
+    prefill?.wasteItems && prefill.wasteItems.length > 0
+      ? wasteItemsToDrafts(prefill.wasteItems)
+      : [emptyWasteDraft()],
+  );
+  const [region, setRegion] = useState(prefill?.region ?? user.region ?? '');
   const [siteAddress, setSiteAddress] = useState('');
-  const [loadAddress, setLoadAddress] = useState('');
-  const [unloadAddress, setUnloadAddress] = useState('');
+  const [loadAddress, setLoadAddress] = useState(prefill?.loadAddress ?? '');
+  const [unloadAddress, setUnloadAddress] = useState(prefill?.unloadAddress ?? '');
   const [visitAt, setVisitAt] = useState('');
   const [allbaroRequested, setAllbaroRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // 처리장 예약 접수 직후 "운반요청도 함께 하기" 연계 스텝을 띄우기 위한 상태.
+  const [reservationDone, setReservationDone] = useState<ServiceRequest | null>(null);
 
   const wasteItems = draftsToWasteItems(wasteDrafts);
   const tons = wasteItemsToTons(wasteItems);
@@ -66,12 +80,20 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
         wasteCategory: PILOT.wasteCategory,
         wasteItems,
         allbaroRequested,
+        location: prefill?.location,
+        linkedRequestId: prefill?.linkedRequestId,
         siteAddress: kind === 'DEMOLITION' ? siteAddress.trim() : undefined,
         loadAddress: kind === 'TRANSPORT' ? loadAddress.trim() : undefined,
         unloadAddress: kind === 'TRANSPORT' ? unloadAddress.trim() : undefined,
         // 파일럿: 날짜만 입력받아 정오(KST) 방문으로 접수한다.
         visitAt: kind === 'DISPOSAL_RESERVATION' ? `${visitAt.trim()}T12:00:00+09:00` : undefined,
       });
+      // 처리장 예약이 접수되면 바로 상세로 가지 않고 "운반요청도 함께 하기" 연계 스텝을 띄운다.
+      if (kind === 'DISPOSAL_RESERVATION') {
+        setReservationDone(created);
+        setSubmitting(false);
+        return;
+      }
       nav.pop();
       nav.push({ name: 'requestDetail', requestId: created.id });
     } catch (err) {
@@ -79,6 +101,60 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // 연계 스텝: 같은 소재/무게/좌표를 프리필한 운반요청 폼으로 이동(두 요청을 linkedRequestId 로 묶음).
+  function goTransportLink() {
+    const done = reservationDone;
+    if (!done) return;
+    nav.pop();
+    nav.push({
+      name: 'requestForm',
+      kind: 'TRANSPORT',
+      prefill: {
+        wasteItems,
+        region: done.region,
+        location: done.location,
+        linkedRequestId: done.id,
+      },
+    });
+  }
+
+  function finishReservation() {
+    const done = reservationDone;
+    if (!done) return;
+    nav.pop();
+    nav.push({ name: 'requestDetail', requestId: done.id });
+  }
+
+  if (reservationDone) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="예약 접수 완료" />
+        <ScrollView contentContainerStyle={styles.content}>
+          <FadeInUp>
+            <View style={styles.doneCard}>
+              <Text style={styles.doneEmoji}>✅</Text>
+              <Text style={styles.doneTitle}>처리장 예약이 접수됐어요</Text>
+              <Text style={styles.doneBody}>
+                매칭된 처리장이 「운반요청 별도 필요」이면 폐기물을 처리장까지 옮길 운반이 따로 필요해요.
+                지금 같은 소재·무게로 운반요청도 함께 접수할 수 있어요.
+              </Text>
+            </View>
+          </FadeInUp>
+        </ScrollView>
+        <StickyFooter>
+          <AppButton label="운반요청도 함께 하기" onPress={goTransportLink} />
+          <Pressable
+            onPress={finishReservation}
+            accessibilityRole="button"
+            style={styles.secondaryBtn}
+          >
+            <Text style={styles.secondaryBtnText}>예약만 하고 마치기</Text>
+          </Pressable>
+        </StickyFooter>
+      </View>
+    );
   }
 
   return (
@@ -199,6 +275,39 @@ const styles = StyleSheet.create({
   },
   pilotChipText: {
     color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  doneCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  doneEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.sm,
+  },
+  doneTitle: {
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  doneBody: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    lineHeight: font.body + 8,
+    textAlign: 'center',
+  },
+  secondaryBtn: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  secondaryBtnText: {
+    color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '700',
   },

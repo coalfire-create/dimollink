@@ -217,6 +217,8 @@ export interface CreateRequestInput {
   loadAddress?: string;
   unloadAddress?: string;
   visitAt?: string;
+  /** 연결된 요청 id — 예약↔운반 세트 추적(선택). */
+  linkedRequestId?: string;
 }
 
 export const createRequest = (input: CreateRequestInput) =>

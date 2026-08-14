@@ -258,7 +258,14 @@ export default function App() {
       case 'mypage':
         return <MyPageScreen />;
       case 'requestForm':
-        return <RequestFormScreen kind={route.kind} />;
+        // 같은 요청폼 화면끼리 이동(예약→연계 운반요청)할 때 인스턴스 상태가 남지 않도록 key 로 remount.
+        return (
+          <RequestFormScreen
+            key={`requestForm:${route.kind}:${route.prefill?.linkedRequestId ?? 'new'}`}
+            kind={route.kind}
+            prefill={route.prefill}
+          />
+        );
       case 'requestDetail':
         return <RequestDetailScreen requestId={route.requestId} />;
       case 'chat':
