@@ -7,10 +7,13 @@ import {
   canTransitionRequestStatus,
   isValidGeoPoint,
   isValidSitePhotoKey,
+  isValidWasteItem,
+  wasteItemsToTons,
   type GeoPoint,
   type MatchStatus,
   type RequestKind,
   type ServiceRequest,
+  type WasteItem,
 } from '@dimol/shared';
 import type { CollectionPersistence } from '../lib/json-collection.js';
 
@@ -31,7 +34,10 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  wasteTons: number;
+  /** 소재별 항목(종류+kg). 최소 1개(신규 UI 필수). */
+  wasteItems?: WasteItem[];
+  /** 레거시 입력(하위호환) — wasteItems 미지정 시에만 혼합폐기물 1건으로 환산해 사용. */
+  wasteTons?: number;
   allbaroRequested: boolean;
   sitePhotoKeys?: string[];
   /** 현장 좌표(거리 기반 일감 추천용, 선택). */
@@ -93,6 +99,30 @@ function normalizeSitePhotoKeys(keys: unknown): string[] {
   return unique;
 }
 
+/**
+ * 소재별 항목 검증 + 하위호환 처리.
+ * - `wasteItems` 가 오면 그걸 우선 사용(최소 1개, 각 항목은 12종 소재 + 양수 kg).
+ * - 없이 레거시 `wasteTons` 만 오면 혼합폐기물 1건(kg 환산)으로 채운다.
+ * - 둘 다 없으면 오류(소재별 kg 최소 1개 필수).
+ */
+function normalizeWasteItems(items: unknown, legacyTons: unknown): WasteItem[] {
+  if (items !== undefined) {
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new RequestValidationError('소재별 폐기물 항목(wasteItems)을 1개 이상 입력해야 합니다.');
+    }
+    return items.map((raw) => {
+      if (!isValidWasteItem(raw)) {
+        throw new RequestValidationError('각 폐기물 항목은 유효한 소재(12종)와 양수 kg 이어야 합니다.');
+      }
+      return { material: raw.material, kg: raw.kg };
+    });
+  }
+  if (typeof legacyTons === 'number' && Number.isFinite(legacyTons) && legacyTons > 0) {
+    return [{ material: 'MIXED_WASTE', kg: Math.round(legacyTons * 1000) }];
+  }
+  throw new RequestValidationError('소재별 폐기물 항목(wasteItems)을 1개 이상 입력해야 합니다.');
+}
+
 /** 상태 전이 리스너 — 매칭 단계별 알림(Phase 4) 등이 연결된다. */
 export type StatusChangeListener = (request: ServiceRequest, from: MatchStatus) => void;
 
@@ -126,9 +156,8 @@ export class RequestStore {
     if (input.wasteCategory !== PILOT.wasteCategory) {
       throw new RequestValidationError('건설폐기물만 접수할 수 있습니다.');
     }
-    if (!Number.isFinite(input.wasteTons) || input.wasteTons <= 0) {
-      throw new RequestValidationError('wasteTons(예상 중량, 톤)은 양수여야 합니다.');
-    }
+    const wasteItems = normalizeWasteItems(input.wasteItems, input.wasteTons);
+    const wasteTons = wasteItemsToTons(wasteItems);
     if (input.location !== undefined && !isValidGeoPoint(input.location)) {
       throw new RequestValidationError('유효한 좌표(lat -90~90, lng -180~180)가 필요합니다.');
     }
@@ -139,7 +168,8 @@ export class RequestStore {
       requesterId,
       region: input.region.trim(),
       wasteCategory: PILOT.wasteCategory,
-      wasteTons: input.wasteTons,
+      wasteItems,
+      wasteTons,
       allbaroRequested: input.allbaroRequested === true,
       sitePhotoKeys: normalizeSitePhotoKeys(input.sitePhotoKeys),
       ...(input.location ? { location: input.location } : {}),

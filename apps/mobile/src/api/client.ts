@@ -26,6 +26,7 @@ import type {
   UserProfile,
   UserType,
   VolumeEstimate,
+  WasteItem,
 } from '@dimol/shared';
 
 /**
@@ -198,7 +199,10 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  wasteTons: number;
+  /** 소재별 항목(종류+kg). 최소 1개. 서버가 wasteTons 를 합계에서 자동 산출한다. */
+  wasteItems?: WasteItem[];
+  /** 레거시(하위호환) — wasteItems 미지정 시에만 사용. */
+  wasteTons?: number;
   allbaroRequested: boolean;
   /** 현장 좌표(거리 기반 매칭용, 선택). */
   location?: GeoPoint;

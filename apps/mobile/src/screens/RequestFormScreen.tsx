@@ -3,10 +3,17 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   PILOT,
+  wasteItemsToTons,
   type RequestKind,
 } from '@dimol/shared';
 import { ApiError, createRequest } from '../api/client';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
+import {
+  WasteItemsInput,
+  draftsToWasteItems,
+  emptyWasteDraft,
+  type WasteItemDraft,
+} from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
@@ -26,7 +33,7 @@ const KIND_TITLES: Record<RequestKind, string> = {
 export function RequestFormScreen({ kind }: { kind: RequestKind }) {
   const nav = useNavigation();
   const user = useSession();
-  const [wasteTons, setWasteTons] = useState('');
+  const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>([emptyWasteDraft()]);
   const [region, setRegion] = useState(user.region ?? '');
   const [siteAddress, setSiteAddress] = useState('');
   const [loadAddress, setLoadAddress] = useState('');
@@ -36,14 +43,18 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const tons = Number(wasteTons);
-  const allbaroMandatory =
-    Number.isFinite(tons) && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
+  const wasteItems = draftsToWasteItems(wasteDrafts);
+  const tons = wasteItemsToTons(wasteItems);
+  const allbaroMandatory = tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
 
   async function submit() {
     setError(null);
     if (region.trim().length === 0) {
       setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
+      return;
+    }
+    if (wasteItems.length === 0) {
+      setError('폐기물 소재를 1개 이상 선택하고 예상 무게(kg)를 입력해 주세요.');
       return;
     }
     setSubmitting(true);
@@ -53,7 +64,7 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
         requesterId: user.id,
         region: region.trim(),
         wasteCategory: PILOT.wasteCategory,
-        wasteTons: tons,
+        wasteItems,
         allbaroRequested,
         siteAddress: kind === 'DEMOLITION' ? siteAddress.trim() : undefined,
         loadAddress: kind === 'TRANSPORT' ? loadAddress.trim() : undefined,
@@ -120,28 +131,7 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
           />
         ) : null}
 
-        <Field
-          label="폐기물 예상 무게 (톤)"
-          value={wasteTons}
-          onChangeText={setWasteTons}
-          placeholder="예) 7"
-          keyboardType="numeric"
-          hint="잘 모르면 홈의 '폐기물 양 미리 계산'을 이용해 보세요."
-        />
-        <View style={styles.presetRow}>
-          <Text style={styles.presetTitle}>빠른 선택:</Text>
-          {['3', '5', '10', '15'].map((t) => (
-            <Pressable
-              key={t}
-              style={[styles.presetChip, wasteTons === t && styles.presetChipActive]}
-              onPress={() => setWasteTons(t)}
-            >
-              <Text style={[styles.presetChipText, wasteTons === t && styles.presetChipTextActive]}>
-                {t}톤{t === '5' ? ' (의무)' : ''}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
        </FadeInUp>
 
         {allbaroMandatory ? (
@@ -202,41 +192,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
-  },
-  presetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  presetTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    marginRight: 4,
-  },
-  presetChip: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  presetChipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
-  presetChipText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  presetChipTextActive: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '800',
   },
   mandatoryNotice: {
     backgroundColor: colors.primarySoft,
