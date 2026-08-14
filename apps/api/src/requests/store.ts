@@ -96,12 +96,16 @@ function normalizeSitePhotoKeys(keys: unknown): string[] {
 /** 상태 전이 리스너 — 매칭 단계별 알림(Phase 4) 등이 연결된다. */
 export type StatusChangeListener = (request: ServiceRequest, from: MatchStatus) => void;
 
+/** 요청 생성 리스너 — 신규 운반요청 콜 알림(Phase 1) 등이 연결된다. */
+export type CreateListener = (request: ServiceRequest) => void;
+
 export class RequestStore {
   private readonly requests = new Map<string, ServiceRequest>();
 
   constructor(
     private readonly persistence?: RequestPersistence,
     private readonly onStatusChange?: StatusChangeListener,
+    private readonly onCreate?: CreateListener,
   ) {
     for (const request of persistence?.load() ?? []) {
       this.requests.set(request.id, request);
@@ -173,6 +177,11 @@ export class RequestStore {
 
     this.requests.set(request.id, request);
     this.persist();
+    try {
+      this.onCreate?.(request);
+    } catch {
+      // 리스너(콜 알림 등) 오류가 요청 생성을 실패시키면 안 된다.
+    }
     return request;
   }
 

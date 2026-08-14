@@ -82,3 +82,79 @@ describe('NotificationService — 매칭 단계별 알림', () => {
     expect(service.list({ requestId: request.id })).toHaveLength(2);
   });
 });
+
+describe('NotificationService — 신규 운반요청 콜 알림(반경 30km)', () => {
+  function transportSetup() {
+    const sent: AppNotification[] = [];
+    const service = new NotificationService({ send: (n) => sent.push(n) });
+    const requestStore = new RequestStore(undefined, undefined, (request) =>
+      service.notifyTransportCall(request, [
+        { id: 't-here', location: { lat: 37.5, lng: 127.5 } }, // 0km
+        { id: 't-near', location: { lat: 37.6, lng: 127.5 } }, // ~11km (반경 내)
+        { id: 't-far', location: { lat: 37.9, lng: 127.5 } }, // ~44km (반경 밖)
+        { id: 't-noloc' }, // 좌표 없음
+      ]),
+    );
+    return { service, requestStore, sent };
+  }
+
+  function createTransport(
+    requestStore: RequestStore,
+    location?: { lat: number; lng: number },
+  ) {
+    return requestStore.create({
+      kind: 'TRANSPORT',
+      requesterId: 'demo-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 6,
+      allbaroRequested: false,
+      loadAddress: '양평군 상차지',
+      unloadAddress: '양평군 하차지',
+      location,
+    });
+  }
+
+  it('현장 좌표가 있으면 반경 30km 이내 운반업체에게만 콜 발송(좌표 없는 업체 제외)', () => {
+    const { requestStore, sent } = transportSetup();
+    createTransport(requestStore, { lat: 37.5, lng: 127.5 });
+
+    const ids = sent.map((n) => n.userId).sort();
+    expect(ids).toEqual(['t-here', 't-near']);
+    expect(sent[0].status).toBe('REQUESTED');
+    expect(sent[0].message).toContain('운반 콜');
+  });
+
+  it('현장 좌표가 없으면 반경 판단 불가 → 전달된 후보 전체에 콜 발송', () => {
+    const { requestStore, sent } = transportSetup();
+    createTransport(requestStore);
+
+    expect(sent.map((n) => n.userId).sort()).toEqual([
+      't-far',
+      't-here',
+      't-near',
+      't-noloc',
+    ]);
+  });
+
+  it('운반요청이 아닌 신규 요청에는 콜을 보내지 않는다', () => {
+    const sent: AppNotification[] = [];
+    const service = new NotificationService({ send: (n) => sent.push(n) });
+    const requestStore = new RequestStore(undefined, undefined, (request) =>
+      service.notifyTransportCall(request, [
+        { id: 't-here', location: { lat: 37.5, lng: 127.5 } },
+      ]),
+    );
+    requestStore.create({
+      kind: 'DEMOLITION',
+      requesterId: 'c-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 7,
+      allbaroRequested: false,
+      siteAddress: '양평군 현장',
+      location: { lat: 37.5, lng: 127.5 },
+    });
+    expect(sent).toHaveLength(0);
+  });
+});

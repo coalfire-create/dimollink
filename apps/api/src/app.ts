@@ -141,8 +141,22 @@ export function createApp(
     new ConsoleNotificationProvider(),
     persistence<AppNotification>('notifications'),
   );
-  const requestStore = new RequestStore(persistence<ServiceRequest>('requests'), (request) =>
-    notificationService.notifyStatusChange(request),
+  const requestStore = new RequestStore(
+    persistence<ServiceRequest>('requests'),
+    (request) => notificationService.notifyStatusChange(request),
+    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
+    (request) => {
+      if (request.kind !== 'TRANSPORT') return;
+      const companies = userStore
+        .list({ userType: 'TRANSPORT_COMPANY' })
+        .filter(
+          (u) =>
+            u.availability === 'ONLINE' &&
+            u.region === request.region &&
+            u.id !== request.requesterId,
+        );
+      notificationService.notifyTransportCall(request, companies);
+    },
   );
   const userStore = new UserStore(persistence<UserProfile>('users'));
   // 번호+비밀번호 로그인용 자격증명(해시). UserProfile 과 분리 저장(응답 노출 방지).

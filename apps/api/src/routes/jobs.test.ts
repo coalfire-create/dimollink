@@ -178,7 +178,7 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     expect((await getJobs(consumer.id)).status).toBe(400);
   });
 
-  it('업체 좌표 기준 가까운 일감이 먼저 오고 distanceKm 가 붙는다', async () => {
+  it('업체 좌표 기준 가까운 일감이 먼저 오고 distanceKm 가 붙는다(반경 30km 밖은 제외)', async () => {
     // 운반업체 기준 좌표.
     const t = userStore.create({
       userType: 'TRANSPORT_COMPANY',
@@ -191,6 +191,18 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     userStore.setApprovalStatus(t.id, 'APPROVED');
     userStore.setAvailability(t.id, 'ONLINE');
 
+    // 반경 30km 밖(약 36km) — 운반업체 콜 피드에서 제외되어야 한다.
+    const outOfRangeReq = requestStore.create({
+      kind: 'TRANSPORT',
+      requesterId: 'consumer-0',
+      region: PILOT.region,
+      wasteCategory: PILOT.wasteCategory,
+      wasteTons: 3,
+      allbaroRequested: false,
+      loadAddress: '반경 밖 상차지',
+      unloadAddress: '하차지',
+      location: { lat: 37.7, lng: 127.8 },
+    });
     const farReq = requestStore.create({
       kind: 'TRANSPORT',
       requesterId: 'consumer-1',
@@ -200,7 +212,7 @@ describe('업체 일감 피드 (/api/jobs)', () => {
       allbaroRequested: false,
       loadAddress: '먼 상차지',
       unloadAddress: '하차지',
-      location: { lat: 37.7, lng: 127.8 },
+      location: { lat: 37.6, lng: 127.6 },
     });
     const nearReq = requestStore.create({
       kind: 'TRANSPORT',
@@ -215,7 +227,9 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     });
 
     const { body } = await getJobs(t.id);
+    // 반경 30km 이내만, 가까운 순으로. 반경 밖(outOfRangeReq)은 노출되지 않는다.
     expect(body.open.map((j: { id: string }) => j.id)).toEqual([nearReq.id, farReq.id]);
+    expect(body.open.some((j: { id: string }) => j.id === outOfRangeReq.id)).toBe(false);
     expect(body.open[0].distanceKm).toBe(0);
     expect(body.open[1].distanceKm).toBeGreaterThan(0);
   });
