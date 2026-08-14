@@ -5,9 +5,11 @@ import {
   USER_APPROVAL_LABELS,
   USER_TYPE_LABELS,
   isCompanyType,
+  offersTransportLabel,
+  usesOffersTransport,
   type RatingSummary,
 } from '@dimol/shared';
-import { getRating, WEB_BASE_URL } from '../api/client';
+import { getRating, setOffersTransport, WEB_BASE_URL } from '../api/client';
 import { Card, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
@@ -20,6 +22,22 @@ export function MyPageScreen() {
   const nav = useNavigation();
   const { logout } = useAuthActions();
   const [rating, setRating] = useState<RatingSummary | null>(null);
+  // 처리장 운반요청 제공 여부 — 세션 값으로 시작하고, 토글 시 로컬 상태로 반영(availability 패턴).
+  const [offersTransport, setOffersTransportState] = useState(user.offersTransport ?? false);
+  const [offersBusy, setOffersBusy] = useState(false);
+
+  async function toggleOffersTransport() {
+    const next = !offersTransport;
+    setOffersBusy(true);
+    try {
+      const updated = await setOffersTransport(user.id, next);
+      setOffersTransportState(updated.offersTransport ?? next);
+    } catch {
+      // 실패 시 상태를 유지한다(알림은 후속).
+    } finally {
+      setOffersBusy(false);
+    }
+  }
 
   useEffect(() => {
     // 평점은 부가 정보 — 실패해도 화면은 뜬다.
@@ -121,6 +139,31 @@ export function MyPageScreen() {
           {user.phone ? <InfoRow label="연락처" value={user.phone} /> : null}
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
+
+        {usesOffersTransport(user.userType) ? (
+          <>
+            <SectionTitle>운반요청 설정</SectionTitle>
+            <Card>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: offersTransport, busy: offersBusy }}
+                onPress={toggleOffersTransport}
+                disabled={offersBusy}
+                style={styles.toggleRow}
+              >
+                <View style={styles.toggleTextBox}>
+                  <Text style={styles.toggleLabel}>운반요청도 함께 받기</Text>
+                  <Text style={styles.toggleHint}>
+                    {offersTransportLabel(offersTransport)} · 배출자에게 배지로 표시돼요
+                  </Text>
+                </View>
+                <View style={[styles.switchTrack, offersTransport && styles.switchTrackOn]}>
+                  <View style={[styles.switchThumb, offersTransport && styles.switchThumbOn]} />
+                </View>
+              </Pressable>
+            </Card>
+          </>
+        ) : null}
 
         {isCompanyType(user.userType) ? (
           <>
@@ -342,6 +385,46 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     marginTop: 4,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: theme.touch.minButtonHeight,
+  },
+  toggleTextBox: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  toggleLabel: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  toggleHint: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: spacing.xs / 2,
+  },
+  switchTrack: {
+    width: 56,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  switchTrackOn: {
+    backgroundColor: colors.primary,
+  },
+  switchThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+  },
+  switchThumbOn: {
+    alignSelf: 'flex-end',
   },
   logoutButton: {
     alignItems: 'center',

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type MarketRate, type ProviderJobs, type ServiceRequest } from '@dimol/shared';
+import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, offersTransportLabel, type MarketRate, type ProviderJobs, type ServiceRequest } from '@dimol/shared';
 import { getMarketRate, listJobs, submitQuote } from '../api/client';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
@@ -96,6 +96,12 @@ export function TreatmentPlantHomeScreen() {
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>정확하고 빠른 반입 처리</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
+              {/* 운반요청 제공 여부 배지 — 마이페이지에서 켜고 끌 수 있어요. */}
+              <View style={styles.transportBadge}>
+                <Text style={styles.transportBadgeText}>
+                  🚚 {offersTransportLabel(user.offersTransport)}
+                </Text>
+              </View>
             </View>
             <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🏭</Text>
           </View>
@@ -205,6 +211,19 @@ const styles = StyleSheet.create({
     fontSize: font.title,
     fontWeight: '800',
     marginTop: 4,
+  },
+  transportBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+  },
+  transportBadgeText: {
+    color: '#FFFFFF',
+    fontSize: font.caption,
+    fontWeight: '700',
   },
   rateCard: {
     backgroundColor: colors.surface,

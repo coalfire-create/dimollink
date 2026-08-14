@@ -27,6 +27,11 @@ export interface MatchCandidate {
   wasteCategories: WasteCategory[];
   /** 비활성(정지/미승인) 업체는 매칭 제외. 미지정 시 활성으로 간주. */
   active?: boolean;
+  /**
+   * [처리장 전용] 이 처리장이 운반요청까지 함께 받는지 여부.
+   * true = 운반요청 가능(원스톱), false/미지정 = 운반은 별도 업체 필요.
+   */
+  offersTransport?: boolean;
 }
 
 /** 거리 계산이 붙은 매칭 후보(거리순 정렬 결과). */

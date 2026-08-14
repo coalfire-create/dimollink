@@ -57,6 +57,16 @@ export function usesCallAvailability(type: UserType): boolean {
   return type === 'TRANSPORT_COMPANY';
 }
 
+/** 운반요청 제공 여부(offersTransport) 를 설정할 수 있는 유형인지(처리장만). */
+export function usesOffersTransport(type: UserType): boolean {
+  return type === 'WASTE_TREATMENT_PLANT';
+}
+
+/** 처리장 운반요청 제공 여부 → 배지 문구. */
+export function offersTransportLabel(offers: boolean | undefined): string {
+  return offers ? '운반요청 가능' : '운반요청 별도 필요';
+}
+
 /** 업체 승인 상태. 소비자는 가입 즉시 APPROVED, 업체는 관리자 승인(Phase 5) 대상. */
 export type UserApprovalStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED';
 
@@ -135,6 +145,11 @@ export interface UserProfile {
   insuranceRegistered: boolean;
   /** 폐기물처리업 허가증 등록 확인 (Phase 2 인증 고도화). */
   permitRegistered: boolean;
+  /**
+   * [처리장 전용] 운반요청까지 함께 처리하는지 여부. WASTE_TREATMENT_PLANT 만 의미가 있고,
+   * 미설정이면 운반 별도(false)로 본다. 예약 화면에서 "운반요청 가능/별도 필요" 배지로 노출한다.
+   */
+  offersTransport?: boolean;
   /** 연결된 소셜 로그인(카카오/구글/네이버). 공급자당 최대 1개. 미연결이면 undefined. */
   socialIdentities?: SocialIdentity[];
   createdAt: string;

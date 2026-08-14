@@ -122,13 +122,22 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
           </>
         ) : null}
         {kind === 'DISPOSAL_RESERVATION' ? (
-          <Field
-            label="방문 희망 날짜"
-            value={visitAt}
-            onChangeText={setVisitAt}
-            placeholder="예) 2026-07-10"
-            hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
-          />
+          <>
+            <Field
+              label="방문 희망 날짜"
+              value={visitAt}
+              onChangeText={setVisitAt}
+              placeholder="예) 2026-07-10"
+              hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
+            />
+            {/* 운반요청 가능 여부 안내 — 매칭된 처리장 기준으로 예약 후 배지로 표시된다(운반 별도면 연계 안내). */}
+            <View style={styles.transportInfo}>
+              <Text style={styles.transportInfoText}>
+                🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이
+                「운반요청 별도 필요」면 운반요청을 함께 하도록 안내해 드려요.
+              </Text>
+            </View>
+          </>
         ) : null}
 
         <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
@@ -192,6 +201,17 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
+  },
+  transportInfo: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+  },
+  transportInfoText: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: font.caption + 6,
   },
   mandatoryNotice: {
     backgroundColor: colors.primarySoft,

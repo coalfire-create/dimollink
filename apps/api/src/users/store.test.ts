@@ -150,6 +150,16 @@ describe('UserStore — 콜대기·배지·인증·승인 갱신', () => {
     );
   });
 
+  it('처리장 운반요청 제공 여부 토글 (처리장만 가능)', () => {
+    const store = new UserStore();
+    const plant = store.create(disposal);
+    const company = store.create(transport);
+    expect(store.setOffersTransport(plant.id, true).offersTransport).toBe(true);
+    expect(store.setOffersTransport(plant.id, false).offersTransport).toBe(false);
+    // 처리장이 아닌 유형은 거부.
+    expect(() => store.setOffersTransport(company.id, true)).toThrow(UserValidationError);
+  });
+
   it('승인/정지 상태 변경 (백오피스 경로)', () => {
     const store = new UserStore();
     const u = store.create(transport);

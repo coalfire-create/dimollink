@@ -179,6 +179,13 @@ export const setAvailability = (userId: string, availability: CallAvailability) 
     body: JSON.stringify({ availability }),
   });
 
+/** 처리장 운반요청 제공 여부 토글 (true=운반요청 가능, false=운반 별도). */
+export const setOffersTransport = (userId: string, offersTransport: boolean) =>
+  api<UserProfile>(`/users/${userId}/offers-transport`, {
+    method: 'PATCH',
+    body: JSON.stringify({ offersTransport }),
+  });
+
 export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId}/rating`);
 
 // ── 업체 일감 (Phase 1 — 수신·수락)

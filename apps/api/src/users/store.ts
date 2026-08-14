@@ -6,6 +6,7 @@ import {
   isValidGeoPoint,
   normalizeBusinessNumber,
   usesCallAvailability,
+  usesOffersTransport,
   type CallAvailability,
   type GeoPoint,
   type SocialIdentity,
@@ -273,6 +274,25 @@ export class UserStore {
       throw new UserValidationError('콜대기 상태 변경은 운반업체만 가능합니다.');
     }
     const updated: UserProfile = { ...user, availability, updatedAt: new Date().toISOString() };
+    this.users.set(id, updated);
+    this.persist();
+    return updated;
+  }
+
+  /**
+   * 처리장 운반요청 제공 여부(offersTransport) 갱신.
+   * 처리장(WASTE_TREATMENT_PLANT)만 호출 가능 — 예약 화면 배지·예약 후 운반 연계의 기준값.
+   */
+  setOffersTransport(id: string, offersTransport: boolean): UserProfile {
+    const user = this.requireUser(id);
+    if (!usesOffersTransport(user.userType)) {
+      throw new UserValidationError('운반요청 제공 여부는 처리장만 설정할 수 있습니다.');
+    }
+    const updated: UserProfile = {
+      ...user,
+      offersTransport,
+      updatedAt: new Date().toISOString(),
+    };
     this.users.set(id, updated);
     this.persist();
     return updated;
