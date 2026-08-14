@@ -261,7 +261,7 @@ export function createApp(
   app.use('/api', createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect));
   app.use('/api', createUsersRouter(userStore, otpService, sessionStore, credentialStore, undefined, oauthService));
   app.use('/api', createReviewsRouter(reviewStore));
-  app.use('/api', createQuotesRouter(quoteStore));
+  app.use('/api', createQuotesRouter(quoteStore, userStore, requestStore));
   // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).
   if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
   app.use('/api', createOffersRouter(offerStore));
