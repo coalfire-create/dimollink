@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp, WEB_BASE_URL } from '../api/client';
+import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
@@ -201,7 +202,10 @@ export function OnboardingScreen({
         </View>
       </FadeInUp>
 
-      {TYPE_OPTIONS.map((option, i) => {
+      {TYPE_OPTIONS.filter(
+        // 인테리어 업체 가입은 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출.
+        (option) => FEATURE_INTERIOR || option.type !== 'INTERIOR_COMPANY',
+      ).map((option, i) => {
         const selected = userType === option.type;
         return (
           <FadeInUp key={option.type} delay={120 + i * 50}>
