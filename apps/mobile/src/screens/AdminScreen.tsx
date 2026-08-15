@@ -2,17 +2,24 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   REQUEST_KIND_LABELS,
+  REQUEST_STATUS_LABELS,
   USER_TYPE_LABELS,
   formatBusinessNumber,
+  type ProviderPricing,
   type ServiceRequest,
   type UserProfile,
 } from '@dimol/shared';
 import {
   ApiError,
   adminExecutePayout,
+  adminListPricing,
   adminListRequests,
   adminListUsers,
+  adminQuotesSummary,
   adminSetApproval,
+  adminWasteMaterials,
+  type AdminQuoteSummaryRow,
+  type AdminWasteMaterialRow,
 } from '../api/client';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
@@ -31,6 +38,10 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
   const [token, setToken] = useState('');
   const [pending, setPending] = useState<UserProfile[] | null>(null);
   const [settleQueue, setSettleQueue] = useState<ServiceRequest[]>([]);
+  const [matchingLog, setMatchingLog] = useState<ServiceRequest[]>([]);
+  const [wasteMaterials, setWasteMaterials] = useState<AdminWasteMaterialRow[]>([]);
+  const [quotesSummary, setQuotesSummary] = useState<AdminQuoteSummaryRow[]>([]);
+  const [pricingRows, setPricingRows] = useState<ProviderPricing[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,6 +58,11 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
       setPending(await adminListUsers(t, 'PENDING'));
       // 작업완료(COMPLETED) = 정산 대기 큐.
       setSettleQueue(await adminListRequests(t, 'COMPLETED').catch(() => []));
+      // 확장 현황(개별 실패는 무시 — 화면은 뜬다).
+      setMatchingLog(await adminListRequests(t).catch(() => []));
+      setWasteMaterials(await adminWasteMaterials(t).catch(() => []));
+      setQuotesSummary(await adminQuotesSummary(t).catch(() => []));
+      setPricingRows(await adminListPricing(t).catch(() => []));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '조회에 실패했습니다.');
       setPending(null);
@@ -173,6 +189,75 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
             )}
           </>
         ) : null}
+
+        {pending !== null ? (
+          <>
+            <SectionTitle>소재별 kg 입력 현황</SectionTitle>
+            {wasteMaterials.length === 0 ? (
+              <Text style={styles.empty}>집계할 소재 데이터가 없어요.</Text>
+            ) : (
+              <Card>
+                {wasteMaterials.map((row) => (
+                  <View key={row.material} style={styles.row}>
+                    <Text style={styles.rowLabel}>{row.label}</Text>
+                    <Text style={styles.rowValue}>
+                      {row.totalKg.toLocaleString('ko-KR')}kg · {row.itemCount}건
+                    </Text>
+                  </View>
+                ))}
+              </Card>
+            )}
+
+            <SectionTitle>밀봉 견적 현황 (건수)</SectionTitle>
+            {quotesSummary.length === 0 ? (
+              <Text style={styles.empty}>제출된 견적이 없어요.</Text>
+            ) : (
+              <Card>
+                {/* 금액은 노출하지 않는다(밀봉). 요청별 제출 건수만. */}
+                {quotesSummary.map((row) => (
+                  <View key={row.requestId} style={styles.row}>
+                    <Text style={styles.rowLabel} numberOfLines={1}>
+                      요청 {row.requestId.slice(0, 8)}…
+                    </Text>
+                    <Text style={styles.rowValue}>견적 {row.quoteCount}건</Text>
+                  </View>
+                ))}
+              </Card>
+            )}
+
+            <SectionTitle>단가 설정 현황</SectionTitle>
+            {pricingRows.length === 0 ? (
+              <Text style={styles.empty}>단가를 설정한 업체가 없어요.</Text>
+            ) : (
+              <Card>
+                {pricingRows.map((row) => (
+                  <View key={row.userId} style={styles.row}>
+                    <Text style={styles.rowLabel} numberOfLines={1}>
+                      {row.userId.slice(0, 8)}…
+                    </Text>
+                    <Text style={styles.rowValue}>{row.unitPrice.toLocaleString('ko-KR')}원</Text>
+                  </View>
+                ))}
+              </Card>
+            )}
+
+            <SectionTitle>매칭 로그</SectionTitle>
+            {matchingLog.length === 0 ? (
+              <Text style={styles.empty}>요청 로그가 없어요.</Text>
+            ) : (
+              <Card>
+                {matchingLog.slice(0, 30).map((r) => (
+                  <View key={r.id} style={styles.row}>
+                    <Text style={styles.rowLabel} numberOfLines={1}>
+                      {REQUEST_KIND_LABELS[r.kind]} · {r.region}
+                    </Text>
+                    <Text style={styles.rowValue}>{REQUEST_STATUS_LABELS[r.status]}</Text>
+                  </View>
+                ))}
+              </Card>
+            )}
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -207,4 +292,12 @@ const styles = StyleSheet.create({
   meta: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
   actions: { flexDirection: 'row', marginTop: spacing.sm },
   actionBtn: { flex: 1 },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  rowLabel: { color: colors.text, fontSize: font.body, fontWeight: '700', flex: 1, marginRight: spacing.sm },
+  rowValue: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
 });

@@ -88,6 +88,67 @@ describe('RequestStore.create — 3종 요청', () => {
   });
 });
 
+describe('RequestStore.create — 소재별 kg 항목(wasteItems)', () => {
+  it('소재별 항목으로 접수하고 wasteTons 를 kg 합계에서 자동 산출', () => {
+    const store = new RequestStore();
+    const r = store.create({
+      ...transport,
+      wasteTons: undefined,
+      wasteItems: [
+        { material: 'REINFORCED_CONCRETE', kg: 4000 },
+        { material: 'WOOD', kg: 1500 },
+      ],
+    });
+    expect(r.wasteItems).toHaveLength(2);
+    expect(r.wasteTons).toBe(5.5); // (4000 + 1500) / 1000
+  });
+
+  it('항목이 비었거나 소재/kg 가 유효하지 않으면 거부', () => {
+    const store = new RequestStore();
+    expect(() =>
+      store.create({ ...transport, wasteTons: undefined, wasteItems: [] }),
+    ).toThrow(RequestValidationError);
+    expect(() =>
+      store.create({
+        ...transport,
+        wasteTons: undefined,
+        wasteItems: [{ material: 'NOT_A_CODE', kg: 100 } as never],
+      }),
+    ).toThrow(RequestValidationError);
+    expect(() =>
+      store.create({
+        ...transport,
+        wasteTons: undefined,
+        wasteItems: [{ material: 'WOOD', kg: 0 } as never],
+      }),
+    ).toThrow(RequestValidationError);
+  });
+
+  it('레거시 wasteTons 만 오면 혼합폐기물 1건으로 하위호환 환산', () => {
+    const store = new RequestStore();
+    const r = store.create({ ...transport, wasteItems: undefined, wasteTons: 3 });
+    expect(r.wasteTons).toBe(3);
+    expect(r.wasteItems).toEqual([{ material: 'MIXED_WASTE', kg: 3000 }]);
+  });
+
+  it('wasteItems·wasteTons 둘 다 없으면 거부', () => {
+    const store = new RequestStore();
+    expect(() =>
+      store.create({ ...transport, wasteItems: undefined, wasteTons: undefined }),
+    ).toThrow(RequestValidationError);
+  });
+});
+
+describe('RequestStore.create — linkedRequestId(예약↔운반 세트)', () => {
+  it('연결 요청 id 를 저장하고, 미지정이면 필드가 없다', () => {
+    const store = new RequestStore();
+    const reservation = store.create(demolition);
+    const linked = store.create({ ...transport, linkedRequestId: reservation.id });
+    expect(linked.linkedRequestId).toBe(reservation.id);
+    expect(store.create(transport).linkedRequestId).toBeUndefined();
+  });
+});
+
 describe('RequestStore.changeStatus — 상태 전이', () => {
   /** REQUESTED 에서 목표 상태까지 정방향 전이로 이동시킨 요청 id. */
   function createAt(store: RequestStore, status: MatchStatus): string {

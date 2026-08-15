@@ -2,6 +2,8 @@ import React from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Image,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -11,8 +13,49 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import { SUPPORT_PHONE, SUPPORT_PHONE_TEL_URL } from '@dimol/shared';
 import { statusColor, theme } from '../theme';
 import { PressableScale, usePressScale } from './motion';
+import biumLogo from '../../assets/bium_logo.png';
+
+/**
+ * 우하단 고객센터 플로팅 버튼 — 주요 화면 위에 떠 있는 원형 문의 버튼.
+ * 기본 동작은 고객센터 전화 연결(tel:). onPress 를 주면 문의 폼·채팅 등으로 교체할 수 있다.
+ */
+export function FloatingSupportButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`고객센터 문의 ${SUPPORT_PHONE}`}
+      onPress={onPress ?? (() => Linking.openURL(SUPPORT_PHONE_TEL_URL))}
+      style={styles.fab}
+    >
+      <Text style={styles.fabIcon}>💬</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * 빈 이미지 자리 placeholder — 이미지가 없을 때 회색 빈칸 대신 비움(BEEUM) 로고를 노출한다.
+ * 사진 업로드 전 미리보기 자리 등 "빈 이미지 자리"의 기본값으로 재사용한다.
+ */
+export function ImagePlaceholder({
+  height = 220,
+  label,
+  children,
+}: {
+  height?: number;
+  label?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <View style={[styles.imagePlaceholder, { height }]}>
+      <Image source={biumLogo} style={styles.imagePlaceholderLogo} resizeMode="contain" />
+      {label ? <Text style={styles.imagePlaceholderLabel}>{label}</Text> : null}
+      {children}
+    </View>
+  );
+}
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -201,6 +244,44 @@ export function EmptyState({
 }
 
 const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: 96, // 하단 탭바 위로 띄운다.
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    ...theme.shadow.primary,
+  },
+  fabIcon: {
+    fontSize: 26,
+  },
+  imagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    width: '100%',
+  },
+  imagePlaceholderLogo: {
+    width: 120,
+    height: 96,
+    opacity: 0.9,
+    marginBottom: spacing.sm,
+  },
+  imagePlaceholderLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   button: {
     alignItems: 'center',
     borderRadius: radius.button,

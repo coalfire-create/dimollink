@@ -1,8 +1,22 @@
 import React, { createContext, useContext } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { RequestKind, UserProfile } from '@dimol/shared';
+import type { GeoPoint, RequestKind, UserProfile, WasteItem } from '@dimol/shared';
 import { ROLE_CONFIG } from './roleConfig';
 import { theme } from './theme';
+
+/**
+ * 요청 폼 프리필 — 다른 요청(처리장 예약)이나 사진 AI 분석 결과에서
+ * 소재/좌표/연결 요청 id 를 넘겨 요청 폼을 미리 채운다.
+ */
+export interface RequestFormPrefill {
+  wasteItems?: WasteItem[];
+  region?: string;
+  location?: GeoPoint;
+  loadAddress?: string;
+  unloadAddress?: string;
+  /** 연결된 요청 id(예약↔운반 세트). */
+  linkedRequestId?: string;
+}
 
 /**
  * 경량 내비게이션 — 탭 4개 + 푸시 스택.
@@ -15,7 +29,7 @@ export type Route =
   | { name: 'requests' }
   | { name: 'notifications' }
   | { name: 'mypage' }
-  | { name: 'requestForm'; kind: RequestKind }
+  | { name: 'requestForm'; kind: RequestKind; prefill?: RequestFormPrefill }
   | { name: 'requestDetail'; requestId: string }
   | { name: 'chat'; requestId: string; counterpartyId: string }
   | { name: 'payment'; requestId: string; source?: 'waste' | 'interior' }

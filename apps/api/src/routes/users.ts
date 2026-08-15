@@ -217,6 +217,21 @@ export function createUsersRouter(
     }
   });
 
+  // PATCH /api/users/:id/offers-transport — 처리장 운반요청 제공 여부 토글 (처리장만)
+  router.patch('/users/:id/offers-transport', (req, res) => {
+    if (!assertSelf(req, res)) return;
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof body.offersTransport !== 'boolean') {
+      res.status(400).json({ error: 'offersTransport(true/false)가 필요합니다.' });
+      return;
+    }
+    try {
+      res.json(store.setOffersTransport(req.params.id, body.offersTransport));
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
   // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
   router.patch('/users/:id/certifications', (req, res) => {
     if (!assertSelf(req, res)) return;

@@ -70,7 +70,9 @@ export function createRequestsRouter(
         requesterId: authUserId(req),
         region: body.region,
         wasteCategory: body.wasteCategory,
-        wasteTons: Number(body.wasteTons),
+        // 신규: 소재별 항목(종류+kg). 하위호환으로 wasteTons 도 함께 넘긴다(둘 다 store 에서 정규화).
+        wasteItems: Array.isArray(body.wasteItems) ? (body.wasteItems as CreateRequestInput['wasteItems']) : undefined,
+        wasteTons: body.wasteTons !== undefined ? Number(body.wasteTons) : undefined,
         allbaroRequested: body.allbaroRequested === true,
         sitePhotoKeys: body.sitePhotoKeys,
         location,
@@ -78,6 +80,7 @@ export function createRequestsRouter(
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,
         visitAt: body.visitAt,
+        linkedRequestId: typeof body.linkedRequestId === 'string' ? body.linkedRequestId : undefined,
       } as CreateRequestInput);
       res.status(201).json(request);
     } catch (err) {

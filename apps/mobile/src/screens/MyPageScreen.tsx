@@ -2,13 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   CALL_AVAILABILITY_LABELS,
+  SUPPORT_PHONE,
+  SUPPORT_PHONE_TEL_URL,
   USER_APPROVAL_LABELS,
   USER_TYPE_LABELS,
   isCompanyType,
+  offersTransportLabel,
+  pricingUnitLabel,
+  usesOffersTransport,
+  usesPricing,
   type RatingSummary,
 } from '@dimol/shared';
-import { getRating, WEB_BASE_URL } from '../api/client';
-import { Card, InfoRow, SectionTitle } from '../components/ui';
+import { getPricing, getRating, setOffersTransport, setPricing, WEB_BASE_URL } from '../api/client';
+import { AppButton, Card, ErrorBanner, Field, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
@@ -20,6 +26,29 @@ export function MyPageScreen() {
   const nav = useNavigation();
   const { logout } = useAuthActions();
   const [rating, setRating] = useState<RatingSummary | null>(null);
+  // 처리장 운반요청 제공 여부 — 세션 값으로 시작하고, 토글 시 로컬 상태로 반영(availability 패턴).
+  const [offersTransport, setOffersTransportState] = useState(user.offersTransport ?? false);
+  const [offersBusy, setOffersBusy] = useState(false);
+
+  async function toggleOffersTransport() {
+    const next = !offersTransport;
+    setOffersBusy(true);
+    try {
+      const updated = await setOffersTransport(user.id, next);
+      setOffersTransportState(updated.offersTransport ?? next);
+    } catch {
+      // 실패 시 상태를 유지한다(알림은 후속).
+    } finally {
+      setOffersBusy(false);
+    }
+  }
+
+  // 업체 단가(마이페이지 설정) — 저장된 값을 불러와 입력칸 초기값으로.
+  const [priceInput, setPriceInput] = useState('');
+  const [priceSaved, setPriceSaved] = useState<number | null>(null);
+  const [priceBusy, setPriceBusy] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceDone, setPriceDone] = useState(false);
 
   useEffect(() => {
     // 평점은 부가 정보 — 실패해도 화면은 뜬다.
@@ -27,6 +56,39 @@ export function MyPageScreen() {
       .then(setRating)
       .catch(() => setRating(null));
   }, [user.id]);
+
+  useEffect(() => {
+    if (!usesPricing(user.userType)) return;
+    getPricing(user.id)
+      .then((p) => {
+        if (p) {
+          setPriceSaved(p.unitPrice);
+          setPriceInput(String(p.unitPrice));
+        }
+      })
+      .catch(() => undefined);
+  }, [user.id, user.userType]);
+
+  async function savePricing() {
+    setPriceError(null);
+    setPriceDone(false);
+    const value = Number(priceInput.replace(/\D/g, ''));
+    if (!Number.isInteger(value) || value <= 0) {
+      setPriceError('단가(원, 양의 정수)를 정확히 입력해 주세요.');
+      return;
+    }
+    setPriceBusy(true);
+    try {
+      const saved = await setPricing(user.id, value);
+      setPriceSaved(saved.unitPrice);
+      setPriceInput(String(saved.unitPrice));
+      setPriceDone(true);
+    } catch {
+      setPriceError('단가 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setPriceBusy(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -122,6 +184,54 @@ export function MyPageScreen() {
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 
+        {usesOffersTransport(user.userType) ? (
+          <>
+            <SectionTitle>운반요청 설정</SectionTitle>
+            <Card>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityState={{ checked: offersTransport, busy: offersBusy }}
+                onPress={toggleOffersTransport}
+                disabled={offersBusy}
+                style={styles.toggleRow}
+              >
+                <View style={styles.toggleTextBox}>
+                  <Text style={styles.toggleLabel}>운반요청도 함께 받기</Text>
+                  <Text style={styles.toggleHint}>
+                    {offersTransportLabel(offersTransport)} · 배출자에게 배지로 표시돼요
+                  </Text>
+                </View>
+                <View style={[styles.switchTrack, offersTransport && styles.switchTrackOn]}>
+                  <View style={[styles.switchThumb, offersTransport && styles.switchThumbOn]} />
+                </View>
+              </Pressable>
+            </Card>
+          </>
+        ) : null}
+
+        {usesPricing(user.userType) ? (
+          <>
+            <SectionTitle>내 단가</SectionTitle>
+            <Card>
+              <Field
+                label={`기준 단가 (${pricingUnitLabel(user.userType)})`}
+                value={priceInput}
+                onChangeText={(v) => setPriceInput(v.replace(/[^0-9]/g, ''))}
+                placeholder="예) 80000"
+                keyboardType="number-pad"
+                hint={
+                  priceSaved !== null
+                    ? `현재 저장된 단가: ${priceSaved.toLocaleString('ko-KR')}${pricingUnitLabel(user.userType)} · 견적 예상금액에 반영돼요`
+                    : '견적 제출 시 예상 금액 기본값으로 쓰여요.'
+                }
+              />
+              <ErrorBanner message={priceError} />
+              {priceDone ? <Text style={styles.priceDone}>✓ 단가를 저장했어요</Text> : null}
+              <AppButton label="단가 저장" onPress={savePricing} loading={priceBusy} />
+            </Card>
+          </>
+        ) : null}
+
         {isCompanyType(user.userType) ? (
           <>
             <SectionTitle>평가</SectionTitle>
@@ -174,13 +284,18 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable
             style={styles.menuItem}
-            onPress={() => Linking.openURL('mailto:coalfireant@gmail.com')}
+            accessibilityRole="button"
+            accessibilityLabel={`고객센터 전화 ${SUPPORT_PHONE}`}
+            onPress={() => Linking.openURL(SUPPORT_PHONE_TEL_URL)}
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>💬</Text>
+                <Text style={styles.menuIcon}>📞</Text>
               </View>
-              <Text style={styles.menuLabel}>고객센터</Text>
+              <View>
+                <Text style={styles.menuLabel}>고객센터 전화 문의</Text>
+                <Text style={styles.menuSubLabel}>{SUPPORT_PHONE}</Text>
+              </View>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
@@ -307,6 +422,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
   },
+  menuSubLabel: {
+    fontSize: font.caption,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   menuDivider: {
     height: 1,
     backgroundColor: colors.border,
@@ -342,6 +462,52 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     marginTop: 4,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: theme.touch.minButtonHeight,
+  },
+  toggleTextBox: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  toggleLabel: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  toggleHint: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: spacing.xs / 2,
+  },
+  switchTrack: {
+    width: 56,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  switchTrackOn: {
+    backgroundColor: colors.primary,
+  },
+  switchThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: colors.background,
+  },
+  switchThumbOn: {
+    alignSelf: 'flex-end',
+  },
+  priceDone: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
   },
   logoutButton: {
     alignItems: 'center',

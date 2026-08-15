@@ -14,6 +14,7 @@ import type {
   OtpRequestResult,
   OtpVerifyResult,
   ProviderJobs,
+  ProviderPricing,
   ProviderRole,
   Quote,
   RatingSummary,
@@ -26,6 +27,7 @@ import type {
   UserProfile,
   UserType,
   VolumeEstimate,
+  WasteItem,
 } from '@dimol/shared';
 
 /**
@@ -178,7 +180,25 @@ export const setAvailability = (userId: string, availability: CallAvailability) 
     body: JSON.stringify({ availability }),
   });
 
+/** 처리장 운반요청 제공 여부 토글 (true=운반요청 가능, false=운반 별도). */
+export const setOffersTransport = (userId: string, offersTransport: boolean) =>
+  api<UserProfile>(`/users/${userId}/offers-transport`, {
+    method: 'PATCH',
+    body: JSON.stringify({ offersTransport }),
+  });
+
 export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId}/rating`);
+
+// ── 업체 단가 (Phase 2 — 마이페이지 설정)
+/** 내 단가 조회(본인만). 미설정이면 null. */
+export const getPricing = (userId: string) =>
+  api<ProviderPricing | null>(`/pricing/${encodeURIComponent(userId)}`);
+/** 내 단가 설정(본인만). */
+export const setPricing = (userId: string, unitPrice: number) =>
+  api<ProviderPricing>(`/pricing/${encodeURIComponent(userId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ unitPrice }),
+  });
 
 // ── 업체 일감 (Phase 1 — 수신·수락)
 /** 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned). */
@@ -198,7 +218,10 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  wasteTons: number;
+  /** 소재별 항목(종류+kg). 최소 1개. 서버가 wasteTons 를 합계에서 자동 산출한다. */
+  wasteItems?: WasteItem[];
+  /** 레거시(하위호환) — wasteItems 미지정 시에만 사용. */
+  wasteTons?: number;
   allbaroRequested: boolean;
   /** 현장 좌표(거리 기반 매칭용, 선택). */
   location?: GeoPoint;
@@ -206,6 +229,8 @@ export interface CreateRequestInput {
   loadAddress?: string;
   unloadAddress?: string;
   visitAt?: string;
+  /** 연결된 요청 id — 예약↔운반 세트 추적(선택). */
+  linkedRequestId?: string;
 }
 
 export const createRequest = (input: CreateRequestInput) =>
@@ -253,6 +278,21 @@ export const sendMessage = (requestId: string, senderId: string, content: string
 // ── 현장 사진 AI 분석 (Phase 6): 소재 식별 + 철거 공정 안내
 export const analyzeSite = (input: { imageBase64: string; mimeType?: string; note?: string }) =>
   api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
+
+/** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
+export interface PhotoWasteItemsResult {
+  analysis: SiteAnalysis;
+  wasteItems: WasteItem[];
+}
+export const analyzeSiteWasteItems = (input: {
+  imageBase64: string;
+  mimeType?: string;
+  floorAreaM2?: number;
+}) =>
+  api<PhotoWasteItemsResult>('/site-analysis/waste-items', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 
 // ── 물량 추정 (Phase 6)
 export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
@@ -360,4 +400,33 @@ export const adminExecutePayout = (adminToken: string, matchRequestId: string, c
     method: 'POST',
     headers: { 'x-admin-token': adminToken },
     body: JSON.stringify({ matchRequestId, completedDate }),
+  });
+
+// ── 백오피스 확장 현황 (Phase 5)
+/** 소재별 kg 입력 현황(전체 요청 wasteItems 집계). */
+export interface AdminWasteMaterialRow {
+  material: string;
+  label: string;
+  totalKg: number;
+  itemCount: number;
+}
+export const adminWasteMaterials = (adminToken: string) =>
+  api<AdminWasteMaterialRow[]>('/admin/waste-materials', {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+/** 밀봉 견적 현황 — 요청별 제출 건수(금액 비노출). */
+export interface AdminQuoteSummaryRow {
+  requestId: string;
+  quoteCount: number;
+}
+export const adminQuotesSummary = (adminToken: string) =>
+  api<AdminQuoteSummaryRow[]>('/admin/quotes-summary', {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+/** 업체 단가 설정 현황. */
+export const adminListPricing = (adminToken: string) =>
+  api<ProviderPricing[]>('/admin/pricing', {
+    headers: { 'x-admin-token': adminToken },
   });

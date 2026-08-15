@@ -7,7 +7,7 @@ import {
   type SiteAnalysis,
 } from '@dimol/shared';
 import { ApiError, analyzeSite } from '../api/client';
-import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
+import { AppButton, Card, ErrorBanner, ImagePlaceholder, StickyFooter } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader } from '../navigation';
 import { theme } from '../theme';
@@ -109,13 +109,12 @@ export function SiteAnalysisScreen() {
             <Image source={{ uri: image.uri }} style={styles.preview} resizeMode="cover" />
           </FadeInUp>
         ) : (
-          <View style={styles.pickBox}>
-            <Text style={styles.pickIcon}>📸</Text>
-            <Text style={styles.pickText}>철거 현장 사진을 업로드해 주세요</Text>
+          // 빈 이미지 자리 — 회색 빈칸 대신 비움 로고 placeholder 를 기본으로 노출한다.
+          <ImagePlaceholder label="철거 현장 사진을 업로드해 주세요">
             <PressableScale style={styles.sampleQuickBtn} onPress={loadSampleAndAnalyze}>
               <Text style={styles.sampleQuickBtnText}>⚡️ 샘플 사진으로 AI 즉시 분석 시연</Text>
             </PressableScale>
-          </View>
+          </ImagePlaceholder>
         )}
 
         <View style={styles.pickRow}>
@@ -266,17 +265,6 @@ const styles = StyleSheet.create({
   },
   intro: { color: colors.textMuted, fontSize: font.body, marginBottom: spacing.md },
   preview: { borderRadius: radius.card, height: 220, width: '100%' },
-  pickBox: {
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    justifyContent: 'center',
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-  },
   sampleQuickBtn: {
     backgroundColor: '#2563EB',
     borderRadius: 999,
@@ -289,8 +277,6 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     fontWeight: '800',
   },
-  pickIcon: { fontSize: 44, marginBottom: spacing.xs },
-  pickText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
   pickRow: { flexDirection: 'row', marginTop: spacing.sm },
   pickBtn: {
     alignItems: 'center',

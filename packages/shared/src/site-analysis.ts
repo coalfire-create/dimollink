@@ -7,6 +7,9 @@
  * 실제 작업은 전문가 현장 실사·구조안전진단·석면조사·관계 법령을 따라야 한다.
  */
 
+import type { WasteItem } from './request.js';
+import type { VisionMaterialCode } from './vision-taxonomy.js';
+
 export type AnalysisConfidence = 'LOW' | 'MEDIUM' | 'HIGH';
 
 /** 식별 소재 분류. HAZARD 는 석면·중금속 등 위험/특별관리 대상. */
@@ -76,3 +79,49 @@ export interface SiteAnalysis {
 /** UI·응답에 반드시 함께 노출하는 안전 고지. */
 export const SITE_ANALYSIS_DISCLAIMER =
   '사진 기반 참고용 분석입니다. 실제 철거는 구조안전진단·석면조사 등 전문가 현장 실사와 관계 법령을 반드시 따르세요. 위험 소재(석면 등)는 임의로 제거하지 마세요.';
+
+/**
+ * 사진 분석 소재(MaterialCategory 10종) → 디몰비전 자재 분류(VisionMaterialCode 12종) 매핑.
+ * 사진 기반 자동 채움에서 요청서의 wasteItems 소재 코드로 변환하는 단일 원천이다.
+ */
+export const SITE_ANALYSIS_TO_VISION_MATERIAL: Record<MaterialCategory, VisionMaterialCode> = {
+  CONCRETE: 'REINFORCED_CONCRETE',
+  STEEL: 'METAL',
+  BRICK: 'BRICK_MASONRY',
+  WOOD: 'WOOD',
+  GLASS: 'GLASS',
+  GYPSUM: 'GYPSUM_BOARD',
+  INSULATION: 'WATERPROOF_INSULATION',
+  ROOFING: 'ROOFING_SLATE',
+  HAZARD: 'MIXED_WASTE',
+  OTHER: 'MIXED_WASTE',
+};
+
+/**
+ * 총 중량 정보가 없을 때 소재별로 채우는 기본 참고 중량(kg).
+ * 사진만으로는 중량 확정이 어려우므로 사용자가 조정하도록 유도한다(디몰비전 VLM 연동 시 대체).
+ */
+export const DEFAULT_PHOTO_MATERIAL_KG = 500;
+
+/**
+ * 사진 분석 결과 → 요청서 소재별 항목(wasteItems)으로 변환.
+ * - 식별 소재를 VisionMaterialCode 로 매핑하고 중복 코드는 합쳐(균등 분배) 항목화한다.
+ * - totalKg(예: VolumeEstimator 추정 톤×1000)가 있으면 소재 수로 균등 분배하고,
+ *   없으면 소재별 기본 중량으로 채운다. 어느 경우든 참고값 — 사용자가 최종 조정한다.
+ */
+export function siteAnalysisToWasteItems(
+  materials: readonly DetectedMaterial[],
+  totalKg?: number,
+): WasteItem[] {
+  const codes: VisionMaterialCode[] = [];
+  for (const m of materials) {
+    const code = SITE_ANALYSIS_TO_VISION_MATERIAL[m.category];
+    if (!codes.includes(code)) codes.push(code);
+  }
+  if (codes.length === 0) return [];
+  const per =
+    typeof totalKg === 'number' && totalKg > 0
+      ? Math.max(1, Math.round(totalKg / codes.length))
+      : DEFAULT_PHOTO_MATERIAL_KG;
+  return codes.map((material) => ({ material, kg: per }));
+}

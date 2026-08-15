@@ -21,6 +21,19 @@ export const SETTLEMENT_DELAY_BUSINESS_DAYS = 1;
 /** 올바로 전자인계서 의무신고 기준: 건설폐기물 5톤 이상. */
 export const ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON = 5;
 
+/**
+ * 운반업체 콜 매칭 반경 30km.
+ * 배출 현장(상차지) 기준 이 반경 이내의 운반업체만 후보로 노출하고, 신규 운반요청 "콜" 알림도
+ * 이 반경 안에서만 발송한다. (반경 조정 시 이 상수만 수정하고 하드코딩하지 않는다.)
+ */
+export const TRANSPORT_MATCH_RADIUS_KM = 30;
+
+/** 고객센터 대표 전화번호(표시용). 문의 화면·고객센터 버튼에서 노출한다. */
+export const SUPPORT_PHONE = '070-4577-7960';
+
+/** 고객센터 전화 연결용 tel: URL(숫자만). Linking.openURL 에 사용. */
+export const SUPPORT_PHONE_TEL_URL = 'tel:07045777960';
+
 /** 파일럿 범위 (이 범위를 벗어난 기능은 로드맵의 지정 Phase 전까지 만들지 않는다). */
 export const PILOT = {
   region: '양평',

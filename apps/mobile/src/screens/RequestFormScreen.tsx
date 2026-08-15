@@ -1,14 +1,24 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   PILOT,
+  wasteItemsToTons,
   type RequestKind,
+  type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, createRequest } from '../api/client';
+import { ApiError, analyzeSiteWasteItems, createRequest } from '../api/client';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
+import {
+  WasteItemsInput,
+  draftsToWasteItems,
+  emptyWasteDraft,
+  wasteItemsToDrafts,
+  type WasteItemDraft,
+} from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
 import { theme } from '../theme';
 
 /**
@@ -23,27 +33,76 @@ const KIND_TITLES: Record<RequestKind, string> = {
   DISPOSAL_RESERVATION: '처리장 예약',
 };
 
-export function RequestFormScreen({ kind }: { kind: RequestKind }) {
+export function RequestFormScreen({
+  kind,
+  prefill,
+}: {
+  kind: RequestKind;
+  prefill?: RequestFormPrefill;
+}) {
   const nav = useNavigation();
   const user = useSession();
-  const [wasteTons, setWasteTons] = useState('');
-  const [region, setRegion] = useState(user.region ?? '');
+  const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>(
+    prefill?.wasteItems && prefill.wasteItems.length > 0
+      ? wasteItemsToDrafts(prefill.wasteItems)
+      : [emptyWasteDraft()],
+  );
+  const [region, setRegion] = useState(prefill?.region ?? user.region ?? '');
   const [siteAddress, setSiteAddress] = useState('');
-  const [loadAddress, setLoadAddress] = useState('');
-  const [unloadAddress, setUnloadAddress] = useState('');
+  const [loadAddress, setLoadAddress] = useState(prefill?.loadAddress ?? '');
+  const [unloadAddress, setUnloadAddress] = useState(prefill?.unloadAddress ?? '');
   const [visitAt, setVisitAt] = useState('');
   const [allbaroRequested, setAllbaroRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // 처리장 예약 접수 직후 "운반요청도 함께 하기" 연계 스텝을 띄우기 위한 상태.
+  const [reservationDone, setReservationDone] = useState<ServiceRequest | null>(null);
+  // 사진 기반 소재·무게 자동 채움 상태.
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoSummary, setPhotoSummary] = useState<string | null>(null);
 
-  const tons = Number(wasteTons);
-  const allbaroMandatory =
-    Number.isFinite(tons) && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
+  async function fillFromPhoto() {
+    setError(null);
+    setPhotoSummary(null);
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.5,
+    });
+    const asset = res.canceled ? undefined : res.assets[0];
+    if (!asset?.base64) return;
+    setPhotoBusy(true);
+    try {
+      const { analysis, wasteItems } = await analyzeSiteWasteItems({
+        imageBase64: asset.base64,
+        mimeType: asset.mimeType,
+      });
+      if (wasteItems.length === 0) {
+        setPhotoSummary('사진에서 소재를 찾지 못했어요. 직접 입력해 주세요.');
+        return;
+      }
+      setWasteDrafts(wasteItemsToDrafts(wasteItems));
+      const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
+      setPhotoSummary(`${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`);
+    } catch {
+      setError('사진 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  const wasteItems = draftsToWasteItems(wasteDrafts);
+  const tons = wasteItemsToTons(wasteItems);
+  const allbaroMandatory = tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
 
   async function submit() {
     setError(null);
     if (region.trim().length === 0) {
       setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
+      return;
+    }
+    if (wasteItems.length === 0) {
+      setError('폐기물 소재를 1개 이상 선택하고 예상 무게(kg)를 입력해 주세요.');
       return;
     }
     setSubmitting(true);
@@ -53,14 +112,22 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
         requesterId: user.id,
         region: region.trim(),
         wasteCategory: PILOT.wasteCategory,
-        wasteTons: tons,
+        wasteItems,
         allbaroRequested,
+        location: prefill?.location,
+        linkedRequestId: prefill?.linkedRequestId,
         siteAddress: kind === 'DEMOLITION' ? siteAddress.trim() : undefined,
         loadAddress: kind === 'TRANSPORT' ? loadAddress.trim() : undefined,
         unloadAddress: kind === 'TRANSPORT' ? unloadAddress.trim() : undefined,
         // 파일럿: 날짜만 입력받아 정오(KST) 방문으로 접수한다.
         visitAt: kind === 'DISPOSAL_RESERVATION' ? `${visitAt.trim()}T12:00:00+09:00` : undefined,
       });
+      // 처리장 예약이 접수되면 바로 상세로 가지 않고 "운반요청도 함께 하기" 연계 스텝을 띄운다.
+      if (kind === 'DISPOSAL_RESERVATION') {
+        setReservationDone(created);
+        setSubmitting(false);
+        return;
+      }
       nav.pop();
       nav.push({ name: 'requestDetail', requestId: created.id });
     } catch (err) {
@@ -68,6 +135,60 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // 연계 스텝: 같은 소재/무게/좌표를 프리필한 운반요청 폼으로 이동(두 요청을 linkedRequestId 로 묶음).
+  function goTransportLink() {
+    const done = reservationDone;
+    if (!done) return;
+    nav.pop();
+    nav.push({
+      name: 'requestForm',
+      kind: 'TRANSPORT',
+      prefill: {
+        wasteItems,
+        region: done.region,
+        location: done.location,
+        linkedRequestId: done.id,
+      },
+    });
+  }
+
+  function finishReservation() {
+    const done = reservationDone;
+    if (!done) return;
+    nav.pop();
+    nav.push({ name: 'requestDetail', requestId: done.id });
+  }
+
+  if (reservationDone) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="예약 접수 완료" />
+        <ScrollView contentContainerStyle={styles.content}>
+          <FadeInUp>
+            <View style={styles.doneCard}>
+              <Text style={styles.doneEmoji}>✅</Text>
+              <Text style={styles.doneTitle}>처리장 예약이 접수됐어요</Text>
+              <Text style={styles.doneBody}>
+                매칭된 처리장이 「운반요청 별도 필요」이면 폐기물을 처리장까지 옮길 운반이 따로 필요해요.
+                지금 같은 소재·무게로 운반요청도 함께 접수할 수 있어요.
+              </Text>
+            </View>
+          </FadeInUp>
+        </ScrollView>
+        <StickyFooter>
+          <AppButton label="운반요청도 함께 하기" onPress={goTransportLink} />
+          <Pressable
+            onPress={finishReservation}
+            accessibilityRole="button"
+            style={styles.secondaryBtn}
+          >
+            <Text style={styles.secondaryBtnText}>예약만 하고 마치기</Text>
+          </Pressable>
+        </StickyFooter>
+      </View>
+    );
   }
 
   return (
@@ -111,37 +232,41 @@ export function RequestFormScreen({ kind }: { kind: RequestKind }) {
           </>
         ) : null}
         {kind === 'DISPOSAL_RESERVATION' ? (
-          <Field
-            label="방문 희망 날짜"
-            value={visitAt}
-            onChangeText={setVisitAt}
-            placeholder="예) 2026-07-10"
-            hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
-          />
+          <>
+            <Field
+              label="방문 희망 날짜"
+              value={visitAt}
+              onChangeText={setVisitAt}
+              placeholder="예) 2026-07-10"
+              hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
+            />
+            {/* 운반요청 가능 여부 안내 — 매칭된 처리장 기준으로 예약 후 배지로 표시된다(운반 별도면 연계 안내). */}
+            <View style={styles.transportInfo}>
+              <Text style={styles.transportInfoText}>
+                🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이
+                「운반요청 별도 필요」면 운반요청을 함께 하도록 안내해 드려요.
+              </Text>
+            </View>
+          </>
         ) : null}
 
-        <Field
-          label="폐기물 예상 무게 (톤)"
-          value={wasteTons}
-          onChangeText={setWasteTons}
-          placeholder="예) 7"
-          keyboardType="numeric"
-          hint="잘 모르면 홈의 '폐기물 양 미리 계산'을 이용해 보세요."
-        />
-        <View style={styles.presetRow}>
-          <Text style={styles.presetTitle}>빠른 선택:</Text>
-          {['3', '5', '10', '15'].map((t) => (
+        {kind === 'TRANSPORT' ? (
+          <>
             <Pressable
-              key={t}
-              style={[styles.presetChip, wasteTons === t && styles.presetChipActive]}
-              onPress={() => setWasteTons(t)}
+              accessibilityRole="button"
+              style={styles.photoFillBtn}
+              onPress={fillFromPhoto}
+              disabled={photoBusy}
             >
-              <Text style={[styles.presetChipText, wasteTons === t && styles.presetChipTextActive]}>
-                {t}톤{t === '5' ? ' (의무)' : ''}
+              <Text style={styles.photoFillText}>
+                {photoBusy ? '사진 분석 중…' : '📷 사진으로 소재·무게 자동 채우기'}
               </Text>
             </Pressable>
-          ))}
-        </View>
+            {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
+          </>
+        ) : null}
+
+        <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
        </FadeInUp>
 
         {allbaroMandatory ? (
@@ -203,40 +328,70 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
   },
-  presetRow: {
-    flexDirection: 'row',
+  doneCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: spacing.md,
     alignItems: 'center',
-    marginBottom: spacing.md,
-    gap: 6,
-    flexWrap: 'wrap',
   },
-  presetTitle: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-    marginRight: 4,
+  doneEmoji: {
+    fontSize: 48,
+    marginBottom: spacing.sm,
   },
-  presetChip: {
-    backgroundColor: '#F1F5F9',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  presetChipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-  },
-  presetChipText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  presetChipTextActive: {
-    color: colors.primary,
-    fontSize: 13,
+  doneTitle: {
+    color: colors.text,
+    fontSize: font.title,
     fontWeight: '800',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  doneBody: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    lineHeight: font.body + 8,
+    textAlign: 'center',
+  },
+  secondaryBtn: {
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  secondaryBtnText: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  photoFillBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight,
+    borderRadius: radius.button,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: colors.primarySoft,
+    marginBottom: spacing.xs,
+  },
+  photoFillText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '800',
+  },
+  photoSummary: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginBottom: spacing.sm,
+  },
+  transportInfo: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+  },
+  transportInfoText: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: font.caption + 6,
   },
   mandatoryNotice: {
     backgroundColor: colors.primarySoft,

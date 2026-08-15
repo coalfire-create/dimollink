@@ -12,6 +12,7 @@ export * from './auth.js';
 export * from './review.js';
 export * from './matching.js';
 export * from './quote.js';
+export * from './pricing.js';
 export * from './interior.js';
 export * from './offer.js';
 export * from './notification.js';

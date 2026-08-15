@@ -1,4 +1,5 @@
 import {
+  TRANSPORT_MATCH_RADIUS_KM,
   requestKindForProvider,
   type MatchStatus,
   type ProviderJobs,
@@ -52,7 +53,11 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
           .filter((r) => r.requesterId !== providerId);
 
     // 거리 기반 매칭 추천 — 업체 기준 좌표에서 가까운 순으로 정렬(+distanceKm).
-    const open = rankByDistance(provider.location, openRaw);
+    // 운반업체 콜 피드는 기본 반경 30km 이내 일감만 노출한다(좌표 없는 일감은 그대로 유지).
+    const open = rankByDistance(provider.location, openRaw, {
+      maxRadiusKm:
+        provider.userType === 'TRANSPORT_COMPANY' ? TRANSPORT_MATCH_RADIUS_KM : undefined,
+    });
 
     const assigned = requestStore
       .list({ providerId })

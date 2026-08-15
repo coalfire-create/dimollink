@@ -1,6 +1,7 @@
 import type { GeoPoint } from './geo.js';
 import type { MatchStatus, WasteCategory } from './types.js';
 import type { UserType } from './user.js';
+import { isVisionMaterialCode, type VisionMaterialCode } from './vision-taxonomy.js';
 
 /**
  * 서비스 요청 3종 (철거요청 / 운반요청 / 처리장예약 · 로드맵 Phase 1 §4.2).
@@ -17,6 +18,40 @@ export const REQUEST_KINDS: readonly RequestKind[] = [
   'TRANSPORT',
   'DISPOSAL_RESERVATION',
 ];
+
+/**
+ * 소재별 폐기물 항목 — 철거업체→처리장/운반 요청 시 소재 종류·중량(kg)을 개별로 기재한다.
+ * material 은 디몰비전 자재 분류 12종(`VisionMaterialCode`)을 재사용한다(신규 분류 만들지 않음).
+ * 예상 총 중량(wasteTons)은 이 항목들의 kg 합계에서 자동 산출한다.
+ */
+export interface WasteItem {
+  material: VisionMaterialCode;
+  /** 해당 소재의 예상 중량(kg, 양수). */
+  kg: number;
+}
+
+/** 소재별 항목 kg 합계. */
+export function wasteItemsTotalKg(items: readonly WasteItem[]): number {
+  return items.reduce((sum, i) => sum + (Number.isFinite(i.kg) ? i.kg : 0), 0);
+}
+
+/** 소재별 항목 → 총 중량(톤, 소수 3자리 반올림). wasteTons 하위호환 산출의 단일 원천. */
+export function wasteItemsToTons(items: readonly WasteItem[]): number {
+  return Math.round((wasteItemsTotalKg(items) / 1000) * 1000) / 1000;
+}
+
+/** 소재 항목 1건 유효성(코드가 12종 중 하나 + kg 양수). */
+export function isValidWasteItem(value: unknown): value is WasteItem {
+  if (typeof value !== 'object' || value === null) return false;
+  const { material, kg } = value as { material?: unknown; kg?: unknown };
+  return (
+    typeof material === 'string' &&
+    isVisionMaterialCode(material) &&
+    typeof kg === 'number' &&
+    Number.isFinite(kg) &&
+    kg > 0
+  );
+}
 
 export const REQUEST_KIND_LABELS: Record<RequestKind, string> = {
   DEMOLITION: '철거요청',
@@ -64,7 +99,15 @@ interface ServiceRequestBase {
   /** 현장 지역. 파일럿에서는 양평만 접수한다. */
   region: string;
   wasteCategory: WasteCategory;
-  /** 예상 폐기물 중량(톤). 올바로 의무신고(5톤 이상) 안내 기준. */
+  /**
+   * 소재별 폐기물 항목(종류 + kg). 최소 1개. 처리장/운반 요청의 견적·정산 근거.
+   * 신규 요청은 이 배열이 필수이며, wasteTons 는 여기서 자동 산출한다.
+   */
+  wasteItems: WasteItem[];
+  /**
+   * 예상 폐기물 중량(톤) — 하위호환 파생값. `wasteItems` kg 합계에서 자동 계산한다.
+   * 올바로 의무신고(5톤 이상) 안내·기존 표기(○○톤)가 그대로 이 필드를 사용한다.
+   */
   wasteTons: number;
   /**
    * 현장 좌표(철거 현장/상차지/처리장 방문지). 거리 기반 일감 추천에 사용한다.
@@ -78,6 +121,11 @@ interface ServiceRequestBase {
   status: MatchStatus;
   /** 매칭 확정된 업체 id (MATCHED 전이 시 기록). */
   matchedProviderId?: string;
+  /**
+   * 연결된 요청 id — 한 세트로 만든 요청을 묶는다.
+   * 예: 처리장 예약 후 "운반요청도 함께 하기"로 만든 운반요청이 그 예약 id 를 가리킨다(예약↔운반 세트 추적).
+   */
+  linkedRequestId?: string;
   /**
    * 합의 금액(원) — 선결제 청구 기준. 선착순 수락 시 업체가 제시한 금액, 또는
    * 견적 비교 방식에서 요청자가 수락한 견적 금액이 여기 기록된다.

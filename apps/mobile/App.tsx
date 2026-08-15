@@ -4,7 +4,6 @@ import {
   Linking,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -24,7 +23,7 @@ import {
   type TabName,
 } from './src/navigation';
 import { theme } from './src/theme';
-import { LoadingView } from './src/components/ui';
+import { FloatingSupportButton, LoadingView } from './src/components/ui';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
@@ -258,7 +257,14 @@ export default function App() {
       case 'mypage':
         return <MyPageScreen />;
       case 'requestForm':
-        return <RequestFormScreen kind={route.kind} />;
+        // 같은 요청폼 화면끼리 이동(예약→연계 운반요청)할 때 인스턴스 상태가 남지 않도록 key 로 remount.
+        return (
+          <RequestFormScreen
+            key={`requestForm:${route.kind}:${route.prefill?.linkedRequestId ?? 'new'}`}
+            kind={route.kind}
+            prefill={route.prefill}
+          />
+        );
       case 'requestDetail':
         return <RequestDetailScreen requestId={route.requestId} />;
       case 'chat':
@@ -286,6 +292,8 @@ export default function App() {
           <AuthActionsContext.Provider value={authActions}>
             <NavigationContext.Provider value={navigation}>
               {renderScreen()}
+              {/* 우하단 고객센터 플로팅 버튼 — 로그인 화면 위에 상시 노출(탭바 위). */}
+              <FloatingSupportButton />
             </NavigationContext.Provider>
           </AuthActionsContext.Provider>
         </SessionContext.Provider>
