@@ -21,16 +21,19 @@
       <section id="upload-view" class="card" aria-labelledby="upload-heading">
         <h2 id="upload-heading" class="section-title">현장 사진 올리기</h2>
 
-        <label class="field-label" for="photo-input">사진 (최대 10장)</label>
+        <label class="field-label" for="photo-input">사진 — 건물 내부 위주로 많이 (최대 40장)</label>
         <input
           id="photo-input"
           class="file-input"
           type="file"
           accept="image/*"
-          capture="environment"
           multiple
         />
-        <p id="photo-hint" class="hint">외부 4방향·내부 실별·지붕재 근접 사진이 정확도를 높입니다.</p>
+        <p id="photo-hint" class="hint">
+          <strong>건물 내부를 방마다 여러 장씩, 최대한 많이 올려주세요.</strong>
+          사진이 많을수록 자재 인식과 철거 과정 안내가 정확해집니다.
+          외부 4방향·지붕재 근접 사진도 함께 넣으면 더 좋습니다.
+        </p>
         <div id="thumbs" class="thumbs" aria-live="polite"></div>
 
         <fieldset class="fieldset">
@@ -61,6 +64,17 @@
       <section id="report-view" class="card" aria-labelledby="report-heading" hidden>
         <h2 id="report-heading" class="section-title">분석 리포트</h2>
         <div id="report-body"></div>
+
+        <!-- 피드백 수집 (데이터 플라이휠 원천, §V5) -->
+        <section id="feedback-block" class="feedback-block" aria-labelledby="feedback-heading">
+          <h3 id="feedback-heading" class="section-title">이 분석 평가하기</h3>
+          <div id="feedback-form"></div>
+          <button id="feedback-submit" class="btn btn-primary" type="button" disabled>
+            평가 보내기
+          </button>
+          <p id="feedback-status" class="hint" role="status" aria-live="polite" hidden></p>
+        </section>
+
         <div class="report-actions">
           <button id="prefill-btn" class="btn btn-primary" type="button">
             매칭 신청에 이 결과 사용
@@ -76,6 +90,7 @@
     <script src="./lib/format.js"></script>
     <script src="./lib/client.js"></script>
     <script src="./lib/report.js"></script>
+    <script src="./lib/feedback.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

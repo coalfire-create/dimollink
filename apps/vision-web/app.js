@@ -84,6 +84,7 @@
       },
       onDone: function (report) {
         DV.report.renderReport(el("report-body"), report);
+        setupFeedback(report);
         show("report");
       },
       onError: function (err) {
@@ -98,11 +99,62 @@
     show("upload");
   });
 
+  // ---- 피드백(데이터 플라이휠 원천, §V5) ----
+  var feedbackCtl = null;
+  var feedbackSubmit = el("feedback-submit");
+  var feedbackStatus = el("feedback-status");
+
+  function setFeedbackStatus(msg, isError) {
+    if (!msg) {
+      feedbackStatus.hidden = true;
+      feedbackStatus.textContent = "";
+      feedbackStatus.classList.remove("error-text");
+      return;
+    }
+    feedbackStatus.hidden = false;
+    feedbackStatus.textContent = msg;
+    feedbackStatus.classList.toggle("error-text", !!isError);
+  }
+
+  function setupFeedback(report) {
+    feedbackCtl = DV.feedback.render(el("feedback-form"), report, DV.taxonomy);
+    feedbackSubmit.disabled = false;
+    feedbackSubmit.textContent = "평가 보내기";
+    setFeedbackStatus(null);
+  }
+
+  feedbackSubmit.addEventListener("click", function () {
+    if (!feedbackCtl) return;
+    var state = feedbackCtl.getState();
+    if (!state.rating) {
+      setFeedbackStatus("별점을 먼저 선택해 주세요.", true);
+      return;
+    }
+    feedbackSubmit.disabled = true;
+    setFeedbackStatus("보내는 중…", false);
+    Promise.resolve(client.submitFeedback(state)).then(
+      function () {
+        feedbackSubmit.textContent = "평가 완료 · 감사합니다";
+        setFeedbackStatus("소중한 평가가 AI 개선에 반영됩니다.", false);
+      },
+      function (err) {
+        feedbackSubmit.disabled = false;
+        setFeedbackStatus(
+          (err && err.message) || "평가 전송에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+          true,
+        );
+      },
+    );
+  });
+
   el("restart-btn").addEventListener("click", function () {
     selectedFiles = [];
     photoInput.value = "";
     thumbs.innerHTML = "";
     analyzeBtn.disabled = true;
+    feedbackCtl = null;
+    feedbackSubmit.disabled = true;
+    setFeedbackStatus(null);
     show("upload");
   });
 

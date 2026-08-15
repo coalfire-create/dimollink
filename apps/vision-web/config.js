@@ -18,9 +18,10 @@ window.DimolVision.config = {
   // 설정 시 Supabase 대신 REST 경로 사용. 프로덕션은 Edge Function 경유(§3.1) 권장.
   restBaseUrl: "",   // 예: "http://localhost:8080/v1"
   restApiKey: "",    // 예: "dev-edge-key" (VISION_API_KEY)
-  // 사진을 서버에 업로드할 수 없는 로컬 데모에서는 photo_urls 대신 개수만 전달.
 
-  maxPhotos: 10,
+  // 철거 분석은 사진이 많을수록 정확하다(촬영 프로토콜: 현장당 20~40장). 내부 위주로 많이 유도.
+  // ⚠️ 백엔드와 일치해야 함: supabase/functions/_shared/env.ts, apps/vision-api/app/config.py (VISION_MAX_PHOTOS 기본 40).
+  maxPhotos: 40,
   // 사진 1장 최대 크기(10MB) — packages/shared SITE_PHOTO_MAX_BYTES 미러.
   maxBytesPerPhoto: 10 * 1024 * 1024,
 };

@@ -6,10 +6,22 @@ from .export import (
     export_jsonl,
     load_feedback_jsonl,
 )
+from .source import (
+    FeedbackSource,
+    InMemoryFeedbackSource,
+    PgFeedbackSource,
+    dump_feedback_jsonl,
+    export_feedback,
+)
 
 __all__ = [
     "FeedbackRecord",
     "build_training_examples",
     "export_jsonl",
     "load_feedback_jsonl",
+    "FeedbackSource",
+    "InMemoryFeedbackSource",
+    "PgFeedbackSource",
+    "dump_feedback_jsonl",
+    "export_feedback",
 ]

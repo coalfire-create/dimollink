@@ -32,8 +32,9 @@ class Settings(BaseSettings):
     max_retries: int = 2
     job_timeout_seconds: int = 180
 
-    # 사진 장수 상한(기획서 §2.1 — 1~10장).
-    max_photos: int = 10
+    # 사진 장수 상한. 철거 분석은 사진이 많을수록 정확(촬영 프로토콜: 현장당 20~40장).
+    # 프론트(vision-web config.js)·Edge(_shared/env.ts)와 일치. VISION_MAX_PHOTOS 로 조정.
+    max_photos: int = 40
 
     # RAG 지식베이스(§3.4) — 원문 디렉터리와 검색 top-k.
     kb_sources_dir: str = "kb_sources"
