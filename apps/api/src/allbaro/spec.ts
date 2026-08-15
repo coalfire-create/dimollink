@@ -1,7 +1,13 @@
 import {
   normalizeBusinessNumber,
   type AllbaroMemberType,
+  type AllbaroManifestStatus,
+  type AllbaroNoticeItem,
+  type AllbaroRoleType,
+  type DisposalInfoRequest,
   type ManifestIssueRequest,
+  type TransportInfoRequest,
+  type TreatmentCompletionRequest,
 } from '@dimol/shared';
 
 /**
@@ -18,15 +24,46 @@ import {
 export interface AllbaroApiSpec {
   /** T200_4001_05: 배출자_업체정보조회/회신 */
   memberVerifyInterfaceId: string;
+  /** T300_4001_05: 운반자_업체정보조회/회신 */
+  transportVerifyInterfaceId: string;
+  /** T400_4001_05: 처리자_업체정보조회/회신 */
+  disposalVerifyInterfaceId: string;
+
   /** T200_5001_01: 배출자_인계서정보수집/결과회신 */
   manifestIssueInterfaceId: string;
-  buildMemberVerifyBody(businessNumber: string): Record<string, unknown>;
+
+  /** T300_5001_01: 운반자_인수정보수집/등록 */
+  transportInfoInterfaceId: string;
+
+  /** T400_5001_01: 처리자_반입계량정보등록 */
+  disposalInfoInterfaceId: string;
+
+  /** T400_5001_02: 처리자_최종처리완료등록 */
+  treatmentCompletionInterfaceId: string;
+
+  /** T200_4001_01: 배출자_인계서상태조회 */
+  manifestStatusInterfaceId: string;
+
+  /** T100_1001_01: 공지사항조회 */
+  noticesInterfaceId: string;
+
+  buildMemberVerifyBody(businessNumber: string, roleType?: AllbaroRoleType): Record<string, unknown>;
   parseMemberVerified(data: Record<string, unknown>): boolean;
   parseMemberName(data: Record<string, unknown>): string | undefined;
   extractMemberType(data: Record<string, unknown>): unknown;
   parseMemberType(raw: unknown): AllbaroMemberType;
+
   buildManifestBody(request: ManifestIssueRequest): Record<string, unknown>;
   parseManifestNo(data: Record<string, unknown>): string | undefined;
+
+  buildTransportInfoBody(request: TransportInfoRequest): Record<string, unknown>;
+  buildDisposalInfoBody(request: DisposalInfoRequest): Record<string, unknown>;
+  buildTreatmentCompletionBody(request: TreatmentCompletionRequest): Record<string, unknown>;
+
+  buildManifestStatusBody(manifestNo: string): Record<string, unknown>;
+  parseManifestStatus(data: Record<string, unknown>, manifestNo: string): AllbaroManifestStatus | undefined;
+
+  parseNotices(data: Record<string, unknown>): AllbaroNoticeItem[];
 }
 
 /**
@@ -54,27 +91,22 @@ function mapMemberType(raw: unknown): AllbaroMemberType {
 
 /**
  * 올바로 Open API v1.9.1 실제 규격 스펙.
- *
- * GET 요청 Body (인계서 연계 — T200_4001_XX):
- *   api_cert_key, entn_lkcd (클라이언트가 자동 주입)
- *   + manf_nums, req_type, page_no, period_from_date, period_to_date, subcd_include_yn
- *
- * PUT 요청 Body (인계서 수집 — T200_5001_01):
- *   api_cert_key, entn_lkcd (클라이언트가 자동 주입)
- *   + PutData (인터페이스 정의서 v1.9.5 참조)
- *
- * Response:
- *   { ifid, txid, resultCode, resultMessage, errorMessage, totalPageNo, dataList[] }
- *   resultCode '0000' = 정상
  */
 export const ALLBARO_SPEC: AllbaroApiSpec = {
   memberVerifyInterfaceId: 'T200_4001_05',
+  transportVerifyInterfaceId: 'T300_4001_05',
+  disposalVerifyInterfaceId: 'T400_4001_05',
   manifestIssueInterfaceId: 'T200_5001_01',
+  transportInfoInterfaceId: 'T300_5001_01',
+  disposalInfoInterfaceId: 'T400_5001_01',
+  treatmentCompletionInterfaceId: 'T400_5001_02',
+  manifestStatusInterfaceId: 'T200_4001_01',
+  noticesInterfaceId: 'T100_1001_01',
 
   buildMemberVerifyBody: (_businessNumber) => ({
     // 업체 정보 조회 — 전체 조회 후 사업자번호로 필터링
     req_type: 'A',
-    page_no: 'N',
+    page_no: '1',
     subcd_include_yn: 'N',
     manf_nums: null,
     period_from_date: null,
@@ -82,7 +114,6 @@ export const ALLBARO_SPEC: AllbaroApiSpec = {
   }),
 
   parseMemberVerified: (data) => {
-    // resultCode 체크는 callApi에서 이미 수행 — 여기서는 dataList 존재 여부 확인
     const dataList = data.dataList;
     return Array.isArray(dataList) && dataList.length > 0;
   },
@@ -91,7 +122,6 @@ export const ALLBARO_SPEC: AllbaroApiSpec = {
     const dataList = data.dataList;
     if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
     const first = dataList[0] as Record<string, unknown>;
-    // 업체명 필드 (정의서 v1.9.5 확인 필요 — firm_name 또는 entn_nm)
     const name = first.firm_name ?? first.entn_nm ?? first.memberName;
     return typeof name === 'string' ? name : undefined;
   },
@@ -100,21 +130,17 @@ export const ALLBARO_SPEC: AllbaroApiSpec = {
     const dataList = data.dataList;
     if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
     const first = dataList[0] as Record<string, unknown>;
-    // 업체 구분 코드 (EMIS/TRAN/TRTM or memberType)
     return first.entn_type ?? first.memberType;
   },
 
   parseMemberType: mapMemberType,
 
   buildManifestBody: (request) => ({
-    // PutData 상세 필드는 인터페이스 정의서 v1.9.5 T200_5001_01 참조
-    // 아래는 필수 필드 기본 구조 — 운영 전 정의서 대조 필수
     PutData: {
       DSCD: normalizeBusinessNumber(request.discharger.businessNumber),
       TRPR: normalizeBusinessNumber(request.transport.businessNumber),
       RPPR: normalizeBusinessNumber(request.disposal.businessNumber),
       WSTE_TONS: String(request.wasteTons),
-      // 건설폐기물=02, 사업장폐기물=01
       WSTE_CLSF_CD: request.wasteCategory === 'CONSTRUCTION' ? '02' : '01',
     },
   }),
@@ -123,8 +149,69 @@ export const ALLBARO_SPEC: AllbaroApiSpec = {
     const dataList = data.dataList;
     if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
     const first = dataList[0] as Record<string, unknown>;
-    // 인계번호 필드 (정의서 v1.9.5 확인 필요)
     const no = first.manf_num ?? first.manifest_no ?? first.manifestNo;
     return typeof no === 'string' && no !== '' ? no : undefined;
   },
+
+  buildTransportInfoBody: (request) => ({
+    PutData: {
+      MANF_NUM: request.manifestNo,
+      VHCL_NO: request.vehicleNo,
+      TRNS_TONS: String(request.transportedTons),
+      PICKUP_AT: request.pickupAt,
+    },
+  }),
+
+  buildDisposalInfoBody: (request) => ({
+    PutData: {
+      MANF_NUM: request.manifestNo,
+      WEIGHED_TONS: String(request.weighedTons),
+      RECEIVED_AT: request.receivedAt,
+    },
+  }),
+
+  buildTreatmentCompletionBody: (request) => ({
+    PutData: {
+      MANF_NUM: request.manifestNo,
+      COMPLETED_AT: request.completedAt,
+      TRTM_MTHD_CD: request.treatmentMethodCode ?? '01',
+    },
+  }),
+
+  buildManifestStatusBody: (manifestNo) => ({
+    manf_nums: manifestNo,
+    req_type: 'A',
+    page_no: '1',
+  }),
+
+  parseManifestStatus: (data, manifestNo) => {
+    const dataList = data.dataList;
+    if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
+    const item = dataList[0] as Record<string, unknown>;
+    return {
+      manifestNo: (item.manf_num as string) ?? manifestNo,
+      status: (item.status as string) ?? (data.resultMessage as string) ?? 'ISSUED',
+      dischargerName: typeof item.dscd_nm === 'string' ? item.dscd_nm : undefined,
+      transportName: typeof item.trpr_nm === 'string' ? item.trpr_nm : undefined,
+      disposalName: typeof item.rppr_nm === 'string' ? item.rppr_nm : undefined,
+      wasteTons: typeof item.wste_tons === 'number' ? item.wste_tons : undefined,
+      issuedAt: typeof item.issued_at === 'string' ? item.issued_at : undefined,
+      updatedAt: typeof item.updated_at === 'string' ? item.updated_at : undefined,
+    };
+  },
+
+  parseNotices: (data) => {
+    const dataList = data.dataList;
+    if (!Array.isArray(dataList)) return [];
+    return dataList.map((item, idx) => {
+      const it = item as Record<string, unknown>;
+      return {
+        id: String(it.notice_id ?? it.id ?? `N-${idx + 1}`),
+        title: String(it.title ?? it.subject ?? '올바로 공지사항'),
+        createdAt: String(it.created_at ?? it.reg_dt ?? new Date().toISOString()),
+        content: typeof it.content === 'string' ? it.content : undefined,
+      };
+    });
+  },
 };
+

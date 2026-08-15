@@ -14,3 +14,43 @@ export function isAllbaroManifestMandatory(
 ): boolean {
   return wasteCategory === 'CONSTRUCTION' && wasteTons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
 }
+
+export type AllbaroRoleType = 'DISCHARGER' | 'TRANSPORT' | 'DISPOSAL';
+
+export interface TransportInfoRequest {
+  manifestNo: string;
+  vehicleNo: string;
+  transportedTons: number;
+  pickupAt: string;
+}
+
+export interface DisposalInfoRequest {
+  manifestNo: string;
+  weighedTons: number;
+  receivedAt: string;
+}
+
+export interface TreatmentCompletionRequest {
+  manifestNo: string;
+  completedAt: string;
+  treatmentMethodCode?: string;
+}
+
+export interface AllbaroNoticeItem {
+  id: string;
+  title: string;
+  createdAt: string;
+  content?: string;
+}
+
+export interface AllbaroManifestStatus {
+  manifestNo: string;
+  status: string;
+  dischargerName?: string;
+  transportName?: string;
+  disposalName?: string;
+  wasteTons?: number;
+  issuedAt?: string;
+  updatedAt?: string;
+}
+
