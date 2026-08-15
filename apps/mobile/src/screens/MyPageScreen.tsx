@@ -6,11 +6,13 @@ import {
   USER_TYPE_LABELS,
   isCompanyType,
   offersTransportLabel,
+  pricingUnitLabel,
   usesOffersTransport,
+  usesPricing,
   type RatingSummary,
 } from '@dimol/shared';
-import { getRating, setOffersTransport, WEB_BASE_URL } from '../api/client';
-import { Card, InfoRow, SectionTitle } from '../components/ui';
+import { getPricing, getRating, setOffersTransport, setPricing, WEB_BASE_URL } from '../api/client';
+import { AppButton, Card, ErrorBanner, Field, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
@@ -39,12 +41,52 @@ export function MyPageScreen() {
     }
   }
 
+  // 업체 단가(마이페이지 설정) — 저장된 값을 불러와 입력칸 초기값으로.
+  const [priceInput, setPriceInput] = useState('');
+  const [priceSaved, setPriceSaved] = useState<number | null>(null);
+  const [priceBusy, setPriceBusy] = useState(false);
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [priceDone, setPriceDone] = useState(false);
+
   useEffect(() => {
     // 평점은 부가 정보 — 실패해도 화면은 뜬다.
     getRating(user.id)
       .then(setRating)
       .catch(() => setRating(null));
   }, [user.id]);
+
+  useEffect(() => {
+    if (!usesPricing(user.userType)) return;
+    getPricing(user.id)
+      .then((p) => {
+        if (p) {
+          setPriceSaved(p.unitPrice);
+          setPriceInput(String(p.unitPrice));
+        }
+      })
+      .catch(() => undefined);
+  }, [user.id, user.userType]);
+
+  async function savePricing() {
+    setPriceError(null);
+    setPriceDone(false);
+    const value = Number(priceInput.replace(/\D/g, ''));
+    if (!Number.isInteger(value) || value <= 0) {
+      setPriceError('단가(원, 양의 정수)를 정확히 입력해 주세요.');
+      return;
+    }
+    setPriceBusy(true);
+    try {
+      const saved = await setPricing(user.id, value);
+      setPriceSaved(saved.unitPrice);
+      setPriceInput(String(saved.unitPrice));
+      setPriceDone(true);
+    } catch {
+      setPriceError('단가 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setPriceBusy(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -161,6 +203,29 @@ export function MyPageScreen() {
                   <View style={[styles.switchThumb, offersTransport && styles.switchThumbOn]} />
                 </View>
               </Pressable>
+            </Card>
+          </>
+        ) : null}
+
+        {usesPricing(user.userType) ? (
+          <>
+            <SectionTitle>내 단가</SectionTitle>
+            <Card>
+              <Field
+                label={`기준 단가 (${pricingUnitLabel(user.userType)})`}
+                value={priceInput}
+                onChangeText={(v) => setPriceInput(v.replace(/[^0-9]/g, ''))}
+                placeholder="예) 80000"
+                keyboardType="number-pad"
+                hint={
+                  priceSaved !== null
+                    ? `현재 저장된 단가: ${priceSaved.toLocaleString('ko-KR')}${pricingUnitLabel(user.userType)} · 견적 예상금액에 반영돼요`
+                    : '견적 제출 시 예상 금액 기본값으로 쓰여요.'
+                }
+              />
+              <ErrorBanner message={priceError} />
+              {priceDone ? <Text style={styles.priceDone}>✓ 단가를 저장했어요</Text> : null}
+              <AppButton label="단가 저장" onPress={savePricing} loading={priceBusy} />
             </Card>
           </>
         ) : null}
@@ -425,6 +490,12 @@ const styles = StyleSheet.create({
   },
   switchThumbOn: {
     alignSelf: 'flex-end',
+  },
+  priceDone: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
   },
   logoutButton: {
     alignItems: 'center',

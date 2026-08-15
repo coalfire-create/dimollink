@@ -14,6 +14,7 @@ import type {
   OtpRequestResult,
   OtpVerifyResult,
   ProviderJobs,
+  ProviderPricing,
   ProviderRole,
   Quote,
   RatingSummary,
@@ -187,6 +188,17 @@ export const setOffersTransport = (userId: string, offersTransport: boolean) =>
   });
 
 export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId}/rating`);
+
+// ── 업체 단가 (Phase 2 — 마이페이지 설정)
+/** 내 단가 조회(본인만). 미설정이면 null. */
+export const getPricing = (userId: string) =>
+  api<ProviderPricing | null>(`/pricing/${encodeURIComponent(userId)}`);
+/** 내 단가 설정(본인만). */
+export const setPricing = (userId: string, unitPrice: number) =>
+  api<ProviderPricing>(`/pricing/${encodeURIComponent(userId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ unitPrice }),
+  });
 
 // ── 업체 일감 (Phase 1 — 수신·수락)
 /** 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned). */

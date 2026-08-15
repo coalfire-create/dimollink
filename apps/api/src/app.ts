@@ -9,6 +9,7 @@ import type {
   InteriorBid,
   InteriorRequest,
   MatchOffer,
+  ProviderPricing,
   Quote,
   Review,
   ServiceRequest,
@@ -30,6 +31,7 @@ import { InteriorStore } from './interior/store.js';
 import { compositePayableStore } from './payment/payable-request.js';
 import { PaymentStore, type PaymentRecord } from './payment/payment-store.js';
 import { QuoteStore } from './quotes/store.js';
+import { PricingStore } from './pricing/store.js';
 import { RequestStore } from './requests/store.js';
 import { ReviewStore } from './reviews/store.js';
 import { UserStore } from './users/store.js';
@@ -60,6 +62,7 @@ import { createNotificationsRouter } from './routes/notifications.js';
 import { createOffersRouter } from './routes/offers.js';
 import { createInteriorRouter } from './routes/interior.js';
 import { createQuotesRouter } from './routes/quotes.js';
+import { createPricingRouter } from './routes/pricing.js';
 import { createRequestsRouter } from './routes/requests.js';
 import { createReviewsRouter } from './routes/reviews.js';
 import { createUploadsRouter } from './routes/uploads.js';
@@ -198,6 +201,8 @@ export function createApp(
   const paymentStore = new PaymentStore(
     persistence<PaymentRecord>('payments', (p) => p.paymentId),
   );
+  // 업체 단가(마이페이지 설정) — 견적 기본값·시세 참고에 쓴다.
+  const pricingStore = new PricingStore(persistence<ProviderPricing>('pricing', (p) => p.userId));
 
   // ── 인증 게이트: 로그인(세션 토큰)이 필요한 경로. 회원가입·로그인·헬스·조회성 일부는 공개.
   const requireAuth = createRequireAuth(sessionStore, userStore);
@@ -212,6 +217,7 @@ export function createApp(
   app.post('/api/allbaro/verify-member', requireAuth);
   app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
+  app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
 
@@ -262,6 +268,7 @@ export function createApp(
   app.use('/api', createUsersRouter(userStore, otpService, sessionStore, credentialStore, undefined, oauthService));
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore, userStore, requestStore));
+  app.use('/api', createPricingRouter(pricingStore));
   // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).
   if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
   app.use('/api', createOffersRouter(offerStore));

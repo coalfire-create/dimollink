@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, offersTransportLabel, type MarketRate, type ProviderJobs, type ServiceRequest } from '@dimol/shared';
-import { getMarketRate, listJobs, submitQuote } from '../api/client';
+import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, offersTransportLabel, suggestedQuoteAmount, type MarketRate, type ProviderJobs, type ProviderPricing, type ServiceRequest } from '@dimol/shared';
+import { getMarketRate, getPricing, listJobs, submitQuote } from '../api/client';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
@@ -28,19 +28,36 @@ export function TreatmentPlantHomeScreen() {
   const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
   const [submittedIds, setSubmittedIds] = useState<string[]>([]);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<ProviderPricing | null>(null);
 
   const load = useCallback(async () => {
-    const [jobsRes, rateRes] = await Promise.allSettled([
+    const [jobsRes, rateRes, priceRes] = await Promise.allSettled([
       listJobs(user.id),
       config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
+      getPricing(user.id),
     ]);
     if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
     if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
+    if (priceRes.status === 'fulfilled' && priceRes.value) setPricing(priceRes.value);
   }, [user.id, config.marketRateParty]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 저장된 단가가 있으면 미입력 견적칸에 예상 금액(단가 × 톤)을 기본값으로 채운다.
+  useEffect(() => {
+    if (!pricing || !jobs) return;
+    setQuoteAmounts((prev) => {
+      const next = { ...prev };
+      for (const job of jobs.open) {
+        if (!next[job.id]) {
+          next[job.id] = String(suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons));
+        }
+      }
+      return next;
+    });
+  }, [pricing, jobs, user.userType]);
 
   async function refresh() {
     setRefreshing(true);
