@@ -1,8 +1,16 @@
-import type { MatchOfferStatus, MatchStatus, UserApprovalStatus } from '@dimol/shared';
+import {
+  visionMaterialLabel,
+  type MatchOfferStatus,
+  type MatchStatus,
+  type UserApprovalStatus,
+  type VisionMaterialCode,
+} from '@dimol/shared';
 import { Router } from 'express';
 import type { AnomalyDetector } from '../anomaly/detect.js';
 import { createAdminAuth } from '../middleware/admin-auth.js';
 import type { OfferStore } from '../offers/store.js';
+import type { PricingStore } from '../pricing/store.js';
+import type { QuoteStore } from '../quotes/store.js';
 import type { RequestStore } from '../requests/store.js';
 import { ReviewValidationError, type ReviewStore } from '../reviews/store.js';
 import { UserValidationError, type UserStore } from '../users/store.js';
@@ -19,6 +27,8 @@ export interface AdminStores {
   requestStore: RequestStore;
   offerStore: OfferStore;
   anomalyDetector: AnomalyDetector;
+  quoteStore: QuoteStore;
+  pricingStore: PricingStore;
 }
 
 export function createAdminRouter(stores: AdminStores, adminToken: string | undefined): Router {
@@ -111,6 +121,45 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   // GET /api/admin/anomalies — 이상거래 탐지 결과 (룰 기반, 수동 조치용)
   router.get('/admin/anomalies', (_req, res) => {
     res.json(stores.anomalyDetector.detect());
+  });
+
+  // GET /api/admin/waste-materials — 소재별 kg 입력 현황(전체 요청 wasteItems 집계)
+  router.get('/admin/waste-materials', (_req, res) => {
+    const agg = new Map<VisionMaterialCode, { totalKg: number; itemCount: number }>();
+    for (const request of stores.requestStore.list()) {
+      for (const item of request.wasteItems) {
+        const cur = agg.get(item.material) ?? { totalKg: 0, itemCount: 0 };
+        cur.totalKg += item.kg;
+        cur.itemCount += 1;
+        agg.set(item.material, cur);
+      }
+    }
+    const rows = [...agg.entries()]
+      .map(([material, v]) => ({
+        material,
+        label: visionMaterialLabel(material),
+        totalKg: v.totalKg,
+        itemCount: v.itemCount,
+      }))
+      .sort((a, b) => b.totalKg - a.totalKg);
+    res.json(rows);
+  });
+
+  // GET /api/admin/quotes-summary — 밀봉 견적 현황(요청별 제출 건수만, 금액 비노출)
+  router.get('/admin/quotes-summary', (_req, res) => {
+    const counts = new Map<string, number>();
+    for (const q of stores.quoteStore.listQuotes()) {
+      counts.set(q.requestId, (counts.get(q.requestId) ?? 0) + 1);
+    }
+    const rows = [...counts.entries()]
+      .map(([requestId, quoteCount]) => ({ requestId, quoteCount }))
+      .sort((a, b) => b.quoteCount - a.quoteCount);
+    res.json(rows);
+  });
+
+  // GET /api/admin/pricing — 업체 단가 설정 현황
+  router.get('/admin/pricing', (_req, res) => {
+    res.json(stores.pricingStore.list());
   });
 
   return router;

@@ -311,6 +311,8 @@ export function createApp(
         requestStore,
         offerStore,
         anomalyDetector: new AnomalyDetector(requestStore, quoteStore),
+        quoteStore,
+        pricingStore,
       },
       env.adminToken,
     ),

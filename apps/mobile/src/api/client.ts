@@ -401,3 +401,32 @@ export const adminExecutePayout = (adminToken: string, matchRequestId: string, c
     headers: { 'x-admin-token': adminToken },
     body: JSON.stringify({ matchRequestId, completedDate }),
   });
+
+// ── 백오피스 확장 현황 (Phase 5)
+/** 소재별 kg 입력 현황(전체 요청 wasteItems 집계). */
+export interface AdminWasteMaterialRow {
+  material: string;
+  label: string;
+  totalKg: number;
+  itemCount: number;
+}
+export const adminWasteMaterials = (adminToken: string) =>
+  api<AdminWasteMaterialRow[]>('/admin/waste-materials', {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+/** 밀봉 견적 현황 — 요청별 제출 건수(금액 비노출). */
+export interface AdminQuoteSummaryRow {
+  requestId: string;
+  quoteCount: number;
+}
+export const adminQuotesSummary = (adminToken: string) =>
+  api<AdminQuoteSummaryRow[]>('/admin/quotes-summary', {
+    headers: { 'x-admin-token': adminToken },
+  });
+
+/** 업체 단가 설정 현황. */
+export const adminListPricing = (adminToken: string) =>
+  api<ProviderPricing[]>('/admin/pricing', {
+    headers: { 'x-admin-token': adminToken },
+  });
