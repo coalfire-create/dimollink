@@ -80,7 +80,7 @@ export function NotificationsScreen() {
           }}
           ListEmptyComponent={
             <EmptyState
-              icon="🔔"
+              icon="notifications"
               title="새 알림이 없어요"
               description="매칭·결제·작업 소식이 오면 여기에 떠요."
             />

@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { GeoPoint, RequestKind, UserProfile, WasteItem } from '@dimol/shared';
+import { AppIcon } from './components/AppIcon';
 import { ROLE_CONFIG } from './roleConfig';
 import { theme } from './theme';
 
@@ -98,7 +99,7 @@ export function TabBar({ active }: { active: TabName }) {
           >
             {isActive ? <View style={styles.tabIndicator} /> : <View style={styles.tabIndicatorPlaceholder} />}
             <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
-              <Text style={styles.tabIcon}>{icon}</Text>
+              <AppIcon name={icon} size={22} color={isActive ? colors.primary : colors.textMuted} filled={isActive} />
             </View>
             <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{label}</Text>
           </Pressable>

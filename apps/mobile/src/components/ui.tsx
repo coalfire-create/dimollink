@@ -228,13 +228,21 @@ export function EmptyState({
 }: {
   title: string;
   description?: string;
-  icon?: string;
+  icon?: IconName | string;
 }) {
+  const isIconName =
+    icon &&
+    (['notifications', 'document', 'truck', 'building', 'home', 'requests', 'mypage', 'tools', 'check', 'star', 'settings', 'phone', 'sparkles', 'camera', 'chat', 'alert', 'recycle', 'hammer', 'lock'].includes(icon) ||
+      icon.length > 2);
   return (
     <View style={styles.centerFill}>
       {icon ? (
         <View style={styles.emptyIconCircle}>
-          <Text style={styles.emptyIcon}>{icon}</Text>
+          {isIconName ? (
+            <AppIcon name={(icon as IconName) || 'document'} size={28} color={colors.primary} />
+          ) : (
+            <Text style={styles.emptyIcon}>{icon}</Text>
+          )}
         </View>
       ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>

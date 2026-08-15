@@ -1,24 +1,12 @@
 import type { ProviderRole, RequestKind, UserType } from '@dimol/shared';
 import type { TabName } from './navigation';
-
-/**
- * 가입 유형(userType)별 화면 구성.
- * 유형마다 홈에서 할 수 있는 동작·탭 구성·목록 성격이 달라, 여기서 한 곳에 정의해
- * HomeScreen·TabBar·RequestListScreen 이 공유한다.
- *
- * - 소비자(CONSUMER): 철거요청만 등록(배출자). 홈에 내가 올린 요청 진행 현황.
- * - 철거업체(DEMOLITION_COMPANY): 들어온 철거요청 수주(일감 피드) + 운반/처리 요청 등록.
- * - 운반업체(TRANSPORT_COMPANY): 콜대기(온라인/오프라인)로 운반 콜 수신·수락.
- * - 처리장(WASTE_TREATMENT_PLANT): 반입 예약 수신·수락.
- */
-
+import type { IconName } from './components/AppIcon';
 
 export interface RoleTab {
   tab: TabName;
   label: string;
-  icon: string;
+  icon: IconName;
 }
-
 
 export interface RoleConfig {
   /** 홈 상단 인사말 접미사. */
@@ -36,10 +24,10 @@ export interface RoleConfig {
   tabs: RoleTab[];
 }
 
-const TAB_HOME = (label: string): RoleTab => ({ tab: 'home', label, icon: '🏠' });
-const TAB_REQUESTS = (label: string): RoleTab => ({ tab: 'requests', label, icon: '📋' });
-const TAB_NOTI: RoleTab = { tab: 'notifications', label: '알림', icon: '🔔' };
-const TAB_MYPAGE: RoleTab = { tab: 'mypage', label: '내 정보', icon: '👤' };
+const TAB_HOME = (label: string): RoleTab => ({ tab: 'home', label, icon: 'home' });
+const TAB_REQUESTS = (label: string): RoleTab => ({ tab: 'requests', label, icon: 'requests' });
+const TAB_NOTI: RoleTab = { tab: 'notifications', label: '알림', icon: 'notifications' };
+const TAB_MYPAGE: RoleTab = { tab: 'mypage', label: '내 정보', icon: 'mypage' };
 
 export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
   CONSUMER: {
@@ -50,10 +38,10 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     listTitle: '내 요청',
     listEmpty: '아직 요청이 없어요. 홈에서 철거 요청을 시작해 보세요.',
     tabs: [
-      { tab: 'home', label: '홈', icon: '🏠' },
-      { tab: 'requests', label: '이용내역', icon: '📋' },
-      { tab: 'notifications', label: '알림', icon: '🔔' },
-      { tab: 'mypage', label: '마이페이지', icon: '👤' },
+      { tab: 'home', label: '홈', icon: 'home' },
+      { tab: 'requests', label: '이용내역', icon: 'requests' },
+      { tab: 'notifications', label: '알림', icon: 'notifications' },
+      { tab: 'mypage', label: '마이페이지', icon: 'mypage' },
     ],
   },
   DEMOLITION_COMPANY: {
@@ -78,8 +66,6 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     listEmpty: '반입 예약이 없어요.',
     tabs: [TAB_HOME('홈'), TAB_NOTI, TAB_MYPAGE],
   },
-  // 인테리어 업체 — 소비자 시공 요청에 밀봉 입찰(파일럿 밖 · FEATURE_INTERIOR).
-  // 폐기물 일감 피드(jobFeed)를 쓰지 않고, 전용 인테리어 일감 목록으로 이동한다.
   INTERIOR_COMPANY: {
     homeGreetingSuffix: '님, 새 시공 요청을 확인하세요',
     homeIntro: '인테리어 일감',

@@ -14,6 +14,7 @@ import {
   type RatingSummary,
 } from '@dimol/shared';
 import { getPricing, getRating, setOffersTransport, setPricing, WEB_BASE_URL } from '../api/client';
+import { AppIcon } from '../components/AppIcon';
 import { AppButton, Card, ErrorBanner, Field, InfoRow, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
@@ -112,17 +113,17 @@ export function MyPageScreen() {
             <View style={styles.badgeRow}>
               {user.allbaroCertified ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>✓ 올바로 인증</Text>
+                  <Text style={styles.badgeText}>올바로 인증</Text>
                 </View>
               ) : null}
               {user.insuranceRegistered ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>✓ 보험 가입</Text>
+                  <Text style={styles.badgeText}>보험 가입</Text>
                 </View>
               ) : null}
               {user.permitRegistered ? (
                 <View style={styles.badge}>
-                  <Text style={styles.badgeText}>✓ 허가증</Text>
+                  <Text style={styles.badgeText}>허가증</Text>
                 </View>
               ) : null}
             </View>
@@ -136,7 +137,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.switchTab('requests')}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>📋</Text>
+                <AppIcon name="document" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>내 요청 목록</Text>
             </View>
@@ -146,7 +147,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.switchTab('notifications')}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>🔔</Text>
+                <AppIcon name="notifications" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>알림</Text>
             </View>
@@ -156,7 +157,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'siteAnalysis' })}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>📷</Text>
+                <AppIcon name="camera" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>현장 사진 분석</Text>
             </View>
@@ -166,7 +167,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'estimate' })}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>📐</Text>
+                <AppIcon name="sparkles" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>폐기물 양 계산</Text>
             </View>
@@ -226,7 +227,7 @@ export function MyPageScreen() {
                 }
               />
               <ErrorBanner message={priceError} />
-              {priceDone ? <Text style={styles.priceDone}>✓ 단가를 저장했어요</Text> : null}
+              {priceDone ? <Text style={styles.priceDone}>단가를 저장했어요</Text> : null}
               <AppButton label="단가 저장" onPress={savePricing} loading={priceBusy} />
             </Card>
           </>
@@ -238,7 +239,7 @@ export function MyPageScreen() {
             {rating && rating.average !== null ? (
               <View style={styles.ratingRow}>
                 <View style={styles.ratingCard}>
-                  <Text style={styles.ratingNumber}>★ {rating.average}</Text>
+                  <Text style={styles.ratingNumber}>{rating.average}</Text>
                   <Text style={styles.ratingLabel}>평균 평점</Text>
                 </View>
                 <View style={styles.ratingCard}>
@@ -262,7 +263,7 @@ export function MyPageScreen() {
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>📄</Text>
+                <AppIcon name="document" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>이용약관</Text>
             </View>
@@ -275,7 +276,7 @@ export function MyPageScreen() {
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>🔒</Text>
+                <AppIcon name="lock" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>개인정보처리방침</Text>
             </View>
@@ -290,7 +291,7 @@ export function MyPageScreen() {
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>📞</Text>
+                <AppIcon name="phone" size={18} color={theme.colors.primary} />
               </View>
               <View>
                 <Text style={styles.menuLabel}>고객센터 전화 문의</Text>

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type MarketRate, type ProviderJobs, type ServiceRequest } from '@dimol/shared';
 import { acceptJob, getMarketRate, listJobs } from '../api/client';
+import { AppIcon } from '../components/AppIcon';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
@@ -96,7 +97,9 @@ export function DemolitionHomeScreen() {
               <Text style={styles.bannerTitle}>철거 후 처리도 완벽하게</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
-            <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🤝</Text>
+            <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
+              <AppIcon name="building" size={48} color={theme.colors.primary} />
+            </View>
           </View>
         </FadeInUp>
         
@@ -108,7 +111,9 @@ export function DemolitionHomeScreen() {
                 onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
               >
                 <Text style={styles.cardLargeTitle}>운반 차량{'\n'}부르기</Text>
-                <Text style={{fontSize: 72, textAlign: 'center', marginTop: 20}}>🚚</Text>
+                <View style={{ alignItems: 'center', marginTop: 20 }}>
+                  <AppIcon name="truck" size={44} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
           </View>
@@ -121,7 +126,7 @@ export function DemolitionHomeScreen() {
               >
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>현장 사진{'\n'}분석</Text>
-                  <Text style={{fontSize: 40}}>📷</Text>
+                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -132,7 +137,7 @@ export function DemolitionHomeScreen() {
               >
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
-                  <Text style={{fontSize: 40}}>📐</Text>
+                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -144,7 +149,7 @@ export function DemolitionHomeScreen() {
             style={styles.interiorCard}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DISPOSAL_RESERVATION' })}
           >
-            <Text style={styles.interiorEmoji}>♻️</Text>
+            <AppIcon name="recycle" size={26} color={theme.colors.primary} />
             <View style={styles.interiorTextBox}>
               <Text style={styles.interiorTitle}>처리장 예약하기</Text>
               <Text style={styles.interiorSubtitle}>폐기물 반입 일정을 미리 잡아요</Text>
@@ -163,7 +168,7 @@ export function DemolitionHomeScreen() {
               <View style={styles.requestRow}>
                 <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
                 {job.distanceKm != null ? (
-                  <Text style={styles.distance}>📍 {job.distanceKm}km</Text>
+                  <Text style={styles.distance}>{job.distanceKm}km</Text>
                 ) : null}
               </View>
               <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>

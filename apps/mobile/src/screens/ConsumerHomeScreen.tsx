@@ -3,6 +3,7 @@ import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type MarketRate, type ServiceRequest } from '@dimol/shared';
 import { getMarketRate, listRequests } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
+import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { TabBar, useNavigation, useSession } from '../navigation';
@@ -82,7 +83,7 @@ export function ConsumerHomeScreen() {
           ))
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyCardIcon}>📋</Text>
+            <AppIcon name="document" size={24} color={theme.colors.primary} />
             <Text style={styles.emptyCardText}>{homeActive.empty}</Text>
           </View>
         )}
@@ -112,11 +113,11 @@ export function ConsumerHomeScreen() {
     <View style={styles.screen}>
       <View style={styles.customHeader}>
         <View style={styles.addressSelector}>
-          <Text style={styles.greetingHi}>안녕하세요 👋</Text>
+          <Text style={styles.greetingHi}>안녕하세요</Text>
           <Text style={styles.addressText}>{user.name}{config.homeGreetingSuffix}</Text>
         </View>
         <Pressable style={styles.notiButton} onPress={() => nav.switchTab('notifications')}>
-          <Text style={styles.notiIcon}>🔔</Text>
+          <AppIcon name="notifications" size={22} color={theme.colors.text} />
         </Pressable>
       </View>
 
@@ -128,7 +129,7 @@ export function ConsumerHomeScreen() {
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>⚡️ 원스톱 폐기물 매칭</Text>
+                <Text style={styles.heroBadgeText}>원스톱 폐기물 매칭</Text>
               </View>
               <Text style={styles.bannerTitle}>철거를 더 쉽고,{'\n'}더 똑똑하게</Text>
               <Text style={styles.bannerSubtitle}>전국 매칭 · 올바로 자동 전자인계서</Text>
@@ -162,11 +163,13 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'siteAnalysis' })}
               >
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardAiBadgePill}>✨ AI Vision</Text>
+                  <Text style={styles.cardAiBadgePill}>AI Vision</Text>
                 </View>
                 <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
                 <Text style={styles.cardSubtext}>사진 한 장으로 소재/공정 안내</Text>
-                <Text style={styles.cardLargeEmoji}>📸</Text>
+                <View style={{ marginTop: 8 }}>
+                  <AppIcon name="camera" size={28} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
             <FadeInUp delay={220}>
@@ -176,7 +179,9 @@ export function ConsumerHomeScreen() {
               >
                 <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
                 <Text style={styles.cardSubtext}>부피/무게 빠른 계산기</Text>
-                <Text style={styles.cardLargeEmoji}>📐</Text>
+                <View style={{ marginTop: 8 }}>
+                  <AppIcon name="sparkles" size={28} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
           </View>
@@ -188,7 +193,7 @@ export function ConsumerHomeScreen() {
             style={styles.transportCard}
             onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
           >
-            <Text style={styles.transportEmoji}>🚚</Text>
+            <AppIcon name="truck" size={26} color={theme.colors.primary} />
             <View style={styles.transportTextBox}>
               <Text style={styles.transportTitle}>운반 차량 직접 부르기</Text>
               <Text style={styles.transportSubtitle} numberOfLines={2}>
@@ -206,7 +211,7 @@ export function ConsumerHomeScreen() {
               style={styles.interiorCard}
               onPress={() => nav.push({ name: 'interiorForm' })}
             >
-              <Text style={styles.interiorEmoji}>🛠️</Text>
+              <AppIcon name="tools" size={26} color={theme.colors.primary} />
               <View style={styles.interiorTextBox}>
                 <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
                 <Text style={styles.interiorSubtitle} numberOfLines={2}>
