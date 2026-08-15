@@ -4,7 +4,6 @@ import {
   Linking,
   Pressable,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -24,7 +23,7 @@ import {
   type TabName,
 } from './src/navigation';
 import { theme } from './src/theme';
-import { LoadingView } from './src/components/ui';
+import { FloatingSupportButton, LoadingView } from './src/components/ui';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
@@ -293,6 +292,8 @@ export default function App() {
           <AuthActionsContext.Provider value={authActions}>
             <NavigationContext.Provider value={navigation}>
               {renderScreen()}
+              {/* 우하단 고객센터 플로팅 버튼 — 로그인 화면 위에 상시 노출(탭바 위). */}
+              <FloatingSupportButton />
             </NavigationContext.Provider>
           </AuthActionsContext.Provider>
         </SessionContext.Provider>
