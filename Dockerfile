@@ -14,9 +14,9 @@ COPY apps/mobile/package.json apps/mobile/
 # (NODE_ENV=production 이어도 devDeps 를 설치한다.)
 RUN npm ci --include=dev
 
-# 소스 복사 후 shared → api 순서로 빌드.
+# 소스 복사 후 shared → mobile → api 순서로 빌드.
 COPY . .
-RUN npm run build:shared && npm run build -w @dimol/api
+RUN npm run build:shared && npm run build -w @dimol/mobile && npm run build -w @dimol/api
 
 ENV NODE_ENV=production
 # 서버는 process.env.PORT 를 사용(Railway 가 주입). 문서용 EXPOSE.

@@ -108,8 +108,18 @@ export function createApp(
   //    dist/app.js 기준 ../public = apps/api/public. 웹 앱은 public/web(Expo export).
   const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
   const webDir = join(publicDir, 'web');
-  // 웹 앱 정적 자산(_expo·assets·favicon). index 자동제공은 끄고 SPA 폴백이 담당.
-  app.use(express.static(webDir, { index: false }));
+  app.use(
+    express.static(webDir, {
+      index: false,
+      setHeaders: (res, path) => {
+        if (path.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      },
+    }),
+  );
   // 법적 고지·랜딩 — 스토어/앱 링크가 요구하는 공개 URL(명시 경로).
   app.get('/privacy', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'privacy.html')));
   app.get('/terms', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'terms.html')));
@@ -320,6 +330,9 @@ export function createApp(
 
   // SPA 폴백 — /api 외 GET 요청은 Expo 웹 앱 진입점으로(클라이언트 라우팅 지원).
   app.get(/^(?!\/api(\/|$)).*/, (_req: Request, res: Response) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.sendFile(join(webDir, 'index.html'));
   });
 
