@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   CALL_AVAILABILITY_LABELS,
+  SUPPORT_PHONE,
+  SUPPORT_PHONE_TEL_URL,
   USER_APPROVAL_LABELS,
   USER_TYPE_LABELS,
   isCompanyType,
@@ -282,13 +284,18 @@ export function MyPageScreen() {
           <View style={styles.menuDivider} />
           <Pressable
             style={styles.menuItem}
-            onPress={() => Linking.openURL('mailto:coalfireant@gmail.com')}
+            accessibilityRole="button"
+            accessibilityLabel={`고객센터 전화 ${SUPPORT_PHONE}`}
+            onPress={() => Linking.openURL(SUPPORT_PHONE_TEL_URL)}
           >
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <Text style={styles.menuIcon}>💬</Text>
+                <Text style={styles.menuIcon}>📞</Text>
               </View>
-              <Text style={styles.menuLabel}>고객센터</Text>
+              <View>
+                <Text style={styles.menuLabel}>고객센터 전화 문의</Text>
+                <Text style={styles.menuSubLabel}>{SUPPORT_PHONE}</Text>
+              </View>
             </View>
             <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
@@ -414,6 +421,11 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
     color: colors.text,
+  },
+  menuSubLabel: {
+    fontSize: font.caption,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   menuDivider: {
     height: 1,
