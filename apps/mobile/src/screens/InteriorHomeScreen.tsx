@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
@@ -39,7 +38,7 @@ export function InteriorHomeScreen() {
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>인테리어 시공 파트너스</Text>
-              <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
+              <Text style={styles.bannerSubtitle}>디몰링크 파트너스</Text>
             </View>
             <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🔨</Text>
           </View>

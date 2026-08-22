@@ -351,7 +351,7 @@ export default function App() {
             onSignup={() => setAuthRoute('signup')}
             onGuest={() => setSession('guest')}
             onAdmin={() => setAuthRoute('admin')}
-            onDevRoleSelect={handleDevRoleSelect}
+            onDevRoleSelect={__DEV__ ? handleDevRoleSelect : undefined}
           />
         );
     }
@@ -360,31 +360,33 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      {/* 개발 / UI 검증용 상단 빠른 스위처 바 */}
-      <View style={styles.devHeaderBar}>
-        <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
-        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('CONSUMER')}>
-          <Text style={styles.devHeaderBtnText}>👤소비자</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('DEMOLITION')}>
-          <Text style={styles.devHeaderBtnText}>🏗철거</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TRANSPORT')}>
-          <Text style={styles.devHeaderBtnText}>🚚운반</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TREATMENT')}>
-          <Text style={styles.devHeaderBtnText}>🏭처리장</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('INTERIOR')}>
-          <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('admin'); }}>
-          <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
-        </Pressable>
-        <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
-          <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
-        </Pressable>
-      </View>
+      {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
+      {__DEV__ ? (
+        <View style={styles.devHeaderBar}>
+          <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
+          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('CONSUMER')}>
+            <Text style={styles.devHeaderBtnText}>👤소비자</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('DEMOLITION')}>
+            <Text style={styles.devHeaderBtnText}>🏗철거</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TRANSPORT')}>
+            <Text style={styles.devHeaderBtnText}>🚚운반</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TREATMENT')}>
+            <Text style={styles.devHeaderBtnText}>🏭처리장</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('INTERIOR')}>
+            <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('admin'); }}>
+            <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
+          </Pressable>
+          <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
+            <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {booting ? <LoadingView /> : renderBody()}
     </SafeAreaView>
   );

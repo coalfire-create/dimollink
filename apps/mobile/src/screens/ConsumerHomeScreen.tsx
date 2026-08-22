@@ -6,7 +6,7 @@ import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
-import { TabBar, useNavigation, useSession } from '../navigation';
+import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
 
@@ -111,16 +111,7 @@ export function ConsumerHomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.customHeader}>
-        <View style={styles.addressSelector}>
-          <Text style={styles.greetingHi}>안녕하세요</Text>
-          <Text style={styles.addressText}>{user.name}{config.homeGreetingSuffix}</Text>
-        </View>
-        <Pressable style={styles.notiButton} onPress={() => nav.switchTab('notifications')}>
-          <AppIcon name="notifications" size={22} color={theme.colors.text} />
-        </Pressable>
-      </View>
-
+      <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
       <ScrollView
         contentContainerStyle={styles.consumerContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
@@ -128,11 +119,8 @@ export function ConsumerHomeScreen() {
         <FadeInUp delay={40}>
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>원스톱 폐기물 매칭</Text>
-              </View>
-              <Text style={styles.bannerTitle}>철거를 더 쉽고,{'\n'}더 똑똑하게</Text>
-              <Text style={styles.bannerSubtitle}>전국 매칭 · 올바로 자동 전자인계서</Text>
+              <Text style={styles.bannerTitle}>원스톱 폐기물 매칭</Text>
+              <Text style={styles.bannerSubtitle}>철거를 더 쉽고, 더 똑똑하게</Text>
             </View>
             <Image source={homeWasteBed} style={styles.bannerImage} resizeMode="contain" />
           </View>
@@ -146,11 +134,7 @@ export function ConsumerHomeScreen() {
                 style={[styles.cardLarge, styles.cardPrimaryGradient]}
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardBadgePill}>원스톱 신청</Text>
-                </View>
                 <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <Text style={styles.cardSubtext}>견적부터 인계서까지 한 번에</Text>
                 <Image source={homeHelmet} style={styles.cardLargeImage} resizeMode="contain" />
               </Pressable>
             </FadeInUp>
@@ -162,13 +146,9 @@ export function ConsumerHomeScreen() {
                 style={[styles.cardLarge, styles.cardAiGradient]}
                 onPress={() => nav.push({ name: 'siteAnalysis' })}
               >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardAiBadgePill}>AI Vision</Text>
-                </View>
                 <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
-                <Text style={styles.cardSubtext}>사진 한 장으로 소재/공정 안내</Text>
-                <View style={{ marginTop: 8 }}>
-                  <AppIcon name="camera" size={28} color={theme.colors.primary} />
+                <View style={{ alignItems: 'center', marginTop: 8 }}>
+                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -178,9 +158,8 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'estimate' })}
               >
                 <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
-                <Text style={styles.cardSubtext}>부피/무게 빠른 계산기</Text>
-                <View style={{ marginTop: 8 }}>
-                  <AppIcon name="sparkles" size={28} color={theme.colors.primary} />
+                <View style={{ alignItems: 'center', marginTop: 8 }}>
+                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -196,9 +175,7 @@ export function ConsumerHomeScreen() {
             <AppIcon name="truck" size={26} color={theme.colors.primary} />
             <View style={styles.transportTextBox}>
               <Text style={styles.transportTitle}>운반 차량 직접 부르기</Text>
-              <Text style={styles.transportSubtitle} numberOfLines={2}>
-                사진 한 장이면 소재·무게를 자동으로 채워 드려요
-              </Text>
+              <Text style={styles.transportSubtitle}>사진으로 소재·무게 자동 입력</Text>
             </View>
             <Text style={styles.transportChevron}>›</Text>
           </Pressable>
@@ -247,36 +224,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
-  customHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.background,
-  },
-  addressSelector: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  greetingHi: {
-    fontSize: font.caption,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  addressText: {
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 1,
-  },
-  notiButton: {
-    padding: 6,
-  },
-  notiIcon: {
-    fontSize: font.title,
-  },
   consumerContent: {
     paddingBottom: spacing.lg,
     backgroundColor: '#F6F7F9',
@@ -301,60 +248,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   bannerTitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: font.body,
+    fontWeight: '600',
+  },
+  bannerSubtitle: {
     color: '#FFFFFF',
     fontSize: font.title,
     fontWeight: '800',
-    lineHeight: font.title + 6,
-  },
-  bannerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: font.caption,
-    fontWeight: '600',
     marginTop: 4,
-  },
-  heroBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 999,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  heroBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  cardBadgePill: {
-    backgroundColor: '#2563EB',
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  cardAiBadgePill: {
-    backgroundColor: '#7C3AED',
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  cardSubtext: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
   },
   cardPrimaryGradient: {
     backgroundColor: '#EFF6FF',

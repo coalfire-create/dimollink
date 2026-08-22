@@ -109,7 +109,7 @@ export function SiteAnalysisScreen() {
             <Image source={{ uri: image.uri }} style={styles.preview} resizeMode="cover" />
           </FadeInUp>
         ) : (
-          // 빈 이미지 자리 — 회색 빈칸 대신 비움 로고 placeholder 를 기본으로 노출한다.
+          // 빈 이미지 자리 — 회색 빈칸 대신 디몰링크 로고 placeholder 를 기본으로 노출한다.
           <ImagePlaceholder label="철거 현장 사진을 업로드해 주세요">
             <PressableScale style={styles.sampleQuickBtn} onPress={loadSampleAndAnalyze}>
               <Text style={styles.sampleQuickBtnText}>⚡️ 샘플 사진으로 AI 즉시 분석 시연</Text>

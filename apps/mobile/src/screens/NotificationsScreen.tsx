@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_STATUS_LABELS, type AppNotification } from '@dimol/shared';
+import type { AppNotification } from '@dimol/shared';
 import { ApiError, listNotifications } from '../api/client';
 import { Card, EmptyState, ErrorBanner, LoadingView } from '../components/ui';
 import { FadeInUp } from '../components/motion';

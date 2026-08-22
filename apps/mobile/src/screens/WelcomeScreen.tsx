@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import biumLogo from '../../assets/bium_logo.png';
+import brandmark from '../../assets/brandmark.png';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
@@ -28,11 +28,17 @@ export function WelcomeScreen({
       {/* 상단: 파란색 배경 + 로고 + 타이포 */}
       <View style={styles.heroSection}>
         <View style={styles.logoWrap}>
-          <Image source={biumLogo} style={styles.logoImage} resizeMode="contain" />
+          <Image
+            source={brandmark}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel="디몰링크 로고"
+          />
+          <Text style={styles.logoWordmark}>디몰링크</Text>
         </View>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
-            {'철거부터\n처리까지\n비움'}
+            {'철거부터\n처리까지\n한 번에'}
           </Text>
         </FadeInUp>
         <FadeInUp delay={160}>
@@ -183,13 +189,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.md,
     top: spacing.lg,
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 24,
-    padding: spacing.xs,
+    borderRadius: 20,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   logoImage: {
-    width: 84,
-    height: 84,
+    width: 56,
+    height: 56,
+  },
+  logoWordmark: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 2,
+    letterSpacing: -0.2,
   },
   bottomSheet: {
     backgroundColor: colors.background,
