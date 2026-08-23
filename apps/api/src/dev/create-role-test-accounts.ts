@@ -25,8 +25,8 @@ const ACCOUNTS: Spec[] = [
   { userType: 'DEMOLITION_COMPANY', name: '대한철거(테스트)', phone: '01022220002', businessNumber: '1208147521' },
   { userType: 'TRANSPORT_COMPANY', name: '신속운반(테스트)', phone: '01033330003', businessNumber: '1234567891', online: true },
   { userType: 'WASTE_TREATMENT_PLANT', name: '푸른처리장(테스트)', phone: '01044440004', businessNumber: '1010101013' },
-  { userType: 'INTERIOR_COMPANY', name: '가온인테리어(테스트)', phone: '01055550005' },
-  { userType: 'INTERIOR_COMPANY', name: '한샘시공(테스트)', phone: '01066660006' },
+  // 인테리어(밀봉 역경매)는 사업 확장 후로 미룬 기능 — 테스트 계정도 만들지 않는다.
+  // 되살릴 땐 FEATURE_INTERIOR 를 켜고 INTERIOR_COMPANY 계정을 여기에 다시 추가한다.
 ];
 
 async function main(): Promise<void> {

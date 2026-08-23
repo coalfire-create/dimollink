@@ -23,6 +23,7 @@ import {
   type TabName,
 } from './src/navigation';
 import { theme } from './src/theme';
+import { FEATURE_INTERIOR } from './src/featureFlags';
 import { FloatingSupportButton, LoadingView } from './src/components/ui';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
@@ -275,12 +276,14 @@ export default function App() {
         return <EstimateScreen />;
       case 'siteAnalysis':
         return <SiteAnalysisScreen />;
+      // 인테리어(밀봉 역경매) — FEATURE_INTERIOR 가 꺼져 있으면 라우트 자체를 막는다.
+      // (진입점은 이미 숨겨져 있지만, 딥링크·이전 스택 복원 등으로 도달하는 경로까지 차단.)
       case 'interiorForm':
-        return <InteriorFormScreen />;
+        return FEATURE_INTERIOR ? <InteriorFormScreen /> : null;
       case 'interiorList':
-        return <InteriorListScreen scope={route.scope} />;
+        return FEATURE_INTERIOR ? <InteriorListScreen scope={route.scope} /> : null;
       case 'interiorDetail':
-        return <InteriorDetailScreen requestId={route.requestId} />;
+        return FEATURE_INTERIOR ? <InteriorDetailScreen requestId={route.requestId} /> : null;
     }
   }
 
