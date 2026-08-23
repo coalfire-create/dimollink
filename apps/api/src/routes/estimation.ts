@@ -6,12 +6,13 @@ import { EstimationValidationError, type VolumeEstimator } from '../estimation/p
 export function createEstimationRouter(estimator: VolumeEstimator): Router {
   const router = Router();
 
-  // POST /api/estimation/volume  { floorAreaM2, structure?, sitePhotoKeys? }
+  // POST /api/estimation/volume  { floorAreaM2, floors?, structure?, sitePhotoKeys? }
   router.post('/estimation/volume', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       const estimate = await estimator.estimate({
         floorAreaM2: typeof body.floorAreaM2 === 'number' ? body.floorAreaM2 : undefined,
+        floors: typeof body.floors === 'number' ? body.floors : undefined,
         structure:
           typeof body.structure === 'string' ? (body.structure as BuildingStructure) : undefined,
         sitePhotoKeys: Array.isArray(body.sitePhotoKeys)

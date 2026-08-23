@@ -295,8 +295,12 @@ export const analyzeSiteWasteItems = (input: {
   });
 
 // ── 물량 추정 (Phase 6)
-export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
-  api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });
+export const estimateVolume = (input: {
+  floorAreaM2: number;
+  /** 층수(선택) — 주면 floorAreaM2 를 한 층 바닥면적으로 보고 곱한다. */
+  floors?: number;
+  structure?: string;
+}) => api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });
 
 // ── 견적 (처리장 견적 비교 등 · Phase 3)
 /** 업체가 요청에 견적 제출(제출자는 인증된 본인). party: TRANSPORT | DISPOSAL. */
