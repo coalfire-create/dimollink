@@ -116,13 +116,16 @@ export function SiteAnalysisScreen() {
             </Text>
             <View style={styles.heroChipsRow}>
               <View style={styles.heroChip}>
-                <Text style={styles.heroChipText}>🛡️ 석면·위험물 식별</Text>
+                <AppIcon name="alert" size={13} color="#93C5FD" />
+                <Text style={styles.heroChipText}>석면·위험물 식별</Text>
               </View>
               <View style={styles.heroChip}>
-                <Text style={styles.heroChipText}>📊 부피·폐기물 분류</Text>
+                <AppIcon name="recycle" size={13} color="#93C5FD" />
+                <Text style={styles.heroChipText}>부피·폐기물 분류</Text>
               </View>
               <View style={styles.heroChip}>
-                <Text style={styles.heroChipText}>📑 공정 주의사항 리포트</Text>
+                <AppIcon name="document" size={13} color="#93C5FD" />
+                <Text style={styles.heroChipText}>공정 주의사항 리포트</Text>
               </View>
             </View>
           </View>
@@ -187,7 +190,7 @@ export function SiteAnalysisScreen() {
 
       {image && !result ? (
         <StickyFooter>
-          <AppButton label="이 사진 분석하기 ⚡️" onPress={analyze} loading={loading} />
+          <AppButton label="이 사진 분석하기" onPress={analyze} loading={loading} />
         </StickyFooter>
       ) : null}
     </View>
@@ -198,10 +201,10 @@ function MaterialRow({ m }: { m: DetectedMaterial }) {
   return (
     <View style={[styles.materialRow, m.hazardous && styles.materialRowHazard]}>
       <View style={styles.materialTop}>
-        <Text style={styles.materialName}>
-          {m.hazardous ? '⚠️ ' : ''}
-          {m.name}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+          {m.hazardous ? <AppIcon name="alert" size={16} color={theme.colors.error} /> : null}
+          <Text style={styles.materialName}>{m.name}</Text>
+        </View>
         <View style={[styles.tag, m.hazardous ? styles.tagHazard : styles.tagOk]}>
           <Text style={[styles.tagText, m.hazardous ? styles.tagTextHazard : styles.tagTextOk]}>
             {m.hazardous ? '위험물' : m.recyclable ? '재활용 가능' : '일반 처리'}
@@ -261,7 +264,8 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
                 <Text style={styles.stepDesc}>{s.description}</Text>
                 {s.caution ? (
                   <View style={styles.cautionBox}>
-                    <Text style={styles.stepCaution}>⚠️ 주의사항: {s.caution}</Text>
+                    <AppIcon name="alert" size={14} color={colors.error} />
+                    <Text style={styles.stepCaution}>주의사항: {s.caution}</Text>
                   </View>
                 ) : null}
               </View>
@@ -273,7 +277,10 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
       {result.hazards.length > 0 ? (
         <FadeInUp>
           <View style={styles.hazardCard}>
-            <Text style={styles.hazardTitle}>🚨 현장 안전 위험 요소 경고</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs }}>
+              <AppIcon name="alert" size={20} color={colors.error} />
+              <Text style={styles.hazardTitle}>현장 안전 위험 요소 경고</Text>
+            </View>
             {result.hazards.map((h, i) => (
               <Text key={i} style={styles.hazardItem}>
                 • {h}
@@ -355,6 +362,9 @@ const styles = StyleSheet.create({
   heroChip: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -615,6 +625,9 @@ const styles = StyleSheet.create({
   cautionBox: {
     backgroundColor: '#FFF5F5',
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     padding: spacing.xs,
     marginTop: spacing.xs,
     borderWidth: 1,
