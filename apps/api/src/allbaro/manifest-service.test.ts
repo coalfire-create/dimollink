@@ -31,20 +31,6 @@ function allbaroManifestResponse(manfNum: string, ok = true, status = 200): Resp
   } as unknown as Response;
 }
 
-function allbaroErrorResponse(resultCode = '9999', ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    json: async () => ({
-      ifid: 'T200_5001_01',
-      resultCode,
-      resultMessage: '오류',
-      errorMessage: `오류코드 ${resultCode}`,
-      dataList: [],
-    }),
-  } as unknown as Response;
-}
-
 function httpErrorResponse(status = 500): Response {
   return { ok: false, status, json: async () => ({}) } as unknown as Response;
 }

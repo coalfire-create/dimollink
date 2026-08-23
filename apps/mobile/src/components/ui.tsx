@@ -17,6 +17,7 @@ import { SUPPORT_PHONE, SUPPORT_PHONE_TEL_URL } from '@dimol/shared';
 import { statusColor, theme } from '../theme';
 import { PressableScale, usePressScale } from './motion';
 import brandmark from '../../assets/brandmark.png';
+import { AppIcon, type IconName } from './AppIcon';
 
 /**
  * 우하단 고객센터 플로팅 버튼 — 주요 화면 위에 떠 있는 원형 문의 버튼.

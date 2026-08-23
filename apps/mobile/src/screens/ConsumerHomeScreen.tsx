@@ -10,8 +10,7 @@ import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
 
-import homeWasteBed from '../../assets/home_waste_bed.png';
-import homeHelmet from '../../assets/home_helmet.png';
+import brandmark from '../../assets/brandmark.png';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
 
@@ -122,7 +121,7 @@ export function ConsumerHomeScreen() {
               <Text style={styles.bannerTitle}>원스톱 폐기물 매칭</Text>
               <Text style={styles.bannerSubtitle}>철거를 더 쉽고, 더 똑똑하게</Text>
             </View>
-            <Image source={homeWasteBed} style={styles.bannerImage} resizeMode="contain" />
+            <Image source={brandmark} style={styles.bannerImage} resizeMode="contain" />
           </View>
         </FadeInUp>
 
@@ -135,7 +134,9 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
                 <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <Image source={homeHelmet} style={styles.cardLargeImage} resizeMode="contain" />
+                <View style={{ alignItems: 'center', marginTop: 12 }}>
+                  <AppIcon name="hammer" size={44} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
           </View>
