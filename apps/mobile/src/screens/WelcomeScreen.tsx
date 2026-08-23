@@ -32,13 +32,13 @@ export function WelcomeScreen({
             source={brandmark}
             style={styles.logoImage}
             resizeMode="contain"
-            accessibilityLabel="디몰링크 로고"
+            accessibilityLabel="비움 로고"
           />
-          <Text style={styles.logoWordmark}>디몰링크</Text>
+          <Text style={styles.logoWordmark}>비움</Text>
         </View>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
-            {'철거부터\n처리까지\n한 번에'}
+            {'철거부터\n처리까지\n비움'}
           </Text>
         </FadeInUp>
         <FadeInUp delay={160}>

@@ -36,7 +36,7 @@ export function FloatingSupportButton({ onPress }: { onPress?: () => void }) {
 }
 
 /**
- * 빈 이미지 자리 placeholder — 이미지가 없을 때 회색 빈칸 대신 디몰링크 로고를 노출한다.
+ * 빈 이미지 자리 placeholder — 이미지가 없을 때 회색 빈칸 대신 비움 로고를 노출한다.
  * 사진 업로드 전 미리보기 자리 등 "빈 이미지 자리"의 기본값으로 재사용한다.
  */
 export function ImagePlaceholder({

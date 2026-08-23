@@ -183,9 +183,9 @@ export function OnboardingScreen({
             source={brandmark}
             style={styles.brandmark}
             resizeMode="contain"
-            accessibilityLabel="디몰링크 로고"
+            accessibilityLabel="비움 로고"
           />
-          <Text style={styles.appName}>디몰링크 회원가입</Text>
+          <Text style={styles.appName}>비움 회원가입</Text>
           <Text style={styles.appSubtitle}>
             {social ? '소셜 계정 인증이 완료되었습니다. 회원 정보를 입력해 주세요.' : '10초만에 가입하고 신속한 매칭 서비스를 이용하세요.'}
           </Text>

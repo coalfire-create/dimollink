@@ -112,7 +112,7 @@ export function TreatmentPlantHomeScreen() {
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>정확하고 빠른 반입 처리</Text>
-              <Text style={styles.bannerSubtitle}>디몰링크 파트너스</Text>
+              <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
               {/* 운반요청 제공 여부 배지 — 마이페이지에서 켜고 끌 수 있어요. */}
               <View style={styles.transportBadge}>
                 <Text style={styles.transportBadgeText}>

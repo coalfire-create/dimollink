@@ -307,7 +307,7 @@ export function MyPageScreen() {
           <Text style={styles.logoutText}>로그아웃</Text>
         </Pressable>
 
-        <Text style={styles.footer}>디몰링크 v1.0.0 · 전국 건설폐기물</Text>
+        <Text style={styles.footer}>비움 v1.0.0 · 디몰링크 · 전국 건설폐기물</Text>
       </ScrollView>
       <TabBar active="mypage" />
     </View>

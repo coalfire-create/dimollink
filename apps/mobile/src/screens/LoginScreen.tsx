@@ -80,10 +80,10 @@ export function LoginScreen({
             source={brandmark}
             style={s.brandmark}
             resizeMode="contain"
-            accessibilityLabel="디몰링크 로고"
+            accessibilityLabel="비움 로고"
           />
           <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
-            반가워요! 👋{'\n'}디몰링크에 로그인하세요
+            반가워요! 👋{'\n'}비움에 로그인하세요
           </Text>
           <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
             휴대폰 번호로 안전하게 로그인하세요

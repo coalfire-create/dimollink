@@ -31,9 +31,9 @@ export function GuestHomeScreen({
               source={brandmark}
               style={styles.brandmark}
               resizeMode="contain"
-              accessibilityLabel="디몰링크 로고"
+              accessibilityLabel="비움 로고"
             />
-            <Text style={styles.appName}>디몰링크</Text>
+            <Text style={styles.appName}>비움</Text>
             <Text style={styles.slogan}>철거를 더 쉽고, 더 똑똑하게</Text>
             <View style={styles.pilotChip}>
               <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
