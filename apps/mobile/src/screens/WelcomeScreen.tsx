@@ -34,7 +34,6 @@ export function WelcomeScreen({
             resizeMode="contain"
             accessibilityLabel="비움 로고"
           />
-          <Text style={styles.logoWordmark}>비움</Text>
         </View>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
@@ -189,22 +188,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.md,
     top: spacing.lg,
-    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    borderRadius: 24,
+    padding: spacing.xs,
   },
   logoImage: {
-    width: 56,
-    height: 56,
-  },
-  logoWordmark: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 2,
-    letterSpacing: -0.2,
+    width: 84,
+    height: 84,
   },
   bottomSheet: {
     backgroundColor: colors.background,
