@@ -125,88 +125,102 @@ export function ConsumerHomeScreen() {
           </View>
         </FadeInUp>
 
-        {/* 메인 주요 기능 4분할 그리드 */}
-        <View style={styles.gridContainer}>
-          <View style={styles.gridLeft}>
-            <FadeInUp delay={100}>
-              <Pressable
-                style={[styles.cardLarge, styles.cardPrimaryGradient]}
-                onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
-              >
-                <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <View style={{ alignItems: 'center', marginTop: 12 }}>
-                  <AppIcon name="hammer" size={44} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-
-          <View style={styles.gridRight}>
-            <FadeInUp delay={160}>
-              <Pressable
-                style={[styles.cardLarge, styles.cardAiGradient]}
-                onPress={() => nav.push({ name: 'siteAnalysis' })}
-              >
-                <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
-                <View style={{ alignItems: 'center', marginTop: 8 }}>
-                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-            <FadeInUp delay={220}>
-              <Pressable
-                style={styles.cardLarge}
-                onPress={() => nav.push({ name: 'estimate' })}
-              >
-                <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
-                <View style={{ alignItems: 'center', marginTop: 8 }}>
-                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-        </View>
-
-        {/* 소비자가 직접 운반 차량을 부른다(사진으로 소재·무게 자동 채움 가능). */}
-        <FadeInUp delay={240}>
-          <Pressable
-            style={styles.transportCard}
-            onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
-          >
-            <AppIcon name="truck" size={26} color={theme.colors.primary} />
-            <View style={styles.transportTextBox}>
-              <Text style={styles.transportTitle}>운반 차량 직접 부르기</Text>
-              <Text style={styles.transportSubtitle}>사진으로 소재·무게 자동 입력</Text>
-            </View>
-            <Text style={styles.transportChevron}>›</Text>
-          </Pressable>
-        </FadeInUp>
-
-        {/* 인테리어(밀봉 역경매)는 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출한다. */}
-        {FEATURE_INTERIOR ? (
-          <FadeInUp delay={260}>
+        {/* 주요 서비스 기능 목록 (세로 카드 박스 배치) */}
+        <View style={styles.featureList}>
+          {/* 1. 철거 · 원상복구 신청하기 */}
+          <FadeInUp delay={100}>
             <Pressable
-              style={styles.interiorCard}
-              onPress={() => nav.push({ name: 'interiorForm' })}
+              style={[styles.featureCard, styles.featureCardPrimary]}
+              onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
             >
-              <AppIcon name="tools" size={26} color={theme.colors.primary} />
-              <View style={styles.interiorTextBox}>
-                <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
-                <Text style={styles.interiorSubtitle} numberOfLines={2}>
-                  여러 전문 검증 업체 비밀 견적 비교 후 선택하세요
-                </Text>
+              <View style={[styles.featureIconCircle, styles.featureIconPrimary]}>
+                <AppIcon name="hammer" size={26} color={theme.colors.primary} />
               </View>
-              <Text style={styles.interiorChevron}>›</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.interiorMyLink}
-              onPress={() => nav.push({ name: 'interiorList', scope: 'mine' })}
-            >
-              <Text style={styles.interiorMyLinkText}>내 인테리어 요청 보기 ›</Text>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>철거 · 원상복구 신청하기</Text>
+                <Text style={styles.featureSubtitle}>검증된 철거 전문업체 무료 비교 견적</Text>
+              </View>
+              <Text style={styles.featureChevron}>›</Text>
             </Pressable>
           </FadeInUp>
-        ) : null}
+
+          {/* 2. 현장 AI 분석 */}
+          <FadeInUp delay={140}>
+            <Pressable
+              style={styles.featureCard}
+              onPress={() => nav.push({ name: 'siteAnalysis' })}
+            >
+              <View style={[styles.featureIconCircle, styles.featureIconAi]}>
+                <AppIcon name="camera" size={26} color="#7C3AED" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>현장 AI 사진 분석</Text>
+                <Text style={styles.featureSubtitle}>사진으로 소재 · 철거공정 · 위험물 자동 식별</Text>
+              </View>
+              <Text style={styles.featureChevron}>›</Text>
+            </Pressable>
+          </FadeInUp>
+
+          {/* 3. 폐기물 양 미리 계산 */}
+          <FadeInUp delay={180}>
+            <Pressable
+              style={styles.featureCard}
+              onPress={() => nav.push({ name: 'estimate' })}
+            >
+              <View style={[styles.featureIconCircle, styles.featureIconEstimate]}>
+                <AppIcon name="sparkles" size={26} color="#D97706" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>폐기물 양 미리 계산</Text>
+                <Text style={styles.featureSubtitle}>면적과 건물 유형으로 예상 톤수·비용 산출</Text>
+              </View>
+              <Text style={styles.featureChevron}>›</Text>
+            </Pressable>
+          </FadeInUp>
+
+          {/* 4. 운반 차량 직접 부르기 */}
+          <FadeInUp delay={220}>
+            <Pressable
+              style={styles.featureCard}
+              onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
+            >
+              <View style={[styles.featureIconCircle, styles.featureIconTransport]}>
+                <AppIcon name="truck" size={26} color={theme.colors.primary} />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>운반 차량 직접 부르기</Text>
+                <Text style={styles.featureSubtitle}>사진으로 소재·무게 자동 입력 및 빠른 배차</Text>
+              </View>
+              <Text style={styles.featureChevron}>›</Text>
+            </Pressable>
+          </FadeInUp>
+
+          {/* 5. 인테리어 시공 역경매 견적 (선택) */}
+          {FEATURE_INTERIOR ? (
+            <FadeInUp delay={260}>
+              <Pressable
+                style={styles.featureCard}
+                onPress={() => nav.push({ name: 'interiorForm' })}
+              >
+                <View style={[styles.featureIconCircle, styles.featureIconInterior]}>
+                  <AppIcon name="tools" size={26} color="#059669" />
+                </View>
+                <View style={styles.featureTextBox}>
+                  <Text style={styles.featureTitle}>인테리어 시공 역경매 견적</Text>
+                  <Text style={styles.featureSubtitle}>여러 전문 검증 업체 비밀 견적 비교</Text>
+                </View>
+                <Text style={styles.featureChevron}>›</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.interiorMyLink}
+                onPress={() => nav.push({ name: 'interiorList', scope: 'mine' })}
+              >
+                <Text style={styles.interiorMyLinkText}>내 인테리어 요청 보기 ›</Text>
+              </Pressable>
+            </FadeInUp>
+          ) : null}
+        </View>
 
         <View style={styles.contentPadding}>
           {renderActiveRequests()}
@@ -271,145 +285,78 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   bannerImage: {
-    width: 90,
-    height: 90,
+    width: 76,
+    height: 76,
     position: 'absolute',
-    right: 12,
-    bottom: 6,
+    right: 16,
+    top: 22,
     zIndex: 1,
   },
-  gridContainer: {
-    flexDirection: 'row',
+  featureList: {
     paddingHorizontal: spacing.sm,
+    gap: spacing.xs + 2,
     marginBottom: spacing.sm,
   },
-  gridLeft: {
-    flex: 1.1,
-    marginRight: spacing.xs,
-  },
-  gridRight: {
-    flex: 1,
-  },
-  cardLarge: {
+  featureCard: {
     backgroundColor: colors.background,
     borderRadius: 20,
-    padding: spacing.sm,
-    height: 240,
-    justifyContent: 'space-between',
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardLargeTitle: {
-    fontSize: font.title,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: font.title + 4,
-  },
-  cardLargeImage: {
-    width: '100%',
-    height: 120,
-    alignSelf: 'center',
-  },
-  cardLargeEmoji: {
-    fontSize: 72,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-  cardSmall: {
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: spacing.sm,
-    height: 116,
-    marginBottom: spacing.xs,
-    justifyContent: 'space-between',
-    position: 'relative',
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardSmallContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardSmallTitle: {
-    fontSize: font.bodyLarge - 2,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: font.bodyLarge + 2,
-    flex: 1,
-  },
-  cardSmallImage: {
-    width: 54,
-    height: 54,
-  },
-  transportCard: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 20,
-    flexDirection: 'row',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
+    borderColor: colors.border,
+    borderWidth: 1,
     padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#0B1B3A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  transportEmoji: {
-    fontSize: font.titleLarge,
+  featureCardPrimary: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#BFDBFE',
+    borderWidth: 1.5,
+  },
+  featureIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: spacing.sm,
   },
-  transportTextBox: {
+  featureIconPrimary: {
+    backgroundColor: colors.primarySoft,
+  },
+  featureIconAi: {
+    backgroundColor: '#F3E8FF',
+  },
+  featureIconEstimate: {
+    backgroundColor: '#FEF3C7',
+  },
+  featureIconTransport: {
+    backgroundColor: '#E0F2FE',
+  },
+  featureIconInterior: {
+    backgroundColor: '#D1FAE5',
+  },
+  featureTextBox: {
     flex: 1,
   },
-  transportTitle: {
+  featureTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
-  transportSubtitle: {
+  featureSubtitle: {
     color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 2,
+    fontSize: font.body - 3,
+    marginTop: 3,
   },
-  transportChevron: {
-    color: colors.primary,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-  },
-  interiorCard: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 20,
-    flexDirection: 'row',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-    padding: spacing.md,
-  },
-  interiorEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
-  },
-  interiorTextBox: {
-    flex: 1,
-  },
-  interiorTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  interiorSubtitle: {
+  featureChevron: {
     color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 2,
-  },
-  interiorChevron: {
-    color: colors.primary,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    fontWeight: '700',
+    marginLeft: spacing.xs,
   },
   interiorMyLink: {
     alignSelf: 'flex-end',
