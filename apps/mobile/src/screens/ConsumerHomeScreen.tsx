@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
@@ -14,6 +14,8 @@ import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
+
+import brandmark from '../../assets/brandmark.png';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
 
@@ -124,7 +126,7 @@ export function ConsumerHomeScreen() {
               <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
               <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
             </View>
-            <Text style={{ fontSize: 70, position: 'absolute', right: 20, bottom: 20 }}>✨</Text>
+            <Image source={brandmark} style={styles.bannerImage} resizeMode="contain" />
           </View>
         </FadeInUp>
 
@@ -136,7 +138,9 @@ export function ConsumerHomeScreen() {
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
                 <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <Text style={{ fontSize: 72, textAlign: 'center', marginTop: 20 }}>👷</Text>
+                <View style={{ alignItems: 'center', marginTop: 20 }}>
+                  <AppIcon name="hammer" size={44} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
           </View>
@@ -149,7 +153,7 @@ export function ConsumerHomeScreen() {
               >
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>현장 사진{'\n'}분석</Text>
-                  <Text style={{ fontSize: 36 }}>📷</Text>
+                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -157,7 +161,7 @@ export function ConsumerHomeScreen() {
               <Pressable style={styles.cardSmall} onPress={() => nav.push({ name: 'estimate' })}>
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
-                  <Text style={{ fontSize: 36 }}>📐</Text>
+                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -170,7 +174,9 @@ export function ConsumerHomeScreen() {
             style={styles.interiorCard}
             onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
           >
-            <Text style={styles.interiorEmoji}>🚚</Text>
+            <View style={{ marginRight: 12 }}>
+              <AppIcon name="truck" size={26} color={theme.colors.primary} />
+            </View>
             <View style={styles.interiorTextBox}>
               <Text style={styles.interiorTitle}>운반 차량 직접 부르기</Text>
               <Text style={styles.interiorSubtitle} numberOfLines={2}>
@@ -188,7 +194,9 @@ export function ConsumerHomeScreen() {
               style={styles.interiorCard}
               onPress={() => nav.push({ name: 'interiorForm' })}
             >
-              <Text style={styles.interiorEmoji}>🛠️</Text>
+              <View style={{ marginRight: 12 }}>
+                <AppIcon name="tools" size={26} color={theme.colors.primary} />
+              </View>
               <View style={styles.interiorTextBox}>
                 <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
                 <Text style={styles.interiorSubtitle} numberOfLines={2}>
@@ -258,6 +266,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
   },
+  bannerImage: {
+    width: 76,
+    height: 76,
+    position: 'absolute',
+    right: 16,
+    top: 22,
+    zIndex: 1,
+  },
   gridContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.sm,
@@ -323,10 +339,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     padding: spacing.md,
-  },
-  interiorEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
   },
   interiorTextBox: {
     flex: 1,
