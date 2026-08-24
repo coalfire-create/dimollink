@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,6 +15,10 @@ import type { GeoPoint } from '@dimol/shared';
 import { coord2Address, searchAddress, type AddressSearchResult } from '../api/client';
 import { AppIcon } from './AppIcon';
 import { theme } from '../theme';
+
+// 지도 초기 중심 좌표(분당 정자동). 지도 HTML은 이 값으로 한 번만 생성되며,
+// 이후 핀 이동은 사용자 조작/PAN_TO로만 처리한다(상태를 HTML에 되먹이면 리로드 루프 발생).
+const DEFAULT_CENTER = { lat: 37.3613376, lng: 127.1055431 };
 
 interface AddressPickerFieldProps {
   label: string;
@@ -38,8 +42,8 @@ export function AddressPickerField({
   const [showDropdown, setShowDropdown] = useState(false);
 
   // 📍 카카오택시 스타일 지도 중심 핀 좌표 (기본: 분당 정자동/서울 강남)
-  const [mapLat, setMapLat] = useState<number>(37.3613376);
-  const [mapLng, setMapLng] = useState<number>(127.1055431);
+  const [mapLat, setMapLat] = useState<number>(DEFAULT_CENTER.lat);
+  const [mapLng, setMapLng] = useState<number>(DEFAULT_CENTER.lng);
 
   // 카카오 역지오코딩 결과
   const [pinResult, setPinResult] = useState<AddressSearchResult | null>(null);
@@ -160,8 +164,9 @@ export function AddressPickerField({
     };
   }, [modalVisible]);
 
-  // Leaflet map HTML for iframe rendering
-  const mapHtml = `
+  // Leaflet map HTML — 초기 좌표로 한 번만 생성(상태 변화에도 재생성/리로드 안 함)
+  const mapHtml = useMemo(
+    () => `
     <!DOCTYPE html>
     <html>
     <head>
@@ -208,7 +213,7 @@ export function AddressPickerField({
         <div class="center-pin-shadow"></div>
       </div>
       <script>
-        var map = L.map('map', { zoomControl: false }).setView([${mapLat}, ${mapLng}], 16);
+        var map = L.map('map', { zoomControl: false }).setView([${DEFAULT_CENTER.lat}, ${DEFAULT_CENTER.lng}], 16);
         L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
           maxZoom: 19,
           attribution: 'Map &copy; OpenStreetMap, &copy; CARTO'
@@ -249,7 +254,9 @@ export function AddressPickerField({
       </script>
     </body>
     </html>
-  `;
+  `,
+    [],
+  );
 
   return (
     <View style={styles.container}>
