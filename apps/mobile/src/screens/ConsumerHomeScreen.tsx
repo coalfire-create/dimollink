@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
@@ -15,8 +15,6 @@ import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
 
-import brandmark from '../../assets/brandmark.png';
-
 const MARKET_RATE_MIN_SAMPLE = 5;
 
 const RATE_TITLE = {
@@ -28,29 +26,19 @@ export function ConsumerHomeScreen() {
   const nav = useNavigation();
   const user = useSession();
   const config = ROLE_CONFIG.CONSUMER;
-  const { homeActive } = config;
 
-  const [active, setActive] = useState<ServiceRequest[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [rate, setRate] = useState<MarketRate | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [activeRes, rateRes] = await Promise.allSettled([
-      homeActive ? listRequests(user.id) : Promise.resolve(null),
+    const [reqsRes, rateRes] = await Promise.allSettled([
+      listRequests(user.id),
       config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
     ]);
-
-    if (activeRes.status === 'fulfilled' && activeRes.value) {
-      setActive(
-        activeRes.value
-          .filter((r) => r.status !== 'CANCELLED' && r.status !== 'SETTLED')
-          .slice(0, 3),
-      );
-    }
-    if (rateRes.status === 'fulfilled' && rateRes.value) {
-      setRate(rateRes.value);
-    }
-  }, [user.id, homeActive, config.marketRateParty]);
+    if (reqsRes.status === 'fulfilled') setRequests(reqsRes.value);
+    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
+  }, [user.id, config.marketRateParty]);
 
   useEffect(() => {
     void load();
@@ -63,35 +51,24 @@ export function ConsumerHomeScreen() {
   }
 
   const renderActiveRequests = () => {
-    if (!homeActive) return null;
+    const active = requests.filter((r) => r.status !== 'COMPLETED' && r.status !== 'SETTLED');
+    if (active.length === 0) return null;
+
     return (
-      <>
-        <SectionTitle>{homeActive.title}</SectionTitle>
-        {active.length > 0 ? (
-          active.map((request) => (
-            <Card
-              key={request.id}
-              onPress={() => nav.push({ name: 'requestDetail', requestId: request.id })}
-            >
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[request.kind]}</Text>
-                <StatusBadge
-                  status={request.status}
-                  label={REQUEST_STATUS_LABELS[request.status]}
-                />
-              </View>
-              <Text style={styles.requestMeta}>
-                {request.wasteTons}톤 · {new Date(request.createdAt).toLocaleDateString('ko-KR')}
-              </Text>
-            </Card>
-          ))
-        ) : (
-          <View style={styles.emptyCard}>
-            <AppIcon name="document" size={24} color={theme.colors.primary} />
-            <Text style={styles.emptyCardText}>{homeActive.empty}</Text>
-          </View>
-        )}
-      </>
+      <View>
+        <SectionTitle>진행 중인 내 요청</SectionTitle>
+        {active.map((req) => (
+          <Card key={req.id} onPress={() => nav.push({ name: 'requestDetail', requestId: req.id })}>
+            <View style={styles.requestRow}>
+              <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[req.kind]}</Text>
+              <StatusBadge status={req.status} label={REQUEST_STATUS_LABELS[req.status]} />
+            </View>
+            <Text style={styles.requestMeta}>
+              {req.wasteTons}톤 · {new Date(req.createdAt).toLocaleDateString('ko-KR')}
+            </Text>
+          </Card>
+        ))}
+      </View>
     );
   };
 
@@ -126,7 +103,9 @@ export function ConsumerHomeScreen() {
               <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
               <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
             </View>
-            <Image source={brandmark} style={styles.bannerImage} resizeMode="contain" />
+            <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
+              <AppIcon name="building" size={48} color="#FFFFFF" />
+            </View>
           </View>
         </FadeInUp>
 
@@ -161,7 +140,7 @@ export function ConsumerHomeScreen() {
               <Pressable style={styles.cardSmall} onPress={() => nav.push({ name: 'estimate' })}>
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
-                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
+                  <AppIcon name="document" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
