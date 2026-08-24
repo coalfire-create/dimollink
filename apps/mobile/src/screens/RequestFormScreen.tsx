@@ -3,8 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
+  BUILDING_TYPE_LABELS,
+  DEMOLITION_TYPE_LABELS,
   PILOT,
   wasteItemsToTons,
+  type BuildingType,
+  type DemolitionDetails,
+  type DemolitionType,
+  type DimolVisionSummary,
   type GeoPoint,
   type RequestKind,
   type ServiceRequest,
@@ -23,17 +29,22 @@ import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
 import { theme } from '../theme';
 
-/**
- * 요청 작성 — 철거/운반/처리장예약 공용 폼 (Phase 1 /requests).
- * 5톤 이상 건설폐기물은 올바로 의무신고 대상 안내를 자동 표시하고,
- * "올바로 전자인계서 신고가 필요한 건인가요?" 체크박스를 제공한다 (핵심 비즈니스 규칙).
- */
-
 const KIND_TITLES: Record<RequestKind, string> = {
   DEMOLITION: '철거 요청',
   TRANSPORT: '운반 요청',
   DISPOSAL_RESERVATION: '처리장 예약',
 };
+
+const BUILDING_TYPES: BuildingType[] = [
+  'COMMERCIAL',
+  'APARTMENT',
+  'HOUSING',
+  'OFFICE',
+  'FACTORY',
+  'OTHER',
+];
+
+const DEMOLITION_TYPES: DemolitionType[] = ['TOTAL', 'INTERIOR', 'STRUCTURE'];
 
 export function RequestFormScreen({
   kind,
@@ -44,11 +55,15 @@ export function RequestFormScreen({
 }) {
   const nav = useNavigation();
   const user = useSession();
+
+  // 운반/처리장 전용 폐기물 소재별 드래프트
   const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>(
     prefill?.wasteItems && prefill.wasteItems.length > 0
       ? wasteItemsToDrafts(prefill.wasteItems)
       : [emptyWasteDraft()],
   );
+
+  // 공통 정보
   const [region, setRegion] = useState(prefill?.region ?? user.region ?? '');
   const [location, setLocation] = useState<GeoPoint | undefined>(prefill?.location);
   const [siteAddress, setSiteAddress] = useState('');
@@ -58,11 +73,22 @@ export function RequestFormScreen({
   const [allbaroRequested, setAllbaroRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  // 처리장 예약 접수 직후 "운반요청도 함께 하기" 연계 스텝을 띄우기 위한 상태.
   const [reservationDone, setReservationDone] = useState<ServiceRequest | null>(null);
-  // 사진 기반 소재·무게 자동 채움 상태.
+
+  // 철거 전용 폼 정보
+  const [buildingType, setBuildingType] = useState<BuildingType>('COMMERCIAL');
+  const [demolitionType, setDemolitionType] = useState<DemolitionType>('INTERIOR');
+  const [spaceSize, setSpaceSize] = useState('');
+  const [floorCount, setFloorCount] = useState('');
+  const [hasElevator, setHasElevator] = useState<boolean>(true);
+  const [hasVehicleAccess, setHasVehicleAccess] = useState<boolean>(true);
+  const [desiredDate, setDesiredDate] = useState('');
+  const [description, setDescription] = useState('');
+
+  // 디몰비전 AI 사진 분석 상태
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoSummary, setPhotoSummary] = useState<string | null>(null);
+  const [dimolVision, setDimolVision] = useState<DimolVisionSummary | null>(null);
 
   async function fillFromPhoto() {
     setError(null);
@@ -80,15 +106,28 @@ export function RequestFormScreen({
         imageBase64: asset.base64,
         mimeType: asset.mimeType,
       });
-      if (wasteItems.length === 0) {
-        setPhotoSummary('사진에서 소재를 찾지 못했어요. 직접 입력해 주세요.');
-        return;
+
+      if (kind === 'DEMOLITION') {
+        const summaryObj: DimolVisionSummary = {
+          summary: analysis.summary,
+          hazards: analysis.hazards,
+          materials: analysis.materials.map((m) => m.name),
+          confidence: analysis.confidence,
+          analyzedAt: analysis.analyzedAt,
+        };
+        setDimolVision(summaryObj);
+        setPhotoSummary(`✨ 디몰비전 AI 분석 완료: ${analysis.summary}`);
+      } else {
+        if (wasteItems.length === 0) {
+          setPhotoSummary('사진에서 소재를 찾지 못했어요. 직접 입력해 주세요.');
+          return;
+        }
+        setWasteDrafts(wasteItemsToDrafts(wasteItems));
+        const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
+        setPhotoSummary(
+          `${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`,
+        );
       }
-      setWasteDrafts(wasteItemsToDrafts(wasteItems));
-      const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
-      setPhotoSummary(
-        `${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`,
-      );
     } catch {
       setError('사진 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.');
     } finally {
@@ -96,9 +135,10 @@ export function RequestFormScreen({
     }
   }
 
-  const wasteItems = draftsToWasteItems(wasteDrafts);
+  const wasteItems = kind === 'DEMOLITION' ? [] : draftsToWasteItems(wasteDrafts);
   const tons = wasteItemsToTons(wasteItems);
-  const allbaroMandatory = tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
+  const allbaroMandatory =
+    kind !== 'DEMOLITION' && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
 
   async function submit() {
     setError(null);
@@ -106,12 +146,35 @@ export function RequestFormScreen({
       setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
       return;
     }
-    if (wasteItems.length === 0) {
-      setError('폐기물 소재를 1개 이상 선택하고 예상 무게(kg)를 입력해 주세요.');
-      return;
+    if (kind === 'DEMOLITION') {
+      if (siteAddress.trim().length === 0) {
+        setError('현장 주소를 입력해 주세요.');
+        return;
+      }
+    } else {
+      if (wasteItems.length === 0) {
+        setError('폐기물 소재를 1개 이상 선택하고 예상 무게(kg)를 입력해 주세요.');
+        return;
+      }
     }
+
     setSubmitting(true);
     try {
+      const demolitionDetails: DemolitionDetails | undefined =
+        kind === 'DEMOLITION'
+          ? {
+              buildingType,
+              demolitionType,
+              spaceSize: spaceSize.trim() || undefined,
+              floorCount: floorCount.trim() || undefined,
+              hasElevator,
+              hasVehicleAccess,
+              desiredDate: desiredDate.trim() || undefined,
+              description: description.trim() || undefined,
+              dimolVisionAnalysis: dimolVision ?? undefined,
+            }
+          : undefined;
+
       const created = await createRequest({
         kind,
         requesterId: user.id,
@@ -122,12 +185,12 @@ export function RequestFormScreen({
         location: location ?? prefill?.location,
         linkedRequestId: prefill?.linkedRequestId,
         siteAddress: kind === 'DEMOLITION' ? siteAddress.trim() : undefined,
+        demolitionDetails,
         loadAddress: kind === 'TRANSPORT' ? loadAddress.trim() : undefined,
         unloadAddress: kind === 'TRANSPORT' ? unloadAddress.trim() : undefined,
-        // 파일럿: 날짜만 입력받아 정오(KST) 방문으로 접수한다.
         visitAt: kind === 'DISPOSAL_RESERVATION' ? `${visitAt.trim()}T12:00:00+09:00` : undefined,
       });
-      // 처리장 예약이 접수되면 바로 상세로 가지 않고 "운반요청도 함께 하기" 연계 스텝을 띄운다.
+
       if (kind === 'DISPOSAL_RESERVATION') {
         setReservationDone(created);
         setSubmitting(false);
@@ -213,18 +276,179 @@ export function RequestFormScreen({
             hint="현장이 위치한 지역이에요."
           />
           {kind === 'DEMOLITION' ? (
-            <AddressPickerField
-              label="현장 주소"
-              value={siteAddress}
-              onChangeAddress={(addr, reg, loc) => {
-                setSiteAddress(addr);
-                if (reg) setRegion(reg);
-                if (loc) setLocation(loc);
-              }}
-              placeholder="예) ○○시 ○○구 ○○동 12-3"
-              hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
-            />
+            <>
+              <AddressPickerField
+                label="현장 주소"
+                value={siteAddress}
+                onChangeAddress={(addr, reg, loc) => {
+                  setSiteAddress(addr);
+                  if (reg) setRegion(reg);
+                  if (loc) setLocation(loc);
+                }}
+                placeholder="예) ○○시 ○○구 ○○동 12-3"
+                hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
+              />
+
+              <Text style={styles.sectionLabel}>건물 / 공간 종류</Text>
+              <View style={styles.chipSegment}>
+                {BUILDING_TYPES.map((bt) => {
+                  const selected = buildingType === bt;
+                  return (
+                    <Pressable
+                      key={bt}
+                      accessibilityRole="button"
+                      onPress={() => setBuildingType(bt)}
+                      style={[styles.chipItem, selected && styles.chipItemActive]}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                        {BUILDING_TYPE_LABELS[bt]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.sectionLabel}>철거 종류</Text>
+              <View style={styles.chipSegment}>
+                {DEMOLITION_TYPES.map((dt) => {
+                  const selected = demolitionType === dt;
+                  return (
+                    <Pressable
+                      key={dt}
+                      accessibilityRole="button"
+                      onPress={() => setDemolitionType(dt)}
+                      style={[styles.chipItem, selected && styles.chipItemActive]}
+                    >
+                      <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                        {DEMOLITION_TYPE_LABELS[dt]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Field
+                label="평수 / 면적"
+                value={spaceSize}
+                onChangeText={setSpaceSize}
+                placeholder="예) 30평 (약 99㎡)"
+              />
+
+              <Field
+                label="현장 층수"
+                value={floorCount}
+                onChangeText={setFloorCount}
+                placeholder="예) 지상 3층 / 지하 1층"
+              />
+
+              <Text style={styles.sectionLabel}>현장 진입 조건</Text>
+              <View style={styles.conditionRow}>
+                <Text style={styles.conditionLabel}>엘리베이터</Text>
+                <View style={styles.yesNoSegment}>
+                  <Pressable
+                    style={[styles.yesNoBtn, hasElevator && styles.yesNoBtnActive]}
+                    onPress={() => setHasElevator(true)}
+                  >
+                    <Text style={[styles.yesNoText, hasElevator && styles.yesNoTextActive]}>
+                      있음
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.yesNoBtn, !hasElevator && styles.yesNoBtnActive]}
+                    onPress={() => setHasElevator(false)}
+                  >
+                    <Text style={[styles.yesNoText, !hasElevator && styles.yesNoTextActive]}>
+                      없음
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.conditionRow}>
+                <Text style={styles.conditionLabel}>차량/사다리차 진입</Text>
+                <View style={styles.yesNoSegment}>
+                  <Pressable
+                    style={[styles.yesNoBtn, hasVehicleAccess && styles.yesNoBtnActive]}
+                    onPress={() => setHasVehicleAccess(true)}
+                  >
+                    <Text style={[styles.yesNoText, hasVehicleAccess && styles.yesNoTextActive]}>
+                      가능
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.yesNoBtn, !hasVehicleAccess && styles.yesNoBtnActive]}
+                    onPress={() => setHasVehicleAccess(false)}
+                  >
+                    <Text style={[styles.yesNoText, !hasVehicleAccess && styles.yesNoTextActive]}>
+                      불가
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <Field
+                label="희망 철거 날짜"
+                value={desiredDate}
+                onChangeText={setDesiredDate}
+                placeholder="예) 2026-09-10"
+              />
+
+              {/* ✨ 디몰비전 AI 사진 분석 */}
+              <Text style={styles.sectionLabel}>✨ 디몰비전 AI 현장 분석</Text>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.photoFillBtn}
+                onPress={fillFromPhoto}
+                disabled={photoBusy}
+              >
+                <Text style={styles.photoFillText}>
+                  {photoBusy ? '디몰비전 AI 분석 중…' : '📷 현장 사진 등록 & 디몰비전 AI 분석'}
+                </Text>
+              </Pressable>
+
+              {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
+
+              {dimolVision ? (
+                <View style={styles.visionCard}>
+                  <View style={styles.visionCardHeader}>
+                    <Text style={styles.visionCardBadge}>디몰비전 AI분석</Text>
+                    <Text style={styles.visionConfidence}>
+                      신뢰도: {dimolVision.confidence ?? 'NORMAL'}
+                    </Text>
+                  </View>
+                  <Text style={styles.visionSummaryText}>"{dimolVision.summary}"</Text>
+                  {dimolVision.hazards && dimolVision.hazards.length > 0 ? (
+                    <View style={styles.visionHazardBox}>
+                      <Text style={styles.visionHazardTitle}>⚠️ 주의 필요 위험 요인:</Text>
+                      {dimolVision.hazards.map((h, i) => (
+                        <Text key={i} style={styles.visionHazardItem}>
+                          • {h}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                  {dimolVision.materials && dimolVision.materials.length > 0 ? (
+                    <View style={styles.visionMaterialBox}>
+                      <Text style={styles.visionMaterialTitle}>🔍 감지된 주요 구조 소재:</Text>
+                      <Text style={styles.visionMaterialText}>
+                        {dimolVision.materials.join(', ')}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <Field
+                label="상세 요구사항"
+                value={description}
+                onChangeText={setDescription}
+                placeholder="예) 주방·욕실 포함 전체 철거, 바닥 샌딩 포함, 야간 작업 가능 여부"
+                multiline
+                style={styles.multilineInput}
+              />
+            </>
           ) : null}
+
           {kind === 'TRANSPORT' ? (
             <>
               <AddressPickerField
@@ -254,7 +478,6 @@ export function RequestFormScreen({
                 placeholder="예) 2026-07-10"
                 hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
               />
-              {/* 운반요청 가능 여부 안내 — 매칭된 처리장 기준으로 예약 후 배지로 표시된다(운반 별도면 연계 안내). */}
               <View style={styles.transportInfo}>
                 <Text style={styles.transportInfoText}>
                   🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이 「운반요청 별도
@@ -280,7 +503,9 @@ export function RequestFormScreen({
             </>
           ) : null}
 
-          <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
+          {kind !== 'DEMOLITION' ? (
+            <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
+          ) : null}
         </FadeInUp>
 
         {allbaroMandatory ? (
@@ -455,5 +680,139 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs / 2,
+  },
+  sectionLabel: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  chipSegment: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.sm,
+  },
+  chipItem: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.button,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 2,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  chipItemActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  conditionLabel: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '600',
+  },
+  yesNoSegment: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  yesNoBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  yesNoBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  yesNoText: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '600',
+  },
+  yesNoTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  visionCard: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  visionCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  visionCardBadge: {
+    backgroundColor: colors.primary,
+    color: '#FFFFFF',
+    fontSize: font.caption,
+    fontWeight: '800',
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  visionConfidence: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+  },
+  visionSummaryText: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+    marginVertical: spacing.xs,
+  },
+  visionHazardBox: {
+    backgroundColor: '#FFF4F4',
+    borderRadius: radius.button,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  visionHazardTitle: {
+    color: colors.error,
+    fontSize: font.caption,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  visionHazardItem: {
+    color: colors.error,
+    fontSize: font.caption,
+  },
+  visionMaterialBox: {
+    marginTop: spacing.xs,
+  },
+  visionMaterialTitle: {
+    color: colors.text,
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  visionMaterialText: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+  },
+  multilineInput: {
+    minHeight: 80,
   },
 });

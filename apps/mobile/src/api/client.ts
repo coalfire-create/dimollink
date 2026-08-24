@@ -5,6 +5,7 @@ import type {
   CallAvailability,
   CancellationStage,
   ChatMessage,
+  DemolitionDetails,
   GeoPoint,
   InteriorBid,
   InteriorCategory,
@@ -214,7 +215,7 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  /** 소재별 항목(종류+kg). 최소 1개. 서버가 wasteTons 를 합계에서 자동 산출한다. */
+  /** 소재별 항목(종류+kg). 운반/처리장 필수, 철거요청 선택. */
   wasteItems?: WasteItem[];
   /** 레거시(하위호환) — wasteItems 미지정 시에만 사용. */
   wasteTons?: number;
@@ -222,6 +223,7 @@ export interface CreateRequestInput {
   /** 현장 좌표(거리 기반 매칭용, 선택). */
   location?: GeoPoint;
   siteAddress?: string;
+  demolitionDetails?: DemolitionDetails;
   loadAddress?: string;
   unloadAddress?: string;
   visitAt?: string;

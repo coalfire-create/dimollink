@@ -139,11 +139,53 @@ interface ServiceRequestBase {
   updatedAt: string;
 }
 
-/** 철거요청 — 철거 현장 주소 기반. */
+export type BuildingType = 'APARTMENT' | 'COMMERCIAL' | 'HOUSING' | 'OFFICE' | 'FACTORY' | 'OTHER';
+
+export const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
+  APARTMENT: '아파트',
+  COMMERCIAL: '상가·점포',
+  HOUSING: '주택',
+  OFFICE: '사무실',
+  FACTORY: '공장·창고',
+  OTHER: '기타',
+};
+
+/** 철거 종류 (원상복구 제외) */
+export type DemolitionType = 'TOTAL' | 'INTERIOR' | 'STRUCTURE';
+
+export const DEMOLITION_TYPE_LABELS: Record<DemolitionType, string> = {
+  TOTAL: '전체 철거 (건물 멸실)',
+  INTERIOR: '내부/부분 철거',
+  STRUCTURE: '구조물/옥외 철거',
+};
+
+export interface DimolVisionSummary {
+  summary?: string;
+  hazards?: string[];
+  materials?: string[];
+  confidence?: string;
+  analyzedAt?: string;
+}
+
+export interface DemolitionDetails {
+  buildingType?: BuildingType;
+  demolitionType?: DemolitionType;
+  spaceSize?: string;
+  floorCount?: string;
+  hasElevator?: boolean;
+  hasVehicleAccess?: boolean;
+  desiredDate?: string;
+  description?: string;
+  dimolVisionAnalysis?: DimolVisionSummary;
+}
+
+/** 철거요청 — 철거 현장 주소 기반 + 현장 상세 / 디몰비전 정보. */
 export interface DemolitionRequest extends ServiceRequestBase {
   kind: 'DEMOLITION';
   /** 철거 현장 주소. */
   siteAddress: string;
+  /** 철거 현장 조건 및 디몰비전 AI 분석 상세. */
+  demolitionDetails?: DemolitionDetails;
 }
 
 /** 운반요청 — 상차지 → 하차지. */

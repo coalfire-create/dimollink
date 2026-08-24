@@ -9,6 +9,7 @@ import {
   isValidSitePhotoKey,
   isValidWasteItem,
   wasteItemsToTons,
+  type DemolitionDetails,
   type GeoPoint,
   type MatchStatus,
   type RequestKind,
@@ -34,7 +35,7 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  /** 소재별 항목(종류+kg). 최소 1개(신규 UI 필수). */
+  /** 소재별 항목(종류+kg). 운반/처리장 필수, 철거요청 선택. */
   wasteItems?: WasteItem[];
   /** 레거시 입력(하위호환) — wasteItems 미지정 시에만 혼합폐기물 1건으로 환산해 사용. */
   wasteTons?: number;
@@ -46,6 +47,7 @@ export interface CreateRequestInput {
   linkedRequestId?: string;
   /** DEMOLITION */
   siteAddress?: string;
+  demolitionDetails?: DemolitionDetails;
   /** TRANSPORT */
   loadAddress?: string;
   unloadAddress?: string;
@@ -103,18 +105,29 @@ function normalizeSitePhotoKeys(keys: unknown): string[] {
 
 /**
  * 소재별 항목 검증 + 하위호환 처리.
+ * - 철거요청(`DEMOLITION`)은 소재별 무게가 필수가 아님 (현장 조건 중심).
  * - `wasteItems` 가 오면 그걸 우선 사용(최소 1개, 각 항목은 12종 소재 + 양수 kg).
  * - 없이 레거시 `wasteTons` 만 오면 혼합폐기물 1건(kg 환산)으로 채운다.
- * - 둘 다 없으면 오류(소재별 kg 최소 1개 필수).
  */
-function normalizeWasteItems(items: unknown, legacyTons: unknown): WasteItem[] {
+function normalizeWasteItems(items: unknown, legacyTons: unknown, kind?: RequestKind): WasteItem[] {
+  if (
+    kind === 'DEMOLITION' &&
+    (items === undefined || (Array.isArray(items) && items.length === 0))
+  ) {
+    return [];
+  }
   if (items !== undefined) {
     if (!Array.isArray(items) || items.length === 0) {
-      throw new RequestValidationError('소재별 폐기물 항목(wasteItems)을 1개 이상 입력해야 합니다.');
+      if (kind === 'DEMOLITION') return [];
+      throw new RequestValidationError(
+        '소재별 폐기물 항목(wasteItems)을 1개 이상 입력해야 합니다.',
+      );
     }
     return items.map((raw) => {
       if (!isValidWasteItem(raw)) {
-        throw new RequestValidationError('각 폐기물 항목은 유효한 소재(12종)와 양수 kg 이어야 합니다.');
+        throw new RequestValidationError(
+          '각 폐기물 항목은 유효한 소재(12종)와 양수 kg 이어야 합니다.',
+        );
       }
       return { material: raw.material, kg: raw.kg };
     });
@@ -122,6 +135,7 @@ function normalizeWasteItems(items: unknown, legacyTons: unknown): WasteItem[] {
   if (typeof legacyTons === 'number' && Number.isFinite(legacyTons) && legacyTons > 0) {
     return [{ material: 'MIXED_WASTE', kg: Math.round(legacyTons * 1000) }];
   }
+  if (kind === 'DEMOLITION') return [];
   throw new RequestValidationError('소재별 폐기물 항목(wasteItems)을 1개 이상 입력해야 합니다.');
 }
 
@@ -158,7 +172,7 @@ export class RequestStore {
     if (input.wasteCategory !== PILOT.wasteCategory) {
       throw new RequestValidationError('건설폐기물만 접수할 수 있습니다.');
     }
-    const wasteItems = normalizeWasteItems(input.wasteItems, input.wasteTons);
+    const wasteItems = normalizeWasteItems(input.wasteItems, input.wasteTons, input.kind);
     const wasteTons = wasteItemsToTons(wasteItems);
     if (input.location !== undefined && !isValidGeoPoint(input.location)) {
       throw new RequestValidationError('유효한 좌표(lat -90~90, lng -180~180)가 필요합니다.');
@@ -187,19 +201,32 @@ export class RequestStore {
         request = {
           ...base,
           kind: 'DEMOLITION',
-          siteAddress: requireText(input.siteAddress, '철거요청에는 siteAddress(현장 주소)가 필요합니다.'),
+          siteAddress: requireText(
+            input.siteAddress,
+            '철거요청에는 siteAddress(현장 주소)가 필요합니다.',
+          ),
+          ...(input.demolitionDetails ? { demolitionDetails: input.demolitionDetails } : {}),
         };
         break;
       case 'TRANSPORT':
         request = {
           ...base,
           kind: 'TRANSPORT',
-          loadAddress: requireText(input.loadAddress, '운반요청에는 loadAddress(상차지 주소)가 필요합니다.'),
-          unloadAddress: requireText(input.unloadAddress, '운반요청에는 unloadAddress(하차지 주소)가 필요합니다.'),
+          loadAddress: requireText(
+            input.loadAddress,
+            '운반요청에는 loadAddress(상차지 주소)가 필요합니다.',
+          ),
+          unloadAddress: requireText(
+            input.unloadAddress,
+            '운반요청에는 unloadAddress(하차지 주소)가 필요합니다.',
+          ),
         };
         break;
       case 'DISPOSAL_RESERVATION': {
-        const visitAt = requireText(input.visitAt, '처리장예약에는 visitAt(방문 일시)가 필요합니다.');
+        const visitAt = requireText(
+          input.visitAt,
+          '처리장예약에는 visitAt(방문 일시)가 필요합니다.',
+        );
         if (Number.isNaN(Date.parse(visitAt))) {
           throw new RequestValidationError('visitAt 은 ISO 8601 일시여야 합니다.');
         }
