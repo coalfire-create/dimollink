@@ -455,3 +455,6 @@ export interface AddressSearchResult {
 
 export const searchAddress = (query: string) =>
   api<AddressSearchResult[]>(`/locations/search-address?query=${encodeURIComponent(query)}`);
+
+export const coord2Address = (lat: number, lng: number) =>
+  api<AddressSearchResult>(`/locations/coord2address?lat=${lat}&lng=${lng}`);

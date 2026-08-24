@@ -30,6 +30,26 @@ export function createLocationsRouter(
     }
   });
 
+  // GET /api/locations/coord2address?lat=...&lng=... — 좌표 → 주소 변환(지도 핀포인트 찝기 역지오코딩)
+  router.get('/locations/coord2address', async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      res.status(400).json({ error: '유효한 lat, lng 좌표가 필요합니다.' });
+      return;
+    }
+    try {
+      const result = await geocoder.reverseGeocode(lat, lng);
+      if (!result) {
+        res.status(444).json({ error: '해당 위치의 주소를 찾을 수 없습니다.' });
+        return;
+      }
+      res.json(result);
+    } catch {
+      res.status(500).json({ error: '역지오코딩 실패' });
+    }
+  });
+
   // PUT /api/requests/:id/location  { lat, lng } — 업체 위치 갱신(업체는 인증된 본인)
   router.put('/requests/:id/location', (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;

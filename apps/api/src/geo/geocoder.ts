@@ -16,6 +16,7 @@ export interface AddressSearchResult {
 export interface Geocoder {
   geocode(address: string): Promise<GeoPoint | null>;
   searchAddress(query: string): Promise<AddressSearchResult[]>;
+  reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null>;
 }
 
 function extractRegion(fullAddress: string): string {
@@ -90,6 +91,16 @@ export class NoopGeocoder implements Geocoder {
         location: { lat: 37.4912, lng: 127.4875 },
       },
     ];
+  }
+
+  async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
+    return {
+      addressName: '경기 성남시 분당구 정자동 174-1',
+      roadAddressName: '경기 성남시 분당구 정자일로 121',
+      buildingName: '더샵스타파크',
+      region: '경기 성남',
+      location: { lat, lng },
+    };
   }
 }
 
@@ -207,6 +218,40 @@ export class KakaoGeocoder implements Geocoder {
     } catch (err) {
       console.warn('[searchAddress] 카카오 검색 실패', err instanceof Error ? err.name : 'error');
       return new NoopGeocoder().searchAddress(query);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`;
+      const res = await this.fetchFn(url, {
+        headers: { Authorization: `KakaoAK ${this.restKey}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        documents?: Array<{
+          road_address?: { address_name?: string; building_name?: string };
+          address?: { address_name?: string };
+        }>;
+      };
+      const doc = data.documents?.[0];
+      if (!doc) return null;
+      const mainAddr = doc.road_address?.address_name || doc.address?.address_name || '';
+      if (!mainAddr) return null;
+      return {
+        addressName: doc.address?.address_name || mainAddr,
+        roadAddressName: doc.road_address?.address_name || mainAddr,
+        buildingName: doc.road_address?.building_name || undefined,
+        region: extractRegion(mainAddr),
+        location: { lat, lng },
+      };
+    } catch {
+      return null;
     } finally {
       clearTimeout(timer);
     }
