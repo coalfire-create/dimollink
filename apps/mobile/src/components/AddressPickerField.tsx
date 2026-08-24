@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import type { GeoPoint } from '@dimol/shared';
 import { coord2Address, searchAddress, type AddressSearchResult } from '../api/client';
 import { AppIcon } from './AppIcon';
@@ -46,6 +47,7 @@ export function AddressPickerField({
   const [detailAddress, setDetailAddress] = useState('');
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const webViewRef = useRef<WebView | null>(null);
 
   // 지도 핀 위치가 이동했을 때 카카오 역지오코딩 API 호출
   async function handleMapMove(lat: number, lng: number) {
@@ -86,21 +88,32 @@ export function AddressPickerField({
     }
   }
 
+  // 지도를 특정 좌표로 이동시킨다 (웹=iframe, 네이티브=WebView 공통).
+  // 지도 이동이 끝나면 moveend → 역지오코딩이 자동으로 호출된다.
+  function panMapTo(lat: number, lng: number) {
+    setMapLat(lat);
+    setMapLng(lng);
+
+    if (Platform.OS === 'web') {
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage({ type: 'PAN_TO', lat, lng }, '*');
+      } else {
+        void handleMapMove(lat, lng);
+      }
+    } else if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`window.__panTo && window.__panTo(${lat}, ${lng}); true;`);
+    } else {
+      void handleMapMove(lat, lng);
+    }
+  }
+
   // 검색 결과 클릭 시 지도를 해당 위치로 이동 (Pan To)
   function handleSelectSearchResult(item: AddressSearchResult) {
     setShowDropdown(false);
     setQuery(item.roadAddressName || item.addressName);
 
     if (item.location) {
-      const { lat, lng } = item.location;
-      setMapLat(lat);
-      setMapLng(lng);
-
-      if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
-        iframeRef.current.contentWindow.postMessage({ type: 'PAN_TO', lat, lng }, '*');
-      } else {
-        void handleMapMove(lat, lng);
-      }
+      panMapTo(item.location.lat, item.location.lng);
     }
   }
 
@@ -203,20 +216,34 @@ export function AddressPickerField({
 
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+        // 앱(RN/웹) → 지도 이동 요청용 전역 함수
+        window.__panTo = function(lat, lng) {
+          map.setView([lat, lng], 16, { animate: true });
+        };
+
         var moveTimer = null;
         function notifyParent() {
           if (moveTimer) clearTimeout(moveTimer);
           moveTimer = setTimeout(function() {
             var center = map.getCenter();
-            window.parent.postMessage({ type: 'MAP_MOVED', lat: center.lat, lng: center.lng }, '*');
+            var payload = { type: 'MAP_MOVED', lat: center.lat, lng: center.lng };
+            // 웹(iframe) 경로
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage(payload, '*');
+            }
+            // 네이티브(react-native-webview) 경로
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+            }
           }, 200);
         }
 
         map.on('moveend', notifyParent);
 
+        // 웹 iframe PAN_TO 메시지 수신 (네이티브는 injectJavaScript __panTo 사용)
         window.addEventListener('message', function(e) {
           if (e.data && e.data.type === 'PAN_TO') {
-            map.setView([e.data.lat, e.data.lng], 16, { animate: true });
+            window.__panTo(e.data.lat, e.data.lng);
           }
         });
       </script>
@@ -273,12 +300,33 @@ export function AddressPickerField({
                 title="카카오 지도"
               />
             ) : (
-              <View style={styles.fallbackMapBox}>
-                <View style={styles.fallbackCenterPin}>
-                  <Text style={styles.fallbackPinText}>📍</Text>
-                </View>
-                <Text style={styles.fallbackText}>지도 핀 위치를 이동하여 주소를 찝어주세요</Text>
-              </View>
+              <WebView
+                ref={webViewRef}
+                source={{ html: mapHtml }}
+                originWhitelist={['*']}
+                style={styles.webviewMap}
+                javaScriptEnabled
+                domStorageEnabled
+                scrollEnabled={false}
+                onMessage={(event) => {
+                  try {
+                    const data = JSON.parse(event.nativeEvent.data) as {
+                      type?: string;
+                      lat?: number;
+                      lng?: number;
+                    };
+                    if (
+                      data.type === 'MAP_MOVED' &&
+                      typeof data.lat === 'number' &&
+                      typeof data.lng === 'number'
+                    ) {
+                      void handleMapMove(data.lat, data.lng);
+                    }
+                  } catch {
+                    // 무시: 지도 외 메시지
+                  }
+                }}
+              />
             )}
 
             {/* 🔍 상단 플로팅 주소/건물명 검색바 */}
@@ -320,18 +368,7 @@ export function AddressPickerField({
                   <Pressable
                     key={chip.name}
                     style={styles.quickChip}
-                    onPress={() => {
-                      setMapLat(chip.lat);
-                      setMapLng(chip.lng);
-                      if (Platform.OS === 'web' && iframeRef.current?.contentWindow) {
-                        iframeRef.current.contentWindow.postMessage(
-                          { type: 'PAN_TO', lat: chip.lat, lng: chip.lng },
-                          '*',
-                        );
-                      } else {
-                        void handleMapMove(chip.lat, chip.lng);
-                      }
-                    }}
+                    onPress={() => panMapTo(chip.lat, chip.lng)}
                   >
                     <Text style={styles.quickChipText}>{chip.name}</Text>
                   </Pressable>
@@ -504,20 +541,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#EBF3FE',
   },
-  fallbackMapBox: {
+  webviewMap: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fallbackCenterPin: {
-    marginBottom: spacing.xs,
-  },
-  fallbackPinText: {
-    fontSize: 48,
-  },
-  fallbackText: {
-    color: colors.textMuted,
-    fontSize: font.body,
+    backgroundColor: '#e5e3df',
   },
   floatingSearchWrap: {
     position: 'absolute',
