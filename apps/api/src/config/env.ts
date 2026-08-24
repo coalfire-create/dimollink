@@ -78,8 +78,9 @@ export const env = {
     apiKey: process.env.SMS_API_KEY,
   },
   geocode: {
-    // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 미설정 시 좌표 없이 진행.
-    provider: (process.env.GEOCODE_PROVIDER ?? 'none') as 'kakao' | 'none',
+    // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 키가 있으면 자동으로 kakao 사용.
+    provider: (process.env.GEOCODE_PROVIDER ??
+      (process.env.KAKAO_REST_API_KEY ? 'kakao' : 'none')) as 'kakao' | 'none',
     kakaoRestKey: process.env.KAKAO_REST_API_KEY,
     timeoutMs: Number(process.env.GEOCODE_TIMEOUT_MS ?? 5000),
   },
@@ -153,7 +154,9 @@ export const env = {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
     // 비전 API 공통 요청 타임아웃(ms).
-    visionTimeoutMs: Number(process.env.VISION_TIMEOUT_MS ?? process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
+    visionTimeoutMs: Number(
+      process.env.VISION_TIMEOUT_MS ?? process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000,
+    ),
     anthropicTimeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
   },
   portone: {

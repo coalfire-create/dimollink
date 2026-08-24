@@ -53,7 +53,12 @@ export function AddressPickerField({
   function handleOpenModal() {
     setModalVisible(true);
     if (results.length === 0) {
-      void handleSearch('양평');
+      if (value) {
+        setQuery(value);
+        void handleSearch(value);
+      } else {
+        void handleSearch('정자일로 121');
+      }
     }
   }
 
@@ -64,7 +69,10 @@ export function AddressPickerField({
   function handleConfirm() {
     if (!selectedItem) return;
     const baseAddr = selectedItem.roadAddressName || selectedItem.addressName;
-    const buildingInfo = selectedItem.buildingName ? ` (${selectedItem.buildingName})` : '';
+    const buildingInfo =
+      selectedItem.buildingName && !baseAddr.includes(selectedItem.buildingName)
+        ? ` (${selectedItem.buildingName})`
+        : '';
     const detailInfo = detailAddress.trim() ? ` ${detailAddress.trim()}` : '';
     const fullAddress = `${baseAddr}${buildingInfo}${detailInfo}`;
 
@@ -113,7 +121,7 @@ export function AddressPickerField({
               style={styles.searchInput}
               value={query}
               onChangeText={setQuery}
-              placeholder="도로명, 지번 또는 건물명 (예: 양근리 120, 양평군청)"
+              placeholder="도로명, 지번 또는 건물명 (예: 정자일로 121, 양평군청)"
               placeholderTextColor={theme.colors.textMuted}
               returnKeyType="search"
               onSubmitEditing={() => handleSearch()}
@@ -128,8 +136,8 @@ export function AddressPickerField({
           </View>
 
           <View style={styles.quickTags}>
-            <Text style={styles.quickLabel}>빠른 추천:</Text>
-            {['양평군청', '강상면', '옥천면', '용문역'].map((tag) => (
+            <Text style={styles.quickLabel}>인기 검색:</Text>
+            {['정자일로 121', '테헤란로 152', '양평군청', '해운대'].map((tag) => (
               <Pressable
                 key={tag}
                 style={styles.tagChip}
@@ -168,7 +176,9 @@ export function AddressPickerField({
                       ) : null}
                     </View>
                     <Text style={styles.roadAddress}>{item.roadAddressName}</Text>
-                    <Text style={styles.jibunAddress}>지번: {item.addressName}</Text>
+                    {item.addressName && item.addressName !== item.roadAddressName ? (
+                      <Text style={styles.jibunAddress}>지번: {item.addressName}</Text>
+                    ) : null}
                   </Pressable>
                 );
               })}

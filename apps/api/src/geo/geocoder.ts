@@ -84,8 +84,8 @@ export class NoopGeocoder implements Geocoder {
     if (filtered.length > 0) return filtered;
     return [
       {
-        addressName: `${query.trim()} 12-3`,
-        roadAddressName: `${query.trim()} 중앙로 1`,
+        addressName: query.trim(),
+        roadAddressName: query.trim(),
         region: extractRegion(query),
         location: { lat: 37.4912, lng: 127.4875 },
       },
@@ -215,8 +215,8 @@ export class KakaoGeocoder implements Geocoder {
 
 /** 환경설정 기반 지오코더. */
 export function createGeocoder(fetchFn: typeof fetch = fetch): Geocoder {
-  if (env.geocode.provider === 'kakao' && env.geocode.kakaoRestKey) {
-    return new KakaoGeocoder(env.geocode.kakaoRestKey, env.geocode.timeoutMs, fetchFn);
+  if (env.geocode.kakaoRestKey || env.geocode.provider === 'kakao') {
+    return new KakaoGeocoder(env.geocode.kakaoRestKey ?? '', env.geocode.timeoutMs, fetchFn);
   }
   return new NoopGeocoder();
 }
