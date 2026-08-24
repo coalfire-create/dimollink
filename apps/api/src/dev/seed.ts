@@ -22,10 +22,15 @@ interface SeedSpec {
 
 const TEST_ACCOUNTS: SeedSpec[] = [
   { userType: 'CONSUMER', name: '김소비(테스트)', phone: '01011110001' },
+  { userType: 'CONSUMER', name: '이철수(배출자)', phone: '01011110002' },
+  { userType: 'CONSUMER', name: '박지영(건축주)', phone: '01011110003' },
+  { userType: 'CONSUMER', name: '최성훈(매장대표)', phone: '01011110004' },
   { userType: 'DEMOLITION_COMPANY', name: '대한철거(테스트)', phone: '01022220002', businessNumber: '1208147521' },
+  { userType: 'DEMOLITION_COMPANY', name: '태양철거엔지니어링', phone: '01022220005', businessNumber: '1208147522' },
   { userType: 'TRANSPORT_COMPANY', name: '신속운반(테스트)', phone: '01033330003', businessNumber: '1234567891', online: true },
+  { userType: 'TRANSPORT_COMPANY', name: '삼일폐기물물류', phone: '01033330005', businessNumber: '1234567892', online: true },
   { userType: 'WASTE_TREATMENT_PLANT', name: '푸른처리장(테스트)', phone: '01044440004', businessNumber: '1010101013', offersTransport: true },
-  // 인테리어 밀봉 역경매(FEATURE_INTERIOR) 데모용 — 업체 2곳으로 경쟁 입찰 확인.
+  { userType: 'WASTE_TREATMENT_PLANT', name: '수도권순환자원센터', phone: '01044440005', businessNumber: '1010101014', offersTransport: true },
   { userType: 'INTERIOR_COMPANY', name: '가온인테리어(테스트)', phone: '01055550005' },
   { userType: 'INTERIOR_COMPANY', name: '한샘시공(테스트)', phone: '01066660006' },
 ];
