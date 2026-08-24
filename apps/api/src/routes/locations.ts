@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import { authUserId } from '../middleware/auth.js';
 import { LocationStore, LocationValidationError } from '../locations/store.js';
+import { createGeocoder, type Geocoder } from '../geo/geocoder.js';
 
-/** 실시간 위치 공유 API (로드맵 Phase 4). 작업 진행중(IN_PROGRESS)에만 동작. */
-export function createLocationsRouter(store: LocationStore): Router {
+/** 실시간 위치 공유 및 카카오 주소 검색 API. */
+export function createLocationsRouter(
+  store: LocationStore,
+  geocoder: Geocoder = createGeocoder(),
+): Router {
   const router = Router();
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
@@ -14,6 +18,17 @@ export function createLocationsRouter(store: LocationStore): Router {
     }
     res.status(500).json({ error: '위치 공유 처리 오류' });
   }
+
+  // GET /api/locations/search-address?query=... — 주소/건물명 검색 (카카오 연동)
+  router.get('/locations/search-address', async (req, res) => {
+    const query = typeof req.query.query === 'string' ? req.query.query.trim() : '';
+    try {
+      const results = await geocoder.searchAddress(query);
+      res.json(results);
+    } catch {
+      res.status(500).json({ error: '주소 검색 실패' });
+    }
+  });
 
   // PUT /api/requests/:id/location  { lat, lng } — 업체 위치 갱신(업체는 인증된 본인)
   router.put('/requests/:id/location', (req, res) => {

@@ -5,10 +5,12 @@ import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   PILOT,
   wasteItemsToTons,
+  type GeoPoint,
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
 import { ApiError, analyzeSiteWasteItems, createRequest } from '../api/client';
+import { AddressPickerField } from '../components/AddressPickerField';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import {
   WasteItemsInput,
@@ -48,6 +50,7 @@ export function RequestFormScreen({
       : [emptyWasteDraft()],
   );
   const [region, setRegion] = useState(prefill?.region ?? user.region ?? '');
+  const [location, setLocation] = useState<GeoPoint | undefined>(prefill?.location);
   const [siteAddress, setSiteAddress] = useState('');
   const [loadAddress, setLoadAddress] = useState(prefill?.loadAddress ?? '');
   const [unloadAddress, setUnloadAddress] = useState(prefill?.unloadAddress ?? '');
@@ -83,7 +86,9 @@ export function RequestFormScreen({
       }
       setWasteDrafts(wasteItemsToDrafts(wasteItems));
       const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
-      setPhotoSummary(`${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`);
+      setPhotoSummary(
+        `${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`,
+      );
     } catch {
       setError('사진 분석에 실패했어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.');
     } finally {
@@ -114,7 +119,7 @@ export function RequestFormScreen({
         wasteCategory: PILOT.wasteCategory,
         wasteItems,
         allbaroRequested,
-        location: prefill?.location,
+        location: location ?? prefill?.location,
         linkedRequestId: prefill?.linkedRequestId,
         siteAddress: kind === 'DEMOLITION' ? siteAddress.trim() : undefined,
         loadAddress: kind === 'TRANSPORT' ? loadAddress.trim() : undefined,
@@ -171,8 +176,8 @@ export function RequestFormScreen({
               <Text style={styles.doneEmoji}>✅</Text>
               <Text style={styles.doneTitle}>처리장 예약이 접수됐어요</Text>
               <Text style={styles.doneBody}>
-                매칭된 처리장이 「운반요청 별도 필요」이면 폐기물을 처리장까지 옮길 운반이 따로 필요해요.
-                지금 같은 소재·무게로 운반요청도 함께 접수할 수 있어요.
+                매칭된 처리장이 「운반요청 별도 필요」이면 폐기물을 처리장까지 옮길 운반이 따로
+                필요해요. 지금 같은 소재·무게로 운반요청도 함께 접수할 수 있어요.
               </Text>
             </View>
           </FadeInUp>
@@ -199,82 +204,92 @@ export function RequestFormScreen({
           <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
         </View>
 
-       <FadeInUp delay={40}>
-        <Field
-          label="지역"
-          value={region}
-          onChangeText={setRegion}
-          placeholder="예) 서울, 경기 양평, 부산"
-          hint="현장이 위치한 지역이에요."
-        />
-        {kind === 'DEMOLITION' ? (
+        <FadeInUp delay={40}>
           <Field
-            label="현장 주소"
-            value={siteAddress}
-            onChangeText={setSiteAddress}
-            placeholder="예) ○○시 ○○구 ○○동 12-3"
+            label="지역"
+            value={region}
+            onChangeText={setRegion}
+            placeholder="예) 서울, 경기 양평, 부산"
+            hint="현장이 위치한 지역이에요."
           />
-        ) : null}
-        {kind === 'TRANSPORT' ? (
-          <>
-            <Field
-              label="상차지 주소 (폐기물을 싣는 곳)"
-              value={loadAddress}
-              onChangeText={setLoadAddress}
+          {kind === 'DEMOLITION' ? (
+            <AddressPickerField
+              label="현장 주소"
+              value={siteAddress}
+              onChangeAddress={(addr, reg, loc) => {
+                setSiteAddress(addr);
+                if (reg) setRegion(reg);
+                if (loc) setLocation(loc);
+              }}
               placeholder="예) ○○시 ○○구 ○○동 12-3"
+              hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
             />
-            <Field
-              label="하차지 주소 (폐기물을 내리는 곳)"
-              value={unloadAddress}
-              onChangeText={setUnloadAddress}
-              placeholder="예) ○○시 ○○구 처리장"
-            />
-          </>
-        ) : null}
-        {kind === 'DISPOSAL_RESERVATION' ? (
-          <>
-            <Field
-              label="방문 희망 날짜"
-              value={visitAt}
-              onChangeText={setVisitAt}
-              placeholder="예) 2026-07-10"
-              hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
-            />
-            {/* 운반요청 가능 여부 안내 — 매칭된 처리장 기준으로 예약 후 배지로 표시된다(운반 별도면 연계 안내). */}
-            <View style={styles.transportInfo}>
-              <Text style={styles.transportInfoText}>
-                🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이
-                「운반요청 별도 필요」면 운반요청을 함께 하도록 안내해 드려요.
-              </Text>
-            </View>
-          </>
-        ) : null}
+          ) : null}
+          {kind === 'TRANSPORT' ? (
+            <>
+              <AddressPickerField
+                label="상차지 주소 (폐기물을 싣는 곳)"
+                value={loadAddress}
+                onChangeAddress={(addr, reg, loc) => {
+                  setLoadAddress(addr);
+                  if (reg) setRegion(reg);
+                  if (loc) setLocation(loc);
+                }}
+                placeholder="예) ○○시 ○○구 ○○동 12-3"
+              />
+              <AddressPickerField
+                label="하차지 주소 (폐기물을 내리는 곳)"
+                value={unloadAddress}
+                onChangeAddress={(addr) => setUnloadAddress(addr)}
+                placeholder="예) ○○시 ○○구 처리장"
+              />
+            </>
+          ) : null}
+          {kind === 'DISPOSAL_RESERVATION' ? (
+            <>
+              <Field
+                label="방문 희망 날짜"
+                value={visitAt}
+                onChangeText={setVisitAt}
+                placeholder="예) 2026-07-10"
+                hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
+              />
+              {/* 운반요청 가능 여부 안내 — 매칭된 처리장 기준으로 예약 후 배지로 표시된다(운반 별도면 연계 안내). */}
+              <View style={styles.transportInfo}>
+                <Text style={styles.transportInfoText}>
+                  🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이 「운반요청 별도
+                  필요」면 운반요청을 함께 하도록 안내해 드려요.
+                </Text>
+              </View>
+            </>
+          ) : null}
 
-        {kind === 'TRANSPORT' ? (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.photoFillBtn}
-              onPress={fillFromPhoto}
-              disabled={photoBusy}
-            >
-              <Text style={styles.photoFillText}>
-                {photoBusy ? '사진 분석 중…' : '📷 사진으로 소재·무게 자동 채우기'}
-              </Text>
-            </Pressable>
-            {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
-          </>
-        ) : null}
+          {kind === 'TRANSPORT' ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.photoFillBtn}
+                onPress={fillFromPhoto}
+                disabled={photoBusy}
+              >
+                <Text style={styles.photoFillText}>
+                  {photoBusy ? '사진 분석 중…' : '📷 사진으로 소재·무게 자동 채우기'}
+                </Text>
+              </Pressable>
+              {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
+            </>
+          ) : null}
 
-        <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
-       </FadeInUp>
+          <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
+        </FadeInUp>
 
         {allbaroMandatory ? (
           <FadeInUp>
             <View style={styles.mandatoryNotice}>
               <Text style={styles.mandatoryTitle}>♻️ 올바로 신고 대상</Text>
               <Text style={styles.mandatoryBody}>
-                {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜 두면 자동으로 처리해 드려요.
+                {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜
+                두면 자동으로 처리해 드려요.
               </Text>
             </View>
           </FadeInUp>

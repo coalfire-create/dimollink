@@ -22,7 +22,12 @@ import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-coll
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
-import { ClaudeSiteAnalyzer, GeminiSiteAnalyzer, GroqSiteAnalyzer, MockSiteAnalyzer } from './site-analysis/analyzer.js';
+import {
+  ClaudeSiteAnalyzer,
+  GeminiSiteAnalyzer,
+  GroqSiteAnalyzer,
+  MockSiteAnalyzer,
+} from './site-analysis/analyzer.js';
 import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { NotificationService } from './notifications/service.js';
@@ -43,7 +48,12 @@ import { seedTestAccounts } from './dev/seed.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
-import { createRateLimiter, requestId, requestLogger, securityHeaders } from './middleware/security.js';
+import {
+  createRateLimiter,
+  requestId,
+  requestLogger,
+  securityHeaders,
+} from './middleware/security.js';
 import { Metrics, metricsMiddleware } from './observability/metrics.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
@@ -89,11 +99,7 @@ export function createApp(
 
   // CORS: 운영에서는 허용 출처(CORS_ORIGINS)만, 미설정 시(개발) 전체 허용.
   app.use(
-    cors(
-      env.corsOrigins.length > 0
-        ? { origin: env.corsOrigins, credentials: true }
-        : undefined,
-    ),
+    cors(env.corsOrigins.length > 0 ? { origin: env.corsOrigins, credentials: true } : undefined),
   );
   app.use(securityHeaders(env.isProduction));
   app.use(requestId());
@@ -121,9 +127,13 @@ export function createApp(
     }),
   );
   // 법적 고지·랜딩 — 스토어/앱 링크가 요구하는 공개 URL(명시 경로).
-  app.get('/privacy', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'privacy.html')));
+  app.get('/privacy', (_req: Request, res: Response) =>
+    res.sendFile(join(publicDir, 'privacy.html')),
+  );
   app.get('/terms', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'terms.html')));
-  app.get('/landing', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'index.html')));
+  app.get('/landing', (_req: Request, res: Response) =>
+    res.sendFile(join(publicDir, 'index.html')),
+  );
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);
@@ -131,10 +141,7 @@ export function createApp(
   // 전역 레이트리밋(기본 DDoS·남용 완화) — IP 기준. 정상 사용에 넉넉한 상한.
   app.use(
     '/api',
-    createRateLimiter(
-      { windowMs: 60_000, max: 300, keyPrefix: 'global' },
-      shared.rateLimitStore,
-    ),
+    createRateLimiter({ windowMs: 60_000, max: 300, keyPrefix: 'global' }, shared.rateLimitStore),
   );
   // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — 더 엄격한 상한.
   app.use(
@@ -208,9 +215,7 @@ export function createApp(
     persistence<InteriorRequest>('interior-requests'),
     persistence<InteriorBid>('interior-bids'),
   );
-  const paymentStore = new PaymentStore(
-    persistence<PaymentRecord>('payments', (p) => p.paymentId),
-  );
+  const paymentStore = new PaymentStore(persistence<PaymentRecord>('payments', (p) => p.paymentId));
   // 업체 단가(마이페이지 설정) — 견적 기본값·시세 참고에 쓴다.
   const pricingStore = new PricingStore(persistence<ProviderPricing>('pricing', (p) => p.userId));
 
@@ -259,23 +264,49 @@ export function createApp(
       userStore,
     ),
   );
-  app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
+  const geocoder = createGeocoder();
+  app.use(
+    '/api',
+    createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average),
+  );
   app.use('/api', createUploadsRouter());
-  app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
+  app.use('/api', createRequestsRouter(requestStore, geocoder));
   app.use('/api', createJobsRouter(requestStore, userStore));
   app.use('/api', createAuthRouter(userStore, otpService, sessionStore, credentialStore));
   // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.
   const oauthService = new OAuthService({
     credentials: {
-      kakao: { clientId: env.oauth.kakao.clientId ?? '', clientSecret: env.oauth.kakao.clientSecret ?? '' },
-      google: { clientId: env.oauth.google.clientId ?? '', clientSecret: env.oauth.google.clientSecret ?? '' },
-      naver: { clientId: env.oauth.naver.clientId ?? '', clientSecret: env.oauth.naver.clientSecret ?? '' },
+      kakao: {
+        clientId: env.oauth.kakao.clientId ?? '',
+        clientSecret: env.oauth.kakao.clientSecret ?? '',
+      },
+      google: {
+        clientId: env.oauth.google.clientId ?? '',
+        clientSecret: env.oauth.google.clientSecret ?? '',
+      },
+      naver: {
+        clientId: env.oauth.naver.clientId ?? '',
+        clientSecret: env.oauth.naver.clientSecret ?? '',
+      },
     },
     redirectBase: env.oauth.redirectBase,
     secret: env.oauth.secret,
   });
-  app.use('/api', createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect));
-  app.use('/api', createUsersRouter(userStore, otpService, sessionStore, credentialStore, undefined, oauthService));
+  app.use(
+    '/api',
+    createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect),
+  );
+  app.use(
+    '/api',
+    createUsersRouter(
+      userStore,
+      otpService,
+      sessionStore,
+      credentialStore,
+      undefined,
+      oauthService,
+    ),
+  );
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore, userStore, requestStore));
   app.use('/api', createPricingRouter(pricingStore));
@@ -283,11 +314,8 @@ export function createApp(
   if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
   app.use('/api', createOffersRouter(offerStore));
   app.use('/api', createNotificationsRouter(notificationService));
-  app.use('/api', createLocationsRouter(new LocationStore(requestStore)));
-  app.use(
-    '/api',
-    createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))),
-  );
+  app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
+  app.use('/api', createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))));
   app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
   // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
   const mockSiteAnalyzer = new MockSiteAnalyzer();
@@ -311,7 +339,10 @@ export function createApp(
             timeoutMs: env.ai.visionTimeoutMs,
           })
         : mockSiteAnalyzer;
-  app.use('/api', createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, new HeuristicVolumeEstimator()));
+  app.use(
+    '/api',
+    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, new HeuristicVolumeEstimator()),
+  );
   app.use(
     '/api',
     createAdminRouter(

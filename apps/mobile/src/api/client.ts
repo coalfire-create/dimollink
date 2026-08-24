@@ -51,11 +51,7 @@ const PROD_API_BASE_URL =
  *  - 네이티브 운영(안드로이드/iOS 릴리스): Railway 운영 API.
  */
 export const API_BASE_URL =
-  isWeb && !__DEV__
-    ? '/api'
-    : __DEV__
-      ? `http://${HOST}:4000/api`
-      : PROD_API_BASE_URL;
+  isWeb && !__DEV__ ? '/api' : __DEV__ ? `http://${HOST}:4000/api` : PROD_API_BASE_URL;
 
 /**
  * 웹 페이지(약관·개인정보처리방침·랜딩) 베이스 — API 와 동일 호스트의 루트(/api 제외).
@@ -304,8 +300,12 @@ export const estimateVolume = (input: {
 
 // ── 견적 (처리장 견적 비교 등 · Phase 3)
 /** 업체가 요청에 견적 제출(제출자는 인증된 본인). party: TRANSPORT | DISPOSAL. */
-export const submitQuote = (input: { requestId: string; party: ProviderRole; amount: number; memo?: string }) =>
-  api<Quote>('/quotes', { method: 'POST', body: JSON.stringify(input) });
+export const submitQuote = (input: {
+  requestId: string;
+  party: ProviderRole;
+  amount: number;
+  memo?: string;
+}) => api<Quote>('/quotes', { method: 'POST', body: JSON.stringify(input) });
 
 /** 요청의 견적 목록(가격 비교용). */
 export const listQuotes = (requestId: string) =>
@@ -333,7 +333,11 @@ export const prepay = (input: {
 }) => api<PrepayResult>('/payments/prepay', { method: 'POST', body: JSON.stringify(input) });
 
 /** 취소/환불 — 결제자 본인만. stage 로 위약금 정책 결정. */
-export const cancelPayment = (input: { paymentId: string; stage: CancellationStage; reason?: string }) =>
+export const cancelPayment = (input: {
+  paymentId: string;
+  stage: CancellationStage;
+  reason?: string;
+}) =>
   api<{ breakdown: { refundAmount: number; penaltyAmount: number } }>('/payments/cancel', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -358,8 +362,7 @@ export const createInteriorRequest = (input: CreateInteriorRequestInput) =>
 export const listInteriorRequests = (scope: 'mine' | 'open') =>
   api<InteriorRequest[]>(`/interior/requests?scope=${scope}`);
 
-export const getInteriorRequest = (id: string) =>
-  api<InteriorRequest>(`/interior/requests/${id}`);
+export const getInteriorRequest = (id: string) => api<InteriorRequest>(`/interior/requests/${id}`);
 
 /** 업체가 밀봉 입찰 제출(입찰자는 인증된 본인). */
 export const submitInteriorBid = (requestId: string, amount: number, memo?: string) =>
@@ -399,7 +402,11 @@ export const adminListRequests = (adminToken: string, status?: MatchStatus) =>
   });
 
 /** 정산(지급대행) 실행 — 관리자 토큰. 금액·사업자번호는 서버 확정값. */
-export const adminExecutePayout = (adminToken: string, matchRequestId: string, completedDate: string) =>
+export const adminExecutePayout = (
+  adminToken: string,
+  matchRequestId: string,
+  completedDate: string,
+) =>
   api<{ settlementDate: string; payouts: unknown[]; taxInvoices: unknown[] }>('/payments/payouts', {
     method: 'POST',
     headers: { 'x-admin-token': adminToken },
@@ -434,3 +441,15 @@ export const adminListPricing = (adminToken: string) =>
   api<ProviderPricing[]>('/admin/pricing', {
     headers: { 'x-admin-token': adminToken },
   });
+
+/** 카카오 주소 및 건물명 검색 API. */
+export interface AddressSearchResult {
+  addressName: string;
+  roadAddressName: string;
+  buildingName?: string;
+  region: string;
+  location?: GeoPoint;
+}
+
+export const searchAddress = (query: string) =>
+  api<AddressSearchResult[]>(`/locations/search-address?query=${encodeURIComponent(query)}`);
