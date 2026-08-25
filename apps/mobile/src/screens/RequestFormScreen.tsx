@@ -17,6 +17,7 @@ import {
 } from '@dimol/shared';
 import { ApiError, analyzeSiteWasteItems, createRequest } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
+import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import {
   WasteItemsInput,
@@ -89,7 +90,9 @@ export function RequestFormScreen({
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoSummary, setPhotoSummary] = useState<string | null>(null);
   const [dimolVision, setDimolVision] = useState<DimolVisionSummary | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
+  // 앨범에서 사진 선택 → 디몰비전 분석
   async function fillFromPhoto() {
     setError(null);
     setPhotoSummary(null);
@@ -100,11 +103,24 @@ export function RequestFormScreen({
     });
     const asset = res.canceled ? undefined : res.assets[0];
     if (!asset?.base64) return;
+    void runVision(asset.base64, asset.mimeType);
+  }
+
+  // 가이드 카메라로 촬영 → 디몰비전 분석
+  function handleCameraCapture(photo: CapturedPhoto) {
+    setCameraOpen(false);
+    setError(null);
+    setPhotoSummary(null);
+    void runVision(photo.base64, photo.mimeType);
+  }
+
+  // 공통: base64 이미지를 디몰비전 AI로 분석하여 폼을 채운다
+  async function runVision(imageBase64: string, mimeType?: string) {
     setPhotoBusy(true);
     try {
       const { analysis, wasteItems } = await analyzeSiteWasteItems({
-        imageBase64: asset.base64,
-        mimeType: asset.mimeType,
+        imageBase64,
+        mimeType,
       });
 
       if (kind === 'DEMOLITION') {
@@ -398,12 +414,20 @@ export function RequestFormScreen({
               <Pressable
                 accessibilityRole="button"
                 style={styles.photoFillBtn}
-                onPress={fillFromPhoto}
+                onPress={() => setCameraOpen(true)}
                 disabled={photoBusy}
               >
                 <Text style={styles.photoFillText}>
-                  {photoBusy ? '디몰비전 AI 분석 중…' : '📷 현장 사진 등록 & 디몰비전 AI 분석'}
+                  {photoBusy ? '디몰비전 AI 분석 중…' : '📷 현장 사진 촬영 (디몰비전 AI 분석)'}
                 </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.photoAltBtn}
+                onPress={fillFromPhoto}
+                disabled={photoBusy}
+              >
+                <Text style={styles.photoAltText}>또는 앨범에서 선택</Text>
               </Pressable>
 
               {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
@@ -492,12 +516,20 @@ export function RequestFormScreen({
               <Pressable
                 accessibilityRole="button"
                 style={styles.photoFillBtn}
-                onPress={fillFromPhoto}
+                onPress={() => setCameraOpen(true)}
                 disabled={photoBusy}
               >
                 <Text style={styles.photoFillText}>
-                  {photoBusy ? '사진 분석 중…' : '📷 사진으로 소재·무게 자동 채우기'}
+                  {photoBusy ? '사진 분석 중…' : '📷 사진 촬영으로 소재·무게 자동 채우기'}
                 </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.photoAltBtn}
+                onPress={fillFromPhoto}
+                disabled={photoBusy}
+              >
+                <Text style={styles.photoAltText}>또는 앨범에서 선택</Text>
               </Pressable>
               {photoSummary ? <Text style={styles.photoSummary}>{photoSummary}</Text> : null}
             </>
@@ -540,6 +572,12 @@ export function RequestFormScreen({
       <StickyFooter>
         <AppButton label="접수하기" onPress={submit} loading={submitting} />
       </StickyFooter>
+
+      <CameraCaptureModal
+        visible={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCameraCapture}
+      />
     </View>
   );
 }
@@ -616,6 +654,18 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '800',
+  },
+  photoAltBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight,
+    marginBottom: spacing.xs,
+  },
+  photoAltText: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   photoSummary: {
     color: colors.textMuted,
