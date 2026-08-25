@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dimol/shared';
 import { coord2Address, searchAddress, type AddressSearchResult } from '../api/client';
 import { AppIcon } from './AppIcon';
@@ -27,6 +27,46 @@ interface AddressPickerFieldProps {
   placeholder?: string;
   hint?: string;
 }
+
+interface MapFrameProps {
+  mapHtml: string;
+  iframeRef: React.MutableRefObject<HTMLIFrameElement | null>;
+  webViewRef: React.MutableRefObject<WebView | null>;
+  onNativeMessage: (event: WebViewMessageEvent) => void;
+}
+
+// 🗺 지도 DOM(iframe / WebView) 리로드 방지를 위한 메모이제이션 래퍼
+const MapFrame = React.memo(
+  function MapFrame({ mapHtml, iframeRef, webViewRef, onNativeMessage }: MapFrameProps) {
+    if (Platform.OS === 'web') {
+      return (
+        <iframe
+          ref={iframeRef}
+          srcDoc={mapHtml}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+          }}
+          title="카카오 지도"
+        />
+      );
+    }
+    return (
+      <WebView
+        ref={webViewRef}
+        source={{ html: mapHtml }}
+        originWhitelist={['*']}
+        style={styles.webviewMap}
+        javaScriptEnabled
+        domStorageEnabled
+        scrollEnabled={false}
+        onMessage={onNativeMessage}
+      />
+    );
+  },
+  () => true, // 부모 상태(pinLoading, detailAddress 등)가 바뀌어도 iframe/WebView를 리로드하지 않음
+);
 
 export function AddressPickerField({
   label,
@@ -52,9 +92,19 @@ export function AddressPickerField({
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const webViewRef = useRef<WebView | null>(null);
+  const lastHandledCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  // 지도 핀 위치가 이동했을 때 카카오 역지오코딩 API 호출
-  async function handleMapMove(lat: number, lng: number) {
+  // 지도 핀 위치가 이동했을 때 카카오 역지오코딩 API 호출 (동일 좌표 중복 호출 방지)
+  const handleMapMove = useCallback(async (lat: number, lng: number) => {
+    if (
+      lastHandledCoordsRef.current &&
+      Math.abs(lastHandledCoordsRef.current.lat - lat) < 0.00005 &&
+      Math.abs(lastHandledCoordsRef.current.lng - lng) < 0.00005
+    ) {
+      return;
+    }
+    lastHandledCoordsRef.current = { lat, lng };
+
     setMapLat(lat);
     setMapLng(lng);
     setPinLoading(true);
@@ -71,7 +121,30 @@ export function AddressPickerField({
     } finally {
       setPinLoading(false);
     }
-  }
+  }, []);
+
+  // Native WebView 메시지 핸들러
+  const handleNativeMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      try {
+        const data = JSON.parse(event.nativeEvent.data) as {
+          type?: string;
+          lat?: number;
+          lng?: number;
+        };
+        if (
+          data.type === 'MAP_MOVED' &&
+          typeof data.lat === 'number' &&
+          typeof data.lng === 'number'
+        ) {
+          void handleMapMove(data.lat, data.lng);
+        }
+      } catch {
+        // 무시: 지도 외 메시지
+      }
+    },
+    [handleMapMove],
+  );
 
   // 검색창 입력으로 주소/장소 검색
   async function handleSearch(searchQuery?: string) {
@@ -123,7 +196,9 @@ export function AddressPickerField({
 
   function handleOpenModal() {
     setModalVisible(true);
-    void handleMapMove(mapLat, mapLng);
+    if (!pinResult) {
+      void handleMapMove(mapLat, mapLng);
+    }
   }
 
   function handleConfirm() {
@@ -150,7 +225,7 @@ export function AddressPickerField({
     if (Platform.OS !== 'web' || !modalVisible) return;
 
     function handleWebMessage(e: MessageEvent) {
-      if (e.data && e.data.type === 'MAP_MOVED') {
+      if (e.data && typeof e.data === 'object' && e.data.type === 'MAP_MOVED') {
         const { lat, lng } = e.data as { lat: number; lng: number };
         if (typeof lat === 'number' && typeof lng === 'number') {
           void handleMapMove(lat, lng);
@@ -162,7 +237,7 @@ export function AddressPickerField({
     return () => {
       window.removeEventListener('message', handleWebMessage);
     };
-  }, [modalVisible]);
+  }, [modalVisible, handleMapMove]);
 
   // Leaflet map HTML — 초기 좌표로 한 번만 생성(상태 변화에도 재생성/리로드 안 함)
   const mapHtml = useMemo(
@@ -295,46 +370,12 @@ export function AddressPickerField({
 
           {/* 🗺 카카오택시 스타일 전면 지도 영역 */}
           <View style={styles.mapViewport}>
-            {Platform.OS === 'web' ? (
-              <iframe
-                ref={iframeRef}
-                srcDoc={mapHtml}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-                title="카카오 지도"
-              />
-            ) : (
-              <WebView
-                ref={webViewRef}
-                source={{ html: mapHtml }}
-                originWhitelist={['*']}
-                style={styles.webviewMap}
-                javaScriptEnabled
-                domStorageEnabled
-                scrollEnabled={false}
-                onMessage={(event) => {
-                  try {
-                    const data = JSON.parse(event.nativeEvent.data) as {
-                      type?: string;
-                      lat?: number;
-                      lng?: number;
-                    };
-                    if (
-                      data.type === 'MAP_MOVED' &&
-                      typeof data.lat === 'number' &&
-                      typeof data.lng === 'number'
-                    ) {
-                      void handleMapMove(data.lat, data.lng);
-                    }
-                  } catch {
-                    // 무시: 지도 외 메시지
-                  }
-                }}
-              />
-            )}
+            <MapFrame
+              mapHtml={mapHtml}
+              iframeRef={iframeRef}
+              webViewRef={webViewRef}
+              onNativeMessage={handleNativeMessage}
+            />
 
             {/* 🔍 상단 플로팅 주소/건물명 검색바 */}
             <View style={styles.floatingSearchWrap}>

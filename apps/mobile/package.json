@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "npx expo export --platform web && mkdir -p ../api/public/web && cp -R dist/* ../api/public/web/",
+    "build": "npx expo export --platform web && rm -rf ../api/public/web && mkdir -p ../api/public/web && cp -R dist/* ../api/public/web/",
     "eas-build-post-install": "cd ../.. && npm run build:shared",
     "build:android": "eas build --platform android --profile production",
     "build:android:preview": "eas build --platform android --profile preview",
