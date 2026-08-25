@@ -59,6 +59,12 @@
             "kotlinVersion": "1.9.25"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "현장 사진 촬영에 사용됩니다."
+        }
       ]
     ],
     "extra": {

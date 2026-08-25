@@ -8,6 +8,7 @@ import {
 } from '@dimol/shared';
 import { ApiError, analyzeSite } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
+import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader } from '../navigation';
@@ -37,6 +38,7 @@ export function SiteAnalysisScreen() {
   const [result, setResult] = useState<SiteAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   function applyAsset(asset: ImagePicker.ImagePickerAsset) {
     if (!asset.base64) {
@@ -48,6 +50,14 @@ export function SiteAnalysisScreen() {
     setImage({ base64: asset.base64, mimeType: asset.mimeType ?? mimeFromUri(asset.uri), uri: asset.uri });
   }
 
+  // 커스텀 카메라(가이드 오버레이)에서 촬영 완료 시
+  function handleCameraCapture(photo: CapturedPhoto) {
+    setResult(null);
+    setError(null);
+    setImage(photo);
+    setCameraOpen(false);
+  }
+
   async function pickFromLibrary() {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -57,14 +67,9 @@ export function SiteAnalysisScreen() {
     if (!res.canceled && res.assets[0]) applyAsset(res.assets[0]);
   }
 
-  async function takePhoto() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      setError('카메라 권한이 필요해요. 설정에서 허용해 주세요.');
-      return;
-    }
-    const res = await ImagePicker.launchCameraAsync({ base64: true, quality: 0.5 });
-    if (!res.canceled && res.assets[0]) applyAsset(res.assets[0]);
+  function takePhoto() {
+    setError(null);
+    setCameraOpen(true);
   }
 
   async function analyze() {
@@ -193,6 +198,12 @@ export function SiteAnalysisScreen() {
           <AppButton label="이 사진 분석하기" onPress={analyze} loading={loading} />
         </StickyFooter>
       ) : null}
+
+      <CameraCaptureModal
+        visible={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={handleCameraCapture}
+      />
     </View>
   );
 }
