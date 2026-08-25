@@ -15,7 +15,7 @@ import {
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, analyzeSiteWasteItems, createRequest } from '../api/client';
+import { ApiError, analyzeSiteWasteItems, createRequest, type AnalyzeImage } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
@@ -103,25 +103,23 @@ export function RequestFormScreen({
     });
     const asset = res.canceled ? undefined : res.assets[0];
     if (!asset?.base64) return;
-    void runVision(asset.base64, asset.mimeType);
+    void runVision([{ imageBase64: asset.base64, mimeType: asset.mimeType }]);
   }
 
-  // 가이드 카메라로 촬영 → 디몰비전 분석
-  function handleCameraCapture(photo: CapturedPhoto) {
+  // 가이드 카메라로 촬영(여러 장) → 디몰비전 종합 분석
+  function handleCameraCapture(photos: CapturedPhoto[]) {
     setCameraOpen(false);
     setError(null);
     setPhotoSummary(null);
-    void runVision(photo.base64, photo.mimeType);
+    void runVision(photos.map((p) => ({ imageBase64: p.base64, mimeType: p.mimeType })));
   }
 
-  // 공통: base64 이미지를 디몰비전 AI로 분석하여 폼을 채운다
-  async function runVision(imageBase64: string, mimeType?: string) {
+  // 공통: 사진(1장 이상)을 디몰비전 AI로 종합 분석하여 폼을 채운다
+  async function runVision(images: AnalyzeImage[]) {
+    if (images.length === 0) return;
     setPhotoBusy(true);
     try {
-      const { analysis, wasteItems } = await analyzeSiteWasteItems({
-        imageBase64,
-        mimeType,
-      });
+      const { analysis, wasteItems } = await analyzeSiteWasteItems({ images });
 
       if (kind === 'DEMOLITION') {
         const summaryObj: DimolVisionSummary = {

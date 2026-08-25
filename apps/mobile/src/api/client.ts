@@ -274,8 +274,17 @@ export const sendMessage = (requestId: string, senderId: string, content: string
   });
 
 // ── 현장 사진 AI 분석 (Phase 6): 소재 식별 + 철거 공정 안내
-export const analyzeSite = (input: { imageBase64: string; mimeType?: string; note?: string }) =>
-  api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
+/** 분석에 보낼 한 장의 사진. 여러 각도로 여러 장을 보내면 AI가 종합 분석한다. */
+export interface AnalyzeImage {
+  imageBase64: string;
+  mimeType?: string;
+}
+export const analyzeSite = (input: {
+  imageBase64?: string;
+  mimeType?: string;
+  images?: AnalyzeImage[];
+  note?: string;
+}) => api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
 
 /** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
 export interface PhotoWasteItemsResult {
@@ -283,8 +292,9 @@ export interface PhotoWasteItemsResult {
   wasteItems: WasteItem[];
 }
 export const analyzeSiteWasteItems = (input: {
-  imageBase64: string;
+  imageBase64?: string;
   mimeType?: string;
+  images?: AnalyzeImage[];
   floorAreaM2?: number;
 }) =>
   api<PhotoWasteItemsResult>('/site-analysis/waste-items', {

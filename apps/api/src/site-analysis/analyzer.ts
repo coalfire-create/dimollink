@@ -15,11 +15,19 @@ import {
 
 export class SiteAnalysisValidationError extends Error {}
 
+/** 한 장의 현장 사진. */
+export interface AnalyzeImage {
+  imageBase64: string;
+  mimeType?: string;
+}
+
 export interface AnalyzeSiteInput {
-  /** 현장 사진 base64 (data: 접두사 없는 순수 base64). */
+  /** 현장 사진 base64 (data: 접두사 없는 순수 base64). 단일 촬영 하위호환용. */
   imageBase64?: string;
   /** image/jpeg | image/png 등. 기본 image/jpeg. */
   mimeType?: string;
+  /** 여러 각도·거리에서 찍은 현장 사진들(다중 촬영). 있으면 imageBase64 대신 이걸 쓴다. */
+  images?: AnalyzeImage[];
   /** 사용자가 덧붙이는 현장 메모(선택) — 분석 힌트. */
   note?: string;
 }
@@ -30,8 +38,11 @@ export interface SiteAnalyzer {
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-/** 공통 입력 검증 — 목·실제 모두 사용. */
-export function assertValidImage(input: AnalyzeSiteInput): {
+/** 종합 분석에 쓰는 최대 사진 수(과대 페이로드·비용 방지). */
+export const MAX_ANALYZE_IMAGES = 6;
+
+/** 공통 입력 검증 — 단일 이미지. */
+export function assertValidImage(input: AnalyzeImage): {
   imageBase64: string;
   mimeType: string;
 } {
@@ -46,10 +57,40 @@ export function assertValidImage(input: AnalyzeSiteInput): {
   return { imageBase64, mimeType };
 }
 
+/**
+ * 입력을 검증된 이미지 배열로 정규화한다(1..MAX). images 가 있으면 우선,
+ * 없으면 단일 imageBase64 를 1장짜리로 취급(하위호환). 한 장도 없으면 예외.
+ */
+export function assertValidImages(
+  input: AnalyzeSiteInput,
+): { imageBase64: string; mimeType: string }[] {
+  const raw: AnalyzeImage[] =
+    input.images && input.images.length > 0
+      ? input.images
+      : input.imageBase64
+        ? [{ imageBase64: input.imageBase64, mimeType: input.mimeType }]
+        : [];
+  if (raw.length === 0) {
+    throw new SiteAnalysisValidationError('현장 사진(imageBase64)이 필요합니다.');
+  }
+  return raw.slice(0, MAX_ANALYZE_IMAGES).map((img) => assertValidImage(img));
+}
+
+/** 다중 이미지 종합 분석을 안내하는 사용자 지시문 구성. */
+export function buildUserInstruction(note: string | undefined, imageCount: number): string {
+  const multi =
+    imageCount > 1
+      ? `다음은 같은 철거 현장을 여러 각도·거리에서 촬영한 ${imageCount}장의 사진입니다. ` +
+        '모든 사진을 종합해 하나의 결과로 분석하고, 어느 한 장에서만 보이는 소재·위험요소도 놓치지 마세요.\n'
+      : '';
+  const base = `${multi}${USER_INSTRUCTION}`;
+  return note ? `${base}\n현장 메모: ${note}` : base;
+}
+
 /** 결정적 목 — 건설폐기물(철거) 파일럿 범위의 대표 결과. */
 export class MockSiteAnalyzer implements SiteAnalyzer {
   async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
-    assertValidImage(input);
+    assertValidImages(input);
     const materials: DetectedMaterial[] = [
       { category: 'CONCRETE', name: '철근콘크리트 벽체·슬래브', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '순환골재로 재활용 가능' },
       { category: 'STEEL', name: '철근·형강', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '고철로 분리 매각' },
@@ -128,7 +169,7 @@ export class GeminiSiteAnalyzer implements SiteAnalyzer {
   constructor(private readonly config: GeminiAnalyzerConfig) {}
 
   async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
-    const { imageBase64, mimeType } = assertValidImage(input);
+    const images = assertValidImages(input);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     const base = this.config.baseUrl ?? 'https://generativelanguage.googleapis.com';
@@ -145,8 +186,10 @@ export class GeminiSiteAnalyzer implements SiteAnalyzer {
               {
                 role: 'user',
                 parts: [
-                  { inline_data: { mime_type: mimeType, data: imageBase64 } },
-                  { text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
+                  ...images.map((im) => ({
+                    inline_data: { mime_type: im.mimeType, data: im.imageBase64 },
+                  })),
+                  { text: buildUserInstruction(input.note, images.length) },
                 ],
               },
             ],
@@ -181,7 +224,7 @@ export class GroqSiteAnalyzer implements SiteAnalyzer {
   constructor(private readonly config: GroqAnalyzerConfig) {}
 
   async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
-    const { imageBase64, mimeType } = assertValidImage(input);
+    const images = assertValidImages(input);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     const base = this.config.baseUrl ?? 'https://api.groq.com/openai/v1';
@@ -201,8 +244,11 @@ export class GroqSiteAnalyzer implements SiteAnalyzer {
             {
               role: 'user',
               content: [
-                { type: 'text', text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
-                { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+                { type: 'text', text: buildUserInstruction(input.note, images.length) },
+                ...images.map((im) => ({
+                  type: 'image_url' as const,
+                  image_url: { url: `data:${im.mimeType};base64,${im.imageBase64}` },
+                })),
               ],
             },
           ],
@@ -222,7 +268,7 @@ export class ClaudeSiteAnalyzer implements SiteAnalyzer {
   constructor(private readonly config: ClaudeAnalyzerConfig) {}
 
   async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
-    const { imageBase64, mimeType } = assertValidImage(input);
+    const images = assertValidImages(input);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     let text: string;
@@ -243,8 +289,11 @@ export class ClaudeSiteAnalyzer implements SiteAnalyzer {
             {
               role: 'user',
               content: [
-                { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
-                { type: 'text', text: input.note ? `${USER_INSTRUCTION}\n현장 메모: ${input.note}` : USER_INSTRUCTION },
+                ...images.map((im) => ({
+                  type: 'image' as const,
+                  source: { type: 'base64' as const, media_type: im.mimeType, data: im.imageBase64 },
+                })),
+                { type: 'text', text: buildUserInstruction(input.note, images.length) },
               ],
             },
           ],

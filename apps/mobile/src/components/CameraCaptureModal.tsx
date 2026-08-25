@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,15 +23,26 @@ export interface CapturedPhoto {
 interface CameraCaptureModalProps {
   visible: boolean;
   onClose: () => void;
-  onCapture: (photo: CapturedPhoto) => void;
+  /** 촬영 완료 시 찍은 사진들(1장 이상)을 넘긴다. 여러 장이면 AI가 종합 분석한다. */
+  onCapture: (photos: CapturedPhoto[]) => void;
+  /** 최대 촬영 장수(기본 6 — 서버 MAX_ANALYZE_IMAGES 와 일치). */
+  maxPhotos?: number;
 }
 
 // 촬영 화면 상단에 항상 노출하는 정확한 사진 촬영 가이드 체크리스트
 const GUIDE_TIPS = [
-  '철거할 현장 전체가 프레임 안에 들어오게',
   '밝은 곳에서, 그림자 없이 선명하게',
   '정면에서 흔들리지 않게 잡고',
-  '벽·지붕·자재가 잘 보이도록',
+  '여러 각도로 3~4장 찍으면 AI 분석이 정확해져요',
+];
+
+// 다중 촬영을 유도하는 순서 가이드 — AI가 소재·위험요소를 더 잘 잡도록.
+const SHOT_GUIDE = [
+  { emoji: '🏠', label: '① 현장 전경', hint: '건물·현장 전체가 한 화면에 들어오게' },
+  { emoji: '🧱', label: '② 벽·바닥 근접', hint: '주요 벽체·바닥 마감재가 잘 보이게 가까이' },
+  { emoji: '🔺', label: '③ 지붕·천장', hint: '지붕재·천장 구조를 위로 향해 촬영' },
+  { emoji: '⚠️', label: '④ 위험·특이 부위', hint: '석면 의심 슬레이트·배관·설비 등 우려 부위' },
+  { emoji: '📸', label: '추가 각도', hint: '놓친 부분을 다른 각도로 보강 촬영' },
 ];
 
 /**
@@ -37,14 +50,29 @@ const GUIDE_TIPS = [
  * 뷰파인더 위에 프레이밍 가이드(사각 브래킷) + 촬영 팁을 실시간 오버레이하여
  * 사용자가 정확한 사진을 찍도록 유도한다.
  */
-export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptureModalProps) {
+export function CameraCaptureModal({
+  visible,
+  onClose,
+  onCapture,
+  maxPhotos = 6,
+}: CameraCaptureModalProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [capturing, setCapturing] = useState(false);
+  const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const cameraRef = useRef<CameraView | null>(null);
 
+  const reachedMax = photos.length >= maxPhotos;
+  // 다음에 찍으면 좋은 컷 안내(마지막 항목은 반복 노출)
+  const nextGuide = SHOT_GUIDE[Math.min(photos.length, SHOT_GUIDE.length - 1)];
+
+  function handleClose() {
+    setPhotos([]);
+    onClose();
+  }
+
   async function handleShutter() {
-    if (!cameraRef.current || capturing) return;
+    if (!cameraRef.current || capturing || reachedMax) return;
     setCapturing(true);
     try {
       const shot = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true });
@@ -55,10 +83,21 @@ export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptur
         base64 = shot.uri.split(',')[1] ?? '';
       }
       if (!base64) return;
-      onCapture({ base64, mimeType: 'image/jpeg', uri: shot.uri });
+      setPhotos((prev) => [...prev, { base64, mimeType: 'image/jpeg', uri: shot.uri }]);
     } finally {
       setCapturing(false);
     }
+  }
+
+  function handleRemove(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleDone() {
+    if (photos.length === 0) return;
+    const captured = photos;
+    setPhotos([]);
+    onCapture(captured);
   }
 
   // 권한 로딩 중
@@ -66,7 +105,7 @@ export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptur
   const permissionDenied = permission && !permission.granted;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.screen}>
         {permissionPending ? (
           <View style={styles.centerFill}>
@@ -80,7 +119,7 @@ export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptur
             <Pressable style={styles.permBtn} onPress={requestPermission} accessibilityRole="button">
               <Text style={styles.permBtnText}>카메라 허용하기</Text>
             </Pressable>
-            <Pressable style={styles.permClose} onPress={onClose} accessibilityRole="button">
+            <Pressable style={styles.permClose} onPress={handleClose} accessibilityRole="button">
               <Text style={styles.permCloseText}>닫기</Text>
             </Pressable>
           </View>
@@ -94,10 +133,19 @@ export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptur
               <View style={styles.topBar} pointerEvents="box-none">
                 <View style={styles.topRow}>
                   <Text style={styles.topTitle}>📷 현장 촬영 가이드</Text>
-                  <Pressable style={styles.closeBtn} onPress={onClose} accessibilityRole="button">
+                  <Pressable style={styles.closeBtn} onPress={handleClose} accessibilityRole="button">
                     <Text style={styles.closeBtnText}>✕</Text>
                   </Pressable>
                 </View>
+
+                {/* 다음에 찍으면 좋은 컷 안내 (AI 종합 분석 유도) */}
+                <View style={styles.nextGuideCard}>
+                  <Text style={styles.nextGuideLabel}>
+                    {nextGuide.emoji} 다음 촬영: {nextGuide.label}
+                  </Text>
+                  <Text style={styles.nextGuideHint}>{nextGuide.hint}</Text>
+                </View>
+
                 <View style={styles.tipCard}>
                   {GUIDE_TIPS.map((tip, i) => (
                     <View key={i} style={styles.tipRow}>
@@ -119,33 +167,70 @@ export function CameraCaptureModal({ visible, onClose, onCapture }: CameraCaptur
                 </View>
               </View>
 
-              {/* 하단 컨트롤 */}
-              <View style={styles.bottomBar} pointerEvents="box-none">
-                <Pressable
-                  style={styles.flipBtn}
-                  onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
-                  accessibilityRole="button"
-                  accessibilityLabel="카메라 전환"
-                >
-                  <AppIcon name="recycle" size={24} color="#FFFFFF" />
-                </Pressable>
+              {/* 하단 영역: 썸네일 스트립 + 컨트롤 */}
+              <View style={styles.bottomArea} pointerEvents="box-none">
+                {photos.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.thumbStrip}
+                    contentContainerStyle={styles.thumbStripContent}
+                  >
+                    {photos.map((p, i) => (
+                      <View key={i} style={styles.thumbWrap}>
+                        <Image source={{ uri: p.uri }} style={styles.thumb} />
+                        <Pressable
+                          style={styles.thumbRemove}
+                          onPress={() => handleRemove(i)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${i + 1}번째 사진 삭제`}
+                        >
+                          <Text style={styles.thumbRemoveText}>✕</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : null}
 
-                <Pressable
-                  style={styles.shutterOuter}
-                  onPress={handleShutter}
-                  disabled={capturing}
-                  accessibilityRole="button"
-                  accessibilityLabel="사진 촬영"
-                >
-                  {capturing ? (
-                    <ActivityIndicator color={theme.colors.primary} />
-                  ) : (
-                    <View style={styles.shutterInner} />
-                  )}
-                </Pressable>
+                <View style={styles.bottomBar}>
+                  <Pressable
+                    style={styles.flipBtn}
+                    onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
+                    accessibilityRole="button"
+                    accessibilityLabel="카메라 전환"
+                  >
+                    <AppIcon name="recycle" size={24} color="#FFFFFF" />
+                  </Pressable>
 
-                {/* 좌우 대칭용 스페이서 */}
-                <View style={styles.flipBtnPlaceholder} />
+                  <Pressable
+                    style={[styles.shutterOuter, reachedMax && styles.shutterDisabled]}
+                    onPress={handleShutter}
+                    disabled={capturing || reachedMax}
+                    accessibilityRole="button"
+                    accessibilityLabel="사진 촬영"
+                  >
+                    {capturing ? (
+                      <ActivityIndicator color={theme.colors.primary} />
+                    ) : (
+                      <View style={styles.shutterInner} />
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.doneBtn, photos.length === 0 && styles.doneBtnDisabled]}
+                    onPress={handleDone}
+                    disabled={photos.length === 0}
+                    accessibilityRole="button"
+                    accessibilityLabel="촬영 완료"
+                  >
+                    <Text style={styles.doneBtnText}>완료</Text>
+                    <Text style={styles.doneBtnCount}>{photos.length}장</Text>
+                  </Pressable>
+                </View>
+
+                {reachedMax ? (
+                  <Text style={styles.maxHint}>최대 {maxPhotos}장까지 촬영할 수 있어요</Text>
+                ) : null}
               </View>
             </View>
           </>
@@ -242,6 +327,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
+  nextGuideCard: {
+    backgroundColor: 'rgba(37,99,235,0.85)',
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.sm,
+  },
+  nextGuideLabel: {
+    color: '#FFFFFF',
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  nextGuideHint: {
+    color: '#DBEAFE',
+    fontSize: font.body,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   tipCard: {
     backgroundColor: 'rgba(15,23,42,0.62)',
     borderRadius: radius.card,
@@ -304,25 +407,57 @@ const styles = StyleSheet.create({
   },
 
   /* 하단 */
+  bottomArea: {
+    paddingBottom: Platform.OS === 'web' ? spacing.md : 32,
+  },
+  thumbStrip: {
+    maxHeight: 76,
+    marginBottom: spacing.xs,
+  },
+  thumbStripContent: {
+    paddingHorizontal: spacing.md,
+    gap: 8,
+  },
+  thumbWrap: {
+    position: 'relative',
+  },
+  thumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(220,38,38,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbRemoveText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingBottom: Platform.OS === 'web' ? spacing.lg : 40,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   flipBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  flipBtnPlaceholder: {
-    width: 52,
-    height: 52,
   },
   shutterOuter: {
     width: 76,
@@ -334,10 +469,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shutterDisabled: {
+    opacity: 0.4,
+  },
   shutterInner: {
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#FFFFFF',
+  },
+  doneBtn: {
+    minWidth: 56,
+    height: 56,
+    borderRadius: 28,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneBtnDisabled: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  doneBtnText: {
+    color: '#FFFFFF',
+    fontSize: font.body,
+    fontWeight: '800',
+  },
+  doneBtnCount: {
+    color: '#DBEAFE',
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  maxHint: {
+    color: '#FCA5A5',
+    fontSize: font.caption,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
 });

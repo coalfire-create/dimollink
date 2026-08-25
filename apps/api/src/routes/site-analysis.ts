@@ -22,9 +22,23 @@ export function createSiteAnalysisRouter(
   const router = Router();
 
   function parseInput(body: Record<string, unknown>): AnalyzeSiteInput {
+    const images = Array.isArray(body.images)
+      ? body.images
+          .filter(
+            (it): it is { imageBase64: string; mimeType?: unknown } =>
+              typeof it === 'object' &&
+              it !== null &&
+              typeof (it as { imageBase64?: unknown }).imageBase64 === 'string',
+          )
+          .map((it) => ({
+            imageBase64: it.imageBase64,
+            mimeType: typeof it.mimeType === 'string' ? it.mimeType : undefined,
+          }))
+      : undefined;
     return {
       imageBase64: typeof body.imageBase64 === 'string' ? body.imageBase64 : undefined,
       mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
+      images: images && images.length > 0 ? images : undefined,
       note: typeof body.note === 'string' ? body.note : undefined,
     };
   }

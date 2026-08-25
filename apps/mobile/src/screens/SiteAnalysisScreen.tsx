@@ -50,11 +50,13 @@ export function SiteAnalysisScreen() {
     setImage({ base64: asset.base64, mimeType: asset.mimeType ?? mimeFromUri(asset.uri), uri: asset.uri });
   }
 
-  // 커스텀 카메라(가이드 오버레이)에서 촬영 완료 시
-  function handleCameraCapture(photo: CapturedPhoto) {
+  // 커스텀 카메라(가이드 오버레이)에서 촬영 완료 시 — 대표로 첫 장을 미리보기로 사용
+  function handleCameraCapture(photos: CapturedPhoto[]) {
+    const first = photos[0];
+    if (!first) return;
     setResult(null);
     setError(null);
-    setImage(photo);
+    setImage(first);
     setCameraOpen(false);
   }
 

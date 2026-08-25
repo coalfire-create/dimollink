@@ -94,14 +94,40 @@ export class NoopGeocoder implements Geocoder {
   }
 
   async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
+    // 키가 없을 때의 근사 폴백. 실제 주소는 아니므로 '부근/일대'로 명시하고
+    // 좌표를 그대로 노출한다(고정 목이 아니라 위치에 따라 바뀌어야 지도 UX가 정상 동작).
+    const region = approxKoreanRegion(lat, lng);
+    const coord = `위도 ${lat.toFixed(5)}, 경도 ${lng.toFixed(5)}`;
     return {
-      addressName: '경기 성남시 분당구 정자동 174-1',
-      roadAddressName: '경기 성남시 분당구 정자일로 121',
-      buildingName: '더샵스타파크',
-      region: '경기 성남',
+      addressName: `${region} 일대 (${coord})`,
+      roadAddressName: `${region} 부근 · ${coord}`,
+      region,
       location: { lat, lng },
     };
   }
+}
+
+/** 역지오코딩 키가 없을 때 좌표 → 대략적 권역명. 실제 행정구역이 아닌 근사치. */
+function approxKoreanRegion(lat: number, lng: number): string {
+  const boxes: Array<{ name: string; latMin: number; latMax: number; lngMin: number; lngMax: number }> = [
+    { name: '서울', latMin: 37.42, latMax: 37.71, lngMin: 126.76, lngMax: 127.19 },
+    { name: '인천', latMin: 37.35, latMax: 37.6, lngMin: 126.35, lngMax: 126.76 },
+    { name: '대전', latMin: 36.2, latMax: 36.5, lngMin: 127.3, lngMax: 127.56 },
+    { name: '대구', latMin: 35.78, latMax: 36.0, lngMin: 128.47, lngMax: 128.76 },
+    { name: '광주', latMin: 35.06, latMax: 35.27, lngMin: 126.7, lngMax: 126.99 },
+    { name: '울산', latMin: 35.4, latMax: 35.72, lngMin: 129.2, lngMax: 129.5 },
+    { name: '부산', latMin: 34.98, latMax: 35.4, lngMin: 128.9, lngMax: 129.32 },
+    { name: '제주', latMin: 33.1, latMax: 33.6, lngMin: 126.1, lngMax: 126.99 },
+    { name: '강원', latMin: 37.0, latMax: 38.62, lngMin: 127.7, lngMax: 129.4 },
+    { name: '경기', latMin: 36.9, latMax: 38.3, lngMin: 126.3, lngMax: 127.9 },
+    { name: '충청', latMin: 35.98, latMax: 37.1, lngMin: 125.9, lngMax: 128.5 },
+    { name: '경상', latMin: 34.9, latMax: 36.9, lngMin: 127.8, lngMax: 129.6 },
+    { name: '전라', latMin: 34.2, latMax: 36.0, lngMin: 125.9, lngMax: 127.9 },
+  ];
+  const hit = boxes.find(
+    (b) => lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax,
+  );
+  return hit ? hit.name : '대한민국';
 }
 
 /** 카카오 로컬 API 기반 주소 지오코더. */
