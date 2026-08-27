@@ -30,9 +30,9 @@ export class JsonCollectionFile<T> implements CollectionPersistence<T> {
   private readonly filePath: string;
 
   constructor(
-    dataDir: string, 
+    dataDir: string,
     fileName: string,
-    private readonly keyOf: (item: T) => string
+    private readonly keyOf: (item: T) => string = defaultKeyOf,
   ) {
     this.filePath = join(dataDir, fileName);
   }
