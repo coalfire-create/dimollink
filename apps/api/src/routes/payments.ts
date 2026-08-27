@@ -130,7 +130,7 @@ export function createPaymentsRouter(
     const payerId = authUserId(req);
     // 선결제는 해당 요청의 요청자(배출자) 본인만.
     if (requestStore) {
-      const request = requestStore.get(matchRequestId);
+      const request = await requestStore.get(matchRequestId);
       if (!request) {
         res.status(404).json({ error: '결제 대상 요청을 찾을 수 없습니다.' });
         return;
@@ -152,8 +152,8 @@ export function createPaymentsRouter(
     // 확정 금액 = 요청의 합의 금액(선착순 수락 또는 수락된 견적 금액). 단일 party 로 청구.
     let fees: { transportFee: number; disposalFee: number };
     if (quoteStore || requestStore) {
-      const agreedFee = requestStore?.get(matchRequestId)?.agreedFee;
-      const accepted = quoteStore?.acceptedFees(matchRequestId);
+      const agreedFee = (await requestStore?.get(matchRequestId))?.agreedFee;
+      const accepted = await quoteStore?.acceptedFees(matchRequestId);
       const amount = agreedFee ?? (accepted ? accepted.transportFee + accepted.disposalFee : 0);
       if (amount <= 0) {
         res.status(409).json({
@@ -177,7 +177,7 @@ export function createPaymentsRouter(
     try {
       // 포트원에서 결제 상태·금액(=합의 금액)을 검증한다. 금액 불일치/미결제면 예외.
       const payment = await service.confirmPrepayment(paymentId, plan);
-      paymentStore?.record({
+      await paymentStore?.record({
         paymentId: payment.paymentId,
         matchRequestId,
         payerId,
@@ -185,9 +185,9 @@ export function createPaymentsRouter(
       });
       // 결제 완료(PAID)면 매칭→결제완료로 전이. 가상계좌 발급만 된 상태(paid=false)면
       // 입금 완료 웹훅(Transaction.Paid)이 올 때까지 매칭 상태를 유지한다.
-      if (payment.paid && requestStore?.get(matchRequestId)?.status === 'MATCHED') {
+      if (payment.paid && (await requestStore?.get(matchRequestId))?.status === 'MATCHED') {
         try {
-          requestStore.changeStatus(matchRequestId, 'PAID', { paymentId: payment.paymentId });
+          await requestStore?.changeStatus(matchRequestId, 'PAID', { paymentId: payment.paymentId });
         } catch {
           // 상태 전이 실패가 결제 응답을 막지 않게 한다(결제는 이미 성립).
         }
@@ -217,10 +217,10 @@ export function createPaymentsRouter(
       ) {
         const evPaymentId = (event.data as { paymentId: string }).paymentId;
         if (event.type === 'Transaction.Paid') {
-          const record = paymentStore?.get(evPaymentId);
-          if (record && requestStore?.get(record.matchRequestId)?.status === 'MATCHED') {
+          const record = await paymentStore?.get(evPaymentId);
+          if (record && (await requestStore?.get(record.matchRequestId))?.status === 'MATCHED') {
             try {
-              requestStore.changeStatus(record.matchRequestId, 'PAID', { paymentId: evPaymentId });
+              await requestStore?.changeStatus(record.matchRequestId, 'PAID', { paymentId: evPaymentId });
             } catch {
               // 이미 전이됨 등 — 웹훅 응답을 막지 않는다.
             }
@@ -250,7 +250,7 @@ export function createPaymentsRouter(
     // 지급 금액 = 요청 합의 금액(권위). 사업자번호 = 매칭된 셀러의 등록번호.
     let plan;
     if (requestStore) {
-      const request = requestStore.get(matchRequestId);
+      const request = await requestStore.get(matchRequestId);
       if (!request) {
         res.status(404).json({ error: '정산 대상 요청을 찾을 수 없습니다.' });
         return;
@@ -260,7 +260,9 @@ export function createPaymentsRouter(
         res.status(409).json({ error: '확정된 정산 금액이 없습니다.', code: 'NO_AGREED_AMOUNT' });
         return;
       }
-      const seller = request.matchedProviderId ? userStore?.get(request.matchedProviderId) : undefined;
+      const seller = request.matchedProviderId
+        ? await userStore?.get(request.matchedProviderId)
+        : undefined;
       plan = buildSettlementPlan({
         transportFee: amount,
         disposalFee: 0,
@@ -284,9 +286,9 @@ export function createPaymentsRouter(
         .issueTaxInvoices(matchRequestId, plan)
         .catch(() => []);
       // 처리 완료(COMPLETED) 요청은 정산 완료(SETTLED)로 전이.
-      if (requestStore?.get(matchRequestId)?.status === 'COMPLETED') {
+      if ((await requestStore?.get(matchRequestId))?.status === 'COMPLETED') {
         try {
-          requestStore.changeStatus(matchRequestId, 'SETTLED');
+          await requestStore?.changeStatus(matchRequestId, 'SETTLED');
         } catch {
           // 상태 전이 실패가 지급 응답을 막지 않게 한다.
         }
@@ -325,7 +327,7 @@ export function createPaymentsRouter(
     let paidAmount: number;
     let matchRequestId: string | undefined;
     if (paymentStore) {
-      const payment = paymentStore.get(paymentId);
+      const payment = await paymentStore.get(paymentId);
       if (!payment) {
         res.status(404).json({ error: '결제 내역을 찾을 수 없습니다.' });
         return;
@@ -354,13 +356,13 @@ export function createPaymentsRouter(
         stage: stage as CancellationStage,
         reason,
       });
-      paymentStore?.markCancelled(paymentId);
+      await paymentStore?.markCancelled(paymentId);
       // 환불 성립 시 해당 요청도 취소 처리(취소 가능 상태일 때만).
       if (requestStore && matchRequestId) {
-        const request = requestStore.get(matchRequestId);
+        const request = await requestStore.get(matchRequestId);
         if (request && (request.status === 'PAID' || request.status === 'MATCHED')) {
           try {
-            requestStore.changeStatus(matchRequestId, 'CANCELLED', {
+            await requestStore.changeStatus(matchRequestId, 'CANCELLED', {
               cancelReason: reason ?? '결제 취소',
             });
           } catch {

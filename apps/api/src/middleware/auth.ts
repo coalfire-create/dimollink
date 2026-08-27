@@ -20,7 +20,7 @@ export function createRequireAuth(sessionStore: SessionStore, userStore: UserSto
     void (async () => {
       const token = bearerToken(req);
       const userId = token ? await sessionStore.resolve(token) : undefined;
-      const user = userId ? userStore.get(userId) : undefined;
+      const user = userId ? await userStore.get(userId) : undefined;
       if (!user) {
         res.status(401).json({ error: '로그인이 필요합니다.' });
         return;

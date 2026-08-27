@@ -163,18 +163,18 @@ export function createApp(
   );
   const requestStore = new RequestStore(
     persistence<ServiceRequest>('requests'),
-    (request) => notificationService.notifyStatusChange(request),
-    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
     (request) => {
+      notificationService.notifyStatusChange(request);
+    },
+    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
+    async (request) => {
       if (request.kind !== 'TRANSPORT') return;
-      const companies = userStore
-        .list({ userType: 'TRANSPORT_COMPANY' })
-        .filter(
-          (u) =>
-            u.availability === 'ONLINE' &&
-            u.region === request.region &&
-            u.id !== request.requesterId,
-        );
+      const companies = (await userStore.list({ userType: 'TRANSPORT_COMPANY' })).filter(
+        (u) =>
+          u.availability === 'ONLINE' &&
+          u.region === request.region &&
+          u.id !== request.requesterId,
+      );
       notificationService.notifyTransportCall(request, companies);
     },
   );
@@ -184,7 +184,7 @@ export function createApp(
     persistence<CredentialRecord>('credentials', (c) => c.userId),
   );
   // 테스트/스테이징 배포: 역할별 계정 시드(멱등). 운영에서는 SEED_TEST_ACCOUNTS 를 켜지 않는다.
-  if (env.seedTestAccounts) seedTestAccounts(userStore);
+  if (env.seedTestAccounts) void seedTestAccounts(userStore);
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
@@ -267,7 +267,7 @@ export function createApp(
   const geocoder = createGeocoder();
   app.use(
     '/api',
-    createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average),
+    createMatchingRouter(async (providerId) => (await reviewStore.ratingSummary(providerId)).average),
   );
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, geocoder));

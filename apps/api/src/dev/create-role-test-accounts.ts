@@ -44,9 +44,9 @@ async function main(): Promise<void> {
   const results: Array<{ role: string; name: string; phone: string }> = [];
 
   for (const spec of ACCOUNTS) {
-    let user = userStore.getByPhone(spec.phone);
+    let user = await userStore.getByPhone(spec.phone);
     if (!user) {
-      user = userStore.create({
+      user = await userStore.create({
         userType: spec.userType,
         name: spec.name,
         region: '전국',
@@ -54,8 +54,8 @@ async function main(): Promise<void> {
         businessNumber: spec.businessNumber,
       });
     }
-    userStore.setApprovalStatus(user.id, 'APPROVED');
-    if (spec.online) userStore.setAvailability(user.id, 'ONLINE');
+    await userStore.setApprovalStatus(user.id, 'APPROVED');
+    if (spec.online) await userStore.setAvailability(user.id, 'ONLINE');
     credentialStore.setPassword(user.id, spec.phone, TEST_PASSWORD);
     results.push({ role: spec.userType, name: spec.name, phone: spec.phone });
   }

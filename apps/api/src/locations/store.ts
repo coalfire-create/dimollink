@@ -16,8 +16,8 @@ export class LocationStore {
 
   constructor(private readonly requestStore: RequestStore) {}
 
-  updateLocation(requestId: string, providerId: string, location: GeoPoint): LocationShare {
-    const request = this.requestStore.get(requestId);
+  async updateLocation(requestId: string, providerId: string, location: GeoPoint): Promise<LocationShare> {
+    const request = await this.requestStore.get(requestId);
     if (!request) throw new LocationValidationError('요청을 찾을 수 없습니다.');
     if (request.status !== 'IN_PROGRESS') {
       throw new LocationValidationError('작업 진행중(IN_PROGRESS)인 요청만 위치를 공유할 수 있습니다.');
@@ -40,8 +40,8 @@ export class LocationStore {
   }
 
   /** 최신 위치. 작업이 진행중이 아니면 공유 종료로 간주하고 null. */
-  getLocation(requestId: string): LocationShare | null {
-    const request = this.requestStore.get(requestId);
+  async getLocation(requestId: string): Promise<LocationShare | null> {
+    const request = await this.requestStore.get(requestId);
     if (!request) throw new LocationValidationError('요청을 찾을 수 없습니다.');
     if (request.status !== 'IN_PROGRESS') {
       this.latest.delete(requestId);

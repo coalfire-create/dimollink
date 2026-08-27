@@ -28,9 +28,9 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
 
   // GET /api/jobs  — 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned)
   // 요청자는 인증된 본인(토큰)으로 고정한다 — 남의 피드를 조회할 수 없다.
-  router.get('/jobs', (req, res) => {
+  router.get('/jobs', async (req, res) => {
     const providerId = authUserId(req);
-    const provider = userStore.get(providerId);
+    const provider = await userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
       return;
@@ -47,8 +47,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
 
     const openRaw = availabilityBlocksOpen
       ? []
-      : requestStore
-          .list({ kind, status: 'REQUESTED', region: provider.region })
+      : (await requestStore.list({ kind, status: 'REQUESTED', region: provider.region }))
           // 자기가 올린 요청은 제외.
           .filter((r) => r.requesterId !== providerId);
 
@@ -59,9 +58,9 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
         provider.userType === 'TRANSPORT_COMPANY' ? TRANSPORT_MATCH_RADIUS_KM : undefined,
     });
 
-    const assigned = requestStore
-      .list({ providerId })
-      .filter((r) => ASSIGNED_STATUSES.includes(r.status));
+    const assigned = (await requestStore.list({ providerId })).filter((r) =>
+      ASSIGNED_STATUSES.includes(r.status),
+    );
 
     const body: ProviderJobs = { open, assigned };
     res.json(body);
@@ -69,7 +68,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
 
   // POST /api/jobs/:requestId/accept  { amount? } — 선착순 수락 → MATCHED (요청자는 인증된 본인).
   // amount 를 주면 그 금액이 합의 금액(선결제 기준)으로 기록된다(철거/운반 선착순+금액).
-  router.post('/jobs/:requestId/accept', (req, res) => {
+  router.post('/jobs/:requestId/accept', async (req, res) => {
     const providerId = authUserId(req);
     const rawAmount = (req.body as { amount?: unknown } | undefined)?.amount;
     let agreedFee: number | undefined;
@@ -81,7 +80,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       }
       agreedFee = amount;
     }
-    const provider = userStore.get(providerId);
+    const provider = await userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
       return;
@@ -91,7 +90,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       return;
     }
 
-    const request = requestStore.get(req.params.requestId);
+    const request = await requestStore.get(req.params.requestId);
     if (!request) {
       res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
       return;
@@ -114,7 +113,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     }
 
     try {
-      const updated: ServiceRequest = requestStore.changeStatus(request.id, 'MATCHED', {
+      const updated: ServiceRequest = await requestStore.changeStatus(request.id, 'MATCHED', {
         matchedProviderId: providerId,
         agreedFee,
       });

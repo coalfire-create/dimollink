@@ -59,7 +59,12 @@ export class NotificationService {
     private readonly provider: NotificationProvider,
     private readonly persistence?: CollectionPersistence<AppNotification>,
   ) {
-    for (const n of persistence?.load() ?? []) this.notifications.set(n.id, n);
+    // 영속화가 async 이므로 부팅 후 비동기로 인메모리 캐시를 채운다(초기 짧은 워밍업 구간 존재).
+    if (persistence) {
+      void (async () => {
+        for (const n of await persistence.list()) this.notifications.set(n.id, n);
+      })();
+    }
   }
 
   /**
@@ -130,7 +135,7 @@ export class NotificationService {
         // 발송 실패해도 인앱 알림함 기록은 남는다. provider 교체 시 재시도 정책 추가.
       }
     }
-    if (created.length > 0) this.persistence?.save([...this.notifications.values()]);
+    if (created.length > 0) void this.persistence?.saveAll([...this.notifications.values()]);
     return created;
   }
 

@@ -89,7 +89,7 @@ export function createOAuthRouter(
       return;
     }
 
-    const existing = userStore.getBySocialIdentity(provider, identity.providerUserId);
+    const existing = await userStore.getBySocialIdentity(provider, identity.providerUserId);
     if (existing) {
       const token = await sessionStore.issue(existing.id);
       backToApp(res, { status: 'login', token });
@@ -121,7 +121,7 @@ export function createOAuthRouter(
       res.status(400).json({ error: '연결 정보가 만료되었습니다. 다시 시도해 주세요.' });
       return;
     }
-    const linkedElsewhere = userStore.getBySocialIdentity(parsed.provider, parsed.providerUserId);
+    const linkedElsewhere = await userStore.getBySocialIdentity(parsed.provider, parsed.providerUserId);
     if (linkedElsewhere && linkedElsewhere.id !== userId) {
       res.status(409).json({ error: '이미 다른 계정에 연결된 소셜 계정입니다.' });
       return;

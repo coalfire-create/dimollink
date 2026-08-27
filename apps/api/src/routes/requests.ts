@@ -12,12 +12,10 @@ import { NoopGeocoder } from '../geo/geocoder.js';
 import { authUserId } from '../middleware/auth.js';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
 
-/** 요청 참여자(요청자 또는 매칭된 업체)인지. */
 function isParticipant(request: ServiceRequest, userId: string): boolean {
   return request.requesterId === userId || request.matchedProviderId === userId;
 }
 
-/** { lat, lng } 형태만 좌표로 인정. 그 외(누락/형식오류)는 undefined. */
 function parseGeoPoint(raw: unknown): GeoPoint | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
   const { lat, lng } = raw as { lat?: unknown; lng?: unknown };
@@ -26,11 +24,6 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
   return isValidGeoPoint(point) ? point : undefined;
 }
 
-/**
- * 서비스 요청 API (철거요청/운반요청/처리장예약 · 로드맵 Phase 1 §4.2).
- * 프론트(안티그래비티 화면)가 사용하는 저장·상태 관리 엔드포인트.
- * 엔드포인트 명세: docs/api-requests.md
- */
 export function createRequestsRouter(
   store: RequestStore,
   geocoder: Geocoder = new NoopGeocoder(),
@@ -46,7 +39,6 @@ export function createRequestsRouter(
     res.status(500).json({ error: '요청 처리 오류' });
   }
 
-  /** 좌표 미제공 시 현장 주소(철거=현장, 운반=상차지)를 지오코딩해 좌표를 채운다. */
   async function resolveLocation(body: Record<string, unknown>): Promise<GeoPoint | undefined> {
     const explicit = parseGeoPoint(body.location);
     if (explicit) return explicit;
@@ -60,17 +52,15 @@ export function createRequestsRouter(
     return (await geocoder.geocode(address)) ?? undefined;
   }
 
-  // POST /api/requests — 요청 생성 (kind 로 3종 구분). 요청자는 인증된 본인으로 고정.
   router.post('/requests', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       const location = await resolveLocation(body);
-      const request = store.create({
+      const request = await store.create({
         kind: body.kind,
         requesterId: authUserId(req),
         region: body.region,
         wasteCategory: body.wasteCategory,
-        // 신규: 소재별 항목(종류+kg). 하위호환으로 wasteTons 도 함께 넘긴다(둘 다 store 에서 정규화).
         wasteItems: Array.isArray(body.wasteItems) ? (body.wasteItems as CreateRequestInput['wasteItems']) : undefined,
         wasteTons: body.wasteTons !== undefined ? Number(body.wasteTons) : undefined,
         allbaroRequested: body.allbaroRequested === true,
@@ -88,50 +78,54 @@ export function createRequestsRouter(
     }
   });
 
-  // GET /api/requests?kind=&status= — 내 요청 목록 (최신순). 요청자는 인증된 본인으로 고정.
-  router.get('/requests', (req, res) => {
+  router.get('/requests', async (req, res) => {
     const { kind, status } = req.query;
     if (kind !== undefined && !REQUEST_KINDS.includes(kind as RequestKind)) {
       res.status(400).json({ error: `kind 는 ${REQUEST_KINDS.join(' | ')} 중 하나여야 합니다.` });
       return;
     }
-    res.json(
-      store.list({
+    try {
+      const requests = await store.list({
         requesterId: authUserId(req),
         kind: kind as RequestKind | undefined,
         status: typeof status === 'string' ? (status as MatchStatus) : undefined,
-      }),
-    );
+      });
+      res.json(requests);
+    } catch (err) {
+      handleError(err, res);
+    }
   });
 
-  // GET /api/requests/:id — 단건 조회 (참여자: 요청자 또는 매칭된 업체만)
-  router.get('/requests/:id', (req, res) => {
-    const request = store.get(req.params.id);
-    if (!request) {
-      res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
-      return;
+  router.get('/requests/:id', async (req, res) => {
+    try {
+      const request = await store.get(req.params.id);
+      if (!request) {
+        res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+        return;
+      }
+      if (!isParticipant(request, authUserId(req))) {
+        res.status(403).json({ error: '이 요청을 볼 권한이 없어요.' });
+        return;
+      }
+      res.json(request);
+    } catch (err) {
+      handleError(err, res);
     }
-    if (!isParticipant(request, authUserId(req))) {
-      res.status(403).json({ error: '이 요청을 볼 권한이 없어요.' });
-      return;
-    }
-    res.json(request);
   });
 
-  // PATCH /api/requests/:id/status  { status, matchedProviderId?, cancelReason? }
-  router.patch('/requests/:id/status', (req, res) => {
+  router.patch('/requests/:id/status', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.status !== 'string') {
       res.status(400).json({ error: 'status 가 필요합니다.' });
       return;
     }
-    const existing = store.get(req.params.id);
-    if (existing && !isParticipant(existing, authUserId(req))) {
-      res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
-      return;
-    }
     try {
-      const updated = store.changeStatus(req.params.id, body.status as MatchStatus, {
+      const existing = await store.get(req.params.id);
+      if (existing && !isParticipant(existing, authUserId(req))) {
+        res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
+        return;
+      }
+      const updated = await store.changeStatus(req.params.id, body.status as MatchStatus, {
         matchedProviderId:
           typeof body.matchedProviderId === 'string' ? body.matchedProviderId : undefined,
         cancelReason: typeof body.cancelReason === 'string' ? body.cancelReason : undefined,
@@ -142,20 +136,20 @@ export function createRequestsRouter(
     }
   });
 
-  // POST /api/requests/:id/site-photos  { keys: string[] } — 현장 사진 추가 연결
-  router.post('/requests/:id/site-photos', (req, res) => {
+  router.post('/requests/:id/site-photos', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (!Array.isArray(body.keys)) {
       res.status(400).json({ error: 'keys(사진 키 배열)가 필요합니다.' });
       return;
     }
-    const existing = store.get(req.params.id);
-    if (existing && !isParticipant(existing, authUserId(req))) {
-      res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
-      return;
-    }
     try {
-      res.json(store.attachSitePhotos(req.params.id, body.keys as string[]));
+      const existing = await store.get(req.params.id);
+      if (existing && !isParticipant(existing, authUserId(req))) {
+        res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
+        return;
+      }
+      const updated = await store.attachSitePhotos(req.params.id, body.keys as string[]);
+      res.json(updated);
     } catch (err) {
       handleError(err, res);
     }

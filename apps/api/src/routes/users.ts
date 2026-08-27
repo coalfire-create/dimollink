@@ -128,7 +128,7 @@ export function createUsersRouter(
         res.status(400).json({ error: '소셜 인증이 만료되었습니다. 다시 로그인해 주세요.', code: 'SOCIAL_TICKET_INVALID' });
         return;
       }
-      const linkedElsewhere = store.getBySocialIdentity(parsed.provider, parsed.providerUserId);
+      const linkedElsewhere = await store.getBySocialIdentity(parsed.provider, parsed.providerUserId);
       if (linkedElsewhere) {
         res.status(409).json({ error: '이미 가입된 소셜 계정입니다. 로그인해 주세요.', code: 'SOCIAL_ALREADY_LINKED' });
         return;
@@ -142,7 +142,7 @@ export function createUsersRouter(
     }
 
     try {
-      const created = store.create({
+      const created = await store.create({
         userType: userType as UserType,
         name: body.name,
         // 전국구 서비스 — 활동 지역은 입력받지 않고 기본값으로 둔다.
@@ -154,7 +154,7 @@ export function createUsersRouter(
       } as CreateUserInput);
       // 올바로 검증 성공 시 [올바로 인증 업체] 배지 부여.
       const user = allbaroVerifiedAt
-        ? store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
+        ? await store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
         : created;
       // 비밀번호 설정(번호+비밀번호 로그인). 소셜 가입은 비밀번호 없이 통과 가능.
       if (isValidPassword(password)) {
@@ -170,10 +170,10 @@ export function createUsersRouter(
   });
 
   // GET /api/users?userType=&approvalStatus= — 목록
-  router.get('/users', (req, res) => {
+  router.get('/users', async (req, res) => {
     const { userType, approvalStatus } = req.query;
     res.json(
-      store.list({
+      await store.list({
         userType: typeof userType === 'string' ? (userType as UserType) : undefined,
         approvalStatus:
           typeof approvalStatus === 'string'
@@ -184,8 +184,8 @@ export function createUsersRouter(
   });
 
   // GET /api/users/:id — 프로필 조회. 본인은 전체, 타인은 PII(연락처·사업자번호) 제외 공개 프로필.
-  router.get('/users/:id', (req, res) => {
-    const user = store.get(req.params.id);
+  router.get('/users/:id', async (req, res) => {
+    const user = await store.get(req.params.id);
     if (!user) {
       res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
       return;

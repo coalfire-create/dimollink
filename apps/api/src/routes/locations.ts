@@ -51,7 +51,7 @@ export function createLocationsRouter(
   });
 
   // PUT /api/requests/:id/location  { lat, lng } — 업체 위치 갱신(업체는 인증된 본인)
-  router.put('/requests/:id/location', (req, res) => {
+  router.put('/requests/:id/location', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.lat !== 'number' || typeof body.lng !== 'number') {
       res.status(400).json({ error: 'lat, lng(숫자)가 필요합니다.' });
@@ -59,7 +59,7 @@ export function createLocationsRouter(
     }
     try {
       res.json(
-        store.updateLocation(req.params.id, authUserId(req), {
+        await store.updateLocation(req.params.id, authUserId(req), {
           lat: body.lat,
           lng: body.lng,
         }),
@@ -70,9 +70,9 @@ export function createLocationsRouter(
   });
 
   // GET /api/requests/:id/location — 배출자 조회. 공유 중이 아니면 { sharing: false }
-  router.get('/requests/:id/location', (req, res) => {
+  router.get('/requests/:id/location', async (req, res) => {
     try {
-      const share = store.getLocation(req.params.id);
+      const share = await store.getLocation(req.params.id);
       res.json(share ? { sharing: true, ...share } : { sharing: false });
     } catch (err) {
       handleError(err, res);

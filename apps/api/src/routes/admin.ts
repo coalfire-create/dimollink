@@ -119,14 +119,14 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // GET /api/admin/anomalies — 이상거래 탐지 결과 (룰 기반, 수동 조치용)
-  router.get('/admin/anomalies', (_req, res) => {
-    res.json(stores.anomalyDetector.detect());
+  router.get('/admin/anomalies', async (_req, res) => {
+    res.json(await stores.anomalyDetector.detect());
   });
 
   // GET /api/admin/waste-materials — 소재별 kg 입력 현황(전체 요청 wasteItems 집계)
-  router.get('/admin/waste-materials', (_req, res) => {
+  router.get('/admin/waste-materials', async (_req, res) => {
     const agg = new Map<VisionMaterialCode, { totalKg: number; itemCount: number }>();
-    for (const request of stores.requestStore.list()) {
+    for (const request of await stores.requestStore.list()) {
       for (const item of request.wasteItems) {
         const cur = agg.get(item.material) ?? { totalKg: 0, itemCount: 0 };
         cur.totalKg += item.kg;
@@ -146,9 +146,9 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // GET /api/admin/quotes-summary — 밀봉 견적 현황(요청별 제출 건수만, 금액 비노출)
-  router.get('/admin/quotes-summary', (_req, res) => {
+  router.get('/admin/quotes-summary', async (_req, res) => {
     const counts = new Map<string, number>();
-    for (const q of stores.quoteStore.listQuotes()) {
+    for (const q of await stores.quoteStore.listQuotes()) {
       counts.set(q.requestId, (counts.get(q.requestId) ?? 0) + 1);
     }
     const rows = [...counts.entries()]
