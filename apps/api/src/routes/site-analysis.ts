@@ -40,6 +40,7 @@ export function createSiteAnalysisRouter(
       mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
       images: images && images.length > 0 ? images : undefined,
       note: typeof body.note === 'string' ? body.note : undefined,
+      buildingStructure: typeof body.buildingStructure === 'string' ? body.buildingStructure : undefined,
     };
   }
 

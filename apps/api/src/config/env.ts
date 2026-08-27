@@ -159,6 +159,11 @@ export const env = {
     ),
     anthropicTimeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
   },
+  buildingRegistry: {
+    // 건축물대장 표제부 OpenAPI 키 (data.go.kr)
+    apiKey: process.env.VISION_BLDG_LEDGER_KEY,
+    timeoutMs: Number(process.env.BUILDING_REGISTRY_TIMEOUT_MS ?? 10_000),
+  },
   portone: {
     baseUrl: process.env.PORTONE_API_BASE_URL ?? 'https://api.portone.io',
     apiSecret: process.env.PORTONE_API_SECRET,

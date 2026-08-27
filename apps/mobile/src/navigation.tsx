@@ -11,10 +11,15 @@ import { theme } from './theme';
  */
 export interface RequestFormPrefill {
   wasteItems?: WasteItem[];
+  wasteTons?: number;
   region?: string;
   location?: GeoPoint;
   loadAddress?: string;
   unloadAddress?: string;
+  /** 철거 상세 폼 용 프리필 */
+  spaceSize?: string;
+  floorCount?: string;
+  buildingType?: string;
   /** 연결된 요청 id(예약↔운반 세트). */
   linkedRequestId?: string;
 }

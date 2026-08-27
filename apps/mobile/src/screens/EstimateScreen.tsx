@@ -278,7 +278,15 @@ export function EstimateScreen() {
               <View style={styles.ctaBox}>
                 <AppButton
                   label="이 물량으로 철거 신청하기"
-                  onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+                  onPress={() => nav.push({ 
+                    name: 'requestForm', 
+                    kind: 'DEMOLITION',
+                    prefill: {
+                      wasteTons: result.estimatedTons,
+                      spaceSize: String(areaNum),
+                      floorCount: String(floorsNum),
+                    }
+                  })}
                 />
                 <Pressable
                   accessibilityRole="button"

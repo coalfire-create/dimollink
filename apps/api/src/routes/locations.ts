@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authUserId } from '../middleware/auth.js';
 import { LocationStore, LocationValidationError } from '../locations/store.js';
 import { createGeocoder, type Geocoder } from '../geo/geocoder.js';
+import { BuildingRegistryClient } from '../geo/building-registry.js';
 
 /** 실시간 위치 공유 및 카카오 주소 검색 API. */
 export function createLocationsRouter(
@@ -9,6 +10,7 @@ export function createLocationsRouter(
   geocoder: Geocoder = createGeocoder(),
 ): Router {
   const router = Router();
+  const buildingRegistry = new BuildingRegistryClient();
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
     if (err instanceof LocationValidationError) {
@@ -47,6 +49,25 @@ export function createLocationsRouter(
       res.json(result);
     } catch {
       res.status(500).json({ error: '역지오코딩 실패' });
+    }
+  });
+
+  // GET /api/locations/building-info?address=... — 건축물대장 정보 조회
+  router.get('/locations/building-info', async (req, res) => {
+    const address = typeof req.query.address === 'string' ? req.query.address.trim() : '';
+    if (!address) {
+      res.status(400).json({ error: '주소가 필요합니다.' });
+      return;
+    }
+    try {
+      const info = await buildingRegistry.getBuildingInfo(address);
+      if (!info) {
+        res.status(404).json({ error: '해당 위치의 건축물대장 정보를 찾을 수 없습니다.' });
+        return;
+      }
+      res.json(info);
+    } catch {
+      res.status(500).json({ error: '건축물대장 조회 실패' });
     }
   });
 

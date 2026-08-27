@@ -24,13 +24,13 @@ export const BUILDING_STRUCTURE_HINTS: Record<BuildingStructure, string> = {
  * 연면적 1㎡당 철거 폐기물 발생 원단위(톤/㎡) 초기값.
  * 파일럿 실측 데이터로 보정한다 — 이 파일에서만 수정 (하드코딩 금지).
  */
-export const DEMOLITION_TON_PER_M2 = 1.2;
+export const DEMOLITION_TON_PER_M2 = 1.58;
 
-/** 구조별 보정 계수. */
+/** 구조별 보정 계수 (환경부 건설폐기물 발생 원단위 기준). */
 export const STRUCTURE_FACTORS: Record<BuildingStructure, number> = {
-  RC: 1.3,
-  BRICK: 1.0,
-  WOOD: 0.6,
+  RC: 1.0,      // 1.58 * 1.0 = 1.58 (철근콘크리트)
+  BRICK: 0.73,  // 1.58 * 0.73 ≈ 1.15 (조적조)
+  WOOD: 0.33,   // 1.58 * 0.33 ≈ 0.52 (목조)
 };
 
 /** 1평 = 3.305785㎡ (한국 사용자는 평 단위로 면적을 인지한다). */

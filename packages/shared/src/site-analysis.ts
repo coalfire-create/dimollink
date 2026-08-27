@@ -22,6 +22,7 @@ export type MaterialCategory =
   | 'GYPSUM'
   | 'INSULATION'
   | 'ROOFING'
+  | 'TILE'
   | 'HAZARD'
   | 'OTHER';
 
@@ -34,6 +35,7 @@ export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
   GYPSUM: '석고보드',
   INSULATION: '단열재',
   ROOFING: '지붕재',
+  TILE: '위생도기·타일',
   HAZARD: '위험·특별관리',
   OTHER: '기타',
 };
@@ -49,6 +51,8 @@ export interface DetectedMaterial {
   hazardous: boolean;
   /** 처리·분리 관련 참고 메모(선택). */
   note?: string;
+  /** 사진에서 유추한 해당 소재의 예상 폐기물 무게(kg, 선택). */
+  estimatedKg?: number;
 }
 
 export interface DemolitionStep {
@@ -93,6 +97,7 @@ export const SITE_ANALYSIS_TO_VISION_MATERIAL: Record<MaterialCategory, VisionMa
   GYPSUM: 'GYPSUM_BOARD',
   INSULATION: 'WATERPROOF_INSULATION',
   ROOFING: 'ROOFING_SLATE',
+  TILE: 'SANITARY_TILE',
   HAZARD: 'MIXED_WASTE',
   OTHER: 'MIXED_WASTE',
 };
@@ -113,15 +118,26 @@ export function siteAnalysisToWasteItems(
   materials: readonly DetectedMaterial[],
   totalKg?: number,
 ): WasteItem[] {
-  const codes: VisionMaterialCode[] = [];
+  const map = new Map<VisionMaterialCode, number>();
   for (const m of materials) {
     const code = SITE_ANALYSIS_TO_VISION_MATERIAL[m.category];
-    if (!codes.includes(code)) codes.push(code);
+    const kg = m.estimatedKg && m.estimatedKg > 0 ? m.estimatedKg : 0;
+    map.set(code, (map.get(code) ?? 0) + kg);
   }
-  if (codes.length === 0) return [];
-  const per =
-    typeof totalKg === 'number' && totalKg > 0
-      ? Math.max(1, Math.round(totalKg / codes.length))
-      : DEFAULT_PHOTO_MATERIAL_KG;
-  return codes.map((material) => ({ material, kg: per }));
+  
+  if (map.size === 0) return [];
+  
+  const codes = Array.from(map.keys());
+
+  // totalKg가 있으면 모든 코드로 균등 분배 (기존 호환 유지 - 예: 전체 부피 추정기가 있는 경우)
+  if (typeof totalKg === 'number' && totalKg > 0) {
+    const per = Math.max(1, Math.round(totalKg / codes.length));
+    return codes.map((material) => ({ material, kg: per }));
+  }
+
+  // totalKg가 없으면 각 품목별 estimatedKg를 사용하되, 0인 항목은 기본값(500kg) 사용
+  return codes.map((material) => {
+    const kg = map.get(material) ?? 0;
+    return { material, kg: kg > 0 ? kg : DEFAULT_PHOTO_MATERIAL_KG };
+  });
 }

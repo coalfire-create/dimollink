@@ -284,6 +284,7 @@ export const analyzeSite = (input: {
   mimeType?: string;
   images?: AnalyzeImage[];
   note?: string;
+  buildingStructure?: string;
 }) => api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
 
 /** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
@@ -296,6 +297,7 @@ export const analyzeSiteWasteItems = (input: {
   mimeType?: string;
   images?: AnalyzeImage[];
   floorAreaM2?: number;
+  buildingStructure?: string;
 }) =>
   api<PhotoWasteItemsResult>('/site-analysis/waste-items', {
     method: 'POST',
@@ -468,3 +470,18 @@ export const searchAddress = (query: string) =>
 
 export const coord2Address = (lat: number, lng: number) =>
   api<AddressSearchResult>(`/locations/coord2address?lat=${lat}&lng=${lng}`);
+
+export interface BuildingInfo {
+  strctCdNm?: string;
+  roofCdNm?: string;
+  etcStrct?: string;
+  vlRatEstmTotArea?: number;
+  mainPurpsCdNm?: string;
+  grndFlrCnt?: number;
+  ugrndFlrCnt?: number;
+  useAprDay?: string;
+}
+
+export const getBuildingInfo = (address: string) =>
+  api<BuildingInfo>(`/locations/building-info?address=${encodeURIComponent(address)}`);
+

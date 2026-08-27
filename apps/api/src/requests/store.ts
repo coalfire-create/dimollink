@@ -142,7 +142,9 @@ export class RequestStore {
       throw new RequestValidationError('건설폐기물만 접수할 수 있습니다.');
     }
     const wasteItems = normalizeWasteItems(input.wasteItems, input.wasteTons, input.kind);
-    const wasteTons = wasteItemsToTons(wasteItems);
+    const wasteTons = input.kind === 'DEMOLITION' && input.wasteTons !== undefined 
+      ? input.wasteTons 
+      : wasteItemsToTons(wasteItems);
     if (input.location !== undefined && !isValidGeoPoint(input.location)) {
       throw new RequestValidationError('유효한 좌표(lat -90~90, lng -180~180)가 필요합니다.');
     }

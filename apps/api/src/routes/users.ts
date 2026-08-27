@@ -202,7 +202,7 @@ export function createUsersRouter(
   });
 
   // PATCH /api/users/:id/availability — 운반업체 콜대기 상태 토글 (ONLINE/OFFLINE)
-  router.patch('/users/:id/availability', (req, res) => {
+  router.patch('/users/:id/availability', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     const availability = body.availability;
@@ -211,14 +211,14 @@ export function createUsersRouter(
       return;
     }
     try {
-      res.json(store.setAvailability(req.params.id, availability as CallAvailability));
+      res.json(await store.setAvailability(req.params.id, availability as CallAvailability));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // PATCH /api/users/:id/offers-transport — 처리장 운반요청 제공 여부 토글 (처리장만)
-  router.patch('/users/:id/offers-transport', (req, res) => {
+  router.patch('/users/:id/offers-transport', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.offersTransport !== 'boolean') {
@@ -226,19 +226,19 @@ export function createUsersRouter(
       return;
     }
     try {
-      res.json(store.setOffersTransport(req.params.id, body.offersTransport));
+      res.json(await store.setOffersTransport(req.params.id, body.offersTransport));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
-  router.patch('/users/:id/certifications', (req, res) => {
+  router.patch('/users/:id/certifications', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
-        store.setCertifications(req.params.id, {
+        await store.setCertifications(req.params.id, {
           insuranceRegistered:
             typeof body.insuranceRegistered === 'boolean' ? body.insuranceRegistered : undefined,
           permitRegistered:
@@ -251,12 +251,12 @@ export function createUsersRouter(
   });
 
   // PATCH /api/users/:id — 프로필 수정 (이름/연락처/지역)
-  router.patch('/users/:id', (req, res) => {
+  router.patch('/users/:id', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
-        store.update(req.params.id, {
+        await store.update(req.params.id, {
           name: typeof body.name === 'string' ? body.name : undefined,
           region: typeof body.region === 'string' ? body.region : undefined,
           phone: typeof body.phone === 'string' ? body.phone : undefined,

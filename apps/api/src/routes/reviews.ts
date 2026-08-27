@@ -20,10 +20,10 @@ export function createReviewsRouter(store: ReviewStore): Router {
   }
 
   // POST /api/reviews  { requestId, raterId, rating, comment? }
-  router.post('/reviews', (req, res) => {
+  router.post('/reviews', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const review = store.createReview({
+      const review = await store.createReview({
         requestId: String(body.requestId ?? ''),
         raterId: authUserId(req),
         rating: Number(body.rating),
@@ -36,10 +36,10 @@ export function createReviewsRouter(store: ReviewStore): Router {
   });
 
   // GET /api/reviews?ratedId=&requestId= — 리뷰 목록
-  router.get('/reviews', (req, res) => {
+  router.get('/reviews', async (req, res) => {
     const { ratedId, requestId } = req.query;
     res.json(
-      store.listReviews({
+      await store.listReviews({
         ratedId: typeof ratedId === 'string' ? ratedId : undefined,
         requestId: typeof requestId === 'string' ? requestId : undefined,
       }),
@@ -47,15 +47,15 @@ export function createReviewsRouter(store: ReviewStore): Router {
   });
 
   // GET /api/users/:id/rating — 평점 요약 (프로필·추천 정렬용)
-  router.get('/users/:id/rating', (req, res) => {
-    res.json(store.ratingSummary(req.params.id));
+  router.get('/users/:id/rating', async (req, res) => {
+    res.json(await store.ratingSummary(req.params.id));
   });
 
   // POST /api/incidents  { requestId, reporterId, type: NO_SHOW|DISPUTE, detail? }
-  router.post('/incidents', (req, res) => {
+  router.post('/incidents', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const incident = store.reportIncident({
+      const incident = await store.reportIncident({
         requestId: String(body.requestId ?? ''),
         reporterId: authUserId(req),
         type: body.type as IncidentType,
@@ -68,10 +68,10 @@ export function createReviewsRouter(store: ReviewStore): Router {
   });
 
   // GET /api/incidents?targetId=&status= — 신고 이력
-  router.get('/incidents', (req, res) => {
+  router.get('/incidents', async (req, res) => {
     const { targetId, status } = req.query;
     res.json(
-      store.listIncidents({
+      await store.listIncidents({
         targetId: typeof targetId === 'string' ? targetId : undefined,
         status: typeof status === 'string' ? (status as IncidentStatus) : undefined,
       }),

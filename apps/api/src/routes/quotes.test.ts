@@ -45,13 +45,13 @@ afterEach(async () => {
   );
 });
 
-function makeCompany(
+async function makeCompany(
   userType: 'DEMOLITION_COMPANY' | 'TRANSPORT_COMPANY',
   phone: string,
   biz: string,
 ) {
-  const u = userStore.create({ userType, name: '업체', region: PILOT.region, phone, businessNumber: biz });
-  userStore.setApprovalStatus(u.id, 'APPROVED');
+  const u = await userStore.create({ userType, name: '업체', region: PILOT.region, phone, businessNumber: biz });
+  await userStore.setApprovalStatus(u.id, 'APPROVED');
   return u;
 }
 
@@ -59,49 +59,44 @@ function makeConsumer(phone: string) {
   return userStore.create({ userType: 'CONSUMER', name: '소비자', region: PILOT.region, phone });
 }
 
-const getQuotes = (viewerId: string, query = '') =>
+function makeTransportRequest(requesterId: string) {
+  return requestStore.create({
+    kind: 'TRANSPORT',
+    requesterId,
+    region: PILOT.region,
+    wasteCategory: PILOT.wasteCategory,
+    wasteTons: 3,
+    allbaroRequested: false,
+    loadAddress: '상차지',
+    unloadAddress: '하차지',
+  });
+}
+
+const getQuotes = async (viewerId: string, query = '') =>
   fetch(`${base}/api/quotes${query}`, {
-    headers: { authorization: `Bearer ${tokenOf(viewerId)}` },
+    headers: { authorization: `Bearer ${await tokenOf(viewerId)}` },
   }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
 describe('견적 밀봉 접근제어 (GET /api/quotes)', () => {
   it('요청자(배출자)는 해당 요청의 모든 견적을 본다', async () => {
-    const requester = makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
-    const tA = makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
-    const tB = makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
-    const req = requestStore.create({
-      kind: 'TRANSPORT',
-      requesterId: requester.id,
-      region: PILOT.region,
-      wasteCategory: PILOT.wasteCategory,
-      wasteTons: 3,
-      allbaroRequested: false,
-      loadAddress: '상차지',
-      unloadAddress: '하차지',
-    });
-    quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
-    quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
+    const requester = await makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
+    const tA = await makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
+    const tB = await makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
+    const req = await makeTransportRequest(requester.id);
+    await quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
+    await quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
 
     const { body } = await getQuotes(requester.id, `?requestId=${req.id}`);
     expect(body).toHaveLength(2);
   });
 
   it('업체는 자기가 제출한 견적만 본다 (경쟁사 금액 비공개)', async () => {
-    const requester = makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
-    const tA = makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
-    const tB = makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
-    const req = requestStore.create({
-      kind: 'TRANSPORT',
-      requesterId: requester.id,
-      region: PILOT.region,
-      wasteCategory: PILOT.wasteCategory,
-      wasteTons: 3,
-      allbaroRequested: false,
-      loadAddress: '상차지',
-      unloadAddress: '하차지',
-    });
-    quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
-    quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
+    const requester = await makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
+    const tA = await makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
+    const tB = await makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
+    const req = await makeTransportRequest(requester.id);
+    await quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
+    await quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
 
     const { body } = await getQuotes(tA.id, `?requestId=${req.id}`);
     expect(body).toHaveLength(1);
@@ -110,41 +105,23 @@ describe('견적 밀봉 접근제어 (GET /api/quotes)', () => {
   });
 
   it('소비자(제3자)는 견적 금액을 전혀 볼 수 없다 (빈 목록)', async () => {
-    const requester = makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
-    const tA = makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
-    const consumer = makeConsumer('01020000009');
-    const req = requestStore.create({
-      kind: 'TRANSPORT',
-      requesterId: requester.id,
-      region: PILOT.region,
-      wasteCategory: PILOT.wasteCategory,
-      wasteTons: 3,
-      allbaroRequested: false,
-      loadAddress: '상차지',
-      unloadAddress: '하차지',
-    });
-    quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
+    const requester = await makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
+    const tA = await makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
+    const consumer = await makeConsumer('01020000009');
+    const req = await makeTransportRequest(requester.id);
+    await quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
 
     const { body } = await getQuotes(consumer.id, `?requestId=${req.id}`);
     expect(body).toEqual([]);
   });
 
   it('requestId 없이 조회하면 본인이 제출한 견적만 반환 (업체)', async () => {
-    const requester = makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
-    const tA = makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
-    const tB = makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
-    const req = requestStore.create({
-      kind: 'TRANSPORT',
-      requesterId: requester.id,
-      region: PILOT.region,
-      wasteCategory: PILOT.wasteCategory,
-      wasteTons: 3,
-      allbaroRequested: false,
-      loadAddress: '상차지',
-      unloadAddress: '하차지',
-    });
-    quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
-    quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
+    const requester = await makeCompany('DEMOLITION_COMPANY', '01020000001', BIZ_A);
+    const tA = await makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
+    const tB = await makeCompany('TRANSPORT_COMPANY', '01020000003', BIZ_C);
+    const req = await makeTransportRequest(requester.id);
+    await quoteStore.createQuote({ requestId: req.id, providerId: tA.id, party: 'TRANSPORT', amount: 100000 });
+    await quoteStore.createQuote({ requestId: req.id, providerId: tB.id, party: 'TRANSPORT', amount: 120000 });
 
     const { body } = await getQuotes(tB.id);
     expect(body).toHaveLength(1);
@@ -152,7 +129,7 @@ describe('견적 밀봉 접근제어 (GET /api/quotes)', () => {
   });
 
   it('존재하지 않는 requestId 는 404', async () => {
-    const tA = makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
+    const tA = await makeCompany('TRANSPORT_COMPANY', '01020000002', BIZ_B);
     const { status } = await getQuotes(tA.id, '?requestId=does-not-exist');
     expect(status).toBe(404);
   });

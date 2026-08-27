@@ -11,6 +11,10 @@ export interface AddressSearchResult {
   buildingName?: string;
   region: string;
   location?: GeoPoint;
+  bCode?: string; // 법정동코드(10자리)
+  mountainYn?: string; // 산 번지 여부 (Y/N 또는 1/0)
+  mainAddressNo?: string; // 본번
+  subAddressNo?: string; // 부번
 }
 
 export interface Geocoder {
@@ -197,7 +201,7 @@ export class KakaoGeocoder implements Geocoder {
           documents?: Array<{
             address_name?: string;
             road_address?: { address_name?: string; building_name?: string };
-            address?: { address_name?: string };
+            address?: { address_name?: string; b_code?: string; mountain_yn?: string; main_address_no?: string; sub_address_no?: string };
             x?: string;
             y?: string;
           }>;
@@ -211,6 +215,10 @@ export class KakaoGeocoder implements Geocoder {
             buildingName: doc.road_address?.building_name || undefined,
             region: extractRegion(mainAddr),
             location: doc.x && doc.y ? { lat: Number(doc.y), lng: Number(doc.x) } : undefined,
+            bCode: doc.address?.b_code,
+            mountainYn: doc.address?.mountain_yn,
+            mainAddressNo: doc.address?.main_address_no,
+            subAddressNo: doc.address?.sub_address_no,
           });
         }
       }
@@ -223,6 +231,7 @@ export class KakaoGeocoder implements Geocoder {
             address_name?: string;
             x?: string;
             y?: string;
+            // keyword 검색의 경우 상세 address 객체가 없을 수 있으므로 제한적임
           }>;
         };
         for (const doc of data.documents ?? []) {
@@ -262,7 +271,7 @@ export class KakaoGeocoder implements Geocoder {
       const data = (await res.json()) as {
         documents?: Array<{
           road_address?: { address_name?: string; building_name?: string };
-          address?: { address_name?: string };
+          address?: { address_name?: string; b_code?: string; mountain_yn?: string; main_address_no?: string; sub_address_no?: string };
         }>;
       };
       const doc = data.documents?.[0];
@@ -275,6 +284,10 @@ export class KakaoGeocoder implements Geocoder {
         buildingName: doc.road_address?.building_name || undefined,
         region: extractRegion(mainAddr),
         location: { lat, lng },
+        bCode: doc.address?.b_code,
+        mountainYn: doc.address?.mountain_yn,
+        mainAddressNo: doc.address?.main_address_no,
+        subAddressNo: doc.address?.sub_address_no,
       };
     } catch {
       return null;

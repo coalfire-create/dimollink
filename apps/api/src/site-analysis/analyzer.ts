@@ -30,6 +30,8 @@ export interface AnalyzeSiteInput {
   images?: AnalyzeImage[];
   /** 사용자가 덧붙이는 현장 메모(선택) — 분석 힌트. */
   note?: string;
+  /** 공공데이터 기반 건축물대장 주구조 정보 (예: 철근콘크리트구조) — 분석 힌트. */
+  buildingStructure?: string;
 }
 
 export interface SiteAnalyzer {
@@ -77,14 +79,27 @@ export function assertValidImages(
 }
 
 /** 다중 이미지 종합 분석을 안내하는 사용자 지시문 구성. */
-export function buildUserInstruction(note: string | undefined, imageCount: number): string {
+export function buildUserInstruction(
+  note: string | undefined,
+  buildingStructure: string | undefined,
+  imageCount: number,
+): string {
   const multi =
     imageCount > 1
       ? `다음은 같은 철거 현장을 여러 각도·거리에서 촬영한 ${imageCount}장의 사진입니다. ` +
         '모든 사진을 종합해 하나의 결과로 분석하고, 어느 한 장에서만 보이는 소재·위험요소도 놓치지 마세요.\n'
       : '';
-  const base = `${multi}${USER_INSTRUCTION}`;
-  return note ? `${base}\n현장 메모: ${note}` : base;
+  
+  let base = `${multi}${USER_INSTRUCTION}`;
+  
+  if (buildingStructure) {
+    base += `\n[핵심 힌트] 이 건물의 건축물대장상 주구조는 '${buildingStructure}'입니다. 사진 속 구조물이나 뼈대를 식별할 때 이 정보를 우선적으로 참고하여 오인식을 방지하세요.`;
+  }
+  if (note) {
+    base += `\n[현장 메모] ${note}`;
+  }
+  
+  return base;
 }
 
 /** 결정적 목 — 건설폐기물(철거) 파일럿 범위의 대표 결과. */
@@ -92,10 +107,11 @@ export class MockSiteAnalyzer implements SiteAnalyzer {
   async analyze(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
     assertValidImages(input);
     const materials: DetectedMaterial[] = [
-      { category: 'CONCRETE', name: '철근콘크리트 벽체·슬래브', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '순환골재로 재활용 가능' },
-      { category: 'STEEL', name: '철근·형강', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '고철로 분리 매각' },
-      { category: 'BRICK', name: '벽돌·조적 마감', confidence: 'LOW', recyclable: true, hazardous: false },
-      { category: 'HAZARD', name: '슬레이트 지붕(석면 의심)', confidence: 'LOW', recyclable: false, hazardous: true, note: '석면 조사 전 임의 철거 금지 — 전문 업체 위탁' },
+      { category: 'CONCRETE', name: '철근콘크리트 벽체·슬래브', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '순환골재로 재활용 가능', estimatedKg: 15000 },
+      { category: 'STEEL', name: '철근·형강', confidence: 'MEDIUM', recyclable: true, hazardous: false, note: '고철로 분리 매각', estimatedKg: 2000 },
+      { category: 'BRICK', name: '벽돌·조적 마감', confidence: 'LOW', recyclable: true, hazardous: false, estimatedKg: 3000 },
+      { category: 'TILE', name: '욕실 화장실 타일', confidence: 'HIGH', recyclable: false, hazardous: false, estimatedKg: 500 },
+      { category: 'HAZARD', name: '슬레이트 지붕(석면 의심)', confidence: 'LOW', recyclable: false, hazardous: true, note: '석면 조사 전 임의 철거 금지 — 전문 업체 위탁', estimatedKg: 800 },
     ];
     const demolitionSteps: DemolitionStep[] = [
       { order: 1, title: '사전 조사·신고', description: '구조안전 검토와 석면 조사 후 해체계획서·신고를 완료합니다.', caution: '석면 확인 시 지정 업체가 우선 제거' },
@@ -128,11 +144,14 @@ const SYSTEM_PROMPT =
   '당신은 한국의 건설폐기물 철거 현장 분석 보조자입니다. 제공된 현장 사진을 보고 ' +
   '구성 소재와 권장 철거 공정, 위험 요소를 분석합니다. 반드시 지정된 JSON 스키마로만 ' +
   '응답하고, 불확실하면 confidence 를 낮추세요. 석면 등 위험 소재는 hazardous=true 로 표시하고 ' +
-  '임의 제거를 권하지 마세요. 모든 텍스트는 한국어로 작성합니다.';
+  '임의 제거를 권하지 마세요. 타일(TILE)과 목재(WOOD)를 명확히 구분하세요. ' +
+  '타일은 매끄러운 광택 표면이나 욕실, 주방, 베란다 등에 주로 쓰이며, 목재는 나무 무늬나 합판 형태이므로 절대 혼동하지 마세요. ' +
+  '모든 텍스트는 한국어로 작성합니다.';
 
 const USER_INSTRUCTION =
   '이 철거 현장 사진을 분석해 아래 JSON 스키마로만 답하세요(코드블록·설명 없이 JSON 객체 하나):\n' +
-  '{"summary": string, "materials": [{"category": "CONCRETE|STEEL|BRICK|WOOD|GLASS|GYPSUM|INSULATION|ROOFING|HAZARD|OTHER", "name": string, "confidence": "LOW|MEDIUM|HIGH", "recyclable": boolean, "hazardous": boolean, "note"?: string}], "demolitionSteps": [{"order": number, "title": string, "description": string, "caution"?: string}], "hazards": string[], "confidence": "LOW|MEDIUM|HIGH"}';
+  '{"summary": string, "materials": [{"category": "CONCRETE|STEEL|BRICK|WOOD|GLASS|GYPSUM|INSULATION|ROOFING|TILE|HAZARD|OTHER", "name": string, "estimatedKg": number, "confidence": "LOW|MEDIUM|HIGH", "recyclable": boolean, "hazardous": boolean, "note"?: string}], "demolitionSteps": [{"order": number, "title": string, "description": string, "caution"?: string}], "hazards": string[], "confidence": "LOW|MEDIUM|HIGH"}\n' +
+  '주의: 각 소재별로 사진에 보이는 면적과 부피를 바탕으로 예상되는 현실적인 철거 폐기물 중량(kg)을 estimatedKg 에 정수로 꼭 작성하세요.';
 
 /** 모델 텍스트 응답에서 JSON 을 추출·검증해 SiteAnalysis 로 정규화(공급자 공용). */
 export function parseVisionJson(text: string): SiteAnalysis {
@@ -140,9 +159,19 @@ export function parseVisionJson(text: string): SiteAnalysis {
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('AI 응답 파싱 실패');
   const raw = JSON.parse(text.slice(start, end + 1)) as Partial<SiteAnalysis>;
+  const rawMaterials = Array.isArray(raw.materials) ? raw.materials : [];
+  
   return {
     summary: typeof raw.summary === 'string' ? raw.summary : '현장 분석 결과',
-    materials: Array.isArray(raw.materials) ? (raw.materials as DetectedMaterial[]) : [],
+    materials: rawMaterials.map((m: any) => ({
+      category: m.category,
+      name: m.name,
+      estimatedKg: typeof m.estimatedKg === 'number' ? m.estimatedKg : undefined,
+      confidence: m.confidence,
+      recyclable: !!m.recyclable,
+      hazardous: !!m.hazardous,
+      note: m.note
+    })) as DetectedMaterial[],
     demolitionSteps: Array.isArray(raw.demolitionSteps)
       ? (raw.demolitionSteps as DemolitionStep[])
       : [],
@@ -189,7 +218,7 @@ export class GeminiSiteAnalyzer implements SiteAnalyzer {
                   ...images.map((im) => ({
                     inline_data: { mime_type: im.mimeType, data: im.imageBase64 },
                   })),
-                  { text: buildUserInstruction(input.note, images.length) },
+                  { text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
                 ],
               },
             ],
@@ -244,7 +273,7 @@ export class GroqSiteAnalyzer implements SiteAnalyzer {
             {
               role: 'user',
               content: [
-                { type: 'text', text: buildUserInstruction(input.note, images.length) },
+                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
                 ...images.map((im) => ({
                   type: 'image_url' as const,
                   image_url: { url: `data:${im.mimeType};base64,${im.imageBase64}` },
@@ -293,7 +322,7 @@ export class ClaudeSiteAnalyzer implements SiteAnalyzer {
                   type: 'image' as const,
                   source: { type: 'base64' as const, media_type: im.mimeType, data: im.imageBase64 },
                 })),
-                { type: 'text', text: buildUserInstruction(input.note, images.length) },
+                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
               ],
             },
           ],

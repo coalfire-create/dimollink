@@ -45,10 +45,10 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   }
 
   // GET /api/admin/users?approvalStatus=PENDING — 승인 대기 업체 큐
-  router.get('/admin/users', (req, res) => {
+  router.get('/admin/users', async (req, res) => {
     const { approvalStatus } = req.query;
     res.json(
-      stores.userStore.list({
+      await stores.userStore.list({
         approvalStatus:
           typeof approvalStatus === 'string'
             ? (approvalStatus as UserApprovalStatus)
@@ -58,7 +58,7 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // PATCH /api/admin/users/:id/approval  { status: APPROVED | SUSPENDED | PENDING }
-  router.patch('/admin/users/:id/approval', (req, res) => {
+  router.patch('/admin/users/:id/approval', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const status = body.status;
     if (status !== 'APPROVED' && status !== 'SUSPENDED' && status !== 'PENDING') {
@@ -66,17 +66,17 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
       return;
     }
     try {
-      res.json(stores.userStore.setApprovalStatus(req.params.id, status));
+      res.json(await stores.userStore.setApprovalStatus(req.params.id, status));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // GET /api/admin/incidents?status=OPEN — 노쇼/분쟁 조정 큐
-  router.get('/admin/incidents', (req, res) => {
+  router.get('/admin/incidents', async (req, res) => {
     const { status, targetId } = req.query;
     res.json(
-      stores.reviewStore.listIncidents({
+      await stores.reviewStore.listIncidents({
         status: status === 'OPEN' || status === 'RESOLVED' ? status : undefined,
         targetId: typeof targetId === 'string' ? targetId : undefined,
       }),
@@ -84,11 +84,11 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // POST /api/admin/incidents/:id/resolve  { resolutionNote? }
-  router.post('/admin/incidents/:id/resolve', (req, res) => {
+  router.post('/admin/incidents/:id/resolve', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
-        stores.reviewStore.resolveIncident(
+        await stores.reviewStore.resolveIncident(
           req.params.id,
           typeof body.resolutionNote === 'string' ? body.resolutionNote : undefined,
         ),
@@ -99,20 +99,20 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // GET /api/admin/requests?status= — 매칭 현황 모니터링 (전체 요청 로그)
-  router.get('/admin/requests', (req, res) => {
+  router.get('/admin/requests', async (req, res) => {
     const { status } = req.query;
     res.json(
-      stores.requestStore.list({
+      await stores.requestStore.list({
         status: typeof status === 'string' ? (status as MatchStatus) : undefined,
       }),
     );
   });
 
   // GET /api/admin/offers?status= — 매칭 제안 로그 (타임아웃/거절 현황)
-  router.get('/admin/offers', (req, res) => {
+  router.get('/admin/offers', async (req, res) => {
     const { status } = req.query;
     res.json(
-      stores.offerStore.list({
+      await stores.offerStore.list({
         status: typeof status === 'string' ? (status as MatchOfferStatus) : undefined,
       }),
     );
@@ -158,8 +158,8 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
   });
 
   // GET /api/admin/pricing — 업체 단가 설정 현황
-  router.get('/admin/pricing', (_req, res) => {
-    res.json(stores.pricingStore.list());
+  router.get('/admin/pricing', async (_req, res) => {
+    res.json(await stores.pricingStore.list());
   });
 
   return router;

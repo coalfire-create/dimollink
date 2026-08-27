@@ -18,10 +18,10 @@ export function createQuotesRouter(
   }
 
   // POST /api/quotes  { requestId, providerId, party, amount, memo? }
-  router.post('/quotes', (req, res) => {
+  router.post('/quotes', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const quote = store.createQuote({
+      const quote = await store.createQuote({
         requestId: String(body.requestId ?? ''),
         providerId: authUserId(req),
         party: body.party as ProviderRole,
@@ -40,9 +40,9 @@ export function createQuotesRouter(
   });
 
   // POST /api/quotes/:id/accept — 배출자(요청자 본인)가 견적 수락 → 정산 금액 확정
-  router.post('/quotes/:id/accept', (req, res) => {
+  router.post('/quotes/:id/accept', async (req, res) => {
     try {
-      res.json(store.accept(req.params.id, authUserId(req)));
+      res.json(await store.accept(req.params.id, authUserId(req)));
     } catch (err) {
       if (err instanceof QuoteValidationError) {
         const status = err.message.includes('찾을 수 없습니다') ? 404 : 400;

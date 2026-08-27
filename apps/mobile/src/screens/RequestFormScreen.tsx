@@ -15,7 +15,7 @@ import {
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, analyzeSiteWasteItems, createRequest, type AnalyzeImage } from '../api/client';
+import { ApiError, analyzeSiteWasteItems, createRequest, getBuildingInfo, type AnalyzeImage } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
@@ -79,12 +79,35 @@ export function RequestFormScreen({
   // 철거 전용 폼 정보
   const [buildingType, setBuildingType] = useState<BuildingType>('COMMERCIAL');
   const [demolitionType, setDemolitionType] = useState<DemolitionType>('INTERIOR');
-  const [spaceSize, setSpaceSize] = useState('');
-  const [floorCount, setFloorCount] = useState('');
+  const [spaceSize, setSpaceSize] = useState(prefill?.spaceSize ? `${prefill.spaceSize}평 (약 ${Math.round(Number(prefill.spaceSize) * 3.305)}㎡)` : '');
+  const [floorCount, setFloorCount] = useState(prefill?.floorCount ? `${prefill.floorCount}층` : '');
   const [hasElevator, setHasElevator] = useState<boolean>(true);
   const [hasVehicleAccess, setHasVehicleAccess] = useState<boolean>(true);
   const [desiredDate, setDesiredDate] = useState('');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState(
+    prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : ''
+  );
+  const [buildingStructure, setBuildingStructure] = useState<string | null>(null);
+
+  // 건축물대장 정보 조회
+  async function fetchBuildingStructure(address: string) {
+    if (!address) return;
+    try {
+      const info = await getBuildingInfo(address);
+      if (info?.strctCdNm) {
+        setBuildingStructure(info.strctCdNm);
+        // 필요 시 description에 주구조 정보를 추가할 수 있음
+        const structureHint = `[건축물대장 주구조: ${info.strctCdNm}]`;
+        setDescription(prev => 
+          prev.includes('[건축물대장') ? prev : (prev ? `${prev}\n${structureHint}` : structureHint)
+        );
+      } else {
+        setBuildingStructure(null);
+      }
+    } catch {
+      setBuildingStructure(null);
+    }
+  }
 
   // 디몰비전 AI 사진 분석 상태
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -119,7 +142,10 @@ export function RequestFormScreen({
     if (images.length === 0) return;
     setPhotoBusy(true);
     try {
-      const { analysis, wasteItems } = await analyzeSiteWasteItems({ images });
+      const { analysis, wasteItems } = await analyzeSiteWasteItems({ 
+        images, 
+        buildingStructure: buildingStructure ?? undefined 
+      });
 
       if (kind === 'DEMOLITION') {
         const summaryObj: DimolVisionSummary = {
@@ -195,6 +221,7 @@ export function RequestFormScreen({
         region: region.trim(),
         wasteCategory: PILOT.wasteCategory,
         wasteItems,
+        wasteTons: prefill?.wasteTons, // 전달된 wasteTons 가 있다면 서버에 전달
         allbaroRequested,
         location: location ?? prefill?.location,
         linkedRequestId: prefill?.linkedRequestId,
@@ -298,10 +325,17 @@ export function RequestFormScreen({
                   setSiteAddress(addr);
                   if (reg) setRegion(reg);
                   if (loc) setLocation(loc);
+                  void fetchBuildingStructure(addr);
                 }}
                 placeholder="예) ○○시 ○○구 ○○동 12-3"
                 hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
               />
+              
+              {buildingStructure ? (
+                <View style={styles.buildingInfoBadge}>
+                  <Text style={styles.buildingInfoText}>🏛️ 건축물대장 기준: {buildingStructure}</Text>
+                </View>
+              ) : null}
 
               <Text style={styles.sectionLabel}>건물 / 공간 종류</Text>
               <View style={styles.chipSegment}>
@@ -602,6 +636,18 @@ const styles = StyleSheet.create({
   pilotChipText: {
     color: colors.primary,
     fontSize: font.body,
+    fontWeight: '700',
+  },
+  buildingInfoBadge: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: radius.card,
+    padding: spacing.sm,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.md,
+  },
+  buildingInfoText: {
+    color: '#1967D2',
+    fontSize: font.caption,
     fontWeight: '700',
   },
   doneCard: {
