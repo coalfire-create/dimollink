@@ -6,6 +6,7 @@ export * from './business-day.js';
 export * from './holidays.js';
 export * from './geo.js';
 export * from './site-photo.js';
+export * from './site-capture-guide.js';
 export * from './request.js';
 export * from './user.js';
 export * from './auth.js';

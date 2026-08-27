@@ -15,9 +15,19 @@ import {
   type RequestKind,
   type ServiceRequest,
 } from '@dimol/shared';
-import { ApiError, analyzeSiteWasteItems, createRequest, getBuildingInfo, type AnalyzeImage } from '../api/client';
+import {
+  ApiError,
+  analyzeSiteWasteItems,
+  createRequest,
+  getBuildingInfo,
+  type AnalyzeImage,
+} from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
+import {
+  GuidedSiteCaptureModal,
+  type GuidedCaptureResult,
+} from '../components/GuidedSiteCaptureModal';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import {
   WasteItemsInput,
@@ -79,13 +89,19 @@ export function RequestFormScreen({
   // 철거 전용 폼 정보
   const [buildingType, setBuildingType] = useState<BuildingType>('COMMERCIAL');
   const [demolitionType, setDemolitionType] = useState<DemolitionType>('INTERIOR');
-  const [spaceSize, setSpaceSize] = useState(prefill?.spaceSize ? `${prefill.spaceSize}평 (약 ${Math.round(Number(prefill.spaceSize) * 3.305)}㎡)` : '');
-  const [floorCount, setFloorCount] = useState(prefill?.floorCount ? `${prefill.floorCount}층` : '');
+  const [spaceSize, setSpaceSize] = useState(
+    prefill?.spaceSize
+      ? `${prefill.spaceSize}평 (약 ${Math.round(Number(prefill.spaceSize) * 3.305)}㎡)`
+      : '',
+  );
+  const [floorCount, setFloorCount] = useState(
+    prefill?.floorCount ? `${prefill.floorCount}층` : '',
+  );
   const [hasElevator, setHasElevator] = useState<boolean>(true);
   const [hasVehicleAccess, setHasVehicleAccess] = useState<boolean>(true);
   const [desiredDate, setDesiredDate] = useState('');
   const [description, setDescription] = useState(
-    prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : ''
+    prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : '',
   );
   const [buildingStructure, setBuildingStructure] = useState<string | null>(null);
 
@@ -98,8 +114,8 @@ export function RequestFormScreen({
         setBuildingStructure(info.strctCdNm);
         // 필요 시 description에 주구조 정보를 추가할 수 있음
         const structureHint = `[건축물대장 주구조: ${info.strctCdNm}]`;
-        setDescription(prev => 
-          prev.includes('[건축물대장') ? prev : (prev ? `${prev}\n${structureHint}` : structureHint)
+        setDescription((prev) =>
+          prev.includes('[건축물대장') ? prev : prev ? `${prev}\n${structureHint}` : structureHint,
         );
       } else {
         setBuildingStructure(null);
@@ -114,6 +130,15 @@ export function RequestFormScreen({
   const [photoSummary, setPhotoSummary] = useState<string | null>(null);
   const [dimolVision, setDimolVision] = useState<DimolVisionSummary | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [guidedOpen, setGuidedOpen] = useState(false);
+
+  // 가이드 촬영(순서·방향 강제) 완료 → 디몰비전 종합 분석
+  function handleGuidedComplete(photos: GuidedCaptureResult[]) {
+    setGuidedOpen(false);
+    setError(null);
+    setPhotoSummary(null);
+    void runVision(photos.map((p) => ({ imageBase64: p.base64, mimeType: p.mimeType })));
+  }
 
   // 앨범에서 사진 선택 → 디몰비전 분석
   async function fillFromPhoto() {
@@ -142,9 +167,9 @@ export function RequestFormScreen({
     if (images.length === 0) return;
     setPhotoBusy(true);
     try {
-      const { analysis, wasteItems } = await analyzeSiteWasteItems({ 
-        images, 
-        buildingStructure: buildingStructure ?? undefined 
+      const { analysis, wasteItems } = await analyzeSiteWasteItems({
+        images,
+        buildingStructure: buildingStructure ?? undefined,
       });
 
       if (kind === 'DEMOLITION') {
@@ -330,10 +355,12 @@ export function RequestFormScreen({
                 placeholder="예) ○○시 ○○구 ○○동 12-3"
                 hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
               />
-              
+
               {buildingStructure ? (
                 <View style={styles.buildingInfoBadge}>
-                  <Text style={styles.buildingInfoText}>🏛️ 건축물대장 기준: {buildingStructure}</Text>
+                  <Text style={styles.buildingInfoText}>
+                    🏛️ 건축물대장 기준: {buildingStructure}
+                  </Text>
                 </View>
               ) : null}
 
@@ -446,12 +473,20 @@ export function RequestFormScreen({
               <Pressable
                 accessibilityRole="button"
                 style={styles.photoFillBtn}
-                onPress={() => setCameraOpen(true)}
+                onPress={() => setGuidedOpen(true)}
                 disabled={photoBusy}
               >
                 <Text style={styles.photoFillText}>
-                  {photoBusy ? '디몰비전 AI 분석 중…' : '📷 현장 사진 촬영 (디몰비전 AI 분석)'}
+                  {photoBusy ? '디몰비전 AI 분석 중…' : '🧭 가이드 촬영 (현장 전체 빠짐없이)'}
                 </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                style={styles.photoAltBtn}
+                onPress={() => setCameraOpen(true)}
+                disabled={photoBusy}
+              >
+                <Text style={styles.photoAltText}>자유 촬영</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -609,6 +644,12 @@ export function RequestFormScreen({
         visible={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={handleCameraCapture}
+      />
+
+      <GuidedSiteCaptureModal
+        visible={guidedOpen}
+        onClose={() => setGuidedOpen(false)}
+        onComplete={handleGuidedComplete}
       />
     </View>
   );
