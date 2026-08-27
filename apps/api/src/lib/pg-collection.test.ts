@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { PgEntityStore, initPgPersistence, type PgQueryable } from './pg-collection.js';
 
 /** 쿼리 로그를 남기는 가짜 Pool. SELECT 는 지정 rows 반환. */
-function fakePool(rows: Array<Record<string, unknown>> = []): PgQueryable & { calls: Array<{ text: string; params?: unknown[] }> } {
+function fakePool(
+  rows: Array<Record<string, unknown>> = [],
+): PgQueryable & { calls: Array<{ text: string; params?: unknown[] }> } {
   const calls: Array<{ text: string; params?: unknown[] }> = [];
   return {
     calls,
@@ -13,56 +15,70 @@ function fakePool(rows: Array<Record<string, unknown>> = []): PgQueryable & { ca
   };
 }
 
-describe('initPgPersistence (엔티티 행 단위)', () => {
-  it('entities 테이블 생성 후 컬렉션별로 프리로드', async () => {
-    const pool = fakePool([
-      { collection: 'users', data: { id: 'u1' } },
-      { collection: 'users', data: { id: 'u2' } },
-      { collection: 'requests', data: { id: 'r1' } },
-    ]);
+describe('initPgPersistence (엔티티 행 단위, stateless)', () => {
+  it('entities 테이블을 보장하고 컬렉션별 스토어 팩토리를 반환한다', async () => {
+    const pool = fakePool([{ data: { id: 'u1' } }, { data: { id: 'u2' } }]);
     const factory = await initPgPersistence(pool, ['users', 'requests']);
 
     expect(pool.calls.some((c) => c.text.includes('CREATE TABLE IF NOT EXISTS entities'))).toBe(true);
-    expect(factory<{ id: string }>('users').load()).toEqual([{ id: 'u1' }, { id: 'u2' }]);
-    expect(factory<{ id: string }>('requests').load()).toEqual([{ id: 'r1' }]);
+    // 매 조회는 DB 에 질의한다(부팅 프리로드 없음).
+    expect(await factory<{ id: string }>('users').list()).toEqual([{ id: 'u1' }, { id: 'u2' }]);
   });
 });
 
 describe('PgEntityStore', () => {
-  it('save 는 변경된 엔티티만 행 단위로 upsert 한다', async () => {
+  it('save 는 collection·id 기준으로 upsert(INSERT ... ON CONFLICT) 한다', async () => {
     const pool = fakePool();
-    const store = new PgEntityStore<{ id: string; v: number }>(pool, 'users', [{ id: 'a', v: 1 }], (x) => x.id);
+    const store = new PgEntityStore<{ id: string; v: number }>(pool, 'users', (x) => x.id);
 
-    // a 는 그대로, b 는 신규 → b 만 upsert.
-    store.save([{ id: 'a', v: 1 }, { id: 'b', v: 2 }]);
-    await new Promise((r) => setTimeout(r, 0));
+    await store.save({ id: 'a', v: 1 });
+
+    const upsert = pool.calls.find((c) => c.text.includes('INSERT INTO entities'));
+    expect(upsert?.text).toContain('ON CONFLICT');
+    expect(upsert?.params?.[0]).toBe('users');
+    expect(upsert?.params?.[1]).toBe('a');
+    expect(upsert?.params?.[2]).toBe(JSON.stringify({ id: 'a', v: 1 }));
+  });
+
+  it('saveAll 은 각 항목을 순차 upsert 한다', async () => {
+    const pool = fakePool();
+    const store = new PgEntityStore<{ id: string }>(pool, 'users', (x) => x.id);
+
+    await store.saveAll([{ id: 'a' }, { id: 'b' }]);
 
     const upserts = pool.calls.filter((c) => c.text.includes('INSERT INTO entities'));
-    expect(upserts).toHaveLength(1);
-    expect(upserts[0]?.params?.[1]).toBe('b'); // id
+    expect(upserts).toHaveLength(2);
+    expect(upserts.map((c) => c.params?.[1])).toEqual(['a', 'b']);
   });
 
-  it('변경 없으면 쓰기하지 않는다', async () => {
+  it('get 은 단건 조회, 없으면 undefined', async () => {
+    const found = new PgEntityStore<{ id: string; v: number }>(
+      fakePool([{ data: { id: 'a', v: 1 } }]),
+      'users',
+      (x) => x.id,
+    );
+    expect(await found.get('a')).toEqual({ id: 'a', v: 1 });
+
+    const missing = new PgEntityStore<{ id: string }>(fakePool([]), 'users', (x) => x.id);
+    expect(await missing.get('nope')).toBeUndefined();
+  });
+
+  it('list 는 컬렉션의 모든 data 를 반환한다', async () => {
+    const store = new PgEntityStore<{ id: string }>(
+      fakePool([{ data: { id: 'a' } }, { data: { id: 'b' } }]),
+      'users',
+      (x) => x.id,
+    );
+    expect(await store.list()).toEqual([{ id: 'a' }, { id: 'b' }]);
+  });
+
+  it('delete 는 collection·id 로 삭제한다', async () => {
     const pool = fakePool();
-    const store = new PgEntityStore<{ id: string }>(pool, 'users', [{ id: 'a' }], (x) => x.id);
-    store.save([{ id: 'a' }]);
-    await new Promise((r) => setTimeout(r, 0));
-    expect(pool.calls.filter((c) => c.text.includes('INSERT INTO entities'))).toHaveLength(0);
-  });
+    const store = new PgEntityStore<{ id: string }>(pool, 'users', (x) => x.id);
 
-  it('커스텀 키(paymentId 등)로 저장한다', async () => {
-    const pool = fakePool();
-    const store = new PgEntityStore<{ paymentId: string }>(pool, 'payments', [], (p) => p.paymentId);
-    store.save([{ paymentId: 'pay-1' }]);
-    await new Promise((r) => setTimeout(r, 0));
-    const up = pool.calls.find((c) => c.text.includes('INSERT INTO entities'));
-    expect(up?.params?.[1]).toBe('pay-1');
-  });
+    await store.delete('a');
 
-  it('쓰기 실패해도 예외를 던지지 않는다', async () => {
-    const pool: PgQueryable = { query: vi.fn(async () => { throw new Error('db down'); }) };
-    const store = new PgEntityStore<{ id: string }>(pool, 'users', [], (x) => x.id);
-    expect(() => store.save([{ id: 'a' }])).not.toThrow();
-    await new Promise((r) => setTimeout(r, 0));
+    const del = pool.calls.find((c) => c.text.includes('DELETE FROM entities'));
+    expect(del?.params).toEqual(['users', 'a']);
   });
 });
