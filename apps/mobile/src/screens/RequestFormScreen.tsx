@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   BUILDING_TYPE_LABELS,
@@ -57,6 +58,8 @@ const BUILDING_TYPES: BuildingType[] = [
 
 const DEMOLITION_TYPES: DemolitionType[] = ['TOTAL', 'INTERIOR', 'STRUCTURE'];
 
+type AreaUnit = 'PYEONG' | 'M2';
+
 export function RequestFormScreen({
   kind,
   prefill,
@@ -89,11 +92,8 @@ export function RequestFormScreen({
   // 철거 전용 폼 정보
   const [buildingType, setBuildingType] = useState<BuildingType>('COMMERCIAL');
   const [demolitionType, setDemolitionType] = useState<DemolitionType>('INTERIOR');
-  const [spaceSize, setSpaceSize] = useState(
-    prefill?.spaceSize
-      ? `${prefill.spaceSize}평 (약 ${Math.round(Number(prefill.spaceSize) * 3.305)}㎡)`
-      : '',
-  );
+  const [areaUnit, setAreaUnit] = useState<AreaUnit>('PYEONG');
+  const [spaceSize, setSpaceSize] = useState(prefill?.spaceSize ?? '');
   const [floorCount, setFloorCount] = useState(
     prefill?.floorCount ? `${prefill.floorCount}층` : '',
   );
@@ -131,6 +131,10 @@ export function RequestFormScreen({
   const [dimolVision, setDimolVision] = useState<DimolVisionSummary | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [guidedOpen, setGuidedOpen] = useState(false);
+
+  // 날짜 선택기 상태
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerTarget, setDatePickerTarget] = useState<'desiredDate' | 'visitAt' | null>(null);
 
   // 가이드 촬영(순서·방향 강제) 완료 → 디몰비전 종합 분석
   function handleGuidedComplete(photos: GuidedCaptureResult[]) {
@@ -230,7 +234,7 @@ export function RequestFormScreen({
           ? {
               buildingType,
               demolitionType,
-              spaceSize: spaceSize.trim() || undefined,
+              spaceSize: spaceSize.trim() ? `${spaceSize.trim()}${areaUnit === 'PYEONG' ? '평' : '㎡'}` : undefined,
               floorCount: floorCount.trim() || undefined,
               hasElevator,
               hasVehicleAccess,
@@ -402,11 +406,36 @@ export function RequestFormScreen({
                 })}
               </View>
 
+              <Text style={styles.sectionLabel}>건물 면적</Text>
+              <View style={styles.unitToggle}>
+                {(
+                  [
+                    ['PYEONG', '평'],
+                    ['M2', '㎡'],
+                  ] as Array<[AreaUnit, string]>
+                ).map(([value, label]) => {
+                  const active = areaUnit === value;
+                  return (
+                    <Pressable
+                      key={value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: active }}
+                      onPress={() => setAreaUnit(value)}
+                      style={[styles.unitOption, active && styles.unitOptionActive]}
+                    >
+                      <Text style={[styles.unitOptionText, active && styles.unitOptionTextActive]}>
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               <Field
-                label="평수 / 면적"
+                label={areaUnit === 'PYEONG' ? '한 층 바닥면적 (평)' : '한 층 바닥면적 (㎡)'}
                 value={spaceSize}
                 onChangeText={setSpaceSize}
-                placeholder="예) 30평 (약 99㎡)"
+                placeholder={areaUnit === 'PYEONG' ? '예) 30' : '예) 99'}
+                keyboardType="numeric"
               />
 
               <Field
@@ -461,12 +490,22 @@ export function RequestFormScreen({
                 </View>
               </View>
 
-              <Field
-                label="희망 철거 날짜"
-                value={desiredDate}
-                onChangeText={setDesiredDate}
-                placeholder="예) 2026-09-10"
-              />
+              <Pressable
+                onPress={() => {
+                  setDatePickerTarget('desiredDate');
+                  setShowDatePicker(true);
+                }}
+              >
+                <View pointerEvents="none">
+                  <Field
+                    label="희망 철거 날짜"
+                    value={desiredDate}
+                    onChangeText={setDesiredDate}
+                    placeholder="터치하여 날짜 선택"
+                    editable={false}
+                  />
+                </View>
+              </Pressable>
 
               {/* ✨ 디몰비전 AI 사진 분석 */}
               <Text style={styles.sectionLabel}>✨ 디몰비전 AI 현장 분석</Text>
@@ -562,13 +601,23 @@ export function RequestFormScreen({
           ) : null}
           {kind === 'DISPOSAL_RESERVATION' ? (
             <>
-              <Field
-                label="방문 희망 날짜"
-                value={visitAt}
-                onChangeText={setVisitAt}
-                placeholder="예) 2026-07-10"
-                hint="날짜만 적어 주세요. 시간은 처리장과 협의해요."
-              />
+              <Pressable
+                onPress={() => {
+                  setDatePickerTarget('visitAt');
+                  setShowDatePicker(true);
+                }}
+              >
+                <View pointerEvents="none">
+                  <Field
+                    label="방문 희망 날짜"
+                    value={visitAt}
+                    onChangeText={setVisitAt}
+                    placeholder="터치하여 날짜 선택"
+                    hint="날짜만 선택해 주세요. 시간은 처리장과 협의해요."
+                    editable={false}
+                  />
+                </View>
+              </Pressable>
               <View style={styles.transportInfo}>
                 <Text style={styles.transportInfoText}>
                   🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이 「운반요청 별도
@@ -651,6 +700,31 @@ export function RequestFormScreen({
         onClose={() => setGuidedOpen(false)}
         onComplete={handleGuidedComplete}
       />
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={
+            datePickerTarget === 'desiredDate' && desiredDate
+              ? new Date(desiredDate)
+              : datePickerTarget === 'visitAt' && visitAt
+                ? new Date(visitAt)
+                : new Date()
+          }
+          mode="date"
+          display="default"
+          onChange={(event, selectedDate) => {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+              const dateString = selectedDate.toISOString().split('T')[0];
+              if (datePickerTarget === 'desiredDate') {
+                setDesiredDate(dateString);
+              } else if (datePickerTarget === 'visitAt') {
+                setVisitAt(dateString);
+              }
+            }
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -841,6 +915,32 @@ const styles = StyleSheet.create({
   chipItemActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  unitToggle: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.button,
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+    padding: 4,
+  },
+  unitOption: {
+    alignItems: 'center',
+    borderRadius: radius.button - 4,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight - 8,
+  },
+  unitOptionActive: {
+    backgroundColor: colors.background,
+    ...theme.shadow.card,
+  },
+  unitOptionText: {
+    color: colors.textMuted,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+  },
+  unitOptionTextActive: {
+    color: colors.primary,
   },
   chipText: {
     color: colors.text,
