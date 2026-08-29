@@ -21,6 +21,17 @@ function num(value: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * data.go.kr 은 같은 키를 Encoding(퍼센트 인코딩본)/Decoding(원문) 두 가지로 준다.
+ * 어느 쪽을 붙여넣어도 동작하도록, 이미 인코딩된 키는 그대로 쓰고 원문 키만 인코딩한다.
+ * (원문을 그대로 쿼리에 붙이면 '+' 가 공백으로 해석돼 인증이 실패한다.)
+ */
+export function encodeServiceKey(rawKey: string): string {
+  const key = rawKey.trim();
+  if (/%[0-9A-Fa-f]{2}/.test(key)) return key; // 이미 Encoding 키
+  return encodeURIComponent(key);
+}
+
 /** 문자열 필드 정규화 — 공백/빈 문자열은 undefined 로 접어 UI에서 빈 줄이 생기지 않게 한다. */
 function str(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -106,8 +117,8 @@ export class BuildingRegistryClient {
         pageNo: '1',
         _type: 'json',
       });
-      // serviceKey 는 발급본이 이미 URL 인코딩돼 있을 수 있어 이중 인코딩을 피해 직접 붙인다.
-      const url = `${this.endpoint}?serviceKey=${this.apiKey}&${params.toString()}`;
+      // serviceKey 는 Encoding/Decoding 어느 발급본이든 받도록 정규화해 붙인다(이중 인코딩 방지).
+      const url = `${this.endpoint}?serviceKey=${encodeServiceKey(this.apiKey)}&${params.toString()}`;
 
       const remaining = deadline - Date.now();
       if (remaining <= 0) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BuildingRegistryClient } from './building-registry.js';
+import { BuildingRegistryClient, encodeServiceKey } from './building-registry.js';
 import type { AddressSearchResult, Geocoder } from './geocoder.js';
 
 /**
@@ -94,11 +94,19 @@ describe('BuildingRegistryClient', () => {
     expect(urls[0]).toContain('platGbCd=0');
   });
 
-  it('서비스키를 다시 인코딩하지 않는다(발급본 이중 인코딩 방지)', async () => {
+  it('Encoding 키는 그대로 쓴다(이중 인코딩 방지)', async () => {
     const encodedKey = 'abc%2Bdef%3D%3D';
     const { instance, urls } = client(TITLE_ITEM, { apiKey: encodedKey });
     await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
     expect(urls[0]).toContain(`serviceKey=${encodedKey}`);
+  });
+
+  it('Decoding 키(원문)는 인코딩해서 붙인다', async () => {
+    // 원문을 그대로 붙이면 '+' 가 공백으로 해석돼 인증이 실패한다.
+    const rawKey = 'abc+def==';
+    const { instance, urls } = client(TITLE_ITEM, { apiKey: rawKey });
+    await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    expect(urls[0]).toContain('serviceKey=abc%2Bdef%3D%3D');
   });
 
   it('산 번지는 platGbCd=1 로 조회한다', async () => {
@@ -149,5 +157,19 @@ describe('BuildingRegistryClient', () => {
     const { instance, urls } = client(TITLE_ITEM);
     expect(await instance.getBuildingInfo('   ')).toBeNull();
     expect(urls).toHaveLength(0);
+  });
+});
+
+describe('encodeServiceKey — 발급본 두 종류 모두 수용', () => {
+  it('퍼센트 인코딩이 이미 들어간 키는 건드리지 않는다', () => {
+    expect(encodeServiceKey('abc%2Bdef%3D%3D')).toBe('abc%2Bdef%3D%3D');
+  });
+
+  it('원문 키의 +, /, = 를 인코딩한다', () => {
+    expect(encodeServiceKey('a+b/c==')).toBe('a%2Bb%2Fc%3D%3D');
+  });
+
+  it('앞뒤 공백을 제거한다(복붙 실수 방지)', () => {
+    expect(encodeServiceKey('  abcdef  ')).toBe('abcdef');
   });
 });
