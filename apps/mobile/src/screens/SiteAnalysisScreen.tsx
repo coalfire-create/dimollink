@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  ASBESTOS_RISK_LABELS,
   MATERIAL_CATEGORY_LABELS,
+  asbestosRisk,
+  hasLedgerData,
+  ledgerDisplayRows,
+  type BuildingLedgerInfo,
   type DetectedMaterial,
   type SiteAnalysis,
 } from '@dimol/shared';
-import { ApiError, analyzeSite } from '../api/client';
+import { ApiError, analyzeSite, getBuildingInfo } from '../api/client';
+import { AddressPickerField } from '../components/AddressPickerField';
 import { AppIcon } from '../components/AppIcon';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
@@ -40,6 +46,59 @@ export function SiteAnalysisScreen() {
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
 
+  // ── 주소 선행 확인 ──────────────────────────────────────────────────────────
+  // 이 화면도 디몰비전 입구다. 요청 폼과 같은 규칙으로 주소를 먼저 받고,
+  // 건축물대장에서 확인한 사실을 분석의 기준으로 넘긴다.
+  const [siteAddress, setSiteAddress] = useState('');
+  const [building, setBuilding] = useState<BuildingLedgerInfo | null>(null);
+  const [ledgerState, setLedgerState] = useState<'idle' | 'loading' | 'found' | 'none'>('idle');
+  const ledgerSeq = useRef(0);
+  const ledgerCache = useRef(new Map<string, BuildingLedgerInfo | null>());
+
+  const addressReady = siteAddress.trim().length > 0;
+  const captureLocked = !addressReady || ledgerState === 'loading';
+
+  async function fetchBuildingLedger(address: string) {
+    const key = address.trim();
+    if (!key) {
+      setBuilding(null);
+      setLedgerState('idle');
+      return;
+    }
+    const seq = ledgerSeq.current + 1;
+    ledgerSeq.current = seq;
+
+    const cached = ledgerCache.current.get(key);
+    if (cached !== undefined) {
+      setBuilding(cached);
+      setLedgerState(hasLedgerData(cached) ? 'found' : 'none');
+      return;
+    }
+
+    setBuilding(null);
+    setLedgerState('loading');
+    let info: BuildingLedgerInfo | null = null;
+    try {
+      info = await getBuildingInfo(key);
+    } catch {
+      info = null; // 대장 조회 실패는 분석을 막지 않는다(보조 정보).
+    }
+    ledgerCache.current.set(key, info);
+    if (ledgerSeq.current !== seq) return;
+    setBuilding(info);
+    setLedgerState(hasLedgerData(info) ? 'found' : 'none');
+  }
+
+  /** 주소 없이 촬영/선택을 시도하면 막고 이유를 알린다. */
+  function guardCapture(open: () => void) {
+    if (!addressReady) {
+      setError('먼저 현장 주소를 지정해 주세요. 주소를 알아야 건축물대장 정보를 확인하고 정확히 분석할 수 있어요.');
+      return;
+    }
+    setError(null);
+    open();
+  }
+
   function applyAsset(asset: ImagePicker.ImagePickerAsset) {
     if (!asset.base64) {
       setError('사진을 불러오지 못했어요. 다시 시도해 주세요.');
@@ -70,8 +129,7 @@ export function SiteAnalysisScreen() {
   }
 
   function takePhoto() {
-    setError(null);
-    setCameraOpen(true);
+    guardCapture(() => setCameraOpen(true));
   }
 
   async function analyze() {
@@ -79,7 +137,15 @@ export function SiteAnalysisScreen() {
     setError(null);
     setLoading(true);
     try {
-      setResult(await analyzeSite({ imageBase64: image.base64, mimeType: image.mimeType }));
+      setResult(
+        await analyzeSite({
+          imageBase64: image.base64,
+          mimeType: image.mimeType,
+          buildingStructure: building?.strctCdNm,
+          building: building ?? undefined,
+          siteAddress: siteAddress.trim() || undefined,
+        }),
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '분석에 실패했어요. 다시 시도해 주세요.');
     } finally {
@@ -98,7 +164,13 @@ export function SiteAnalysisScreen() {
     setResult(null);
     setError(null);
     setLoading(true);
-    analyzeSite({ imageBase64: SAMPLE_BASE64, mimeType: 'image/png' })
+    analyzeSite({
+      imageBase64: SAMPLE_BASE64,
+      mimeType: 'image/png',
+      buildingStructure: building?.strctCdNm,
+      building: building ?? undefined,
+      siteAddress: siteAddress.trim() || undefined,
+    })
       .then((res) => setResult(res))
       .catch((err) => setError(err instanceof ApiError ? err.message : '분석에 실패했어요.'))
       .finally(() => setLoading(false));
@@ -159,7 +231,10 @@ export function SiteAnalysisScreen() {
               <Text style={styles.dropzoneSub}>
                 건물 내부, 지붕, 자재가 잘 보이게 찍으면{'\n'}소재 인식과 공정 가이드가 더욱 정확해집니다
               </Text>
-              <PressableScale style={styles.samplePillBtn} onPress={loadSampleAndAnalyze}>
+              <PressableScale
+                style={[styles.samplePillBtn, captureLocked && styles.actionCardLocked]}
+                onPress={() => guardCapture(loadSampleAndAnalyze)}
+              >
                 <AppIcon name="sparkles" size={18} color="#FFFFFF" />
                 <Text style={styles.samplePillBtnText}>샘플 사진으로 AI 즉시 분석 시연</Text>
               </PressableScale>
@@ -167,10 +242,42 @@ export function SiteAnalysisScreen() {
           </FadeInUp>
         )}
 
+        {/* 1단계 — 현장 주소 지정(디몰비전 선행 조건) */}
+        <FadeInUp delay={100}>
+          <View style={styles.addressBlock}>
+            <AddressPickerField
+              label="현장 주소"
+              value={siteAddress}
+              onChangeAddress={(addr) => {
+                setSiteAddress(addr);
+                setResult(null);
+                void fetchBuildingLedger(addr);
+              }}
+              placeholder="예) ○○시 ○○구 ○○동 12-3"
+              hint="주소를 먼저 지정하면 건축물대장 정보를 확인한 뒤 사진을 분석해요."
+            />
+            <LedgerPanel state={ledgerState} info={building} />
+            {!addressReady ? (
+              <View style={styles.lockNotice}>
+                <Text style={styles.lockTitle}>먼저 현장 주소를 지정해 주세요</Text>
+                <Text style={styles.lockBody}>
+                  건축물대장(공공데이터)에서 그 건물의 용도·구조·층수·사용승인일을 먼저 확인한 뒤,
+                  그 정보를 기준으로 사진을 분석해요.
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </FadeInUp>
+
         {/* 촬영 & 앨범 버튼 액션 카드로 리디자인 */}
         <FadeInUp delay={120}>
           <View style={styles.pickRow}>
-            <PressableScale style={styles.actionCard} onPress={takePhoto} accessibilityRole="button">
+            <PressableScale
+              style={[styles.actionCard, captureLocked && styles.actionCardLocked]}
+              onPress={takePhoto}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: captureLocked }}
+            >
               <View style={styles.actionIconCircle}>
                 <AppIcon name="camera" size={26} color={theme.colors.primary} />
               </View>
@@ -180,7 +287,12 @@ export function SiteAnalysisScreen() {
             
             <View style={{ width: theme.spacing.sm }} />
 
-            <PressableScale style={styles.actionCard} onPress={pickFromLibrary} accessibilityRole="button">
+            <PressableScale
+              style={[styles.actionCard, captureLocked && styles.actionCardLocked]}
+              onPress={() => guardCapture(pickFromLibrary)}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: captureLocked }}
+            >
               <View style={styles.actionIconCircle}>
                 <AppIcon name="document" size={26} color={theme.colors.primary} />
               </View>
@@ -206,6 +318,58 @@ export function SiteAnalysisScreen() {
         onClose={() => setCameraOpen(false)}
         onCapture={handleCameraCapture}
       />
+    </View>
+  );
+}
+
+/** 건축물대장 확인 결과 — 촬영 전에 "이 건물이 무엇인지"를 보여준다. */
+function LedgerPanel({
+  state,
+  info,
+}: {
+  state: 'idle' | 'loading' | 'found' | 'none';
+  info: BuildingLedgerInfo | null;
+}) {
+  if (state === 'idle') return null;
+
+  if (state === 'loading') {
+    return (
+      <View style={styles.ledgerCard}>
+        <Text style={styles.ledgerTitle}>건축물대장 확인 중…</Text>
+      </View>
+    );
+  }
+
+  if (state === 'none' || !info) {
+    return (
+      <View style={[styles.ledgerCard, styles.ledgerCardMuted]}>
+        <Text style={styles.ledgerTitle}>건축물대장 정보를 찾지 못했어요</Text>
+        <Text style={styles.ledgerBody}>
+          미등기·무허가 건물이거나 지번이 정확하지 않을 수 있어요. 촬영은 그대로 진행할 수 있어요.
+        </Text>
+      </View>
+    );
+  }
+
+  const risk = asbestosRisk(info);
+  return (
+    <View style={styles.ledgerCard}>
+      <Text style={styles.ledgerBadge}>공공데이터 확인</Text>
+      <Text style={styles.ledgerTitle}>{info.bldNm ?? '건축물대장 표제부'}</Text>
+      {ledgerDisplayRows(info).map((row) => (
+        <View key={row.label} style={styles.ledgerRow}>
+          <Text style={styles.ledgerRowLabel}>{row.label}</Text>
+          <Text style={styles.ledgerRowValue}>{row.value}</Text>
+        </View>
+      ))}
+      {risk === 'HIGH' || risk === 'POSSIBLE' ? (
+        <View style={styles.ledgerWarn}>
+          <Text style={styles.ledgerWarnTitle}>⚠️ {ASBESTOS_RISK_LABELS[risk]}</Text>
+          <Text style={styles.ledgerWarnBody}>
+            철거 전 석면 사전조사가 필요하며, AI 분석에도 이 사실이 함께 반영돼요.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -478,6 +642,95 @@ const styles = StyleSheet.create({
   /* 액션 카드 (촬영/앨범) */
   pickRow: {
     flexDirection: 'row',
+  },
+  addressBlock: {
+    marginBottom: spacing.md,
+  },
+  lockNotice: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  lockTitle: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  lockBody: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: spacing.xs,
+  },
+  ledgerCard: {
+    backgroundColor: '#E8F0FE',
+    borderRadius: radius.card,
+    marginTop: spacing.sm,
+    padding: spacing.md,
+  },
+  ledgerCardMuted: {
+    backgroundColor: colors.surface,
+  },
+  ledgerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1967D2',
+    borderRadius: 999,
+    color: '#FFFFFF',
+    fontSize: font.caption,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  ledgerTitle: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  ledgerBody: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: spacing.xs,
+  },
+  ledgerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  ledgerRowLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '600',
+  },
+  ledgerRowValue: {
+    color: colors.text,
+    flexShrink: 1,
+    fontSize: font.caption,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  ledgerWarn: {
+    backgroundColor: '#FFF4E5',
+    borderRadius: radius.card,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+  },
+  ledgerWarnTitle: {
+    color: '#B54708',
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  ledgerWarnBody: {
+    color: '#B54708',
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: 4,
+  },
+  actionCardLocked: {
+    opacity: 0.45,
   },
   actionCard: {
     flex: 1,

@@ -5,6 +5,7 @@ export * from './business-number.js';
 export * from './business-day.js';
 export * from './holidays.js';
 export * from './geo.js';
+export * from './region.js';
 export * from './site-photo.js';
 export * from './site-capture-guide.js';
 export * from './request.js';

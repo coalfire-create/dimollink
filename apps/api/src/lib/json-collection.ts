@@ -8,6 +8,13 @@ import { dirname, join } from 'node:path';
 export interface CollectionPersistence<T> {
   get(id: string): Promise<T | undefined>;
   list(): Promise<T[]>;
+  /**
+   * 최상위 필드 완전일치 조건으로 좁혀서 읽는다(선택 구현).
+   * PostgreSQL 어댑터는 이 조건을 SQL 로 내려 인덱스로 처리하고, JSON 파일 어댑터는
+   * 전체를 읽어 메모리에서 거른다. 호출부는 어느 쪽이든 같은 결과를 받는다.
+   * 컬렉션이 커질수록 전량 로드·역직렬화 비용이 지배적이라 목록 조회는 이 경로를 쓴다.
+   */
+  listBy?(equals: Record<string, string>): Promise<T[]>;
   save(item: T): Promise<void>;
   saveAll(items: T[]): Promise<void>;
   delete(id: string): Promise<void>;

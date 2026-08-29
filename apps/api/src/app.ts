@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import compression from 'compression';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type {
@@ -97,6 +98,10 @@ export function createApp(
   app.disable('x-powered-by');
   app.set('trust proxy', true); // 프록시(로드밸런서/Vercel) 뒤 실제 클라이언트 IP 사용.
 
+  // 응답 압축(gzip/br) — 웹 번들 1.8MB, 목록 JSON 응답이 모바일 회선에서 가장 큰 비용이다.
+  // 이미 압축된 포맷(이미지·폰트)은 compression 이 알아서 건너뛴다.
+  app.use(compression());
+
   // CORS: 운영에서는 허용 출처(CORS_ORIGINS)만, 미설정 시(개발) 전체 허용.
   app.use(
     cors(env.corsOrigins.length > 0 ? { origin: env.corsOrigins, credentials: true } : undefined),
@@ -122,9 +127,17 @@ export function createApp(
       index: false,
       setHeaders: (res, path) => {
         if (path.endsWith('.html')) {
+          // 배포 즉시 새 번들을 받도록 HTML 은 캐시하지 않는다.
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
+          return;
+        }
+        // Expo export 산출물은 파일명에 콘텐츠 해시가 박혀 있어 내용이 바뀌면 이름도 바뀐다.
+        // 재방문·재실행 시 번들을 다시 받지 않도록 장기 immutable 캐시를 준다.
+        // Expo 는 `index-<hash>.js`(하이픈)와 `asset.<hash>.png`(점) 두 형태를 모두 낸다.
+        if (/[.-][0-9a-f]{16,}\.(js|css|png|jpg|jpeg|svg|ttf|otf|woff2?)$/i.test(path)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
       },
     }),
@@ -155,6 +168,33 @@ export function createApp(
         max: 20,
         keyPrefix: 'auth',
         message: '인증 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      shared.rateLimitStore,
+    ),
+  );
+
+  // 외부 유료·쿼터 API 를 호출하는 경로(비전 AI, 공공데이터 건축물대장)는 더 엄격히 제한한다.
+  // 호출당 실제 비용·일일 쿼터가 걸려 있어 전역 상한(300/분)만으로는 남용을 못 막는다.
+  app.use(
+    '/api/site-analysis',
+    createRateLimiter(
+      {
+        windowMs: 60_000,
+        max: 10,
+        keyPrefix: 'vision',
+        message: '현장 분석 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      shared.rateLimitStore,
+    ),
+  );
+  app.use(
+    '/api/locations/building-info',
+    createRateLimiter(
+      {
+        windowMs: 60_000,
+        max: 30,
+        keyPrefix: 'bldg',
+        message: '건축물대장 조회가 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
       },
       shared.rateLimitStore,
     ),
@@ -235,6 +275,10 @@ export function createApp(
   app.post('/api/allbaro/verify-member', requireAuth);
   app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
+  // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
+  // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
+  app.use('/api/site-analysis', requireAuth);
+  app.use('/api/locations/building-info', requireAuth);
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)

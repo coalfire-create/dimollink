@@ -55,6 +55,20 @@ export class PgEntityStore<T> implements CollectionPersistence<T> {
     return rows.map((row) => row.data as T);
   }
 
+  /** 최상위 필드 완전일치를 jsonb 포함(@>) 조건으로 내려 인덱스로 거른다. */
+  async listBy(equals: Record<string, string>): Promise<T[]> {
+    const entries = Object.entries(equals).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return this.list();
+    const filter = Object.fromEntries(entries);
+    const { rows } = await this.pool.query(
+      `SELECT data FROM entities
+        WHERE collection = $1 AND data @> $2::jsonb
+        ORDER BY updated_at DESC`,
+      [this.name, JSON.stringify(filter)],
+    );
+    return rows.map((row) => row.data as T);
+  }
+
   async save(item: T): Promise<void> {
     const id = this.keyOf(item);
     await this.pool.query(
@@ -95,7 +109,16 @@ export async function initPgPersistence(
        PRIMARY KEY(collection, id)
      )`,
   );
-  
+  // 목록 조회 인덱스 — list() 의 collection + updated_at 정렬을 인덱스 스캔으로 처리한다.
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS entities_collection_updated_idx
+       ON entities(collection, updated_at DESC)`,
+  );
+  // listBy() 의 jsonb 포함(@>) 조건용 GIN 인덱스 — 상태·종류로 좁히는 목록 조회에 쓴다.
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS entities_data_gin_idx ON entities USING GIN(data jsonb_path_ops)`,
+  );
+
   // 부팅 시 데이터를 미리 불러오지 않고 팩토리만 반환합니다.
   return <T>(name: string, keyOf: (item: T) => string = defaultKeyOf): CollectionPersistence<T> =>
     new PgEntityStore<T>(pool, name, keyOf);

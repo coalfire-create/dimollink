@@ -1,5 +1,6 @@
 import {
   TRANSPORT_MATCH_RADIUS_KM,
+  regionMatches,
   requestKindForProvider,
   type MatchStatus,
   type ProviderJobs,
@@ -99,7 +100,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       res.status(403).json({ error: '내 업종에 맞는 일감이 아니에요.' });
       return;
     }
-    if (request.region !== provider.region) {
+    if (!regionMatches(request.region, provider.region)) {
       res.status(400).json({ error: '다른 지역의 일감은 수락할 수 없어요.' });
       return;
     }

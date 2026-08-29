@@ -8,6 +8,7 @@ import {
   isValidGeoPoint,
   isValidSitePhotoKey,
   isValidWasteItem,
+  regionMatches,
   wasteItemsToTons,
   type DemolitionDetails,
   type GeoPoint,
@@ -127,6 +128,20 @@ export class RequestStore {
     return [...this.fallbackMap.values()];
   }
 
+  /**
+   * 완전일치로 좁힐 수 있는 조건(kind·status)은 저장소에 내려보내 전량 로드를 피한다.
+   * region 은 표기 편차를 흡수해야 해서(regionMatches) 메모리에서 거른다.
+   */
+  private async listNarrowed(filter: ListRequestsFilter): Promise<ServiceRequest[]> {
+    const equals: Record<string, string> = {};
+    if (filter.kind !== undefined) equals.kind = filter.kind;
+    if (filter.status !== undefined) equals.status = filter.status;
+    if (this.persistence?.listBy && Object.keys(equals).length > 0) {
+      return this.persistence.listBy(equals);
+    }
+    return this.listInner();
+  }
+
   private async saveInner(req: ServiceRequest): Promise<void> {
     if (this.persistence) await this.persistence.save(req);
     else this.fallbackMap.set(req.id, req);
@@ -220,7 +235,7 @@ export class RequestStore {
   }
 
   async list(filter: ListRequestsFilter = {}): Promise<ServiceRequest[]> {
-    const all = await this.listInner();
+    const all = await this.listNarrowed(filter);
     return all
       .filter(
         (r) =>
@@ -228,7 +243,7 @@ export class RequestStore {
           (filter.kind === undefined || r.kind === filter.kind) &&
           (filter.status === undefined || r.status === filter.status) &&
           (filter.providerId === undefined || r.matchedProviderId === filter.providerId) &&
-          (filter.region === undefined || r.region === filter.region),
+          (filter.region === undefined || regionMatches(r.region, filter.region)),
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
