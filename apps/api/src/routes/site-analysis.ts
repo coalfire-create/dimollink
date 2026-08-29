@@ -1,5 +1,11 @@
 import { Router } from 'express';
-import { siteAnalysisToWasteItems, type SiteAnalysis } from '@dimol/shared';
+import {
+  siteAnalysisToWasteItems,
+  structureCodeOf,
+  totalFloorAreaM2,
+  type BuildingLedgerInfo,
+  type SiteAnalysis,
+} from '@dimol/shared';
 import {
   SiteAnalysisValidationError,
   type AnalyzeSiteInput,
@@ -40,8 +46,34 @@ export function createSiteAnalysisRouter(
       mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
       images: images && images.length > 0 ? images : undefined,
       note: typeof body.note === 'string' ? body.note : undefined,
-      buildingStructure: typeof body.buildingStructure === 'string' ? body.buildingStructure : undefined,
+      buildingStructure:
+        typeof body.buildingStructure === 'string' ? body.buildingStructure : undefined,
+      building: parseBuilding(body.building),
+      siteAddress: typeof body.siteAddress === 'string' ? body.siteAddress : undefined,
     };
+  }
+
+  /** 클라이언트가 넘긴 건축물대장 정보를 화이트리스트로 정규화(임의 필드 프롬프트 주입 방지). */
+  function parseBuilding(raw: unknown): BuildingLedgerInfo | undefined {
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const b = raw as Record<string, unknown>;
+    const text = (v: unknown) =>
+      typeof v === 'string' && v.trim().length > 0 ? v.trim().slice(0, 120) : undefined;
+    const number = (v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    const info: BuildingLedgerInfo = {
+      strctCdNm: text(b.strctCdNm),
+      roofCdNm: text(b.roofCdNm),
+      etcStrct: text(b.etcStrct),
+      vlRatEstmTotArea: number(b.vlRatEstmTotArea),
+      totArea: number(b.totArea),
+      mainPurpsCdNm: text(b.mainPurpsCdNm),
+      grndFlrCnt: number(b.grndFlrCnt),
+      ugrndFlrCnt: number(b.ugrndFlrCnt),
+      useAprDay: text(b.useAprDay),
+      bldNm: text(b.bldNm),
+    };
+    return Object.values(info).some((v) => v !== undefined) ? info : undefined;
   }
 
   /** 실제 분석 실패 → 목으로 폴백(방법=MOCK 이라 사용자에게 구분됨). */
@@ -75,14 +107,18 @@ export function createSiteAnalysisRouter(
   router.post('/site-analysis/waste-items', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const input = parseInput(body);
+    // 연면적은 요청값 우선, 없으면 건축물대장 연면적으로 자동 보완(사진만으로는 알 수 없는 값).
     const floorAreaM2 =
-      typeof body.floorAreaM2 === 'number' && body.floorAreaM2 > 0 ? body.floorAreaM2 : undefined;
+      typeof body.floorAreaM2 === 'number' && body.floorAreaM2 > 0
+        ? body.floorAreaM2
+        : totalFloorAreaM2(input.building);
+    const structure = structureCodeOf(input.building);
     try {
       const analysis = await analyzeWithFallback(input);
       let totalKg: number | undefined;
       if (estimator && floorAreaM2 !== undefined) {
         try {
-          const estimate = await estimator.estimate({ floorAreaM2 });
+          const estimate = await estimator.estimate({ floorAreaM2, structure });
           totalKg = estimate.estimatedTons * 1000;
         } catch {
           // 중량 추정 실패해도 소재별 기본값으로 진행(사진 분석 자체는 성공).

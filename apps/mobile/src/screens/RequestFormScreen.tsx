@@ -1,13 +1,24 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
+  ASBESTOS_RISK_LABELS,
   BUILDING_TYPE_LABELS,
   DEMOLITION_TYPE_LABELS,
   PILOT,
+  PYEONG_TO_M2,
+  asbestosRisk,
+  buildingTypeOf,
+  floorLabel,
+  hasLedgerData,
+  ledgerDisplayRows,
+  parseFloorCount,
+  perFloorAreaM2,
+  totalFloorAreaM2,
   wasteItemsToTons,
+  type BuildingLedgerInfo,
   type BuildingType,
   type DemolitionDetails,
   type DemolitionType,
@@ -103,26 +114,67 @@ export function RequestFormScreen({
   const [description, setDescription] = useState(
     prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : '',
   );
-  const [buildingStructure, setBuildingStructure] = useState<string | null>(null);
+  // ── 건축물대장(공공데이터) 사전 조회 ──────────────────────────────────────
+  // 디몰비전은 "주소 먼저 → 그 건물이 무엇인지 확인 → 그 다음 촬영" 순서를 강제한다.
+  // 여기서 확보한 사실(주용도·구조·층수·연면적·사용승인일)이 사진 분석의 기준이 된다.
+  const [building, setBuilding] = useState<BuildingLedgerInfo | null>(null);
+  const [ledgerState, setLedgerState] = useState<'idle' | 'loading' | 'found' | 'none'>('idle');
+  // 주소를 연달아 바꿔도 늦게 도착한 이전 응답이 최신 주소를 덮어쓰지 않도록 하는 순번.
+  const ledgerSeq = useRef(0);
+  // 같은 주소 재조회 방지(지오코딩+공공API 왕복 2회를 아낀다).
+  const ledgerCache = useRef(new Map<string, BuildingLedgerInfo | null>());
 
-  // 건축물대장 정보 조회
-  async function fetchBuildingStructure(address: string) {
-    if (!address) return;
-    try {
-      const info = await getBuildingInfo(address);
-      if (info?.strctCdNm) {
-        setBuildingStructure(info.strctCdNm);
-        // 필요 시 description에 주구조 정보를 추가할 수 있음
-        const structureHint = `[건축물대장 주구조: ${info.strctCdNm}]`;
-        setDescription((prev) =>
-          prev.includes('[건축물대장') ? prev : prev ? `${prev}\n${structureHint}` : structureHint,
-        );
-      } else {
-        setBuildingStructure(null);
-      }
-    } catch {
-      setBuildingStructure(null);
+  /** 대장 정보로 폼을 미리 채운다. 사용자가 이미 입력한 값은 건드리지 않는다. */
+  function applyLedgerToForm(info: BuildingLedgerInfo) {
+    const type = buildingTypeOf(info);
+    if (type) setBuildingType(type);
+
+    const floors = floorLabel(info);
+    if (floors) setFloorCount((prev) => (prev.trim() ? prev : floors));
+
+    // 폼의 면적 칸은 '한 층 바닥면적'이므로 연면적을 층수로 나눠 채운다.
+    const perFloor = perFloorAreaM2(info);
+    if (perFloor) {
+      setSpaceSize((prev) => {
+        if (prev.trim()) return prev;
+        return areaUnit === 'PYEONG'
+          ? `${Math.round(perFloor / PYEONG_TO_M2)}`
+          : `${Math.round(perFloor)}`;
+      });
     }
+  }
+
+  async function fetchBuildingLedger(address: string) {
+    const key = address.trim();
+    if (!key) {
+      setBuilding(null);
+      setLedgerState('idle');
+      return;
+    }
+    const seq = ledgerSeq.current + 1;
+    ledgerSeq.current = seq;
+
+    const cached = ledgerCache.current.get(key);
+    if (cached !== undefined) {
+      setBuilding(cached);
+      setLedgerState(hasLedgerData(cached) ? 'found' : 'none');
+      if (cached && hasLedgerData(cached)) applyLedgerToForm(cached);
+      return;
+    }
+
+    setBuilding(null);
+    setLedgerState('loading');
+    let info: BuildingLedgerInfo | null = null;
+    try {
+      info = await getBuildingInfo(key);
+    } catch {
+      info = null; // 대장 조회 실패는 촬영을 막지 않는다(보조 정보).
+    }
+    ledgerCache.current.set(key, info);
+    if (ledgerSeq.current !== seq) return; // 더 최신 주소 조회가 진행 중 — 결과 폐기.
+    setBuilding(info);
+    setLedgerState(hasLedgerData(info) ? 'found' : 'none');
+    if (info && hasLedgerData(info)) applyLedgerToForm(info);
   }
 
   // 디몰비전 AI 사진 분석 상태
@@ -166,14 +218,45 @@ export function RequestFormScreen({
     void runVision(photos.map((p) => ({ imageBase64: p.base64, mimeType: p.mimeType })));
   }
 
-  // 공통: 사진(1장 이상)을 디몰비전 AI로 종합 분석하여 폼을 채운다
+  /**
+   * 폼 입력(한 층 바닥면적 × 층수)을 연면적 ㎡ 로 환산한다. 물량 추정은 연면적 기준이라
+   * 층수를 곱해야 맞다. 층수를 못 읽으면 1층으로 본다.
+   */
+  function formTotalAreaM2(): number | undefined {
+    const n = Number(spaceSize.trim());
+    if (!Number.isFinite(n) || n <= 0) return undefined;
+    const perFloor = areaUnit === 'PYEONG' ? n * PYEONG_TO_M2 : n;
+    const floors = parseFloorCount(floorCount) ?? 1;
+    return Math.round(perFloor * floors * 10) / 10;
+  }
+
+  /** 디몰비전은 현장 주소가 확정된 뒤에만 촬영할 수 있다(건물 정보 없는 분석 방지). */
+  const addressReady = siteAddress.trim().length > 0;
+  const visionLocked = kind === 'DEMOLITION' && !addressReady;
+  const visionDisabled = photoBusy || visionLocked || ledgerState === 'loading';
+
+  function guardVision(open: () => void) {
+    if (visionLocked) {
+      setError('먼저 현장 주소를 지정해 주세요. 주소를 알아야 건축물대장 정보를 확인하고 정확히 분석할 수 있어요.');
+      return;
+    }
+    setError(null);
+    setPhotoSummary(null);
+    open();
+  }
+
+  // 공통: 사진(1장 이상)을 디몰비전 AI로 종합 분석하여 폼을 채운다.
+  // 주소로 확보한 건축물대장 사실을 함께 보내 사진 판독의 기준으로 삼는다.
   async function runVision(images: AnalyzeImage[]) {
     if (images.length === 0) return;
     setPhotoBusy(true);
     try {
       const { analysis, wasteItems } = await analyzeSiteWasteItems({
         images,
-        buildingStructure: buildingStructure ?? undefined,
+        buildingStructure: building?.strctCdNm,
+        building: building ?? undefined,
+        siteAddress: siteAddress.trim() || undefined,
+        floorAreaM2: totalFloorAreaM2(building) ?? formTotalAreaM2(),
       });
 
       if (kind === 'DEMOLITION') {
@@ -241,6 +324,8 @@ export function RequestFormScreen({
               desiredDate: desiredDate.trim() || undefined,
               description: description.trim() || undefined,
               dimolVisionAnalysis: dimolVision ?? undefined,
+              // 촬영 전에 확인한 공공데이터 사실을 요청과 함께 남긴다(업체가 현장 전에 확인).
+              buildingLedger: building && hasLedgerData(building) ? building : undefined,
             }
           : undefined;
 
@@ -354,19 +439,13 @@ export function RequestFormScreen({
                   setSiteAddress(addr);
                   if (reg) setRegion(reg);
                   if (loc) setLocation(loc);
-                  void fetchBuildingStructure(addr);
+                  void fetchBuildingLedger(addr);
                 }}
                 placeholder="예) ○○시 ○○구 ○○동 12-3"
                 hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
               />
 
-              {buildingStructure ? (
-                <View style={styles.buildingInfoBadge}>
-                  <Text style={styles.buildingInfoText}>
-                    🏛️ 건축물대장 기준: {buildingStructure}
-                  </Text>
-                </View>
-              ) : null}
+              <BuildingLedgerCard state={ledgerState} info={building} />
 
               <Text style={styles.sectionLabel}>건물 / 공간 종류</Text>
               <View style={styles.chipSegment}>
@@ -507,31 +586,62 @@ export function RequestFormScreen({
                 </View>
               </Pressable>
 
-              {/* ✨ 디몰비전 AI 사진 분석 */}
+              {/* ✨ 디몰비전 AI 사진 분석 — 주소 확정 이후에만 열린다 */}
               <Text style={styles.sectionLabel}>✨ 디몰비전 AI 현장 분석</Text>
+              <View style={styles.visionStepsRow}>
+                <VisionStep index={1} label="현장 주소 지정" done={addressReady} />
+                <View style={styles.visionStepBar} />
+                <VisionStep
+                  index={2}
+                  label="건물 정보 확인"
+                  done={ledgerState === 'found' || ledgerState === 'none'}
+                  busy={ledgerState === 'loading'}
+                />
+                <View style={styles.visionStepBar} />
+                <VisionStep index={3} label="현장 촬영·분석" done={!!dimolVision} busy={photoBusy} />
+              </View>
+
+              {visionLocked ? (
+                <View style={styles.visionLockNotice}>
+                  <Text style={styles.visionLockTitle}>먼저 현장 주소를 지정해 주세요</Text>
+                  <Text style={styles.visionLockBody}>
+                    주소를 지정하면 건축물대장(공공데이터)에서 그 건물의 용도·구조·층수·사용승인일을
+                    먼저 확인한 뒤, 그 정보를 기준으로 사진을 분석해요. 그래야 철거 공정과 위험
+                    요소를 정확하게 안내할 수 있어요.
+                  </Text>
+                </View>
+              ) : null}
+
               <Pressable
                 accessibilityRole="button"
-                style={styles.photoFillBtn}
-                onPress={() => setGuidedOpen(true)}
-                disabled={photoBusy}
+                accessibilityState={{ disabled: visionDisabled }}
+                style={[styles.photoFillBtn, visionDisabled && styles.photoBtnDisabled]}
+                onPress={() => guardVision(() => setGuidedOpen(true))}
+                disabled={visionDisabled}
               >
                 <Text style={styles.photoFillText}>
-                  {photoBusy ? '디몰비전 AI 분석 중…' : '🧭 가이드 촬영 (현장 전체 빠짐없이)'}
+                  {photoBusy
+                    ? '디몰비전 AI 분석 중…'
+                    : ledgerState === 'loading'
+                      ? '건축물대장 확인 중…'
+                      : '🧭 가이드 촬영 (현장 전체 빠짐없이)'}
                 </Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                style={styles.photoAltBtn}
-                onPress={() => setCameraOpen(true)}
-                disabled={photoBusy}
+                accessibilityState={{ disabled: visionDisabled }}
+                style={[styles.photoAltBtn, visionDisabled && styles.photoBtnDisabled]}
+                onPress={() => guardVision(() => setCameraOpen(true))}
+                disabled={visionDisabled}
               >
                 <Text style={styles.photoAltText}>자유 촬영</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                style={styles.photoAltBtn}
-                onPress={fillFromPhoto}
-                disabled={photoBusy}
+                accessibilityState={{ disabled: visionDisabled }}
+                style={[styles.photoAltBtn, visionDisabled && styles.photoBtnDisabled]}
+                onPress={() => guardVision(fillFromPhoto)}
+                disabled={visionDisabled}
               >
                 <Text style={styles.photoAltText}>또는 앨범에서 선택</Text>
               </Pressable>
@@ -729,6 +839,99 @@ export function RequestFormScreen({
   );
 }
 
+/**
+ * 건축물대장(공공데이터) 사전 확인 카드.
+ * "이 주소의 건물이 무엇인지"를 촬영 전에 사용자와 AI 양쪽에 먼저 보여준다.
+ */
+function BuildingLedgerCard({
+  state,
+  info,
+}: {
+  state: 'idle' | 'loading' | 'found' | 'none';
+  info: BuildingLedgerInfo | null;
+}) {
+  if (state === 'idle') return null;
+
+  if (state === 'loading') {
+    return (
+      <View style={styles.ledgerCard}>
+        <Text style={styles.ledgerTitle}>건축물대장 확인 중…</Text>
+        <Text style={styles.ledgerBody}>
+          공공데이터에서 이 주소의 건물 정보를 불러오고 있어요.
+        </Text>
+      </View>
+    );
+  }
+
+  if (state === 'none' || !info) {
+    return (
+      <View style={[styles.ledgerCard, styles.ledgerCardMuted]}>
+        <Text style={styles.ledgerTitle}>건축물대장 정보를 찾지 못했어요</Text>
+        <Text style={styles.ledgerBody}>
+          미등기·무허가 건물이거나 지번이 정확하지 않을 수 있어요. 촬영은 그대로 진행할 수 있고,
+          건물 종류·층수·면적을 직접 입력해 주시면 분석이 더 정확해져요.
+        </Text>
+      </View>
+    );
+  }
+
+  const rows = ledgerDisplayRows(info);
+  const risk = asbestosRisk(info);
+
+  return (
+    <View style={styles.ledgerCard}>
+      <View style={styles.ledgerHeader}>
+        <Text style={styles.ledgerBadge}>공공데이터 확인</Text>
+        <Text style={styles.ledgerTitle}>{info.bldNm ?? '건축물대장 표제부'}</Text>
+      </View>
+      {rows.map((row) => (
+        <View key={row.label} style={styles.ledgerRow}>
+          <Text style={styles.ledgerRowLabel}>{row.label}</Text>
+          <Text style={styles.ledgerRowValue}>{row.value}</Text>
+        </View>
+      ))}
+      {risk === 'HIGH' || risk === 'POSSIBLE' ? (
+        <View style={styles.ledgerWarn}>
+          <Text style={styles.ledgerWarnTitle}>⚠️ {ASBESTOS_RISK_LABELS[risk]}</Text>
+          <Text style={styles.ledgerWarnBody}>
+            석면 함유 자재가 쓰였을 수 있는 시기·자재예요. 철거 전 석면 사전조사가 필요하며,
+            디몰비전 분석에도 이 사실이 함께 반영돼요.
+          </Text>
+        </View>
+      ) : null}
+      <Text style={styles.ledgerFoot}>
+        이 정보를 기준으로 사진을 분석해 철거 공정을 안내해요. 실제와 다르면 아래에서 직접 고칠 수
+        있어요.
+      </Text>
+    </View>
+  );
+}
+
+/** 디몰비전 3단계(주소 → 건물 확인 → 촬영) 진행 표시. */
+function VisionStep({
+  index,
+  label,
+  done,
+  busy,
+}: {
+  index: number;
+  label: string;
+  done: boolean;
+  busy?: boolean;
+}) {
+  const active = done || busy;
+  return (
+    <View style={styles.visionStep}>
+      <View style={[styles.visionStepDot, active && styles.visionStepDotActive]}>
+        <Text style={[styles.visionStepNum, active && styles.visionStepNumActive]}>
+          {done ? '✓' : index}
+        </Text>
+      </View>
+      <Text style={[styles.visionStepLabel, active && styles.visionStepLabelActive]}>{label}</Text>
+    </View>
+  );
+}
+
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
@@ -753,17 +956,144 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
   },
-  buildingInfoBadge: {
+  ledgerCard: {
     backgroundColor: '#E8F0FE',
     borderRadius: radius.card,
-    padding: spacing.sm,
+    padding: spacing.md,
     marginTop: -spacing.xs,
     marginBottom: spacing.md,
   },
-  buildingInfoText: {
-    color: '#1967D2',
+  ledgerCardMuted: {
+    backgroundColor: colors.surface,
+  },
+  ledgerHeader: {
+    marginBottom: spacing.sm,
+  },
+  ledgerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#1967D2',
+    borderRadius: 999,
+    color: '#FFFFFF',
     fontSize: font.caption,
     fontWeight: '700',
+    marginBottom: spacing.xs,
+    overflow: 'hidden',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  ledgerTitle: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  ledgerBody: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: spacing.xs,
+  },
+  ledgerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  ledgerRowLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '600',
+  },
+  ledgerRowValue: {
+    color: colors.text,
+    flexShrink: 1,
+    fontSize: font.caption,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  ledgerWarn: {
+    backgroundColor: '#FFF4E5',
+    borderRadius: radius.card,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+  },
+  ledgerWarnTitle: {
+    color: '#B54708',
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  ledgerWarnBody: {
+    color: '#B54708',
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: 4,
+  },
+  ledgerFoot: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: spacing.sm,
+  },
+  visionStepsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    marginBottom: spacing.md,
+  },
+  visionStep: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  visionStepBar: {
+    backgroundColor: colors.border,
+    height: 2,
+    width: spacing.sm,
+  },
+  visionStepDot: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    height: 32,
+    justifyContent: 'center',
+    width: 32,
+  },
+  visionStepDotActive: {
+    backgroundColor: colors.primary,
+  },
+  visionStepNum: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  visionStepNumActive: {
+    color: '#FFFFFF',
+  },
+  visionStepLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  visionStepLabelActive: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  visionLockNotice: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  visionLockTitle: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  visionLockBody: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 24,
+    marginTop: spacing.xs,
+  },
+  photoBtnDisabled: {
+    opacity: 0.45,
   },
   doneCard: {
     backgroundColor: colors.surface,

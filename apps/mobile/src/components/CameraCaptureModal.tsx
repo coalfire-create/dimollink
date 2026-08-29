@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { AppIcon } from './AppIcon';
+import { processCapturedPhoto } from '../lib/photoQuality';
 import { theme } from '../theme';
 
 export interface CapturedPhoto {
@@ -83,7 +84,16 @@ export function CameraCaptureModal({
         base64 = shot.uri.split(',')[1] ?? '';
       }
       if (!base64) return;
-      setPhotos((prev) => [...prev, { base64, mimeType: 'image/jpeg', uri: shot.uri }]);
+      // 업로드용으로 축소(장변 상한·JPEG 재인코딩). 실패해도 원본으로 폴백한다.
+      const processed = await processCapturedPhoto({
+        base64,
+        uri: shot.uri.startsWith('data:') ? shot.uri : `data:image/jpeg;base64,${base64}`,
+        mimeType: 'image/jpeg',
+      });
+      setPhotos((prev) => [
+        ...prev,
+        { base64: processed.base64, mimeType: 'image/jpeg', uri: shot.uri },
+      ]);
     } finally {
       setCapturing(false);
     }

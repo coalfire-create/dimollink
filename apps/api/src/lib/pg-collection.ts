@@ -84,7 +84,7 @@ export class PgEntityStore<T> implements CollectionPersistence<T> {
 /** 스키마 보장 후 PostgreSQL 영속화 팩토리를 반환합니다. */
 export async function initPgPersistence(
   pool: PgQueryable,
-  names: readonly string[] = COLLECTION_NAMES,
+  _names: readonly string[] = COLLECTION_NAMES,
 ): Promise<PersistenceFactory> {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS entities(

@@ -1,5 +1,7 @@
 import {
   SITE_ANALYSIS_DISCLAIMER,
+  buildingFactsForVision,
+  type BuildingLedgerInfo,
   type DetectedMaterial,
   type DemolitionStep,
   type SiteAnalysis,
@@ -30,8 +32,15 @@ export interface AnalyzeSiteInput {
   images?: AnalyzeImage[];
   /** 사용자가 덧붙이는 현장 메모(선택) — 분석 힌트. */
   note?: string;
-  /** 공공데이터 기반 건축물대장 주구조 정보 (예: 철근콘크리트구조) — 분석 힌트. */
+  /** 공공데이터 기반 건축물대장 주구조 정보 (예: 철근콘크리트구조) — 하위호환용 단일 힌트. */
   buildingStructure?: string;
+  /**
+   * 현장 주소로 미리 조회한 건축물대장 표제부 전체(주용도·구조·층수·연면적·사용승인일).
+   * 사진 판독보다 신뢰도가 높은 확정 정보라 프롬프트 앞단에 사실로 주입한다.
+   */
+  building?: BuildingLedgerInfo;
+  /** 현장 주소(표시용). 분석 결과의 대상 현장을 특정하는 데만 쓴다. */
+  siteAddress?: string;
 }
 
 export interface SiteAnalyzer {
@@ -83,22 +92,27 @@ export function buildUserInstruction(
   note: string | undefined,
   buildingStructure: string | undefined,
   imageCount: number,
+  building?: BuildingLedgerInfo,
 ): string {
   const multi =
     imageCount > 1
       ? `다음은 같은 철거 현장을 여러 각도·거리에서 촬영한 ${imageCount}장의 사진입니다. ` +
         '모든 사진을 종합해 하나의 결과로 분석하고, 어느 한 장에서만 보이는 소재·위험요소도 놓치지 마세요.\n'
       : '';
-  
+
   let base = `${multi}${USER_INSTRUCTION}`;
-  
-  if (buildingStructure) {
+
+  // 건축물대장 전체 정보가 있으면 그것을 쓰고, 없을 때만 단일 주구조 힌트로 폴백한다.
+  const facts = buildingFactsForVision(building);
+  if (facts) {
+    base += `\n${facts}`;
+  } else if (buildingStructure) {
     base += `\n[핵심 힌트] 이 건물의 건축물대장상 주구조는 '${buildingStructure}'입니다. 사진 속 구조물이나 뼈대를 식별할 때 이 정보를 우선적으로 참고하여 오인식을 방지하세요.`;
   }
   if (note) {
     base += `\n[현장 메모] ${note}`;
   }
-  
+
   return base;
 }
 
@@ -159,18 +173,20 @@ export function parseVisionJson(text: string): SiteAnalysis {
   const end = text.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('AI 응답 파싱 실패');
   const raw = JSON.parse(text.slice(start, end + 1)) as Partial<SiteAnalysis>;
-  const rawMaterials = Array.isArray(raw.materials) ? raw.materials : [];
-  
+  const rawMaterials: Partial<DetectedMaterial>[] = Array.isArray(raw.materials)
+    ? raw.materials
+    : [];
+
   return {
     summary: typeof raw.summary === 'string' ? raw.summary : '현장 분석 결과',
-    materials: rawMaterials.map((m: any) => ({
+    materials: rawMaterials.map((m) => ({
       category: m.category,
       name: m.name,
       estimatedKg: typeof m.estimatedKg === 'number' ? m.estimatedKg : undefined,
       confidence: m.confidence,
       recyclable: !!m.recyclable,
       hazardous: !!m.hazardous,
-      note: m.note
+      note: m.note,
     })) as DetectedMaterial[],
     demolitionSteps: Array.isArray(raw.demolitionSteps)
       ? (raw.demolitionSteps as DemolitionStep[])
@@ -218,7 +234,7 @@ export class GeminiSiteAnalyzer implements SiteAnalyzer {
                   ...images.map((im) => ({
                     inline_data: { mime_type: im.mimeType, data: im.imageBase64 },
                   })),
-                  { text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
+                  { text: buildUserInstruction(input.note, input.buildingStructure, images.length, input.building) },
                 ],
               },
             ],
@@ -273,7 +289,7 @@ export class GroqSiteAnalyzer implements SiteAnalyzer {
             {
               role: 'user',
               content: [
-                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
+                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length, input.building) },
                 ...images.map((im) => ({
                   type: 'image_url' as const,
                   image_url: { url: `data:${im.mimeType};base64,${im.imageBase64}` },
@@ -322,7 +338,7 @@ export class ClaudeSiteAnalyzer implements SiteAnalyzer {
                   type: 'image' as const,
                   source: { type: 'base64' as const, media_type: im.mimeType, data: im.imageBase64 },
                 })),
-                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length) },
+                { type: 'text', text: buildUserInstruction(input.note, input.buildingStructure, images.length, input.building) },
               ],
             },
           ],

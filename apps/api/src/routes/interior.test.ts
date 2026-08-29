@@ -40,12 +40,12 @@ afterEach(async () => {
   );
 });
 
-const api = (path: string, userId: string, init: RequestInit = {}) =>
+const api = async (path: string, userId: string, init: RequestInit = {}) =>
   fetch(`${base}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${tokenOf(userId)}`,
+      authorization: `Bearer ${await tokenOf(userId)}`,
       ...(init.headers ?? {}),
     },
   }).then(async (r) => ({ status: r.status, body: await r.json() }));
@@ -75,10 +75,10 @@ const listBids = (requestId: string, viewerId: string) =>
 
 describe('인테리어 밀봉 역경매 API (/api/interior)', () => {
   it('밀봉: 업체는 자기 입찰만, 소비자는 전체, 제3자는 빈 목록', async () => {
-    const consumer = makeUser('01030000001');
-    const bizA = makeUser('01030000002');
-    const bizB = makeUser('01030000003');
-    const outsider = makeUser('01030000004');
+    const consumer = await makeUser('01030000001');
+    const bizA = await makeUser('01030000002');
+    const bizB = await makeUser('01030000003');
+    const outsider = await makeUser('01030000004');
 
     const req = await createRequest(consumer.id);
     expect(req.status).toBe(201);
@@ -102,8 +102,8 @@ describe('인테리어 밀봉 역경매 API (/api/interior)', () => {
   });
 
   it('낙찰: 소비자만 낙찰 가능, 낙찰 시 MATCHED + agreedFee', async () => {
-    const consumer = makeUser('01030000010');
-    const bizA = makeUser('01030000011');
+    const consumer = await makeUser('01030000010');
+    const bizA = await makeUser('01030000011');
     const req = await createRequest(consumer.id);
     const b = await bid(req.body.id, bizA.id, 17_500_000);
 

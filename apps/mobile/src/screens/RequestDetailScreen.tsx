@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  ASBESTOS_RISK_LABELS,
   BUILDING_TYPE_LABELS,
   DEMOLITION_TYPE_LABELS,
   REQUEST_STATUS_LABELS,
+  asbestosRisk,
   isRequestCancellable,
+  ledgerDisplayRows,
   type MatchStatus,
   type Quote,
   type ServiceRequest,
@@ -271,6 +274,17 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               ) : null}
               {request.demolitionDetails?.description ? (
                 <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
+              ) : null}
+              {ledgerDisplayRows(request.demolitionDetails?.buildingLedger).map((row) => (
+                <InfoRow key={`ledger-${row.label}`} label={`대장 ${row.label}`} value={row.value} />
+              ))}
+              {request.demolitionDetails?.buildingLedger &&
+              (asbestosRisk(request.demolitionDetails.buildingLedger) === 'HIGH' ||
+                asbestosRisk(request.demolitionDetails.buildingLedger) === 'POSSIBLE') ? (
+                <InfoRow
+                  label="⚠️ 석면"
+                  value={`${ASBESTOS_RISK_LABELS[asbestosRisk(request.demolitionDetails.buildingLedger)]} — 철거 전 석면 사전조사 필요`}
+                />
               ) : null}
               {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
                 <InfoRow

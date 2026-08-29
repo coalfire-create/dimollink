@@ -23,7 +23,7 @@ import {
 } from '@dimol/shared';
 import { AppIcon } from './AppIcon';
 import type { CapturedPhoto } from './CameraCaptureModal';
-import { analyzePhotoQuality } from '../lib/photoQuality';
+import { processCapturedPhoto } from '../lib/photoQuality';
 import { useDeviceOrientation, type OrientationPermission } from '../lib/useDeviceOrientation';
 import { theme } from '../theme';
 
@@ -98,16 +98,16 @@ export function GuidedSiteCaptureModal({
       if (!base64 && shot.uri.startsWith('data:')) base64 = shot.uri.split(',')[1] ?? '';
       if (!base64) return;
 
-      // 촬영 즉시 품질 검증(암전/렌즈 가림/흐림) → 미달이면 같은 슬롯 재촬영.
+      // 촬영 즉시 ①품질 검증(암전/렌즈 가림/흐림) ②업로드용 축소 — 디코딩 1회로 함께 처리.
       const uriForCheck = shot.uri.startsWith('data:')
         ? shot.uri
         : `data:image/jpeg;base64,${base64}`;
-      const quality = await analyzePhotoQuality({
+      const processed = await processCapturedPhoto({
         base64,
         uri: uriForCheck,
         mimeType: 'image/jpeg',
       });
-      if (quality.supported && !quality.ok) {
+      if (processed.quality.supported && !processed.quality.ok) {
         setQualityError(SITE_CAPTURE_COPY.qualityFail);
         return;
       }
@@ -115,7 +115,8 @@ export function GuidedSiteCaptureModal({
       setQualityError(null);
       dispatch({
         type: 'CAPTURE',
-        photo: { base64, mimeType: 'image/jpeg', uri: shot.uri },
+        // 미리보기는 원본 uri, 전송은 축소본 base64(업로드 크기·분석 시간 절감).
+        photo: { base64: processed.base64, mimeType: 'image/jpeg', uri: shot.uri },
         atAzimuth: reading?.azimuth ?? null,
       });
     } finally {

@@ -23,7 +23,8 @@ describe('HeuristicVolumeEstimator — 원단위 물량 추정 (AI 연동 전 �
 
   it('구조 미지정이면 보정 없이 신뢰도 LOW', async () => {
     const result = await estimator.estimate({ floorAreaM2: 50 });
-    expect(result.estimatedTons).toBe(60);
+    // 보정계수 없이 원단위만 적용 — 상수를 바꿔도 기대값이 따라오게 유도식으로 둔다.
+    expect(result.estimatedTons).toBe(Math.round(50 * DEMOLITION_TON_PER_M2 * 10) / 10);
     expect(result.confidence).toBe('LOW');
   });
 
@@ -85,11 +86,14 @@ describe('HeuristicVolumeEstimator — 원단위 물량 추정 (AI 연동 전 �
       expect(loose.rangeMinTons).toBeLessThan(loose.estimatedTons);
       expect(loose.rangeMaxTons).toBeGreaterThan(loose.estimatedTons);
 
-      // BRICK 보정계수는 1.0 이라 중앙값은 같고 범위 폭만 절반이 된다.
-      expect(tight.estimatedTons).toBe(loose.estimatedTons);
+      // 구조를 주면 보정계수가 곱해지고(중앙값 이동), 범위 폭 비율은 절반이 된다.
+      expect(tight.estimatedTons).toBe(
+        Math.round(loose.estimatedTons * STRUCTURE_FACTORS.BRICK * 10) / 10,
+      );
       const looseWidth = loose.rangeMaxTons - loose.rangeMinTons;
       const tightWidth = tight.rangeMaxTons - tight.rangeMinTons;
-      expect(tightWidth).toBeLessThan(looseWidth);
+      // 폭 자체가 아니라 중앙값 대비 비율이 좁아졌는지를 본다(중앙값이 달라지므로).
+      expect(tightWidth / tight.estimatedTons).toBeLessThan(looseWidth / loose.estimatedTons);
     });
 
     it('범위 폭은 설정된 비율을 따른다', async () => {
@@ -101,12 +105,12 @@ describe('HeuristicVolumeEstimator — 원단위 물량 추정 (AI 연동 전 �
 
   describe('차량 대수 환산', () => {
     it('적재량으로 나눈 올림 대수를 준다', async () => {
-      const r = await estimator.estimate({ floorAreaM2: 10 }); // 12톤
-      expect(r.estimatedTons).toBe(12);
+      const r = await estimator.estimate({ floorAreaM2: 10 });
+      expect(r.estimatedTons).toBe(Math.round(10 * DEMOLITION_TON_PER_M2 * 10) / 10);
       const five = r.truckLoads.find((t) => t.capacityTons === 5);
       const twentyFive = r.truckLoads.find((t) => t.capacityTons === 25);
-      expect(five?.count).toBe(3); // 12/5 → 3대
-      expect(twentyFive?.count).toBe(1); // 12/25 → 1대
+      expect(five?.count).toBe(Math.ceil(r.estimatedTons / 5));
+      expect(twentyFive?.count).toBe(Math.ceil(r.estimatedTons / 25));
     });
   });
 });

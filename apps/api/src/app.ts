@@ -108,6 +108,9 @@ export function createApp(
   app.use(requestLogger());
   // 포트원 웹훅은 서명 검증에 원본 바디가 필요하므로 이 경로만 raw 로 받는다(전역 json 이전).
   app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
+  // 디몰비전 현장 사진은 가이드 촬영 최대 7슬롯을 base64 로 함께 올린다(클라이언트에서
+  // 장변 1600px·JPEG 로 축소해 보내므로 장당 ~250KB). 이 경로만 한도를 올린다.
+  app.use('/api/site-analysis', express.json({ limit: '12mb' }));
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
   // ── 정적 자산: Expo 웹 앱(SPA) + 법적 고지 페이지. Railway 단일 호스팅(Netlify 대체).

@@ -1,3 +1,5 @@
+// 타입 전용 순환 참조(building-ledger 는 BuildingType 을 여기서 가져간다) — 컴파일 시 지워진다.
+import type { BuildingLedgerInfo } from './building-ledger.js';
 import type { GeoPoint } from './geo.js';
 import type { MatchStatus, WasteCategory } from './types.js';
 import type { UserType } from './user.js';
@@ -177,6 +179,11 @@ export interface DemolitionDetails {
   desiredDate?: string;
   description?: string;
   dimolVisionAnalysis?: DimolVisionSummary;
+  /**
+   * 현장 주소로 조회한 건축물대장 표제부(공공데이터). 철거 업체가 현장을 보기 전에
+   * 구조·용도·층수·사용승인일(석면 시기)을 확인할 수 있도록 요청과 함께 보관한다.
+   */
+  buildingLedger?: BuildingLedgerInfo;
 }
 
 /** 철거요청 — 철거 현장 주소 기반 + 현장 상세 / 디몰비전 정보. */

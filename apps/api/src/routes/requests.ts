@@ -1,6 +1,11 @@
 import {
   REQUEST_KINDS,
   isValidGeoPoint,
+  type BuildingLedgerInfo,
+  type BuildingType,
+  type DemolitionDetails,
+  type DemolitionType,
+  type DimolVisionSummary,
   type GeoPoint,
   type MatchStatus,
   type RequestKind,
@@ -15,6 +20,17 @@ import { RequestStore, RequestValidationError, type CreateRequestInput } from '.
 function isParticipant(request: ServiceRequest, userId: string): boolean {
   return request.requesterId === userId || request.matchedProviderId === userId;
 }
+
+/** 철거요청 상세에서 받아들이는 선택지(임의 값 저장 방지). */
+const BUILDING_TYPES: readonly BuildingType[] = [
+  'APARTMENT',
+  'COMMERCIAL',
+  'HOUSING',
+  'OFFICE',
+  'FACTORY',
+  'OTHER',
+];
+const DEMOLITION_TYPES: readonly DemolitionType[] = ['TOTAL', 'INTERIOR', 'STRUCTURE'];
 
 function parseGeoPoint(raw: unknown): GeoPoint | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
@@ -52,6 +68,73 @@ export function createRequestsRouter(
     return (await geocoder.geocode(address)) ?? undefined;
   }
 
+  /**
+   * 철거요청 상세를 화이트리스트로 정규화한다. 사용자가 보낸 임의 필드를 그대로 저장하지 않되,
+   * 폼이 채운 현장 정보·건축물대장·디몰비전 분석 결과는 요청과 함께 보관해 업체에 전달한다.
+   */
+  function parseDemolitionDetails(raw: unknown): DemolitionDetails | undefined {
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const d = raw as Record<string, unknown>;
+    const text = (v: unknown, max = 2000) =>
+      typeof v === 'string' && v.trim().length > 0 ? v.trim().slice(0, max) : undefined;
+    const bool = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
+    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+
+    const visionRaw = d.dimolVisionAnalysis;
+    let dimolVisionAnalysis: DimolVisionSummary | undefined;
+    if (typeof visionRaw === 'object' && visionRaw !== null) {
+      const v = visionRaw as Record<string, unknown>;
+      const strings = (arr: unknown) =>
+        Array.isArray(arr)
+          ? arr.filter((x): x is string => typeof x === 'string').slice(0, 20)
+          : undefined;
+      dimolVisionAnalysis = {
+        summary: text(v.summary),
+        hazards: strings(v.hazards),
+        materials: strings(v.materials),
+        confidence: text(v.confidence, 20),
+        analyzedAt: text(v.analyzedAt, 40),
+      };
+    }
+
+    const ledgerRaw = d.buildingLedger;
+    let buildingLedger: BuildingLedgerInfo | undefined;
+    if (typeof ledgerRaw === 'object' && ledgerRaw !== null) {
+      const b = ledgerRaw as Record<string, unknown>;
+      buildingLedger = {
+        strctCdNm: text(b.strctCdNm, 120),
+        roofCdNm: text(b.roofCdNm, 120),
+        etcStrct: text(b.etcStrct, 120),
+        vlRatEstmTotArea: num(b.vlRatEstmTotArea),
+        totArea: num(b.totArea),
+        mainPurpsCdNm: text(b.mainPurpsCdNm, 120),
+        grndFlrCnt: num(b.grndFlrCnt),
+        ugrndFlrCnt: num(b.ugrndFlrCnt),
+        useAprDay: text(b.useAprDay, 20),
+        bldNm: text(b.bldNm, 120),
+      };
+      if (!Object.values(buildingLedger).some((v) => v !== undefined)) buildingLedger = undefined;
+    }
+
+    const details: DemolitionDetails = {
+      buildingType: BUILDING_TYPES.includes(d.buildingType as BuildingType)
+        ? (d.buildingType as BuildingType)
+        : undefined,
+      demolitionType: DEMOLITION_TYPES.includes(d.demolitionType as DemolitionType)
+        ? (d.demolitionType as DemolitionType)
+        : undefined,
+      spaceSize: text(d.spaceSize, 60),
+      floorCount: text(d.floorCount, 60),
+      hasElevator: bool(d.hasElevator),
+      hasVehicleAccess: bool(d.hasVehicleAccess),
+      desiredDate: text(d.desiredDate, 40),
+      description: text(d.description),
+      dimolVisionAnalysis,
+      buildingLedger,
+    };
+    return Object.values(details).some((v) => v !== undefined) ? details : undefined;
+  }
+
   router.post('/requests', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
@@ -67,6 +150,7 @@ export function createRequestsRouter(
         sitePhotoKeys: body.sitePhotoKeys,
         location,
         siteAddress: body.siteAddress,
+        demolitionDetails: parseDemolitionDetails(body.demolitionDetails),
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,
         visitAt: body.visitAt,
