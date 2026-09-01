@@ -13,8 +13,8 @@ import {
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { GeoPoint } from '@dimol/shared';
 import {
+  WEB_BASE_URL,
   coord2Address,
-  getPublicConfig,
   searchAddress,
   type AddressSearchResult,
 } from '../api/client';
@@ -34,7 +34,8 @@ interface AddressPickerFieldProps {
 }
 
 interface MapFrameProps {
-  mapHtml: string;
+  /** 서버가 서빙하는 지도 페이지 URL. srcDoc 이 아니라 실제 URL 이어야 한다. */
+  mapUrl: string;
   iframeRef: React.MutableRefObject<HTMLIFrameElement | null>;
   webViewRef: React.MutableRefObject<WebView | null>;
   onNativeMessage: (event: WebViewMessageEvent) => void;
@@ -42,12 +43,12 @@ interface MapFrameProps {
 
 // 🗺 지도 DOM(iframe / WebView) 리로드 방지를 위한 메모이제이션 래퍼
 const MapFrame = React.memo(
-  function MapFrame({ mapHtml, iframeRef, webViewRef, onNativeMessage }: MapFrameProps) {
+  function MapFrame({ mapUrl, iframeRef, webViewRef, onNativeMessage }: MapFrameProps) {
     if (Platform.OS === 'web') {
       return (
         <iframe
           ref={iframeRef}
-          srcDoc={mapHtml}
+          src={mapUrl}
           style={{
             width: '100%',
             height: '100%',
@@ -60,7 +61,7 @@ const MapFrame = React.memo(
     return (
       <WebView
         ref={webViewRef}
-        source={{ html: mapHtml }}
+        source={{ uri: mapUrl }}
         originWhitelist={['*']}
         style={styles.webviewMap}
         javaScriptEnabled
@@ -94,23 +95,6 @@ export function AddressPickerField({
   const [pinResult, setPinResult] = useState<AddressSearchResult | null>(null);
   const [pinLoading, setPinLoading] = useState(false);
   const [detailAddress, setDetailAddress] = useState('');
-
-  // 지도 공급자 설정 — 키가 확정되기 전에는 지도를 만들지 않는다.
-  // (MapFrame 이 리렌더를 막으므로 키가 늦게 오면 영영 반영되지 않기 때문)
-  const [kakaoJsKey, setKakaoJsKey] = useState<string | null>(null);
-  const [mapConfigReady, setMapConfigReady] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    void getPublicConfig().then((cfg) => {
-      if (!alive) return;
-      setKakaoJsKey(cfg.kakaoJsKey);
-      setMapConfigReady(true);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const webViewRef = useRef<WebView | null>(null);
@@ -296,11 +280,12 @@ export function AddressPickerField({
     };
   }, [modalVisible, handleMapMove]);
 
-  // 지도 HTML — 설정(카카오 키) 확정 후 한 번만 생성한다.
-  // MapFrame 이 리렌더를 막고 있으므로, 여기서 만든 문자열이 그 세션의 지도 전부다.
-  const mapHtml = useMemo(
-    () => buildMapHtml(kakaoJsKey, DEFAULT_CENTER),
-    [kakaoJsKey],
+  // 지도 페이지 URL — 서버가 카카오 키를 심어 서빙한다.
+  // srcDoc(문자열)로 넣으면 문서 URL 이 about:srcdoc 이 되어 카카오 SDK 가
+  // 내부 리소스를 http 로 불러오다 Mixed Content 로 차단된다. 실제 URL 이어야 한다.
+  const mapUrl = useMemo(
+    () => `${WEB_BASE_URL}/map?lat=${DEFAULT_CENTER.lat}&lng=${DEFAULT_CENTER.lng}`,
+    [],
   );
 
   return (
@@ -340,19 +325,12 @@ export function AddressPickerField({
 
           {/* 🗺 카카오택시 스타일 전면 지도 영역 */}
           <View style={styles.mapViewport}>
-            {mapConfigReady ? (
-              <MapFrame
-                mapHtml={mapHtml}
-                iframeRef={iframeRef}
-                webViewRef={webViewRef}
-                onNativeMessage={handleNativeMessage}
-              />
-            ) : (
-              <View style={styles.mapLoading}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
-                <Text style={styles.mapLoadingText}>지도를 불러오는 중…</Text>
-              </View>
-            )}
+            <MapFrame
+              mapUrl={mapUrl}
+              iframeRef={iframeRef}
+              webViewRef={webViewRef}
+              onNativeMessage={handleNativeMessage}
+            />
 
             {/* 🔍 상단 플로팅 주소/건물명 검색바 */}
             <View style={styles.floatingSearchWrap}>
@@ -480,132 +458,6 @@ export function AddressPickerField({
 }
 
 const { colors, font, spacing, radius } = theme;
-
-/** 지도 위 고정 핀·확대버튼 등 두 지도 구현이 공유하는 오버레이 스타일. */
-const MAP_SHARED_CSS = `
-  html, body, #map { width:100%; height:100%; margin:0; padding:0; overflow:hidden;
-    background:#e5e3df; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .center-pin-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-100%);
-    z-index:1000; pointer-events:none; display:flex; flex-direction:column; align-items:center; }
-  .center-pin-emoji { font-size:42px; line-height:1;
-    filter:drop-shadow(0 6px 8px rgba(0,0,0,0.35)); animation:bouncePin 1.2s infinite ease-in-out alternate; }
-  .center-pin-shadow { width:16px; height:6px; background:rgba(0,0,0,0.25); border-radius:50%; margin-top:-4px; }
-  @keyframes bouncePin { from { transform:translateY(0); } to { transform:translateY(-6px); } }
-  .leaflet-control-zoom { margin-bottom:90px !important; margin-right:16px !important; }
-  #fallback-note { position:absolute; left:8px; bottom:8px; z-index:1000; max-width:70%;
-    background:rgba(0,0,0,0.6); color:#fff; font-size:11px; line-height:1.4;
-    padding:6px 8px; border-radius:6px; }
-`;
-
-/**
- * 지도 HTML 생성.
- *
- * 카카오 JS 키가 있으면 카카오 지도를 쓴다 — 국내 건물 형상·상호·번지 라벨이 그대로 나와
- * 철거 현장을 찍을 때 "그 건물이 맞는지" 눈으로 확인할 수 있다.
- * 키가 없으면 OpenStreetMap 표준 타일로 폴백한다(키 불필요, 다만 국내 POI 는 빈약).
- */
-export function buildMapHtml(
-  kakaoJsKey: string | null,
-  center: { lat: number; lng: number },
-): string {
-  // OSM 폴백은 키 유무와 무관하게 항상 심는다. 카카오 키가 있어도 도메인 미등록·네트워크
-  // 차단으로 SDK 가 안 뜨면 지도가 통째로 빈 화면이 되는데, 그때 조용히 대체하기 위해서다.
-  const script = `
-    var mapApi = null;          // { setCenter(lat,lng), getCenter() } — 준비된 지도 구현
-    var pendingCenter = null;   // 지도가 뜨기 전 들어온 이동 요청
-
-    function emitMoved() {
-      if (!mapApi) return;
-      var c = mapApi.getCenter();
-      var payload = { type: 'MAP_MOVED', lat: c.lat, lng: c.lng };
-      if (window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
-      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-    }
-    var moveTimer = null;
-    function scheduleMoved() {
-      if (moveTimer) clearTimeout(moveTimer);
-      moveTimer = setTimeout(emitMoved, 200);
-    }
-
-    /** 지도 구현이 준비되면 호출 — 대기 중이던 이동 요청을 흘려보낸다. */
-    function setMapApi(api) {
-      mapApi = api;
-      if (pendingCenter) {
-        var p = pendingCenter;
-        pendingCenter = null;
-        api.setCenter(p.lat, p.lng);
-      }
-      scheduleMoved();
-    }
-
-    // 앱 ↔ 지도 공통 인터페이스. 구현이 무엇이든 이 함수만 쓰면 된다.
-    window.__panTo = function(lat, lng) {
-      if (mapApi) mapApi.setCenter(lat, lng);
-      else pendingCenter = { lat: lat, lng: lng };
-    };
-    window.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'PAN_TO') window.__panTo(e.data.lat, e.data.lng);
-    });
-
-    function startOsm(note) {
-      if (mapApi) return;
-      document.getElementById('map').innerHTML = '';
-      var map = L.map('map', { zoomControl: false }).setView([${center.lat}, ${center.lng}], 17);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-      map.on('moveend', scheduleMoved);
-      if (note) {
-        var n = document.createElement('div');
-        n.id = 'fallback-note';
-        n.textContent = note;
-        document.body.appendChild(n);
-      }
-      setMapApi({
-        setCenter: function(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: true }); },
-        getCenter: function() { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; },
-      });
-    }
-    ${
-      kakaoJsKey
-        ? `
-    function startKakao() {
-      if (!window.kakao || !window.kakao.maps) return;
-      kakao.maps.load(function() {
-        if (mapApi) return; // 이미 폴백이 떴으면 덮지 않는다
-        var map = new kakao.maps.Map(document.getElementById('map'), {
-          center: new kakao.maps.LatLng(${center.lat}, ${center.lng}),
-          level: 3, // 건물 상호가 보이는 축척
-        });
-        map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.BOTTOMRIGHT);
-        kakao.maps.event.addListener(map, 'idle', scheduleMoved);
-        setMapApi({
-          setCenter: function(lat, lng) { map.panTo(new kakao.maps.LatLng(lat, lng)); },
-          getCenter: function() { var c = map.getCenter(); return { lat: c.getLat(), lng: c.getLng() }; },
-        });
-      });
-    }
-    startKakao();
-    // SDK 가 안 뜨거나 load 콜백이 오지 않으면(도메인 미등록 등) 조용히 OSM 으로 대체.
-    setTimeout(function() {
-      startOsm('카카오 지도를 불러오지 못했어요. 간략 지도로 표시합니다. (JS 키·허용 도메인 확인)');
-    }, 3500);`
-        : `startOsm('간략 지도예요. 건물·상호까지 보려면 카카오 지도 키가 필요합니다.');`
-    }
-  `;
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    ${kakaoJsKey ? `<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoJsKey}&autoload=false"></script>` : ''}
-    <style>${MAP_SHARED_CSS}</style>
-    </head><body>
-    <div id="map"></div>
-    <div class="center-pin-wrap"><div class="center-pin-emoji">📍</div><div class="center-pin-shadow"></div></div>
-    <script>${script}</script></body></html>`;
-}
 
 const styles = StyleSheet.create({
   container: {
