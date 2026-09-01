@@ -101,11 +101,42 @@ export function AddressPickerField({
   const lastHandledCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
   // 자동검색 콜백에서 panMapTo 를 부르기 위한 우회(선언 순서상 직접 참조 불가).
   const panMapToRef = useRef<((lat: number, lng: number) => void) | null>(null);
+  // 지도에 보내려는 목표 좌표. 지도(iframe/WebView)가 아직 로딩 중이면 이동 요청이
+  // 그대로 사라지므로, 도달을 확인할 때까지 들고 있다가 재전송한다.
+  const panTargetRef = useRef<{ lat: number; lng: number; tries: number } | null>(null);
   // 결과를 눌러 채워진 검색어 — 이 값에는 자동 재검색을 걸지 않는다.
   const lastAppliedQueryRef = useRef<string>('');
 
+  /** 지도에 이동 명령을 실제로 전달한다. 지도가 아직 안 떴으면 아무 일도 일어나지 않는다. */
+  const sendPanToMap = useCallback((lat: number, lng: number) => {
+    if (Platform.OS === 'web') {
+      iframeRef.current?.contentWindow?.postMessage({ type: 'PAN_TO', lat, lng }, '*');
+    } else {
+      webViewRef.current?.injectJavaScript(
+        `window.__panTo && window.__panTo(${lat}, ${lng}); true;`,
+      );
+    }
+  }, []);
+
   // 지도 핀 위치가 이동했을 때 카카오 역지오코딩 API 호출 (동일 좌표 중복 호출 방지)
   const handleMapMove = useCallback(async (lat: number, lng: number) => {
+    // 아직 목표에 닿지 않았다면, 지도가 이제 막 준비됐다는 뜻이므로 다시 보낸다.
+    // (모달을 열자마자 주소를 입력하면 첫 요청이 로딩 중인 지도에 닿지 않는다)
+    const target = panTargetRef.current;
+    if (target) {
+      const reached =
+        Math.abs(lat - target.lat) < 1e-4 && Math.abs(lng - target.lng) < 1e-4;
+      if (reached) {
+        panTargetRef.current = null;
+      } else if (target.tries < 3) {
+        panTargetRef.current = { ...target, tries: target.tries + 1 };
+        sendPanToMap(target.lat, target.lng);
+        return; // 곧 바뀔 좌표라 역지오코딩하지 않는다(불필요한 호출·깜빡임 방지)
+      } else {
+        panTargetRef.current = null; // 재시도 상한 — 현재 위치로 진행
+      }
+    }
+
     if (
       lastHandledCoordsRef.current &&
       Math.abs(lastHandledCoordsRef.current.lat - lat) < 0.00005 &&
@@ -203,22 +234,13 @@ export function AddressPickerField({
   }, [query, modalVisible, handleSearch]);
 
   // 지도를 특정 좌표로 이동시킨다 (웹=iframe, 네이티브=WebView 공통).
-  // 지도 이동이 끝나면 moveend → 역지오코딩이 자동으로 호출된다.
+  // 목표를 기록해 두고 보낸다 — 지도가 아직 로딩 중이면 이번 전송은 사라지지만,
+  // 지도가 준비되며 올라오는 첫 MAP_MOVED 에서 재전송된다.
   function panMapTo(lat: number, lng: number) {
     setMapLat(lat);
     setMapLng(lng);
-
-    if (Platform.OS === 'web') {
-      if (iframeRef.current?.contentWindow) {
-        iframeRef.current.contentWindow.postMessage({ type: 'PAN_TO', lat, lng }, '*');
-      } else {
-        void handleMapMove(lat, lng);
-      }
-    } else if (webViewRef.current) {
-      webViewRef.current.injectJavaScript(`window.__panTo && window.__panTo(${lat}, ${lng}); true;`);
-    } else {
-      void handleMapMove(lat, lng);
-    }
+    panTargetRef.current = { lat, lng, tries: 0 };
+    sendPanToMap(lat, lng);
   }
   panMapToRef.current = panMapTo;
 
