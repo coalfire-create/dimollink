@@ -72,6 +72,17 @@ export function createSiteAnalysisRouter(
       ugrndFlrCnt: number(b.ugrndFlrCnt),
       useAprDay: text(b.useAprDay),
       bldNm: text(b.bldNm),
+      platArea: number(b.platArea),
+      archArea: number(b.archArea),
+      bcRat: number(b.bcRat),
+      vlRat: number(b.vlRat),
+      jiyukCdNm: text(b.jiyukCdNm),
+      jiguCdNm: text(b.jiguCdNm),
+      guyukCdNm: text(b.guyukCdNm),
+      heit: number(b.heit),
+      rideUseElvtCnt: number(b.rideUseElvtCnt),
+      emgenUseElvtCnt: number(b.emgenUseElvtCnt),
+      mechParkingCnt: number(b.mechParkingCnt),
     };
     return Object.values(info).some((v) => v !== undefined) ? info : undefined;
   }

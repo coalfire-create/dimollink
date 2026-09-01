@@ -34,6 +34,32 @@ export interface BuildingLedgerInfo {
   useAprDay?: string;
   /** 건물명(대장상 명칭, 있을 때만). */
   bldNm?: string;
+
+  // ── 토지(대지) 정보 — 표제부·기본개요에서 함께 확보한다 ─────────────────
+  /** 대지면적(㎡) — 필지 크기. 장비 진입·야적 공간 판단에 쓴다. */
+  platArea?: number;
+  /** 건축면적(㎡) — 건물이 지면에 깔린 면적. */
+  archArea?: number;
+  /** 건폐율(%). */
+  bcRat?: number;
+  /** 용적률(%). */
+  vlRat?: number;
+  /** 용도지역 (예: 일반상업지역, 제1종일반주거지역). 철거 인허가 절차를 좌우한다. */
+  jiyukCdNm?: string;
+  /** 용도지구 (예: 중심지미관지구). */
+  jiguCdNm?: string;
+  /** 용도구역 (예: 개발제한구역). 있으면 철거 규제가 크게 달라진다. */
+  guyukCdNm?: string;
+
+  // ── 해체 계획에 직접 쓰이는 건물 제원 ──────────────────────────────────
+  /** 건물 높이(m) — 장비(고소작업차·크레인) 선정 기준. */
+  heit?: number;
+  /** 승용 승강기 대수. */
+  rideUseElvtCnt?: number;
+  /** 비상용 승강기 대수. */
+  emgenUseElvtCnt?: number;
+  /** 기계식 주차 대수(옥내+옥외) — 해체 전 별도 철거 대상. */
+  mechParkingCnt?: number;
 }
 
 /**
@@ -96,8 +122,14 @@ export function structureCodeOf(
   const text = `${info?.strctCdNm ?? ''} ${info?.etcStrct ?? ''}`.replace(/\s/g, '');
   if (!text.trim()) return undefined;
   if (text.includes('목구조') || text.includes('목조')) return 'WOOD';
-  if (text.includes('블록') || text.includes('벽돌') || text.includes('조적')) return 'BRICK';
-  // 철근콘크리트·철골·철골철근콘크리트·라멘 등 중량 구조는 RC 원단위로 본다.
+  // 경량철골·샌드위치판넬은 골조가 가볍고 마감이 판넬이라 콘크리트조와 발생량이 크게 다르다.
+  // '철골' 문자열을 포함하므로 중량 구조 판정보다 반드시 먼저 걸러야 한다.
+  if (text.includes('경량철골') || text.includes('경량철구') || text.includes('판넬') || text.includes('패널')) {
+    return 'BRICK';
+  }
+  if (text.includes('블록') || text.includes('벽돌') || text.includes('조적') || text.includes('연와'))
+    return 'BRICK';
+  // 철근콘크리트·(중량)철골·철골철근콘크리트·라멘 등 중량 구조는 RC 원단위로 본다.
   if (text.includes('콘크리트') || text.includes('철골') || text.includes('철파이프')) return 'RC';
   return undefined;
 }
@@ -117,6 +149,32 @@ export function buildingTypeOf(
   if (purpose.includes('근린생활') || purpose.includes('판매') || purpose.includes('상업'))
     return 'COMMERCIAL';
   return 'OTHER';
+}
+
+/** 승강기 총 대수(승용+비상용). 정보가 없으면 undefined(0 과 구분한다). */
+export function elevatorCount(info: BuildingLedgerInfo | null | undefined): number | undefined {
+  const ride = info?.rideUseElvtCnt;
+  const emgen = info?.emgenUseElvtCnt;
+  if (typeof ride !== 'number' && typeof emgen !== 'number') return undefined;
+  return (typeof ride === 'number' ? ride : 0) + (typeof emgen === 'number' ? emgen : 0);
+}
+
+/** 용도지역/지구/구역을 한 줄로. 값이 없으면 undefined. */
+export function zoningLabel(info: BuildingLedgerInfo | null | undefined): string | undefined {
+  const parts = [info?.jiyukCdNm, info?.jiguCdNm, info?.guyukCdNm]
+    .map((v) => (v ?? '').trim())
+    .filter((v) => v.length > 0);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
+/**
+ * 철거 규제가 특별히 강한 용도구역인지(개발제한구역·문화재보호구역 등).
+ * 해당하면 해체계획 승인 절차가 달라지므로 사용자와 AI 양쪽에 먼저 알린다.
+ */
+export function hasRestrictedZone(info: BuildingLedgerInfo | null | undefined): boolean {
+  const text = `${info?.guyukCdNm ?? ''}${info?.jiguCdNm ?? ''}`.replace(/\s/g, '');
+  if (!text) return false;
+  return ['개발제한', '문화재', '보호구역', '군사', '수변', '경관'].some((k) => text.includes(k));
 }
 
 /** 대장상 연면적(㎡). 연면적이 없으면 용적률산정연면적으로 대체. */
@@ -173,7 +231,9 @@ export function hasLedgerData(info: BuildingLedgerInfo | null | undefined): bool
       info.roofCdNm ||
       info.useAprDay ||
       totalFloorAreaM2(info) ||
-      floorLabel(info),
+      floorLabel(info) ||
+      info.platArea ||
+      zoningLabel(info),
   );
 }
 
@@ -190,6 +250,16 @@ export function ledgerDisplayRows(
   if (floors) rows.push({ label: '층수', value: floors });
   const area = totalFloorAreaM2(info);
   if (area) rows.push({ label: '연면적', value: `${area.toLocaleString('ko-KR')}㎡` });
+  if (info.platArea) rows.push({ label: '대지면적', value: `${info.platArea.toLocaleString('ko-KR')}㎡` });
+  const zoning = zoningLabel(info);
+  if (zoning) rows.push({ label: '용도지역', value: zoning });
+  if (typeof info.heit === 'number' && info.heit > 0) {
+    rows.push({ label: '건물 높이', value: `${info.heit}m` });
+  }
+  const elevators = elevatorCount(info);
+  if (elevators !== undefined) {
+    rows.push({ label: '승강기', value: elevators > 0 ? `${elevators}대` : '없음' });
+  }
   const approved = formatApprovalDay(info.useAprDay);
   if (approved) rows.push({ label: '사용승인일', value: approved });
   return rows;
@@ -210,6 +280,10 @@ export function buildingFactsForVision(info: BuildingLedgerInfo | null | undefin
   if (floors) facts.push(floors);
   const area = totalFloorAreaM2(info);
   if (area) facts.push(`연면적 ${area}㎡`);
+  if (info.platArea) facts.push(`대지면적 ${info.platArea}㎡`);
+  if (typeof info.heit === 'number' && info.heit > 0) facts.push(`건물높이 ${info.heit}m`);
+  const zoning = zoningLabel(info);
+  if (zoning) facts.push(`용도지역 ${zoning}`);
   const year = approvalYear(info.useAprDay);
   if (year) facts.push(`사용승인 ${year}년`);
 
@@ -236,6 +310,43 @@ export function buildingFactsForVision(info: BuildingLedgerInfo | null | undefin
   if (typeof info.ugrndFlrCnt === 'number' && info.ugrndFlrCnt > 0) {
     lines.push(
       `[지하층] 지하 ${info.ugrndFlrCnt}개 층이 있습니다. 사진에 보이지 않더라도 지하 구조물 해체·되메우기 공정을 demolitionSteps 에 포함하세요.`,
+    );
+  }
+
+  // 높이는 장비 선정(고소작업차·크레인·압쇄기 도달범위)을 좌우한다.
+  if (typeof info.heit === 'number' && info.heit >= 12) {
+    lines.push(
+      `[높이] 건물 높이 ${info.heit}m 입니다. 지상 장비만으로는 상부 도달이 어려우므로 ` +
+        '고소 해체 장비·낙하물 방지망·비계 계획을 demolitionSteps 에 포함하세요.',
+    );
+  }
+
+  // 대지면적 대비 건축면적은 장비 진입·야적 여유를 가늠하게 한다.
+  if (info.platArea && info.archArea && info.platArea > 0) {
+    const spare = Math.round(info.platArea - info.archArea);
+    if (spare >= 0 && spare < 50) {
+      lines.push(
+        `[협소 부지] 대지 ${info.platArea}㎡ 중 건축면적이 ${info.archArea}㎡ 로 여유 공간이 약 ${spare}㎡ 뿐입니다. ` +
+          '장비 진입·폐기물 야적 공간이 부족한 현장으로 보고 소형 장비·즉시 반출 계획을 제안하세요.',
+      );
+    }
+  }
+
+  const elevators = elevatorCount(info);
+  if (elevators !== undefined && elevators > 0) {
+    lines.push(`[승강기] 승강기 ${elevators}대가 설치돼 있습니다. 승강기 본체·권상기·레일 해체를 별도 공정으로 잡으세요.`);
+  }
+  if (typeof info.mechParkingCnt === 'number' && info.mechParkingCnt > 0) {
+    lines.push(
+      `[기계식주차] 기계식 주차설비 ${info.mechParkingCnt}대분이 있습니다. 철골 구조물이라 본 해체 전에 별도 철거·고철 분리가 필요합니다.`,
+    );
+  }
+
+  if (hasRestrictedZone(info)) {
+    const zone = zoningLabel(info) ?? '규제 구역';
+    lines.push(
+      `[규제 구역] 이 필지는 '${zone}' 에 속합니다. 일반 해체신고로 끝나지 않고 별도 허가·심의가 필요할 수 있으므로 ` +
+        'hazards 에 관할 지자체 사전 확인 필요를 명시하세요.',
     );
   }
 

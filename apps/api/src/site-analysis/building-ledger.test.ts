@@ -5,9 +5,12 @@ import {
   floorLabel,
   formatApprovalDay,
   hasLedgerData,
+  elevatorCount,
+  hasRestrictedZone,
   ledgerDisplayRows,
   parseFloorCount,
   perFloorAreaM2,
+  zoningLabel,
   structureCodeOf,
   totalFloorAreaM2,
   totalFloorCount,
@@ -66,7 +69,17 @@ describe('주구조 → 물량 추정 구조 코드', () => {
   it('조적 계열은 BRICK, 목조는 WOOD', () => {
     expect(structureCodeOf({ strctCdNm: '벽돌구조' })).toBe('BRICK');
     expect(structureCodeOf({ strctCdNm: '시멘트블록구조' })).toBe('BRICK');
+    expect(structureCodeOf({ strctCdNm: '연와조' })).toBe('BRICK');
     expect(structureCodeOf({ strctCdNm: '목구조' })).toBe('WOOD');
+  });
+
+  it('경량철골·판넬은 중량 철골과 분리해 가볍게 본다(폐기물량 과대추정 방지)', () => {
+    // '철골' 을 포함하지만 골조·마감이 가벼워 콘크리트조 원단위를 쓰면 물량이 크게 부풀려진다.
+    expect(structureCodeOf({ strctCdNm: '경량철골구조' })).toBe('BRICK');
+    expect(structureCodeOf({ strctCdNm: '샌드위치판넬조' })).toBe('BRICK');
+    // 중량 철골은 그대로 RC 원단위.
+    expect(structureCodeOf({ strctCdNm: '철골철근콘크리트구조' })).toBe('RC');
+    expect(structureCodeOf({ strctCdNm: '철골구조' })).toBe('RC');
   });
 
   it('판정 불가·빈 값은 undefined', () => {
@@ -192,5 +205,79 @@ describe('buildUserInstruction — 대장 정보 주입', () => {
 
   it('현장 메모는 그대로 덧붙인다', () => {
     expect(buildUserInstruction('지하 물차 있음', undefined, 1)).toContain('[현장 메모] 지하 물차 있음');
+  });
+});
+
+/**
+ * 토지(대지)·건물 제원 — 표제부/기본개요에서 함께 확보해 해체 계획에 쓰는 값들.
+ * 사진만으로는 알 수 없어(높이·대지 여유·용도지역) 사전 확보의 가치가 큰 축이다.
+ */
+describe('토지·제원 파생값', () => {
+  it('승강기는 승용+비상용을 합산하고, 정보 없음과 0대를 구분한다', () => {
+    expect(elevatorCount({ rideUseElvtCnt: 2, emgenUseElvtCnt: 1 })).toBe(3);
+    expect(elevatorCount({ rideUseElvtCnt: 0, emgenUseElvtCnt: 0 })).toBe(0);
+    expect(elevatorCount({})).toBeUndefined();
+  });
+
+  it('용도지역·지구·구역을 한 줄로 합친다', () => {
+    expect(zoningLabel({ jiyukCdNm: '일반상업지역', jiguCdNm: '중심지미관지구' })).toBe(
+      '일반상업지역 · 중심지미관지구',
+    );
+    expect(zoningLabel({})).toBeUndefined();
+  });
+
+  it('철거 규제가 강한 구역을 식별한다', () => {
+    expect(hasRestrictedZone({ guyukCdNm: '개발제한구역' })).toBe(true);
+    expect(hasRestrictedZone({ jiguCdNm: '문화재보호구역' })).toBe(true);
+    expect(hasRestrictedZone({ jiyukCdNm: '제2종일반주거지역' })).toBe(false);
+    expect(hasRestrictedZone(null)).toBe(false);
+  });
+
+  it('표시 행에 대지면적·용도지역·높이·승강기가 들어간다', () => {
+    const rows = ledgerDisplayRows({
+      ...RC_2015,
+      platArea: 322.5,
+      jiyukCdNm: '일반상업지역',
+      heit: 21.99,
+      rideUseElvtCnt: 1,
+      emgenUseElvtCnt: 0,
+    }).map((r) => r.label);
+    expect(rows).toContain('대지면적');
+    expect(rows).toContain('용도지역');
+    expect(rows).toContain('건물 높이');
+    expect(rows).toContain('승강기');
+  });
+});
+
+describe('비전 프롬프트 — 토지·제원 반영', () => {
+  it('12m 이상이면 고소 해체 장비 계획을 요구한다', () => {
+    const tall = buildingFactsForVision({ ...RC_2015, heit: 21.99 }) ?? '';
+    expect(tall).toContain('고소');
+    expect(buildingFactsForVision({ ...RC_2015, heit: 6 })).not.toContain('고소');
+  });
+
+  it('대지 여유가 거의 없으면 협소 부지로 경고한다', () => {
+    const tight = buildingFactsForVision({ ...RC_2015, platArea: 200, archArea: 180 }) ?? '';
+    expect(tight).toContain('협소 부지');
+    const roomy = buildingFactsForVision({ ...RC_2015, platArea: 800, archArea: 180 }) ?? '';
+    expect(roomy).not.toContain('협소 부지');
+  });
+
+  it('승강기·기계식주차는 별도 해체 공정으로 명시한다', () => {
+    const facts = buildingFactsForVision({ ...RC_2015, rideUseElvtCnt: 1, mechParkingCnt: 11 }) ?? '';
+    expect(facts).toContain('승강기');
+    expect(facts).toContain('기계식 주차설비');
+  });
+
+  it('규제 구역이면 지자체 사전 확인을 요구한다', () => {
+    const gb = buildingFactsForVision({ ...RC_2015, guyukCdNm: '개발제한구역' }) ?? '';
+    expect(gb).toContain('규제 구역');
+    expect(gb).toContain('사전 확인');
+  });
+
+  it('용도지역·대지면적을 확정 사실 목록에 넣는다', () => {
+    const facts = buildingFactsForVision({ ...RC_2015, platArea: 322.5, jiyukCdNm: '일반상업지역' }) ?? '';
+    expect(facts).toContain('대지면적 322.5㎡');
+    expect(facts).toContain('용도지역 일반상업지역');
   });
 });

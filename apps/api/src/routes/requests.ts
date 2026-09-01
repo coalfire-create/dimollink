@@ -112,6 +112,17 @@ export function createRequestsRouter(
         ugrndFlrCnt: num(b.ugrndFlrCnt),
         useAprDay: text(b.useAprDay, 20),
         bldNm: text(b.bldNm, 120),
+        platArea: num(b.platArea),
+        archArea: num(b.archArea),
+        bcRat: num(b.bcRat),
+        vlRat: num(b.vlRat),
+        jiyukCdNm: text(b.jiyukCdNm, 120),
+        jiguCdNm: text(b.jiguCdNm, 120),
+        guyukCdNm: text(b.guyukCdNm, 120),
+        heit: num(b.heit),
+        rideUseElvtCnt: num(b.rideUseElvtCnt),
+        emgenUseElvtCnt: num(b.emgenUseElvtCnt),
+        mechParkingCnt: num(b.mechParkingCnt),
       };
       if (!Object.values(buildingLedger).some((v) => v !== undefined)) buildingLedger = undefined;
     }

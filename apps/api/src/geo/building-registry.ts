@@ -32,6 +32,12 @@ export function encodeServiceKey(rawKey: string): string {
   return encodeURIComponent(key);
 }
 
+/** 둘 다 없으면 undefined, 하나라도 있으면 합(없는 쪽은 0). */
+function sumDefined(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined && b === undefined) return undefined;
+  return (a ?? 0) + (b ?? 0);
+}
+
 /** 문자열 필드 정규화 — 공백/빈 문자열은 undefined 로 접어 UI에서 빈 줄이 생기지 않게 한다. */
 function str(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -41,7 +47,11 @@ function str(value: unknown): string | undefined {
 
 export class BuildingRegistryClient {
   // data.go.kr 는 https 를 지원한다. 서비스키가 쿼리로 나가므로 평문(http)으로 보내지 않는다.
-  private readonly endpoint = 'https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo';
+  private readonly baseUrl = 'https://apis.data.go.kr/1613000/BldRgstHubService';
+  /** 표제부 — 구조·용도·층수·연면적·대지면적·높이·승강기. */
+  private readonly endpoint = `${this.baseUrl}/getBrTitleInfo`;
+  /** 기본개요 — 용도지역/지구/구역(토지 규제). 표제부에 없어 별도 오퍼레이션으로 받는다. */
+  private readonly outlineEndpoint = `${this.baseUrl}/getBrBasisOulnInfo`;
   private geocoder: Geocoder;
   private readonly cache = new Map<string, CacheEntry>();
 
@@ -70,6 +80,24 @@ export class BuildingRegistryClient {
       if (oldest !== undefined) this.cache.delete(oldest);
     }
     this.cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  }
+
+  /** 한 오퍼레이션을 호출해 items 배열로 정규화한다(단일 객체·배열·없음 모두 처리). */
+  private async fetchItems(
+    url: string,
+    signal: AbortSignal,
+  ): Promise<Array<Record<string, unknown>>> {
+    const res = await this.fetchFn(url, { signal });
+    if (!res.ok) {
+      console.warn(`[BuildingRegistry] API 응답 오류: ${res.status}`);
+      return [];
+    }
+    const data = (await res.json()) as {
+      response?: { body?: { items?: { item?: unknown } } };
+    };
+    const items = data?.response?.body?.items?.item;
+    if (!items) return [];
+    return (Array.isArray(items) ? items : [items]) as Array<Record<string, unknown>>;
   }
 
   /**
@@ -106,7 +134,8 @@ export class BuildingRegistryClient {
       const bun = match.mainAddressNo.padStart(4, '0');
       const ji = (match.subAddressNo || '0').padStart(4, '0');
 
-      // 2. 공공데이터 API 호출
+      // 2. 공공데이터 API 호출 — 표제부(건물 제원)와 기본개요(토지 용도지역)를 병렬로.
+      //    둘을 순차 호출하면 왕복이 2배가 되므로, 하나의 시간 예산 안에서 동시에 받는다.
       const params = new URLSearchParams({
         sigunguCd,
         bjdongCd,
@@ -117,8 +146,7 @@ export class BuildingRegistryClient {
         pageNo: '1',
         _type: 'json',
       });
-      // serviceKey 는 Encoding/Decoding 어느 발급본이든 받도록 정규화해 붙인다(이중 인코딩 방지).
-      const url = `${this.endpoint}?serviceKey=${encodeServiceKey(this.apiKey)}&${params.toString()}`;
+      const query = `serviceKey=${encodeServiceKey(this.apiKey)}&${params.toString()}`;
 
       const remaining = deadline - Date.now();
       if (remaining <= 0) {
@@ -128,33 +156,32 @@ export class BuildingRegistryClient {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), remaining);
 
-      const res = await this.fetchFn(url, { signal: controller.signal }).finally(() =>
-        clearTimeout(timer),
-      );
+      const [titleItems, outlineItems] = await Promise.all([
+        this.fetchItems(`${this.endpoint}?${query}`, controller.signal),
+        // 용도지역은 보조 정보다. 실패해도 표제부 결과로 진행한다.
+        this.fetchItems(`${this.outlineEndpoint}?${query}`, controller.signal).catch(() => []),
+      ]).finally(() => clearTimeout(timer));
 
-      if (!res.ok) {
-        console.warn(`[BuildingRegistry] API 응답 오류: ${res.status}`);
-        return null;
-      }
-
-      const data = (await res.json()) as {
-        response?: { body?: { items?: { item?: unknown } } };
-      };
-      const items = data?.response?.body?.items?.item;
-      if (!items) {
+      if (titleItems.length === 0) {
         this.writeCache(key, null);
         return null;
       }
 
-      // items 는 단일 객체이거나 배열일 수 있다. 배열이면 연면적이 가장 큰 동을 주 건물로 본다.
-      const list = (Array.isArray(items) ? items : [items]) as Array<Record<string, unknown>>;
-      const item = list
+      // 배열이면 연면적이 가장 큰 동을 주 건물로 본다(부속동보다 본관을 기준으로).
+      const item = titleItems
         .slice()
-        .sort((a, b) => (num(b.totArea) ?? num(b.vlRatEstmTotArea) ?? 0) - (num(a.totArea) ?? num(a.vlRatEstmTotArea) ?? 0))[0];
+        .sort(
+          (a, b) =>
+            (num(b.totArea) ?? num(b.vlRatEstmTotArea) ?? 0) -
+            (num(a.totArea) ?? num(a.vlRatEstmTotArea) ?? 0),
+        )[0];
       if (!item) {
         this.writeCache(key, null);
         return null;
       }
+
+      // 용도지역은 필지 단위라 어느 동에서든 값이 있으면 쓴다(레코드마다 비어 있는 경우가 많다).
+      const zoned = outlineItems.find((o) => str(o.jiyukCdNm) ?? str(o.guyukCdNm) ?? str(o.jiguCdNm));
 
       const info: BuildingInfo = {
         strctCdNm: str(item.strctCdNm),
@@ -167,6 +194,19 @@ export class BuildingRegistryClient {
         ugrndFlrCnt: num(item.ugrndFlrCnt),
         useAprDay: str(item.useAprDay),
         bldNm: str(item.bldNm),
+        // 토지(대지) 정보
+        platArea: num(item.platArea),
+        archArea: num(item.archArea),
+        bcRat: num(item.bcRat),
+        vlRat: num(item.vlRat),
+        jiyukCdNm: str(zoned?.jiyukCdNm),
+        jiguCdNm: str(zoned?.jiguCdNm),
+        guyukCdNm: str(zoned?.guyukCdNm),
+        // 해체 계획 제원
+        heit: num(item.heit),
+        rideUseElvtCnt: num(item.rideUseElvtCnt),
+        emgenUseElvtCnt: num(item.emgenUseElvtCnt),
+        mechParkingCnt: sumDefined(num(item.indrMechUtcnt), num(item.oudrMechUtcnt)),
       };
       this.writeCache(key, info);
       return info;

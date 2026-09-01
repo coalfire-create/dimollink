@@ -11,6 +11,7 @@ import {
   PYEONG_TO_M2,
   asbestosRisk,
   buildingTypeOf,
+  elevatorCount,
   floorLabel,
   hasLedgerData,
   ledgerDisplayRows,
@@ -131,6 +132,10 @@ export function RequestFormScreen({
 
     const floors = floorLabel(info);
     if (floors) setFloorCount((prev) => (prev.trim() ? prev : floors));
+
+    // 승강기 유무는 대장에 대수로 적혀 있다 — 사용자가 고르기 전에 사실로 맞춰둔다.
+    const elevators = elevatorCount(info);
+    if (elevators !== undefined) setHasElevator(elevators > 0);
 
     // 폼의 면적 칸은 '한 층 바닥면적'이므로 연면적을 층수로 나눠 채운다.
     const perFloor = perFloorAreaM2(info);

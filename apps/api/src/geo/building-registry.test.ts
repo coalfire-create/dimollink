@@ -120,8 +120,13 @@ describe('BuildingRegistryClient', () => {
   it('같은 주소는 캐시로 재사용해 왕복을 반복하지 않는다', async () => {
     const { instance, urls } = client(TITLE_ITEM);
     await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    // 첫 조회는 표제부 + 기본개요를 병렬로 부른다.
+    const firstCallCount = urls.length;
+    expect(firstCallCount).toBeGreaterThan(0);
+
     await instance.getBuildingInfo('  경기 양평군 양평읍 양근리 120-5  ');
-    expect(urls).toHaveLength(1);
+    // 앞뒤 공백만 다른 같은 주소 — 추가 왕복이 한 번도 없어야 한다.
+    expect(urls).toHaveLength(firstCallCount);
   });
 
   it('여러 동이 조회되면 연면적이 가장 큰 동을 주 건물로 본다', async () => {
@@ -171,5 +176,83 @@ describe('encodeServiceKey — 발급본 두 종류 모두 수용', () => {
 
   it('앞뒤 공백을 제거한다(복붙 실수 방지)', () => {
     expect(encodeServiceKey('  abcdef  ')).toBe('abcdef');
+  });
+});
+
+describe('BuildingRegistryClient — 토지·제원 필드', () => {
+  /** 표제부와 기본개요를 서로 다른 응답으로 돌려주는 가짜 fetch. */
+  function dualClient(title: unknown, outline: unknown) {
+    const urls: string[] = [];
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return jsonResponse(url.includes('getBrBasisOulnInfo') ? outline : title);
+    }) as typeof fetch;
+    return {
+      instance: new BuildingRegistryClient('TEST_KEY', 5_000, fetchFn, stubGeocoder()),
+      urls,
+    };
+  }
+
+  const FULL_TITLE = {
+    ...TITLE_ITEM,
+    platArea: '322.5',
+    archArea: '161.1',
+    bcRat: '49.95',
+    vlRat: '246.2',
+    heit: '21.99',
+    rideUseElvtCnt: '1',
+    emgenUseElvtCnt: '0',
+    indrMechUtcnt: '11',
+    oudrMechUtcnt: '0',
+  };
+
+  it('대지면적·높이·승강기·기계식주차를 함께 채운다', async () => {
+    const { instance } = dualClient(FULL_TITLE, null);
+    const info = await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    expect(info).toMatchObject({
+      platArea: 322.5,
+      archArea: 161.1,
+      bcRat: 49.95,
+      vlRat: 246.2,
+      heit: 21.99,
+      rideUseElvtCnt: 1,
+      emgenUseElvtCnt: 0,
+      mechParkingCnt: 11, // 옥내 11 + 옥외 0
+    });
+  });
+
+  it('표제부와 기본개요를 함께 호출해 용도지역을 채운다', async () => {
+    const { instance, urls } = dualClient(FULL_TITLE, {
+      jiyukCdNm: '일반상업지역',
+      jiguCdNm: '중심지미관지구',
+      guyukCdNm: ' ',
+    });
+    const info = await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    expect(urls.some((u) => u.includes('getBrTitleInfo'))).toBe(true);
+    expect(urls.some((u) => u.includes('getBrBasisOulnInfo'))).toBe(true);
+    expect(info?.jiyukCdNm).toBe('일반상업지역');
+    expect(info?.jiguCdNm).toBe('중심지미관지구');
+    expect(info?.guyukCdNm).toBeUndefined(); // 공백은 접는다
+  });
+
+  it('용도지역이 비어 있는 레코드는 건너뛰고 값 있는 레코드를 쓴다', async () => {
+    const { instance } = dualClient(FULL_TITLE, [
+      { jiyukCdNm: ' ', jiguCdNm: ' ' },
+      { jiyukCdNm: '제2종일반주거지역' },
+    ]);
+    const info = await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    expect(info?.jiyukCdNm).toBe('제2종일반주거지역');
+  });
+
+  it('기본개요가 실패해도 표제부 결과로 진행한다(보조 정보)', async () => {
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      if (String(input).includes('getBrBasisOulnInfo')) throw new Error('upstream down');
+      return jsonResponse(FULL_TITLE);
+    }) as typeof fetch;
+    const instance = new BuildingRegistryClient('TEST_KEY', 5_000, fetchFn, stubGeocoder());
+    const info = await instance.getBuildingInfo('경기 양평군 양평읍 양근리 120-5');
+    expect(info?.strctCdNm).toBe('철근콘크리트구조');
+    expect(info?.jiyukCdNm).toBeUndefined();
   });
 });
