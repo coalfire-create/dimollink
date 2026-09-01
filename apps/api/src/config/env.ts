@@ -77,6 +77,15 @@ export const env = {
     apiUrl: process.env.SMS_API_URL,
     apiKey: process.env.SMS_API_KEY,
   },
+  /** 앱에 그대로 내려도 되는 공개 설정(클라이언트 키 등). 시크릿은 절대 넣지 않는다. */
+  publicConfig: {
+    /**
+     * 카카오 지도 JavaScript 앱 키. REST API 키와 다른 값이며,
+     * 브라우저에 노출되는 것이 정상인 공개 키다(카카오 콘솔의 허용 도메인으로 보호).
+     * 미설정 시 지도는 OpenStreetMap 타일로 폴백한다.
+     */
+    kakaoJsKey: process.env.KAKAO_JS_KEY,
+  },
   geocode: {
     // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 키가 있으면 자동으로 kakao 사용.
     provider: (process.env.GEOCODE_PROVIDER ??

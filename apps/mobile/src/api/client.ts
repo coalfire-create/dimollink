@@ -481,6 +481,22 @@ export const coord2Address = (lat: number, lng: number) =>
 /** 건축물대장 표제부(공공데이터). 필드 정의는 @dimol/shared 단일 출처를 쓴다. */
 export type BuildingInfo = BuildingLedgerInfo;
 
+// ── 공개 설정 (지도 JS 키 등) ─────────────────────────────────────────────
+export interface PublicConfig {
+  /** 카카오 지도 JavaScript 키. null 이면 지도는 OSM 타일로 폴백한다. */
+  kakaoJsKey: string | null;
+}
+
+/** 세션당 한 번만 받아 재사용한다(지도 모달을 여닫을 때마다 부르지 않게). */
+let publicConfigPromise: Promise<PublicConfig> | null = null;
+
+export function getPublicConfig(): Promise<PublicConfig> {
+  if (!publicConfigPromise) {
+    publicConfigPromise = api<PublicConfig>('/config/public').catch(() => ({ kakaoJsKey: null }));
+  }
+  return publicConfigPromise;
+}
+
 export const getBuildingInfo = (address: string) =>
   api<BuildingInfo>(`/locations/building-info?address=${encodeURIComponent(address)}`);
 

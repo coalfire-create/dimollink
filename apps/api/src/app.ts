@@ -66,6 +66,7 @@ import { createPaymentsRouter } from './routes/payments.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createChatRouter } from './routes/chat.js';
 import { createEstimationRouter } from './routes/estimation.js';
+import { createPublicConfigRouter } from './routes/public-config.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
@@ -153,6 +154,8 @@ export function createApp(
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);
+  // 공개 설정(지도 JS 키) — 로그인 전 지도 화면에서도 필요하므로 인증을 걸지 않는다.
+  app.use('/api', createPublicConfigRouter());
 
   // 전역 레이트리밋(기본 DDoS·남용 완화) — IP 기준. 정상 사용에 넉넉한 상한.
   app.use(
