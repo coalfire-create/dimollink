@@ -14,8 +14,15 @@ COPY apps/mobile/package.json apps/mobile/
 # (NODE_ENV=production 이어도 devDeps 를 설치한다.)
 RUN npm ci --include=dev
 
-# 소스 복사 후 shared → mobile → api 순서로 빌드.
 COPY . .
+
+# 배포 게이트: 타입체크 + 유닛테스트. 실패하면 이미지가 만들어지지 않아 배포가 멈춘다.
+# (빌드가 실패해도 직전 성공 배포가 계속 서빙되므로 서비스는 내려가지 않는다.)
+# 빌드 명령은 이 Dockerfile 에 있고 루트 `npm run build` 를 거치지 않으므로,
+# 게이트를 루트 build 스크립트에만 걸면 배포에는 적용되지 않는다 — 여기서 직접 부른다.
+RUN npm run verify
+
+# shared → mobile → api 순서로 빌드(mobile 이 shared 타입을, api 가 mobile 웹 산출물을 쓴다).
 RUN npm run build:shared && npm run build -w @dimol/mobile && npm run build -w @dimol/api
 
 ENV NODE_ENV=production
