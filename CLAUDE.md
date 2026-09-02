@@ -64,6 +64,10 @@ Express를 쓰는 이유: 올바로 API 연동(외부 정부기관 API 호출, �
 
 - TypeScript strict 모드 사용
 - ESLint + Prettier 적용, 커밋 전 `npm run lint` 통과 필수
+- 푸시 전 `npm run verify` (타입체크 + 유닛테스트) 통과 필수. 이 명령은 배포 빌드
+  (`npm run build`)의 첫 단계이기도 하므로, 실패하면 Railway 배포가 아예 진행되지 않는다.
+  빌드가 막히면 직전 성공 배포가 그대로 서비스되므로 사이트가 내려가지는 않는다.
+  (2026-09 도입 — 타입 오류·깨진 테스트가 그대로 배포되던 문제 때문)
 - 커밋 메시지: `[Phase N] 기능 요약` 형식 (예: `[Phase 1] 올바로 회원 검증 API 연동`)
 - 정산/수수료 계산 로직은 유닛 테스트 필수 (`apps/api/**/*.test.ts`), 스크린샷 확인만으로 대체하지 않는다
 - 브랜치 전략: `feature/<로드맵 항목>` 단위로 분리 (예: `feature/allbaro-verify-api`, `feature/request-ui`). 하나의 브랜치를 여러 에이전트(안티그래비티, Claude Code)가 동시에 건드리지 않는다

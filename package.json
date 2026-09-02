@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build:shared": "npm run build -w @dimol/shared",
-    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "verify": "npm run build:shared && npm run typecheck --workspaces --if-present && npm run test --workspaces --if-present",
+    "build": "npm run verify && npm run build --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
