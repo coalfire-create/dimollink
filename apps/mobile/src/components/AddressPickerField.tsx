@@ -54,7 +54,8 @@ const MapFrame = React.memo(
             height: '100%',
             border: 'none',
           }}
-          title="카카오 지도"
+          title="지도"
+          allow="geolocation"
         />
       );
     }
@@ -66,6 +67,7 @@ const MapFrame = React.memo(
         style={styles.webviewMap}
         javaScriptEnabled
         domStorageEnabled
+        geolocationEnabled
         scrollEnabled={false}
         onMessage={onNativeMessage}
       />
@@ -78,7 +80,7 @@ export function AddressPickerField({
   label,
   value,
   onChangeAddress,
-  placeholder = '지도에서 핀을 올려 정확한 주소를 선택하세요',
+  placeholder = '지도에서 현장 위치를 선택하세요',
   hint,
 }: AddressPickerFieldProps) {
   const [modalVisible, setModalVisible] = useState(false);
@@ -95,6 +97,9 @@ export function AddressPickerField({
   const [pinResult, setPinResult] = useState<AddressSearchResult | null>(null);
   const [pinLoading, setPinLoading] = useState(false);
   const [detailAddress, setDetailAddress] = useState('');
+  // 지도를 잡고 움직이는 중 — 이때 주소는 아직 확정이 아니라 흐리게 보여준다.
+  const [pinMoving, setPinMoving] = useState(false);
+  const [locateDenied, setLocateDenied] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const webViewRef = useRef<WebView | null>(null);
@@ -164,27 +169,40 @@ export function AddressPickerField({
     }
   }, []);
 
+  /** 지도 문서가 보내오는 메시지를 한 곳에서 해석한다(웹 iframe / 네이티브 WebView 공통). */
+  const handleMapEvent = useCallback(
+    (data: { type?: string; lat?: number; lng?: number }) => {
+      if (data.type === 'MAP_MOVING') {
+        // 핀이 떠 있는 동안은 주소가 확정되지 않았다는 뜻.
+        setPinMoving(true);
+        return;
+      }
+      if (data.type === 'LOCATE_DENIED') {
+        setLocateDenied(true);
+        return;
+      }
+      if (
+        data.type === 'MAP_MOVED' &&
+        typeof data.lat === 'number' &&
+        typeof data.lng === 'number'
+      ) {
+        setPinMoving(false);
+        void handleMapMove(data.lat, data.lng);
+      }
+    },
+    [handleMapMove],
+  );
+
   // Native WebView 메시지 핸들러
   const handleNativeMessage = useCallback(
     (event: WebViewMessageEvent) => {
       try {
-        const data = JSON.parse(event.nativeEvent.data) as {
-          type?: string;
-          lat?: number;
-          lng?: number;
-        };
-        if (
-          data.type === 'MAP_MOVED' &&
-          typeof data.lat === 'number' &&
-          typeof data.lng === 'number'
-        ) {
-          void handleMapMove(data.lat, data.lng);
-        }
+        handleMapEvent(JSON.parse(event.nativeEvent.data));
       } catch {
         // 무시: 지도 외 메시지
       }
     },
-    [handleMapMove],
+    [handleMapEvent],
   );
 
   /**
@@ -264,8 +282,11 @@ export function AddressPickerField({
     }
   }
 
+  // 지도가 움직이는 중이거나 주소 조회 중이면 아직 확정할 수 없다.
+  const canConfirm = !!pinResult && !pinMoving && !pinLoading;
+
   function handleConfirm() {
-    if (!pinResult) return;
+    if (!canConfirm || !pinResult) return;
     const baseAddr = pinResult.roadAddressName || pinResult.addressName;
     const buildingInfo =
       pinResult.buildingName && !baseAddr.includes(pinResult.buildingName)
@@ -288,19 +309,14 @@ export function AddressPickerField({
     if (Platform.OS !== 'web' || !modalVisible) return;
 
     function handleWebMessage(e: MessageEvent) {
-      if (e.data && typeof e.data === 'object' && e.data.type === 'MAP_MOVED') {
-        const { lat, lng } = e.data as { lat: number; lng: number };
-        if (typeof lat === 'number' && typeof lng === 'number') {
-          void handleMapMove(lat, lng);
-        }
-      }
+      if (e.data && typeof e.data === 'object') handleMapEvent(e.data);
     }
 
     window.addEventListener('message', handleWebMessage);
     return () => {
       window.removeEventListener('message', handleWebMessage);
     };
-  }, [modalVisible, handleMapMove]);
+  }, [modalVisible, handleMapEvent]);
 
   // 지도 페이지 URL — 서버가 카카오 키를 심어 서빙한다.
   // srcDoc(문자열)로 넣으면 문서 URL 이 about:srcdoc 이 되어 카카오 SDK 가
@@ -315,8 +331,8 @@ export function AddressPickerField({
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
         <Pressable accessibilityRole="button" style={styles.searchBtn} onPress={handleOpenModal}>
-          <AppIcon name="location" size={16} color={theme.colors.primary} />
-          <Text style={styles.searchBtnText}>📍 지도 핀 찝기</Text>
+          <AppIcon name="location" size={18} color={theme.colors.primary} />
+          <Text style={styles.searchBtnText}>지도에서 선택</Text>
         </Pressable>
       </View>
 
@@ -335,11 +351,13 @@ export function AddressPickerField({
         <View style={styles.modalScreen}>
           {/* 상단 닫기 모달 헤더 */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>📍 지도 위치 찝기 (카카오 주소)</Text>
+            <Text style={styles.modalTitle}>현장 위치 선택</Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel="닫기"
               onPress={() => setModalVisible(false)}
               style={styles.closeBtn}
+              hitSlop={8}
             >
               <Text style={styles.closeBtnText}>✕</Text>
             </Pressable>
@@ -357,6 +375,9 @@ export function AddressPickerField({
             {/* 🔍 상단 플로팅 주소/건물명 검색바 */}
             <View style={styles.floatingSearchWrap}>
               <View style={styles.floatingSearchBox}>
+                <View style={styles.searchIcon}>
+                  <AppIcon name="location" size={20} color={theme.colors.textMuted} />
+                </View>
                 <TextInput
                   style={styles.floatingSearchInput}
                   value={query}
@@ -364,51 +385,37 @@ export function AddressPickerField({
                     setQuery(text);
                     if (!text.trim()) setShowDropdown(false);
                   }}
-                  placeholder="도로명, 건물명, 지번 검색 (예: 정자일로 121)"
+                  placeholder="도로명, 건물명, 지번으로 검색"
                   placeholderTextColor={theme.colors.textMuted}
                   returnKeyType="search"
                   onSubmitEditing={() => handleSearch()}
                 />
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.floatingSearchBtn}
-                  onPress={() => handleSearch()}
-                >
-                  <Text style={styles.floatingSearchText}>검색</Text>
-                </Pressable>
-              </View>
-
-              {/* 빠른 추천 지점 칩 */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.quickChipScroll}
-              >
-                {[
-                  { name: '📍 분당 정자역', lat: 37.3613, lng: 127.1055 },
-                  { name: '📍 서울 강남역', lat: 37.4979, lng: 127.0276 },
-                  { name: '📍 경기 양평군청', lat: 37.4912, lng: 127.4875 },
-                  { name: '📍 부산 해운대', lat: 35.1587, lng: 129.1604 },
-                ].map((chip) => (
+                {searching ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                    style={styles.searchSpinner}
+                  />
+                ) : query ? (
                   <Pressable
-                    key={chip.name}
-                    style={styles.quickChip}
-                    onPress={() => panMapTo(chip.lat, chip.lng)}
+                    accessibilityRole="button"
+                    accessibilityLabel="검색어 지우기"
+                    style={styles.clearBtn}
+                    onPress={() => {
+                      setQuery('');
+                      setShowDropdown(false);
+                    }}
+                    hitSlop={8}
                   >
-                    <Text style={styles.quickChipText}>{chip.name}</Text>
+                    <Text style={styles.clearBtnText}>✕</Text>
                   </Pressable>
-                ))}
-              </ScrollView>
+                ) : null}
+              </View>
 
               {/* 검색 드롭다운 드로어 */}
               {showDropdown ? (
                 <View style={styles.dropdownContainer}>
-                  {searching ? (
-                    <View style={styles.dropdownLoading}>
-                      <ActivityIndicator size="small" color={theme.colors.primary} />
-                      <Text style={styles.dropdownLoadingText}>카카오 주소를 찾고 있어요…</Text>
-                    </View>
-                  ) : searchResults.length > 0 ? (
+                  {searchResults.length > 0 ? (
                     <ScrollView style={styles.dropdownList} keyboardShouldPersistTaps="handled">
                       {searchResults.map((item, idx) => (
                         <Pressable
@@ -416,61 +423,89 @@ export function AddressPickerField({
                           style={styles.dropdownItem}
                           onPress={() => handleSelectSearchResult(item)}
                         >
-                          <Text style={styles.dropdownRoad}>{item.roadAddressName}</Text>
-                          {item.buildingName ? (
-                            <Text style={styles.dropdownBuilding}>({item.buildingName})</Text>
-                          ) : null}
-                          <Text style={styles.dropdownRegion}>{item.region}</Text>
+                          <Text style={styles.dropdownRoad} numberOfLines={1}>
+                            {item.roadAddressName}
+                            {item.buildingName ? (
+                              <Text style={styles.dropdownBuilding}> · {item.buildingName}</Text>
+                            ) : null}
+                          </Text>
+                          <Text style={styles.dropdownRegion} numberOfLines={1}>
+                            {item.addressName}
+                          </Text>
                         </Pressable>
                       ))}
                     </ScrollView>
-                  ) : (
+                  ) : !searching ? (
                     <View style={styles.dropdownEmpty}>
                       <Text style={styles.dropdownEmptyText}>검색 결과가 없어요.</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               ) : null}
             </View>
           </View>
 
-          {/* 📍 하단 플로팅 선택 지점 카카오 역지오코딩 보드 */}
+          {/*
+            하단 확정 시트.
+            주소 영역은 최소 높이를 고정한다 — 로딩/결과/2줄 주소를 오갈 때 시트가
+            들썩이면 아래 버튼 위치가 흔들려 오조작으로 이어진다.
+          */}
           <View style={styles.bottomConfirmCard}>
-            {pinLoading ? (
-              <View style={styles.pinLoadingRow}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-                <Text style={styles.pinLoadingText}>카카오 핀 위치 주소 분석 중…</Text>
-              </View>
-            ) : pinResult ? (
-              <View style={styles.pinResultInfo}>
-                <Text style={styles.pinBadge}>📍 선택한 핀 위치 주소</Text>
-                <Text style={styles.pinRoadAddress}>
-                  {pinResult.roadAddressName}{' '}
-                  {pinResult.buildingName ? `(${pinResult.buildingName})` : ''}
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.pinResultInfo}>
+              <Text style={styles.pinBadge}>선택한 위치</Text>
+              {pinResult ? (
+                <>
+                  <Text
+                    style={[styles.pinRoadAddress, pinMoving && styles.pinAddressPending]}
+                    numberOfLines={2}
+                  >
+                    {pinResult.roadAddressName || pinResult.addressName}
+                    {pinResult.buildingName ? (
+                      <Text style={styles.pinBuilding}> · {pinResult.buildingName}</Text>
+                    ) : null}
+                  </Text>
+                  {pinResult.addressName &&
+                  pinResult.addressName !== pinResult.roadAddressName ? (
+                    <Text
+                      style={[styles.pinJibun, pinMoving && styles.pinAddressPending]}
+                      numberOfLines={1}
+                    >
+                      지번 {pinResult.addressName}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <Text style={styles.pinPlaceholder} numberOfLines={2}>
+                  지도를 움직여 현장 위치를 맞춰주세요
                 </Text>
-                {pinResult.addressName && pinResult.addressName !== pinResult.roadAddressName ? (
-                  <Text style={styles.pinJibun}>지번: {pinResult.addressName}</Text>
-                ) : null}
-              </View>
-            ) : (
-              <Text style={styles.pinRoadAddress}>지도를 이동하여 핀 위치를 지정하세요</Text>
-            )}
+              )}
+            </View>
+
+            {locateDenied ? (
+              <Text style={styles.locateDeniedText}>
+                위치 권한이 꺼져 있어요. 검색으로 찾거나 지도를 직접 움직여주세요.
+              </Text>
+            ) : null}
 
             <TextInput
               style={styles.detailInput}
               value={detailAddress}
               onChangeText={setDetailAddress}
-              placeholder="상세주소 입력 (예: 101동 502호, B동 지하1층)"
+              placeholder="상세주소 (예: 101동 502호)"
               placeholderTextColor={theme.colors.textMuted}
             />
 
             <Pressable
               accessibilityRole="button"
-              style={styles.confirmBtn}
+              style={[styles.confirmBtn, !canConfirm && styles.confirmBtnDisabled]}
               onPress={handleConfirm}
-              disabled={!pinResult}
+              disabled={!canConfirm}
             >
-              <Text style={styles.confirmBtnText}>이 위치로 주소 설정 완료</Text>
+              <Text style={[styles.confirmBtnText, !canConfirm && styles.confirmBtnTextDisabled]}>
+                {pinMoving || pinLoading ? '위치를 확인하는 중…' : '이 위치로 설정'}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -501,14 +536,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    paddingVertical: spacing.xs,
     borderRadius: radius.button,
   },
   searchBtnText: {
     color: colors.primary,
     fontSize: font.caption,
     fontWeight: '700',
-    marginLeft: 4,
+    marginLeft: spacing.xs / 2,
   },
   fieldInput: {
     backgroundColor: colors.background,
@@ -555,7 +590,11 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   closeBtn: {
-    padding: spacing.xs,
+    width: theme.touch.minButtonHeight,
+    height: theme.touch.minButtonHeight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -spacing.xs,
   },
   closeBtnText: {
     fontSize: font.titleLarge,
@@ -583,86 +622,72 @@ const styles = StyleSheet.create({
   },
   floatingSearchWrap: {
     position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
+    top: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
     zIndex: 1100,
   },
+  // 지도 위에 뜨는 요소는 테두리 대신 그림자로 띄운다(지도와 경계가 자연스럽다).
   floatingSearchBox: {
     flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: radius.card,
-    padding: 6,
+    borderRadius: radius.button,
+    paddingHorizontal: spacing.xs + 4,
+    minHeight: theme.touch.minButtonHeight + 8,
     ...theme.shadow.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 5,
+  },
+  searchIcon: {
+    marginRight: spacing.xs / 2,
   },
   floatingSearchInput: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.xs / 2,
+    paddingVertical: spacing.xs,
     fontSize: font.body,
     color: colors.text,
   },
-  floatingSearchBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.button,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
+  searchSpinner: {
+    marginHorizontal: spacing.xs,
+  },
+  clearBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  floatingSearchText: {
-    color: '#FFFFFF',
-    fontSize: font.body,
+  clearBtnText: {
+    color: colors.textMuted,
+    fontSize: font.caption - 2,
     fontWeight: '700',
-  },
-  quickChipScroll: {
-    marginTop: 8,
-  },
-  quickChip: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 6,
-    marginRight: 6,
-    ...theme.shadow.card,
-    borderWidth: 1,
-    borderColor: colors.primarySoft,
-  },
-  quickChipText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
+    lineHeight: font.caption,
   },
   dropdownContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: radius.card,
-    marginTop: 6,
-    maxHeight: 220,
+    borderRadius: radius.button,
+    marginTop: spacing.xs,
+    maxHeight: 264,
     ...theme.shadow.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 5,
     overflow: 'hidden',
-  },
-  dropdownLoading: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dropdownLoadingText: {
-    marginLeft: spacing.xs,
-    color: colors.textMuted,
-    fontSize: font.body,
   },
   dropdownList: {
     maxHeight: 220,
   },
   dropdownItem: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    minHeight: theme.touch.minButtonHeight,
+    justifyContent: 'center',
   },
   dropdownRoad: {
     color: colors.text,
@@ -671,13 +696,13 @@ const styles = StyleSheet.create({
   },
   dropdownBuilding: {
     color: colors.primary,
-    fontSize: font.caption,
+    fontSize: font.body,
     fontWeight: '600',
   },
   dropdownRegion: {
     color: colors.textMuted,
-    fontSize: font.caption - 1,
-    marginTop: 2,
+    fontSize: font.caption,
+    marginTop: spacing.xs / 4,
   },
   dropdownEmpty: {
     padding: spacing.md,
@@ -691,62 +716,99 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: radius.card + 4,
     borderTopRightRadius: radius.card + 4,
-    padding: spacing.md,
-    paddingBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    ...theme.shadow.card,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
+    // 지도 위로 떠 있는 시트라 위쪽으로 그림자를 준다(테두리보다 자연스럽다).
+    shadowColor: '#0B1B3A',
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 12,
   },
-  pinLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
+  // 시트를 잡을 수 있는 것처럼 보이게 하는 손잡이 — 하단 시트의 관례.
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.xs + 4,
   },
-  pinLoadingText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginLeft: spacing.xs,
-  },
+  // 로딩/1줄/2줄 주소를 오가도 시트 높이가 변하지 않도록 최소 높이를 잡는다.
   pinResultInfo: {
-    marginBottom: spacing.xs,
+    minHeight: 88,
+    justifyContent: 'center',
+    marginBottom: spacing.xs / 2,
   },
   pinBadge: {
-    color: colors.primary,
+    color: colors.textMuted,
     fontSize: font.caption,
-    fontWeight: '800',
-    marginBottom: 2,
+    fontWeight: '700',
+    marginBottom: spacing.xs / 2,
   },
   pinRoadAddress: {
     color: colors.text,
     fontSize: font.title,
     fontWeight: '800',
+    lineHeight: font.title + 8,
+  },
+  pinBuilding: {
+    color: colors.primary,
+    fontSize: font.title,
+    fontWeight: '800',
+  },
+  // 지도가 움직이는 동안의 주소는 아직 확정이 아니다 — 흐리게 보여 준다.
+  pinAddressPending: {
+    opacity: 0.35,
+  },
+  pinPlaceholder: {
+    color: colors.textMuted,
+    fontSize: font.bodyLarge,
+    fontWeight: '600',
+    lineHeight: font.bodyLarge + 8,
   },
   pinJibun: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
+  },
+  locateDeniedText: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginBottom: spacing.xs / 2,
   },
   detailInput: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderRadius: radius.button,
     borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    minHeight: theme.touch.minButtonHeight,
     fontSize: font.body,
     color: colors.text,
-    marginVertical: spacing.xs + 2,
+    marginBottom: spacing.xs,
   },
   confirmBtn: {
     backgroundColor: colors.primary,
     borderRadius: radius.button,
-    paddingVertical: spacing.md,
+    minHeight: theme.touch.primaryButtonHeight,
     alignItems: 'center',
-    marginTop: spacing.xs,
+    justifyContent: 'center',
+    ...theme.shadow.primary,
+  },
+  // 비활성 상태가 눈에 보여야 한다 — 눌리지 않는데 멀쩡해 보이면 고장으로 읽힌다.
+  confirmBtnDisabled: {
+    backgroundColor: colors.surface,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   confirmBtnText: {
     color: '#FFFFFF',
     fontSize: font.bodyLarge,
     fontWeight: '800',
+  },
+  confirmBtnTextDisabled: {
+    color: colors.textMuted,
   },
 });

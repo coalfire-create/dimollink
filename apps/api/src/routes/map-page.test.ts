@@ -49,9 +49,89 @@ describe('renderMapPage — 키 없을 때', () => {
     expect(html).not.toContain('dapi.kakao.com');
   });
 
-  it('OSM 으로 바로 시작하고 이유를 안내한다', () => {
+  it('OSM 으로 바로 시작하고 사용자에게 상황을 알린다', () => {
     expect(html).toContain('tile.openstreetmap.org');
-    expect(html).toContain('카카오 지도 키가 필요합니다');
+    expect(html).toContain('간략 모드');
+  });
+
+  // 지도 안내 문구는 최종 사용자가 읽는 텍스트다. 연동사 이름이나 키·도메인 설정 같은
+  // 내부 사정을 노출하면 사용자는 자기가 뭘 잘못했나 싶어진다.
+  it('안내 문구에 내부 사정(연동사·키)을 노출하지 않는다', () => {
+    const notes = [...html.matchAll(/startOsm\('([^']*)'\)/g)].map((m) => m[1]);
+    expect(notes.length).toBeGreaterThan(0);
+    for (const note of notes) {
+      expect(note).not.toMatch(/카카오|kakao|키|도메인|API/i);
+    }
+  });
+});
+
+/**
+ * 핀 연출 — "지도를 움직이는 동안 떠 있다가, 멈추면 내려앉는다"가 핵심이다.
+ * 상시 반복 애니메이션이나 이모지 핀은 통제가 안 되고 싸구려로 보인다.
+ */
+describe('renderMapPage — 핀 연출', () => {
+  const html = renderMapPage('k', CENTER);
+
+  it('핀을 이모지가 아니라 SVG 로 그린다', () => {
+    expect(html).toContain('<svg');
+    expect(html).not.toContain('📍');
+  });
+
+  it('핀 끝이 지도 정중앙에 정렬된다', () => {
+    expect(html).toContain('.pin-anchor { position:absolute; left:50%; top:50%;');
+    expect(html).toContain('.pin-body { position:absolute; bottom:0;');
+  });
+
+  it('움직이는 동안에만 핀이 떠오른다(상시 반복 애니메이션 없음)', () => {
+    expect(html).toContain('.pin-anchor.is-moving .pin-body');
+    expect(html).not.toContain('infinite');
+  });
+
+  it('그림자가 줄어들며 핀의 높이를 표현한다', () => {
+    expect(html).toContain('.pin-anchor.is-moving .pin-shadow');
+    expect(html).toContain('transform:scale(.5)');
+  });
+
+  // 그림자 위에 별도의 점을 겹쳐 그리면 축소된 그림자를 덮어 높이 단서가 사라진다.
+  it('그림자를 가리는 중복 지점 표시를 두지 않는다', () => {
+    expect(html).not.toContain('pin-dot');
+  });
+
+  it('이동 시작을 앱에 알려 주소 텍스트를 흐리게 할 수 있게 한다', () => {
+    expect(html).toContain("type: 'MAP_MOVING'");
+  });
+
+  // 이동 종료 이벤트가 유실되면 핀이 뜬 채로 굳고 확정 버튼이 영영 비활성이 된다.
+  it('이동 종료 이벤트가 오지 않아도 스스로 원위치한다', () => {
+    expect(html).toContain('settleGuard');
+    expect(html).toContain('markSettled(); scheduleMoved();');
+  });
+});
+
+/**
+ * 지도 위 컨트롤 — 고령 사용자 기준 터치 영역 48px 을 지킨다(CLAUDE.md 디자인 기준).
+ */
+describe('renderMapPage — 지도 컨트롤', () => {
+  const html = renderMapPage('k', CENTER);
+
+  it('현재 위치·확대·축소 버튼을 제공한다', () => {
+    expect(html).toContain('id="btn-locate"');
+    expect(html).toContain('id="btn-zoom-in"');
+    expect(html).toContain('id="btn-zoom-out"');
+  });
+
+  it('모든 지도 버튼이 48px 터치 영역을 지킨다', () => {
+    expect(html).toContain('.map-btn { width:48px; height:48px;');
+  });
+
+  it('버튼마다 접근성 레이블을 단다', () => {
+    expect(html).toContain('aria-label="현재 위치로 이동"');
+    expect(html).toContain('aria-label="확대"');
+    expect(html).toContain('aria-label="축소"');
+  });
+
+  it('지도 기본 줌 컨트롤과 겹치지 않게 숨긴다', () => {
+    expect(html).toContain('.leaflet-control-zoom, .leaflet-control-attribution { display:none !important; }');
   });
 });
 

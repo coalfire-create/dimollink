@@ -113,7 +113,7 @@ export function InteriorFormScreen() {
               if (reg) setRegion(reg);
             }}
             placeholder="예) ○○시 ○○구 ○○동 12-3"
-            hint="카카오 지도 주소 검색으로 정확한 현장 위치를 지정해요."
+            hint="주소를 검색하거나 지도를 움직여 현장 위치를 정확히 맞춰주세요."
           />
           <Field
             label="상세 요구사항"

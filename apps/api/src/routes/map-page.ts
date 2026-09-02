@@ -36,20 +36,81 @@ export function createMapPageRouter(): Router {
   return router;
 }
 
+/** 브랜드 메인 컬러 — packages/shared 의 COLORS.primary 와 같은 값. */
+const PIN_COLOR = '#2C55E9';
+
+/**
+ * 핀은 이모지가 아니라 SVG 로 그린다. 이모지는 OS·폰트마다 모양이 달라 통제가 안 되고,
+ * 크기를 키우면 가장자리가 뭉개진다.
+ *
+ * 움직임 규칙(카카오T·우버 등이 쓰는 방식):
+ *  - 지도를 잡고 움직이는 동안 핀이 살짝 떠오르고 그림자는 작아진다 → "떼어낸" 느낌
+ *  - 손을 떼면 살짝 튕기며 내려앉는다 → 위치가 확정됐다는 신호
+ * 상시 반복되는 bounce 애니메이션은 시선을 계속 끌어 오히려 싸구려로 보이므로 쓰지 않는다.
+ */
 const SHARED_CSS = `
   html, body, #map { width:100%; height:100%; margin:0; padding:0; overflow:hidden;
-    background:#e5e3df; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-  .center-pin-wrap { position:absolute; top:50%; left:50%; transform:translate(-50%,-100%);
-    z-index:1000; pointer-events:none; display:flex; flex-direction:column; align-items:center; }
-  .center-pin-emoji { font-size:42px; line-height:1;
-    filter:drop-shadow(0 6px 8px rgba(0,0,0,0.35)); animation:bouncePin 1.2s infinite ease-in-out alternate; }
-  .center-pin-shadow { width:16px; height:6px; background:rgba(0,0,0,0.25); border-radius:50%; margin-top:-4px; }
-  @keyframes bouncePin { from { transform:translateY(0); } to { transform:translateY(-6px); } }
-  .leaflet-control-zoom { margin-bottom:90px !important; margin-right:16px !important; }
-  #fallback-note { position:absolute; left:8px; bottom:26px; z-index:1000; max-width:70%;
-    background:rgba(0,0,0,0.6); color:#fff; font-size:11px; line-height:1.4;
-    padding:6px 8px; border-radius:6px; }
+    background:#e5e3df; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif; }
+  * { -webkit-tap-highlight-color:transparent; }
+
+  /* 지도 정중앙의 0x0 기준점. 핀 끝과 그림자가 모두 이 점에 정렬된다. */
+  .pin-anchor { position:absolute; left:50%; top:50%; width:0; height:0; z-index:1000;
+    pointer-events:none; }
+
+  /* 핀 본체 — bottom:0 이라 뾰족한 끝이 정확히 기준점에 닿는다. */
+  .pin-body { position:absolute; bottom:0; left:50%; width:34px; height:46px; margin-left:-17px;
+    transform:translateY(0); transform-origin:50% 100%;
+    transition:transform .32s cubic-bezier(.22,1.4,.4,1);
+    filter:drop-shadow(0 4px 6px rgba(16,32,72,.28)); }
+  .pin-anchor.is-moving .pin-body { transform:translateY(-14px); }
+
+  /* 지면 그림자 — 핀이 뜨면 작고 진해진다.
+     핀이 떠 있는 동안에는 이 그림자가 곧 "정확히 여기" 를 가리키는 지점 표시가 된다.
+     별도의 점을 겹쳐 그리면 축소된 그림자를 덮어 버려 높이 단서가 사라진다. */
+  .pin-shadow { position:absolute; left:50%; top:0; width:20px; height:7px; margin-left:-10px;
+    margin-top:-3.5px; border-radius:50%; background:rgba(16,32,72,.30);
+    transition:transform .32s cubic-bezier(.22,1.4,.4,1), background .32s ease; }
+  .pin-anchor.is-moving .pin-shadow { transform:scale(.5); background:rgba(16,32,72,.55); }
+
+  /* 지도 위 컨트롤 — 터치 영역 48px 규칙을 지킨다. */
+  .map-controls { position:absolute; right:16px; bottom:24px; z-index:1000;
+    display:flex; flex-direction:column; gap:8px; }
+  .map-btn { width:48px; height:48px; padding:0; border:none; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff; border-radius:14px; color:#1A1A1A;
+    box-shadow:0 2px 10px rgba(16,32,72,.18); transition:transform .12s ease, background .12s ease; }
+  .map-btn:active { transform:scale(.94); background:#F1F3F7; }
+  .map-btn[disabled] { opacity:.45; cursor:default; }
+  .map-btn.is-active { color:${PIN_COLOR}; }
+  /* 확대/축소는 한 덩어리로 묶어 지도 앱의 관례를 따른다. */
+  .map-zoom { display:flex; flex-direction:column; background:#fff; border-radius:14px;
+    box-shadow:0 2px 10px rgba(16,32,72,.18); overflow:hidden; }
+  .map-zoom .map-btn { border-radius:0; box-shadow:none; }
+  .map-zoom .map-btn + .map-btn { border-top:1px solid #E7EAF1; }
+
+  /* 기본 줌 컨트롤은 우리 버튼과 중복되므로 숨긴다. */
+  .leaflet-control-zoom, .leaflet-control-attribution { display:none !important; }
+
+  #fallback-note { position:absolute; left:16px; right:80px; bottom:24px; z-index:1000;
+    background:rgba(16,32,72,.82); color:#fff; font-size:15px; line-height:1.45;
+    padding:8px 12px; border-radius:10px; }
 `;
+
+/** 지도 중앙 핀 마크업. */
+const PIN_HTML = `
+<div class="pin-anchor" id="pin">
+  <div class="pin-shadow"></div>
+  <div class="pin-body">
+    <svg width="34" height="46" viewBox="0 0 34 46" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17 0C7.6 0 0 7.6 0 17c0 11.9 15.1 27.4 15.8 28a1.8 1.8 0 0 0 2.5 0C18.9 44.4 34 28.9 34 17 34 7.6 26.4 0 17 0z" fill="${PIN_COLOR}"/>
+      <circle cx="17" cy="16.6" r="6.2" fill="#fff"/>
+    </svg>
+  </div>
+</div>`;
+
+const ICON_LOCATE = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/><path d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3"/></svg>`;
+const ICON_PLUS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
+const ICON_MINUS = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/></svg>`;
 
 /**
  * 지도 HTML.
@@ -70,19 +131,22 @@ export function renderMapPage(
           center: new kakao.maps.LatLng(${center.lat}, ${center.lng}),
           level: 3
         });
-        map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.BOTTOMRIGHT);
-        kakao.maps.event.addListener(map, 'idle', scheduleMoved);
+        kakao.maps.event.addListener(map, 'dragstart', markMoving);
+        kakao.maps.event.addListener(map, 'zoom_start', markMoving);
+        kakao.maps.event.addListener(map, 'idle', function() { markSettled(); scheduleMoved(); });
         setMapApi({
           setCenter: function(lat, lng) { map.panTo(new kakao.maps.LatLng(lat, lng)); },
-          getCenter: function() { var c = map.getCenter(); return { lat: c.getLat(), lng: c.getLng() }; }
+          getCenter: function() { var c = map.getCenter(); return { lat: c.getLat(), lng: c.getLng() }; },
+          // 카카오는 level 이 낮을수록 확대다.
+          zoomBy: function(d) { map.setLevel(map.getLevel() - d, { animate: true }); }
         });
       });
     }
     startKakao();
     setTimeout(function() {
-      startOsm('카카오 지도를 불러오지 못했어요. 간략 지도로 표시합니다. (JS 키·허용 도메인 확인)');
+      startOsm('지도를 간략 모드로 표시하고 있어요. 위치 선택은 그대로 됩니다.');
     }, 4000);`
-    : `startOsm('간략 지도예요. 건물·상호까지 보려면 카카오 지도 키가 필요합니다.');`;
+    : `startOsm('지도를 간략 모드로 표시하고 있어요. 위치 선택은 그대로 됩니다.');`;
 
   return `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -93,17 +157,49 @@ ${kakaoJsKey ? `<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enco
 <style>${SHARED_CSS}</style>
 </head><body>
 <div id="map"></div>
-<div class="center-pin-wrap"><div class="center-pin-emoji">📍</div><div class="center-pin-shadow"></div></div>
+${PIN_HTML}
+<div class="map-controls">
+  <button type="button" class="map-btn" id="btn-locate" aria-label="현재 위치로 이동">${ICON_LOCATE}</button>
+  <div class="map-zoom">
+    <button type="button" class="map-btn" id="btn-zoom-in" aria-label="확대">${ICON_PLUS}</button>
+    <button type="button" class="map-btn" id="btn-zoom-out" aria-label="축소">${ICON_MINUS}</button>
+  </div>
+</div>
 <script>
-  var mapApi = null;        // 준비된 지도 구현 { setCenter, getCenter }
+  var mapApi = null;        // 준비된 지도 구현 { setCenter, getCenter, zoomBy }
   var pendingCenter = null; // 지도가 뜨기 전 들어온 이동 요청
+  var pinEl = document.getElementById('pin');
+
+  function post(payload) {
+    if (window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+  }
+
+  // 핀을 띄운다. 지도가 움직이는 동안 앱은 주소 텍스트를 흐리게 처리한다.
+  var moving = false;
+  var settleGuard = null;
+  function markMoving() {
+    // 안전장치: 이동 종료 이벤트가 끝내 오지 않는 경우에도 핀이 뜬 채로 굳으면 안 된다.
+    // (예: 이미 그 좌표에 있는데 panTo 를 부르면 leaflet 은 moveend 를 주지 않는다.
+    //  그대로 두면 앱의 "이 위치로 설정" 버튼이 영영 비활성으로 남는다.)
+    if (settleGuard) clearTimeout(settleGuard);
+    settleGuard = setTimeout(function() { markSettled(); scheduleMoved(); }, 2500);
+    if (moving) return;
+    moving = true;
+    pinEl.classList.add('is-moving');
+    post({ type: 'MAP_MOVING' });
+  }
+  function markSettled() {
+    if (settleGuard) { clearTimeout(settleGuard); settleGuard = null; }
+    if (!moving) return;
+    moving = false;
+    pinEl.classList.remove('is-moving');
+  }
 
   function emitMoved() {
     if (!mapApi) return;
     var c = mapApi.getCenter();
-    var payload = { type: 'MAP_MOVED', lat: c.lat, lng: c.lng };
-    if (window.parent && window.parent !== window) window.parent.postMessage(payload, '*');
-    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+    post({ type: 'MAP_MOVED', lat: c.lat, lng: c.lng });
   }
   var moveTimer = null;
   function scheduleMoved() {
@@ -117,21 +213,49 @@ ${kakaoJsKey ? `<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enco
   }
   // 앱 ↔ 지도 공통 인터페이스
   window.__panTo = function(lat, lng) {
-    if (mapApi) mapApi.setCenter(lat, lng); else pendingCenter = { lat: lat, lng: lng };
+    if (mapApi) { markMoving(); mapApi.setCenter(lat, lng); }
+    else pendingCenter = { lat: lat, lng: lng };
   };
   window.addEventListener('message', function(e) {
     if (e.data && e.data.type === 'PAN_TO') window.__panTo(e.data.lat, e.data.lng);
   });
 
+  document.getElementById('btn-zoom-in').onclick = function() { mapApi && mapApi.zoomBy(1); };
+  document.getElementById('btn-zoom-out').onclick = function() { mapApi && mapApi.zoomBy(-1); };
+
+  // 현재 위치 — 지도 문서 안에서 호출해야 iframe/WebView 권한이 정상 동작한다.
+  var locateBtn = document.getElementById('btn-locate');
+  if (!navigator.geolocation) {
+    locateBtn.disabled = true;
+  } else {
+    locateBtn.onclick = function() {
+      if (locateBtn.disabled) return;
+      locateBtn.disabled = true;
+      locateBtn.classList.add('is-active');
+      navigator.geolocation.getCurrentPosition(
+        function(pos) {
+          locateBtn.disabled = false;
+          locateBtn.classList.remove('is-active');
+          window.__panTo(pos.coords.latitude, pos.coords.longitude);
+        },
+        function() {
+          locateBtn.disabled = false;
+          locateBtn.classList.remove('is-active');
+          post({ type: 'LOCATE_DENIED' });
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    };
+  }
+
   function startOsm(note) {
     if (mapApi) return;
     document.getElementById('map').innerHTML = '';
-    var map = L.map('map', { zoomControl: false }).setView([${center.lat}, ${center.lng}], 17);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    map.on('moveend', scheduleMoved);
+    var map = L.map('map', { zoomControl: false, attributionControl: false })
+      .setView([${center.lat}, ${center.lng}], 17);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    map.on('movestart zoomstart', markMoving);
+    map.on('moveend', function() { markSettled(); scheduleMoved(); });
     if (note) {
       var n = document.createElement('div');
       n.id = 'fallback-note'; n.textContent = note;
@@ -139,7 +263,8 @@ ${kakaoJsKey ? `<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${enco
     }
     setMapApi({
       setCenter: function(lat, lng) { map.setView([lat, lng], map.getZoom(), { animate: true }); },
-      getCenter: function() { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; }
+      getCenter: function() { var c = map.getCenter(); return { lat: c.lat, lng: c.lng }; },
+      zoomBy: function(d) { d > 0 ? map.zoomIn() : map.zoomOut(); }
     });
   }
   ${kakaoBlock}
