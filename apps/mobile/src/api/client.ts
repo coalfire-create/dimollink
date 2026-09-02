@@ -172,10 +172,10 @@ export const createUser = (input: CreateUserInput) =>
 export const getUser = (id: string) => api<UserProfile>(`/users/${id}`);
 
 /** 운반업체 콜대기 상태 토글 (ONLINE=대기, OFFLINE=종료). */
-export const setAvailability = (userId: string, availability: CallAvailability) =>
+export const setAvailability = (userId: string, availability: CallAvailability, radiusKm?: number) =>
   api<UserProfile>(`/users/${userId}/availability`, {
     method: 'PATCH',
-    body: JSON.stringify({ availability }),
+    body: JSON.stringify({ availability, radiusKm }),
   });
 
 /** 처리장 운반요청 제공 여부 토글 (true=운반요청 가능, false=운반 별도). */
@@ -268,6 +268,11 @@ export const listMessages = (requestId: string, viewerId: string, since?: string
       (since ? `&since=${encodeURIComponent(since)}` : ''),
   );
 
+export const markMessagesAsRead = (requestId: string) =>
+  api<void>(`/requests/${requestId}/messages/read`, {
+    method: 'PATCH',
+  });
+
 export const sendMessage = (requestId: string, senderId: string, content: string) =>
   api<ChatMessage>(`/requests/${requestId}/messages`, {
     method: 'POST',
@@ -280,7 +285,7 @@ export interface AnalyzeImage {
   imageBase64: string;
   mimeType?: string;
 }
-export const analyzeSite = (input: {
+export interface AnalyzeSiteInput {
   imageBase64?: string;
   mimeType?: string;
   images?: AnalyzeImage[];
@@ -289,7 +294,35 @@ export const analyzeSite = (input: {
   /** 현장 주소로 미리 조회한 건축물대장 정보 — 분석 정확도를 올리는 사전 사실. */
   building?: BuildingLedgerInfo;
   siteAddress?: string;
-}) => api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
+}
+// POST /api/site-analysis/analyze
+// Returns { jobId } and polls /api/site-analysis/jobs/:id
+export const analyzeSite = async (input: AnalyzeSiteInput): Promise<SiteAnalysis> => {
+  const { jobId } = await api<{ jobId: string }>('/site-analysis/analyze', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return new Promise((resolve, reject) => {
+    const poll = async () => {
+      try {
+        const job = await api<{ status: string; result?: SiteAnalysis; error?: string }>(
+          `/site-analysis/jobs/${jobId}`
+        );
+        if (job.status === 'COMPLETED' && job.result) {
+          resolve(job.result);
+        } else if (job.status === 'FAILED') {
+          reject(new ApiError(job.error || '분석 실패', 500));
+        } else {
+          setTimeout(poll, 2000); // Poll every 2 seconds
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    poll();
+  });
+};
 
 /** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
 export interface PhotoWasteItemsResult {
@@ -483,4 +516,14 @@ export type BuildingInfo = BuildingLedgerInfo;
 
 export const getBuildingInfo = (address: string) =>
   api<BuildingInfo>(`/locations/building-info?address=${encodeURIComponent(address)}`);
+
+// ── 리뷰 및 인시던트 API
+export const createReview = (input: { requestId: string; rating: number; comment?: string }) =>
+  api<{ id: string }>('/reviews', { method: 'POST', body: JSON.stringify(input) });
+
+export const getRatingSummary = (userId: string) =>
+  api<RatingSummary>(`/users/${userId}/rating`);
+
+export const reportIncident = (input: { requestId: string; type: 'NO_SHOW' | 'DISPUTE'; detail?: string }) =>
+  api<{ id: string }>('/incidents', { method: 'POST', body: JSON.stringify(input) });
 

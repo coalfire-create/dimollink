@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  TRANSPORT_MATCH_RADIUS_KM,
+  MATCH_RADIUS_KM,
   type AppNotification,
   type GeoPoint,
   type MatchStatus,
@@ -97,7 +97,7 @@ export class NotificationService {
 
   /**
    * 신규 운반요청 "콜" 알림 (로드맵 Phase 1 — 운반업체 반경 매칭).
-   * 배출 현장(상차지) 기준 반경 TRANSPORT_MATCH_RADIUS_KM(30km) 이내의 운반업체에게만 콜을 보낸다.
+   * 배출 현장(상차지) 기준 반경 MATCH_RADIUS_KM(30km) 이내의 운반업체에게만 콜을 보낸다.
    * 현장 좌표가 없으면 반경을 판단할 수 없어 전달된 후보 전체에 보낸다
    * (콜대기/지역 필터는 호출부 몫). 발송 실패는 삼킨다 — 알림 때문에 요청 생성이 실패하면 안 된다.
    */
@@ -108,7 +108,7 @@ export class NotificationService {
     if (request.kind !== 'TRANSPORT') return [];
 
     const ranked = rankByDistance(request.location, [...companies], {
-      maxRadiusKm: TRANSPORT_MATCH_RADIUS_KM,
+      maxRadiusKm: MATCH_RADIUS_KM,
     });
     // 현장 좌표가 있으면 반경 밖(거리 null 인 좌표 미보유 업체 포함)은 제외, 없으면 후보 전체.
     const targets = request.location ? ranked.filter((c) => c.distanceKm !== null) : ranked;
@@ -148,5 +148,26 @@ export class NotificationService {
           (filter.requestId === undefined || n.requestId === filter.requestId),
       )
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  /** 채팅 알림 전송 (Push Notification). */
+  notifyChatMessage(request: ServiceRequest, senderId: string, content: string) {
+    const targetId = request.requesterId === senderId ? request.matchedProviderId : request.requesterId;
+    if (!targetId) return;
+    
+    // 이 단계에서는 FCM 연동 대신 NotificationProvider 를 사용해 푸시 알림 로그를 남깁니다.
+    // (실제 FCM 연동 시 이 메서드에서 provider.sendPush 등 별도 인터페이스 호출 가능)
+    const notification: AppNotification = {
+      id: randomUUID(),
+      userId: targetId,
+      requestId: request.id,
+      status: request.status,
+      message: `[새 메시지] ${content.length > 20 ? content.slice(0, 20) + '...' : content}`,
+      createdAt: new Date().toISOString(),
+    };
+    
+    // 인앱 알림함에는 굳이 모든 메시지를 저장하지 않고 푸시만 보낼 수도 있지만,
+    // 현재 구조상 dispatch 로 전달하여 기록도 남깁니다.
+    this.dispatch([notification]);
   }
 }

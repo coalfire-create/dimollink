@@ -1,5 +1,5 @@
 import {
-  TRANSPORT_MATCH_RADIUS_KM,
+  MATCH_RADIUS_KM,
   isValidGeoPoint,
   type GeoPoint,
   type MatchCandidate,
@@ -39,7 +39,7 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
     }
     if (typeof body.maxRadiusKm === 'number') options.maxRadiusKm = body.maxRadiusKm;
     // 운반업체 후보는 명시 지정이 없으면 기본 반경 30km 이내만 노출한다.
-    else if (options.role === 'TRANSPORT') options.maxRadiusKm = TRANSPORT_MATCH_RADIUS_KM;
+    else if (options.role === 'TRANSPORT') options.maxRadiusKm = MATCH_RADIUS_KM;
     if (typeof body.limit === 'number') options.limit = body.limit;
     return options;
   }

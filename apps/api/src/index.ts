@@ -89,6 +89,10 @@ async function main(): Promise<void> {
     console.log(`[dimol-api] listening on http://localhost:${env.port} (${env.nodeEnv})`);
   });
 
+  // Attach WebSocket server
+  const { setupTrackingWebSocket } = await import('./tracking/websocket.js');
+  setupTrackingWebSocket(server);
+
   // 무중단 배포·컨테이너 종료 대응 — 진행 중 요청을 마치고 정리 후 종료.
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, () => {

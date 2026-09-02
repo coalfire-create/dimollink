@@ -1,6 +1,7 @@
 import {
-  TRANSPORT_MATCH_RADIUS_KM,
+  MATCH_RADIUS_KM,
   regionMatches,
+  haversineDistanceKm,
   requestKindForProvider,
   type MatchStatus,
   type ProviderJobs,
@@ -46,17 +47,23 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     const availabilityBlocksOpen =
       provider.userType === 'TRANSPORT_COMPANY' && provider.availability !== 'ONLINE';
 
+    // 기존의 완전일치 region 필터를 제거하고 모든 지역의 open 일감을 가져온다.
+    // 반경 30km 필터는 아래 rankByDistance 에서 수행된다.
     const openRaw = availabilityBlocksOpen
       ? []
-      : (await requestStore.list({ kind, status: 'REQUESTED', region: provider.region }))
+      : (await requestStore.list({ kind, status: 'REQUESTED' }))
           // 자기가 올린 요청은 제외.
           .filter((r) => r.requesterId !== providerId);
 
     // 거리 기반 매칭 추천 — 업체 기준 좌표에서 가까운 순으로 정렬(+distanceKm).
-    // 운반업체 콜 피드는 기본 반경 30km 이내 일감만 노출한다(좌표 없는 일감은 그대로 유지).
+    // 운반업체는 사용자 설정 반경(또는 기본 30km) 적용, 그 외 업체는 전국 단위(제한 없음).
+    const maxRadiusKm =
+      provider.userType === 'TRANSPORT_COMPANY'
+        ? (provider.matchRadiusKm ?? MATCH_RADIUS_KM)
+        : undefined;
+
     const open = rankByDistance(provider.location, openRaw, {
-      maxRadiusKm:
-        provider.userType === 'TRANSPORT_COMPANY' ? TRANSPORT_MATCH_RADIUS_KM : undefined,
+      maxRadiusKm,
     });
 
     const assigned = (await requestStore.list({ providerId })).filter((r) =>
@@ -100,10 +107,18 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       res.status(403).json({ error: '내 업종에 맞는 일감이 아니에요.' });
       return;
     }
-    if (!regionMatches(request.region, provider.region)) {
+
+    if (request.location && provider.location) {
+      const dist = haversineDistanceKm(request.location, provider.location);
+      if (dist > MATCH_RADIUS_KM) {
+        res.status(400).json({ error: `매칭 반경(${MATCH_RADIUS_KM}km)을 벗어난 일감은 수락할 수 없어요.` });
+        return;
+      }
+    } else if (!regionMatches(request.region, provider.region)) {
       res.status(400).json({ error: '다른 지역의 일감은 수락할 수 없어요.' });
       return;
     }
+
     if (provider.userType === 'TRANSPORT_COMPANY' && provider.availability !== 'ONLINE') {
       res.status(409).json({ error: '콜대기를 켜야 콜을 수락할 수 있어요.' });
       return;

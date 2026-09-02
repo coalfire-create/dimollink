@@ -30,6 +30,7 @@ export function TransportHomeScreen() {
   const [availability, setLocalAvailability] = useState<CallAvailability>(
     user.availability ?? 'OFFLINE',
   );
+  const [radiusKm, setRadiusKm] = useState<number>(user.matchRadiusKm ?? 30);
   const [availBusy, setAvailBusy] = useState(false);
   const [pricing, setPricing] = useState<ProviderPricing | null>(null);
 
@@ -72,7 +73,7 @@ export function TransportHomeScreen() {
     const next: CallAvailability = availability === 'ONLINE' ? 'OFFLINE' : 'ONLINE';
     setAvailBusy(true);
     try {
-      const updated = await setAvailability(user.id, next);
+      const updated = await setAvailability(user.id, next, radiusKm);
       setLocalAvailability(updated.availability ?? next);
       await load();
     } catch {
@@ -145,11 +146,31 @@ export function TransportHomeScreen() {
                   {CALL_AVAILABILITY_LABELS[availability]}
                 </Text>
                 <Text style={styles.availDescription}>
-                  {online ? '운반 콜을 대기하고 있어요' : '콜대기를 켜면 운반 콜을 받을 수 있어요'}
+                  {online 
+                    ? `운반 콜을 대기하고 있어요 (반경 ${radiusKm}km)`
+                    : '콜대기를 켜면 운반 콜을 받을 수 있어요'}
                 </Text>
               </View>
               <Text style={{fontSize: 48}}>{online ? '📡' : '💤'}</Text>
             </View>
+
+            {!online ? (
+              <View style={styles.radiusSelector}>
+                <Text style={styles.radiusLabel}>매칭 수신 반경 설정</Text>
+                <View style={styles.radiusOptions}>
+                  {[30, 40, 50, 100].map((r) => (
+                    <AppButton
+                      key={r}
+                      label={`${r}km`}
+                      variant={radiusKm === r ? 'primary' : 'outline'}
+                      style={styles.radiusOptionBtn}
+                      onPress={() => setRadiusKm(r)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
             <AppButton
               label={online ? '콜대기 끄기' : '콜대기 켜기'}
               variant={online ? 'outline' : 'primary'}

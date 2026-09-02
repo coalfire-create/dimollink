@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CHAT_MESSAGE_MAX_LENGTH, type ChatMessage } from '@dimol/shared';
 import type { CollectionPersistence } from '../lib/json-collection.js';
 import type { RequestStore } from '../requests/store.js';
+import type { NotificationService } from '../notifications/service.js';
 
 export class ChatValidationError extends Error {}
 
@@ -11,6 +12,7 @@ export class ChatStore {
 
   constructor(
     private readonly requestStore: RequestStore,
+    private readonly notificationService: NotificationService,
     private readonly persistence?: CollectionPersistence<ChatMessage>,
   ) {}
 
@@ -68,6 +70,7 @@ export class ChatStore {
       createdAt,
     };
     await this.saveInner(message);
+    this.notificationService.notifyChatMessage(request, senderId, message.content);
     return message;
   }
 
@@ -81,5 +84,16 @@ export class ChatStore {
     return all
       .filter((m) => m.requestId === requestId && (since === undefined || m.createdAt > since))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async markAsRead(requestId: string, viewerId: string): Promise<void> {
+    const all = await this.listInner();
+    const unread = all.filter(
+      (m) => m.requestId === requestId && m.senderId !== viewerId && !m.readAt
+    );
+    const now = new Date().toISOString();
+    for (const msg of unread) {
+      await this.saveInner({ ...msg, readAt: now });
+    }
   }
 }

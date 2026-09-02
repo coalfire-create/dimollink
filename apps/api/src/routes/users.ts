@@ -151,6 +151,7 @@ export function createUsersRouter(
         businessNumber,
         location: parseGeoPoint(body.location),
         ...(socialIdentity ? { socialIdentity } : {}),
+        autoApprove: !!allbaroVerifiedAt,
       } as CreateUserInput);
       // 올바로 검증 성공 시 [올바로 인증 업체] 배지 부여.
       const user = allbaroVerifiedAt
@@ -210,8 +211,9 @@ export function createUsersRouter(
       res.status(400).json({ error: "availability 는 'ONLINE' 또는 'OFFLINE' 이어야 합니다." });
       return;
     }
+    const radiusKm = typeof body.radiusKm === 'number' ? body.radiusKm : undefined;
     try {
-      res.json(await store.setAvailability(req.params.id, availability as CallAvailability));
+      res.json(await store.setAvailability(req.params.id, availability as CallAvailability, radiusKm));
     } catch (err) {
       handleError(err, res);
     }

@@ -44,7 +44,9 @@ export type Route =
   // 인테리어 밀봉 역경매 (파일럿 밖 · FEATURE_INTERIOR)
   | { name: 'interiorForm' }
   | { name: 'interiorList'; scope: 'mine' | 'open' }
-  | { name: 'interiorDetail'; requestId: string };
+  | { name: 'interiorDetail'; requestId: string }
+  | { name: 'reviewForm'; requestId: string }
+  | { name: 'tracking'; requestId: string };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

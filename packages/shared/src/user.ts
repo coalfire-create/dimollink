@@ -135,6 +135,11 @@ export interface UserProfile {
    */
   availability?: CallAvailability;
   /**
+   * 운반업체 커스텀 콜대기 반경 설정 (단위: km).
+   * 미설정 시 기본값 30km.
+   */
+  matchRadiusKm?: number;
+  /**
    * [올바로 인증 업체] 배지 (우대사항 · 선택 입력).
    * 올바로 회원 검증 API 성공 시 true — 검증 연동 자체는 민감 영역(사람 검토 대상).
    */

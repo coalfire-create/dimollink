@@ -23,6 +23,7 @@ import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-coll
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
+import { SiteAnalysisQueue } from './site-analysis/queue.js';
 import {
   ClaudeSiteAnalyzer,
   GeminiSiteAnalyzer,
@@ -365,7 +366,7 @@ export function createApp(
   app.use('/api', createOffersRouter(offerStore));
   app.use('/api', createNotificationsRouter(notificationService));
   app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
-  app.use('/api', createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))));
+  app.use('/api', createChatRouter(new ChatStore(requestStore, notificationService, persistence<ChatMessage>('chat'))));
   app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
   // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
   const mockSiteAnalyzer = new MockSiteAnalyzer();
@@ -389,9 +390,10 @@ export function createApp(
             timeoutMs: env.ai.visionTimeoutMs,
           })
         : mockSiteAnalyzer;
+  const siteAnalysisQueue = new SiteAnalysisQueue();
   app.use(
     '/api',
-    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, new HeuristicVolumeEstimator()),
+    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, new HeuristicVolumeEstimator()),
   );
   app.use(
     '/api',

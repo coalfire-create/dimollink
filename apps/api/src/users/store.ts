@@ -34,6 +34,7 @@ export interface CreateUserInput {
   businessNumber?: string;
   location?: GeoPoint;
   socialIdentity?: SocialIdentity;
+  autoApprove?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -129,7 +130,7 @@ export class UserStore {
       ...(businessNumber ? { businessNumber } : {}),
       ...(input.location ? { location: input.location } : {}),
       ...(input.socialIdentity ? { socialIdentities: [input.socialIdentity] } : {}),
-      approvalStatus: company ? 'PENDING' : 'APPROVED',
+      approvalStatus: (company && !input.autoApprove) ? 'PENDING' : 'APPROVED',
       ...(usesCallAvailability(input.userType) ? { availability: 'OFFLINE' as CallAvailability } : {}),
       allbaroCertified: false,
       insuranceRegistered: false,
@@ -234,6 +235,21 @@ export class UserStore {
     return updated;
   }
 
+  async setAvailability(id: string, availability: CallAvailability, radiusKm?: number): Promise<UserProfile> {
+    const user = await this.requireUser(id);
+    if (!usesCallAvailability(user.userType)) {
+      throw new UserValidationError('콜대기 상태 변경은 운반업체만 가능합니다.');
+    }
+    const updated: UserProfile = { 
+      ...user, 
+      availability, 
+      ...(radiusKm !== undefined ? { matchRadiusKm: radiusKm } : {}),
+      updatedAt: new Date().toISOString() 
+    };
+    await this.saveInner(updated);
+    return updated;
+  }
+
   async setAllbaroCertified(id: string, certified: boolean, checkedAt: string): Promise<UserProfile> {
     const user = await this.requireUser(id);
     const updated: UserProfile = {
@@ -246,15 +262,6 @@ export class UserStore {
     return updated;
   }
 
-  async setAvailability(id: string, availability: CallAvailability): Promise<UserProfile> {
-    const user = await this.requireUser(id);
-    if (!usesCallAvailability(user.userType)) {
-      throw new UserValidationError('콜대기 상태 변경은 운반업체만 가능합니다.');
-    }
-    const updated: UserProfile = { ...user, availability, updatedAt: new Date().toISOString() };
-    await this.saveInner(updated);
-    return updated;
-  }
 
   async setOffersTransport(id: string, offersTransport: boolean): Promise<UserProfile> {
     const user = await this.requireUser(id);

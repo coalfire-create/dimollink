@@ -13,6 +13,8 @@ import {
 } from '../site-analysis/analyzer.js';
 import type { VolumeEstimator } from '../estimation/provider.js';
 
+import type { SiteAnalysisQueue } from '../site-analysis/queue.js';
+
 /**
  * 현장 사진 AI 분석 API (로드맵 Phase 6).
  * primary(실제 Claude 또는 목) 로 분석하고, 실제 분석이 런타임 실패하면 목으로 폴백한다
@@ -23,6 +25,7 @@ import type { VolumeEstimator } from '../estimation/provider.js';
 export function createSiteAnalysisRouter(
   primary: SiteAnalyzer,
   fallback: SiteAnalyzer,
+  queue: SiteAnalysisQueue,
   estimator?: VolumeEstimator,
 ): Router {
   const router = Router();
@@ -99,17 +102,32 @@ export function createSiteAnalysisRouter(
   }
 
   // POST /api/site-analysis/analyze  { imageBase64, mimeType?, note? }
-  router.post('/site-analysis/analyze', async (req, res) => {
+  // 큐 기반 비동기 처리로 변경: jobId를 반환하고 백그라운드에서 분석 수행
+  router.post('/site-analysis/analyze', (req, res) => {
     const input = parseInput((req.body ?? {}) as Record<string, unknown>);
-    try {
-      res.json(await analyzeWithFallback(input));
-    } catch (err) {
-      if (err instanceof SiteAnalysisValidationError) {
-        res.status(400).json({ error: err.message });
-        return;
-      }
-      res.status(500).json({ error: '현장 분석 처리 오류' });
+    const job = queue.createJob();
+    
+    // 비동기 처리 시작
+    analyzeWithFallback(input)
+      .then(result => {
+        queue.updateJob(job.id, { status: 'COMPLETED', result });
+      })
+      .catch(err => {
+        const error = err instanceof SiteAnalysisValidationError ? err.message : '현장 분석 처리 오류';
+        queue.updateJob(job.id, { status: 'FAILED', error });
+      });
+
+    res.status(202).json({ jobId: job.id });
+  });
+
+  // GET /api/site-analysis/jobs/:id
+  router.get('/site-analysis/jobs/:id', (req, res) => {
+    const job = queue.getJob(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: '작업을 찾을 수 없습니다.' });
+      return;
     }
+    res.json(job);
   });
 
   // POST /api/site-analysis/waste-items  { imageBase64, mimeType?, note?, floorAreaM2? }

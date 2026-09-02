@@ -14,4 +14,5 @@ export interface ChatMessage {
   senderId: string;
   content: string;
   createdAt: string;
+  readAt?: string;
 }

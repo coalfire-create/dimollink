@@ -16,10 +16,10 @@ export function createChatRouter(store: ChatStore): Router {
   }
 
   // POST /api/requests/:id/messages  { content } — 보낸이는 인증된 본인
-  router.post('/requests/:id/messages', (req, res) => {
+  router.post('/requests/:id/messages', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const message = store.sendMessage(req.params.id, authUserId(req), body.content);
+      const message = await store.sendMessage(req.params.id, authUserId(req), body.content);
       res.status(201).json(message);
     } catch (err) {
       handleError(err, res);
@@ -27,12 +27,22 @@ export function createChatRouter(store: ChatStore): Router {
   });
 
   // GET /api/requests/:id/messages?since= — 대화 내역 (오래된 순, since 폴링). 열람자는 인증된 본인.
-  router.get('/requests/:id/messages', (req, res) => {
+  router.get('/requests/:id/messages', async (req, res) => {
     const { since } = req.query;
     try {
       res.json(
-        store.listMessages(req.params.id, authUserId(req), typeof since === 'string' ? since : undefined),
+        await store.listMessages(req.params.id, authUserId(req), typeof since === 'string' ? since : undefined),
       );
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // PATCH /api/requests/:id/messages/read — 안 읽은 메시지 읽음 처리
+  router.patch('/requests/:id/messages/read', async (req, res) => {
+    try {
+      await store.markAsRead(req.params.id, authUserId(req));
+      res.status(204).send();
     } catch (err) {
       handleError(err, res);
     }

@@ -182,7 +182,9 @@ function resizeRgba(
   return out;
 }
 
-function processNative(input: QualityInput): ProcessedPhoto {
+import * as ImageManipulator from 'expo-image-manipulator';
+
+async function processNative(input: QualityInput): Promise<ProcessedPhoto> {
   const fallback: ProcessedPhoto = { quality: PASS, base64: input.base64, resized: false };
   const bytes = base64ToBytes(input.base64);
   if (!bytes) return fallback;
@@ -196,16 +198,22 @@ function processNative(input: QualityInput): ProcessedPhoto {
 
   const scale = scaleFor(decoded.width, decoded.height);
   if (scale === null) return { quality, base64: input.base64, resized: false };
+  
   try {
     const targetW = Math.max(1, Math.round(decoded.width * scale));
     const targetH = Math.max(1, Math.round(decoded.height * scale));
-    const resized = resizeRgba(decoded.data, decoded.width, decoded.height, targetW, targetH);
-    const jpeg = encodeJpeg(
-      { data: resized, width: targetW, height: targetH },
-      UPLOAD_JPEG_QUALITY,
+    
+    // 네이티브 성능 이점을 살리기 위해 expo-image-manipulator 사용
+    const result = await ImageManipulator.manipulateAsync(
+      input.uri,
+      [{ resize: { width: targetW, height: targetH } }],
+      { compress: UPLOAD_JPEG_QUALITY / 100, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
-    const base64 = bytesToBase64(jpeg.data);
-    return base64 ? { quality, base64, resized: true } : { quality, base64: input.base64, resized: false };
+    
+    if (result.base64) {
+      return { quality, base64: result.base64, resized: true };
+    }
+    return { quality, base64: input.base64, resized: false };
   } catch {
     return { quality, base64: input.base64, resized: false };
   }
@@ -221,7 +229,7 @@ export async function processCapturedPhoto(input: QualityInput): Promise<Process
     if (Platform.OS === 'web') return await processWeb(input);
     // 네이티브는 JPEG 만 디코딩(카메라 산출물은 JPEG). 그 외 포맷은 원본 통과.
     if (input.mimeType !== 'image/jpeg' || !input.base64) return fallback;
-    return processNative(input);
+    return await processNative(input);
   } catch {
     return fallback;
   }

@@ -27,6 +27,8 @@ import { FEATURE_INTERIOR } from './src/featureFlags';
 import { FloatingSupportButton, LoadingView } from './src/components/ui';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
+import { SiteAnalysisScreen } from './src/screens/SiteAnalysisScreen';
+import { TrackingScreen } from './src/screens/TrackingScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
@@ -41,8 +43,8 @@ import { RequestListScreen } from './src/screens/RequestListScreen';
 import { InteriorFormScreen } from './src/screens/InteriorFormScreen';
 import { InteriorListScreen } from './src/screens/InteriorListScreen';
 import { InteriorDetailScreen } from './src/screens/InteriorDetailScreen';
-import { SiteAnalysisScreen } from './src/screens/SiteAnalysisScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { ReviewScreen } from './src/screens/ReviewScreen';
 
 /** 세션: 로그인 회원(UserProfile) / 게스트('guest') / 미진입(null). */
 type Session = UserProfile | 'guest' | null;
@@ -284,6 +286,10 @@ export default function App() {
         return FEATURE_INTERIOR ? <InteriorListScreen scope={route.scope} /> : null;
       case 'interiorDetail':
         return FEATURE_INTERIOR ? <InteriorDetailScreen requestId={route.requestId} /> : null;
+      case 'reviewForm':
+        return <ReviewScreen requestId={route.requestId} />;
+      case 'tracking':
+        return <TrackingScreen requestId={route.requestId} />;
     }
   }
 

@@ -428,6 +428,26 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               variant="outline"
               onPress={() => nav.push({ name: 'chat', requestId: request.id, counterpartyId })}
             />
+            
+            {request.kind === 'TRANSPORT' && (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
+              <AppButton
+                label="실시간 트럭 위치 확인"
+                variant="primary"
+                style={{ marginTop: spacing.sm }}
+                onPress={() => nav.push({ name: 'tracking', requestId: request.id })}
+              />
+            ) : null}
+          </>
+        ) : null}
+
+        {counterpartyId && (request.status === 'COMPLETED' || request.status === 'SETTLED') ? (
+          <>
+            <SectionTitle>서비스 평가</SectionTitle>
+            <AppButton
+              label="리뷰 남기기"
+              variant="outline"
+              onPress={() => nav.push({ name: 'reviewForm', requestId: request.id })}
+            />
           </>
         ) : null}
 
