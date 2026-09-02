@@ -296,6 +296,7 @@ export function RequestFormScreen({
   const tons = wasteItemsToTons(wasteItems);
   const allbaroMandatory =
     kind !== 'DEMOLITION' && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
+  const canRequestAllbaro = user.userType === 'DEMOLITION_COMPANY' || user.userType === 'WASTE_TREATMENT_PLANT';
 
   async function submit() {
     setError(null);
@@ -771,32 +772,36 @@ export function RequestFormScreen({
           ) : null}
         </FadeInUp>
 
-        {allbaroMandatory ? (
-          <FadeInUp>
-            <View style={styles.mandatoryNotice}>
-              <Text style={styles.mandatoryTitle}>♻️ 올바로 신고 대상</Text>
-              <Text style={styles.mandatoryBody}>
-                {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜
-                두면 자동으로 처리해 드려요.
-              </Text>
-            </View>
-          </FadeInUp>
-        ) : null}
+        {canRequestAllbaro ? (
+          <>
+            {allbaroMandatory ? (
+              <FadeInUp>
+                <View style={styles.mandatoryNotice}>
+                  <Text style={styles.mandatoryTitle}>♻️ 올바로 신고 대상</Text>
+                  <Text style={styles.mandatoryBody}>
+                    {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜
+                    두면 자동으로 처리해 드려요.
+                  </Text>
+                </View>
+              </FadeInUp>
+            ) : null}
 
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: allbaroRequested }}
-          onPress={() => setAllbaroRequested((v) => !v)}
-          style={[styles.checkboxRow, allbaroRequested && styles.checkboxRowChecked]}
-        >
-          <Text style={styles.checkboxMark}>{allbaroRequested ? '☑' : '☐'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.checkboxLabel}>올바로 전자인계서 신고</Text>
-            <Text style={styles.checkboxHint}>
-              {allbaroRequested ? '자동 발행해 드려요' : '자체 간이 확인서로 대체'}
-            </Text>
-          </View>
-        </Pressable>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: allbaroRequested }}
+              onPress={() => setAllbaroRequested((v) => !v)}
+              style={[styles.checkboxRow, allbaroRequested && styles.checkboxRowChecked]}
+            >
+              <Text style={styles.checkboxMark}>{allbaroRequested ? '☑' : '☐'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.checkboxLabel}>올바로 전자인계서 신고</Text>
+                <Text style={styles.checkboxHint}>
+                  {allbaroRequested ? '자동 발행해 드려요' : '자체 간이 확인서로 대체'}
+                </Text>
+              </View>
+            </Pressable>
+          </>
+        ) : null}
 
         <ErrorBanner message={error} />
       </ScrollView>
