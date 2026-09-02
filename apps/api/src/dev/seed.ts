@@ -6,7 +6,7 @@ import type { UserStore } from '../users/store.js';
  * SEED_TEST_ACCOUNTS=true 일 때만 기동 시 호출한다. 운영에서는 사용하지 않는다.
  * 로그인은 휴대폰번호 + 테스트 OTP 코드(ALLOW_TEST_OTP=true 시 123456)로 한다.
  */
-interface SeedSpec {
+export interface SeedSpec {
   userType:
     | 'CONSUMER'
     | 'DEMOLITION_COMPANY'
@@ -15,22 +15,22 @@ interface SeedSpec {
     | 'INTERIOR_COMPANY';
   name: string;
   phone: string;
-  businessNumber?: string; // 체크섬 통과 값(실존 업체 무관)
+  businessNumber?: string; // 국세청 체크섬을 통과하는 더미 값(실존 업체 무관)
   online?: boolean;
   offersTransport?: boolean;
 }
 
-const TEST_ACCOUNTS: SeedSpec[] = [
+export const TEST_ACCOUNTS: SeedSpec[] = [
   { userType: 'CONSUMER', name: '김소비(테스트)', phone: '01011110001' },
   { userType: 'CONSUMER', name: '이철수(배출자)', phone: '01011110002' },
   { userType: 'CONSUMER', name: '박지영(건축주)', phone: '01011110003' },
   { userType: 'CONSUMER', name: '최성훈(매장대표)', phone: '01011110004' },
   { userType: 'DEMOLITION_COMPANY', name: '대한철거(테스트)', phone: '01022220002', businessNumber: '1208147521' },
-  { userType: 'DEMOLITION_COMPANY', name: '태양철거엔지니어링', phone: '01022220005', businessNumber: '1208147522' },
+  { userType: 'DEMOLITION_COMPANY', name: '태양철거엔지니어링', phone: '01022220005', businessNumber: '1208147536' },
   { userType: 'TRANSPORT_COMPANY', name: '신속운반(테스트)', phone: '01033330003', businessNumber: '1234567891', online: true },
-  { userType: 'TRANSPORT_COMPANY', name: '삼일폐기물물류', phone: '01033330005', businessNumber: '1234567892', online: true },
+  { userType: 'TRANSPORT_COMPANY', name: '삼일폐기물물류', phone: '01033330005', businessNumber: '1234567886', online: true },
   { userType: 'WASTE_TREATMENT_PLANT', name: '푸른처리장(테스트)', phone: '01044440004', businessNumber: '1010101013', offersTransport: true },
-  { userType: 'WASTE_TREATMENT_PLANT', name: '수도권순환자원센터', phone: '01044440005', businessNumber: '1010101014', offersTransport: true },
+  { userType: 'WASTE_TREATMENT_PLANT', name: '수도권순환자원센터', phone: '01044440005', businessNumber: '1010101027', offersTransport: true },
   { userType: 'INTERIOR_COMPANY', name: '가온인테리어(테스트)', phone: '01055550005' },
   { userType: 'INTERIOR_COMPANY', name: '한샘시공(테스트)', phone: '01066660006' },
 ];

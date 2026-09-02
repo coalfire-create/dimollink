@@ -1,11 +1,15 @@
-import { CHAT_MESSAGE_MAX_LENGTH } from '@dimol/shared';
+import { CHAT_MESSAGE_MAX_LENGTH, type AppNotification } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
 import { RequestStore } from '../requests/store.js';
+import { NotificationService } from '../notifications/service.js';
 import { ChatStore, ChatValidationError } from './store.js';
 
 async function setup(matched = true) {
   const requestStore = new RequestStore();
-  const store = new ChatStore(requestStore);
+  // 채팅 발신은 상대방 알림까지가 한 동작이다. 실제 서비스를 붙여 알림도 함께 검증한다.
+  const sent: AppNotification[] = [];
+  const notificationService = new NotificationService({ send: (n) => sent.push(n) });
+  const store = new ChatStore(requestStore, notificationService);
   const request = await requestStore.create({
     kind: 'DEMOLITION',
     requesterId: 'd-1',
@@ -16,7 +20,7 @@ async function setup(matched = true) {
     siteAddress: '양평군 현장',
   });
   if (matched) await requestStore.changeStatus(request.id, 'MATCHED', { matchedProviderId: 'p-1' });
-  return { requestStore, store, request };
+  return { requestStore, store, request, sent };
 }
 
 describe('ChatStore — 인앱 채팅', () => {
@@ -28,6 +32,20 @@ describe('ChatStore — 인앱 채팅', () => {
     const thread = await store.listMessages(request.id, 'd-1');
     expect(thread.map((m) => m.senderId)).toEqual(['d-1', 'p-1']);
     expect(thread[1].content).toBe('네, 9시까지 도착하겠습니다.');
+  });
+
+  // 보낸 사람이 아니라 받는 사람에게 가야 한다. 반대로 가면 알림이 온 걸 보고
+  // 자기가 쓴 메시지를 다시 확인하러 들어오게 된다.
+  it('메시지를 보내면 상대방에게만 알림이 간다', async () => {
+    const { store, request, sent } = await setup();
+    await store.sendMessage(request.id, 'd-1', '내일 오전 반입 가능할까요?');
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0].userId).toBe('p-1');
+    expect(sent[0].message).toContain('새 메시지');
+
+    await store.sendMessage(request.id, 'p-1', '네, 9시까지 도착하겠습니다.');
+    expect(sent[1].userId).toBe('d-1');
   });
 
   it('매칭 확정 전에는 채팅 불가', async () => {

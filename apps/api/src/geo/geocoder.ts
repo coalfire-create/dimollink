@@ -15,6 +15,12 @@ export interface AddressSearchResult {
   mountainYn?: string; // 산 번지 여부 (Y/N 또는 1/0)
   mainAddressNo?: string; // 본번
   subAddressNo?: string; // 부번
+  /**
+   * 실제 주소를 확정하지 못한 근사 결과.
+   * 좌표는 정확하지만 주소 문자열은 권역 추정치라, UI 는 이걸 주소처럼 보여주면 안 되고
+   * 사용자에게 상세주소를 받아야 한다.
+   */
+  approximate?: boolean;
 }
 
 export interface Geocoder {
@@ -98,15 +104,17 @@ export class NoopGeocoder implements Geocoder {
   }
 
   async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
-    // 키가 없을 때의 근사 폴백. 실제 주소는 아니므로 '부근/일대'로 명시하고
-    // 좌표를 그대로 노출한다(고정 목이 아니라 위치에 따라 바뀌어야 지도 UX가 정상 동작).
+    // 키가 없을 때의 근사 폴백. 좌표는 정확하지만 주소는 권역 추정치다.
+    // 예전에는 "경기 부근 · 위도 37.36134, 경도 127.10554" 처럼 좌표를 주소 문자열에
+    // 끼워 넣었는데, 화면에는 그게 주소로 보이고 그대로 현장 주소로 저장까지 됐다.
+    // 좌표는 location 에만 담고, 문자열에는 확정된 만큼만 적는다.
     const region = approxKoreanRegion(lat, lng);
-    const coord = `위도 ${lat.toFixed(5)}, 경도 ${lng.toFixed(5)}`;
     return {
-      addressName: `${region} 일대 (${coord})`,
-      roadAddressName: `${region} 부근 · ${coord}`,
+      addressName: `${region} 일대`,
+      roadAddressName: `${region} 일대`,
       region,
       location: { lat, lng },
+      approximate: true,
     };
   }
 }

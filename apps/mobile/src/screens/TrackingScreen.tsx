@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Text, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { ScreenHeader, useSession } from '../navigation';
 import { theme } from '../theme';
 import { API_BASE_URL } from '../api/client';
 import type { GeoPoint } from '@dimol/shared';
@@ -58,7 +58,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
     let locationSub: Location.LocationSubscription | null = null;
     if (isProvider) {
       (async () => {
-        let { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           setErrorMsg('위치 권한이 거부되었습니다.');
           return;

@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { decode as decodeJpeg, encode as encodeJpeg } from 'jpeg-js';
+import { decode as decodeJpeg } from 'jpeg-js';
 import { computeLumaStats, isPhotoQualityOk, subsampleRgba, type LumaStats } from '@dimol/shared';
 
 /**
@@ -131,55 +131,6 @@ function base64ToBytes(b64: string): Uint8Array | null {
     if (i + 3 < clean.length) bytes[p++] = ((c2 & 3) << 6) | c3;
   }
   return bytes.subarray(0, p);
-}
-
-/** 바이트 → base64. btoa 가 없는 런타임(Hermes 구버전)도 커버한다. */
-function bytesToBase64(bytes: Uint8Array): string {
-  const g = globalThis as { btoa?: (s: string) => string };
-  if (typeof g.btoa === 'function') {
-    // 인자 개수 제한을 피하려 청크로 나눠 문자열을 만든다.
-    let bin = '';
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-    }
-    return g.btoa(bin);
-  }
-  let out = '';
-  for (let i = 0; i < bytes.length; i += 3) {
-    const b0 = bytes[i] ?? 0;
-    const b1 = bytes[i + 1] ?? 0;
-    const b2 = bytes[i + 2] ?? 0;
-    out += B64_CHARS[b0 >> 2];
-    out += B64_CHARS[((b0 & 3) << 4) | (b1 >> 4)];
-    out += i + 1 < bytes.length ? B64_CHARS[((b1 & 15) << 2) | (b2 >> 6)] : '=';
-    out += i + 2 < bytes.length ? B64_CHARS[b2 & 63] : '=';
-  }
-  return out;
-}
-
-/** RGBA 버퍼를 최근접 이웃으로 축소한다(순수 JS, 추가 의존성 없음). */
-function resizeRgba(
-  data: ArrayLike<number>,
-  width: number,
-  height: number,
-  targetW: number,
-  targetH: number,
-): Uint8Array {
-  const out = new Uint8Array(targetW * targetH * 4);
-  for (let y = 0; y < targetH; y += 1) {
-    const srcY = Math.min(height - 1, Math.floor((y * height) / targetH));
-    for (let x = 0; x < targetW; x += 1) {
-      const srcX = Math.min(width - 1, Math.floor((x * width) / targetW));
-      const si = (srcY * width + srcX) * 4;
-      const di = (y * targetW + x) * 4;
-      out[di] = data[si] ?? 0;
-      out[di + 1] = data[si + 1] ?? 0;
-      out[di + 2] = data[si + 2] ?? 0;
-      out[di + 3] = 255;
-    }
-  }
-  return out;
 }
 
 import * as ImageManipulator from 'expo-image-manipulator';

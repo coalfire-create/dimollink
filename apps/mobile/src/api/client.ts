@@ -496,13 +496,18 @@ export const adminListPricing = (adminToken: string) =>
     headers: { 'x-admin-token': adminToken },
   });
 
-/** 카카오 주소 및 건물명 검색 API. */
+/** 주소 및 건물명 검색 API. */
 export interface AddressSearchResult {
   addressName: string;
   roadAddressName: string;
   buildingName?: string;
   region: string;
   location?: GeoPoint;
+  /**
+   * 실제 주소를 확정하지 못한 근사 결과(역지오코딩 키 없음·API 실패 등).
+   * 좌표는 정확하므로 지도 표시는 그대로 하되, 주소로 취급해 저장하면 안 된다.
+   */
+  approximate?: boolean;
 }
 
 export const searchAddress = (query: string) =>

@@ -123,8 +123,9 @@ export function AddressPickerField({
     }
   }, []);
 
-  // 지도 핀 위치가 이동했을 때 카카오 역지오코딩 API 호출 (동일 좌표 중복 호출 방지)
-  const handleMapMove = useCallback(async (lat: number, lng: number) => {
+  // 지도 핀 위치가 이동했을 때 역지오코딩 호출 (동일 좌표 중복 호출 방지)
+  // force=true 면 중복 방지를 건너뛴다(실패 후 "다시 시도").
+  const handleMapMove = useCallback(async (lat: number, lng: number, force = false) => {
     // 아직 목표에 닿지 않았다면, 지도가 이제 막 준비됐다는 뜻이므로 다시 보낸다.
     // (모달을 열자마자 주소를 입력하면 첫 요청이 로딩 중인 지도에 닿지 않는다)
     const target = panTargetRef.current;
@@ -143,6 +144,7 @@ export function AddressPickerField({
     }
 
     if (
+      !force &&
       lastHandledCoordsRef.current &&
       Math.abs(lastHandledCoordsRef.current.lat - lat) < 0.00005 &&
       Math.abs(lastHandledCoordsRef.current.lng - lng) < 0.00005
@@ -158,11 +160,13 @@ export function AddressPickerField({
       const result = await coord2Address(lat, lng);
       setPinResult(result);
     } catch {
+      // 좌표를 주소인 것처럼 보여주지 않는다. 확정하지 못했다는 사실을 그대로 알린다.
       setPinResult({
-        addressName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-        roadAddressName: `지정 좌표 (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-        region: '지정 위치',
+        addressName: '',
+        roadAddressName: '',
+        region: '',
         location: { lat, lng },
+        approximate: true,
       });
     } finally {
       setPinLoading(false);
@@ -282,8 +286,17 @@ export function AddressPickerField({
     }
   }
 
-  // 지도가 움직이는 중이거나 주소 조회 중이면 아직 확정할 수 없다.
-  const canConfirm = !!pinResult && !pinMoving && !pinLoading;
+  // 주소를 확정하지 못한 결과(키 없음·API 실패)는 그대로 현장 주소로 쓸 수 없다.
+  // 권역이라도 알아냈으면 상세주소를 받아 진행하고, 그마저 없으면 확정을 막는다.
+  const unresolved = !!pinResult?.approximate;
+  const hasRegion = !!pinResult?.region;
+  const needsDetail = unresolved && hasRegion;
+  const canConfirm =
+    !!pinResult &&
+    !pinMoving &&
+    !pinLoading &&
+    hasRegion &&
+    (!needsDetail || detailAddress.trim().length > 0);
 
   function handleConfirm() {
     if (!canConfirm || !pinResult) return;
@@ -455,7 +468,27 @@ export function AddressPickerField({
 
             <View style={styles.pinResultInfo}>
               <Text style={styles.pinBadge}>선택한 위치</Text>
-              {pinResult ? (
+              {pinResult && unresolved ? (
+                <>
+                  <Text style={styles.pinRoadAddress} numberOfLines={2}>
+                    {hasRegion ? `${pinResult.region} 일대` : '주소를 확인하지 못했어요'}
+                  </Text>
+                  <Text style={styles.pinNotice} numberOfLines={2}>
+                    {hasRegion
+                      ? '정확한 주소를 찾지 못했어요. 아래에 상세주소를 입력해 주세요.'
+                      : '잠시 후 다시 시도하거나 위에서 주소를 검색해 주세요.'}
+                  </Text>
+                  {!hasRegion ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      style={styles.retryBtn}
+                      onPress={() => void handleMapMove(mapLat, mapLng, true)}
+                    >
+                      <Text style={styles.retryBtnText}>다시 시도</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : pinResult ? (
                 <>
                   <Text
                     style={[styles.pinRoadAddress, pinMoving && styles.pinAddressPending]}
@@ -490,10 +523,12 @@ export function AddressPickerField({
             ) : null}
 
             <TextInput
-              style={styles.detailInput}
+              style={[styles.detailInput, needsDetail && styles.detailInputRequired]}
               value={detailAddress}
               onChangeText={setDetailAddress}
-              placeholder="상세주소 (예: 101동 502호)"
+              placeholder={
+                needsDetail ? '상세주소를 입력해 주세요 (필수)' : '상세주소 (예: 101동 502호)'
+              }
               placeholderTextColor={theme.colors.textMuted}
             />
 
@@ -504,7 +539,11 @@ export function AddressPickerField({
               disabled={!canConfirm}
             >
               <Text style={[styles.confirmBtnText, !canConfirm && styles.confirmBtnTextDisabled]}>
-                {pinMoving || pinLoading ? '위치를 확인하는 중…' : '이 위치로 설정'}
+                {pinMoving || pinLoading
+                  ? '위치를 확인하는 중…'
+                  : needsDetail && !detailAddress.trim()
+                    ? '상세주소를 입력해 주세요'
+                    : '이 위치로 설정'}
               </Text>
             </Pressable>
           </View>
@@ -777,6 +816,30 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     marginBottom: spacing.xs / 2,
+  },
+  pinNotice: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: spacing.xs / 2,
+    lineHeight: font.caption + 6,
+  },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    minHeight: theme.touch.minButtonHeight,
+    justifyContent: 'center',
+    borderRadius: radius.button,
+    backgroundColor: colors.primarySoft,
+  },
+  retryBtnText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  detailInputRequired: {
+    borderColor: colors.primary,
+    backgroundColor: colors.background,
   },
   detailInput: {
     backgroundColor: colors.surface,
