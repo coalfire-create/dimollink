@@ -4,7 +4,7 @@ import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
-import { env } from '../config/env';
+import { API_BASE_URL } from '../api/client';
 import type { GeoPoint } from '@dimol/shared';
 import { LoadingView } from '../components/ui';
 
@@ -18,9 +18,8 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
 
   useEffect(() => {
     // Determine WS URL from API URL (e.g. http://... -> ws://...)
-    const apiUrl = env.apiUrl;
-    const wsProto = apiUrl.startsWith('https') ? 'wss://' : 'ws://';
-    const wsHost = apiUrl.replace(/^https?:\/\//, '');
+    const wsProto = API_BASE_URL.startsWith('https') ? 'wss://' : 'ws://';
+    const wsHost = API_BASE_URL.replace(/^https?:\/\//, '').replace(/\/api$/, '');
     const wsUrl = `${wsProto}${wsHost}/ws/tracking?requestId=${requestId}&role=${role}`;
 
     const socket = new WebSocket(wsUrl);
