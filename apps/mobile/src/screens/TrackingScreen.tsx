@@ -10,7 +10,7 @@ import { LoadingView } from '../components/ui';
 
 export function TrackingScreen({ requestId }: { requestId: string }) {
   const user = useSession();
-  const isProvider = user !== 'guest' && user?.userType === 'TRANSPORT_COMPANY';
+  const isProvider = user.userType === 'TRANSPORT_COMPANY';
   const role = isProvider ? 'provider' : 'consumer';
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorContainer: {
-    padding: theme.spacing.m,
+    padding: theme.spacing.sm,
     backgroundColor: theme.colors.error,
   },
   errorText: {
@@ -167,14 +167,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   infoBox: {
-    padding: theme.spacing.l,
+    padding: theme.spacing.md,
     backgroundColor: theme.colors.background,
     borderTopWidth: 1,
     borderColor: theme.colors.border,
-    paddingBottom: Platform.OS === 'ios' ? 32 : theme.spacing.l,
+    paddingBottom: Platform.OS === 'ios' ? 32 : theme.spacing.md,
   },
   infoTitle: {
-    fontSize: theme.font.h4,
+    fontSize: theme.font.bodyLarge,
     fontWeight: 'bold',
     marginBottom: theme.spacing.xs,
   },

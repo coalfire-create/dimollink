@@ -35,7 +35,7 @@ import {
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
-import { VISION_MATERIAL_LABELS } from '@dimol/shared';
+import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
 
 /**
  * 요청 상세 — 상태 타임라인 + 취소 + 채팅 진입.
@@ -319,7 +319,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                   {request.demolitionDetails.dimolVisionAnalysis.materials && request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
                     <InfoRow
                       label="🧱 감지된 소재"
-                      value={request.demolitionDetails.dimolVisionAnalysis.materials.map(m => VISION_MATERIAL_LABELS[m as keyof typeof VISION_MATERIAL_LABELS] ?? m).join(', ')}
+                      value={request.demolitionDetails.dimolVisionAnalysis.materials.map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m)).join(', ')}
                     />
                   ) : null}
                   {request.demolitionDetails.dimolVisionAnalysis.confidence ? (
@@ -334,7 +334,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 <View style={{ marginTop: 12 }}>
                   <Text style={{ fontWeight: '600', marginBottom: 4 }}>폐기물 상세 내역</Text>
                   {request.wasteItems.map((item, idx) => (
-                    <InfoRow key={idx} label={VISION_MATERIAL_LABELS[item.material] ?? item.material} value={`${item.kg} kg`} />
+                    <InfoRow key={idx} label={visionMaterialLabel(item.material)} value={`${item.kg} kg`} />
                   ))}
                   <InfoRow label="총 예상 무게" value={`${request.wasteTons} 톤`} />
                 </View>

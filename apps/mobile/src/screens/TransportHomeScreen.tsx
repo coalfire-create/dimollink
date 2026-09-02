@@ -244,6 +244,29 @@ export function TransportHomeScreen() {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
+  // 매칭 수신 반경 선택 — 스타일이 정의돼 있지 않아 undefined 로 적용되고 있었다
+  // (RN 은 undefined 스타일을 조용히 무시해 여백 없이 붙어 나왔다).
+  radiusSelector: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  radiusLabel: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  radiusOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  radiusOptionBtn: {
+    flexGrow: 1,
+    flexBasis: '22%',
+  },
   screen: {
     backgroundColor: colors.background,
     flex: 1,

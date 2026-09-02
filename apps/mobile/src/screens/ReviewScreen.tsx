@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { ApiError, createReview } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { Button, ErrorBanner } from '../components/ui';
+import { AppButton, ErrorBanner } from '../components/ui';
 import { ScreenHeader, useNavigation } from '../navigation';
 import { theme } from '../theme';
 
@@ -52,7 +52,11 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {error ? <ErrorBanner message={error} style={styles.error} /> : null}
+          {error ? (
+            <View style={styles.error}>
+              <ErrorBanner message={error} />
+            </View>
+          ) : null}
 
           <View style={styles.card}>
             <Text style={styles.title}>업체(또는 고객)의 서비스는 어떠셨나요?</Text>
@@ -66,7 +70,8 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
                   <AppIcon
                     name="star"
                     size={36}
-                    color={idx <= rating ? theme.colors.error : theme.colors.textMuted}
+                    // 별점은 오류가 아니다 — 오류 전용 빨강 대신 브랜드 보조색(주황)을 쓴다.
+                    color={idx <= rating ? theme.colors.secondary : theme.colors.border}
                     filled={idx <= rating}
                   />
                 </Pressable>
@@ -88,8 +93,8 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
           </View>
         </ScrollView>
         <View style={styles.footer}>
-          <Button
-            title="리뷰 등록하기"
+          <AppButton
+            label="리뷰 등록하기"
             onPress={handleSubmit}
             loading={loading}
             disabled={loading}
@@ -102,22 +107,22 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.backgroundAlt,
+    backgroundColor: theme.colors.surface,
     flex: 1,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: theme.spacing.m,
+    padding: theme.spacing.sm,
   },
   error: {
-    marginBottom: theme.spacing.m,
+    marginBottom: theme.spacing.sm,
   },
   card: {
     backgroundColor: theme.colors.background,
     borderRadius: 16,
-    padding: theme.spacing.l,
+    padding: theme.spacing.md,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -126,7 +131,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: theme.font.h3,
+    fontSize: theme.font.title,
     fontWeight: '700',
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,
@@ -135,14 +140,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: theme.font.body,
     color: theme.colors.textMuted,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
     textAlign: 'center',
   },
   stars: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: theme.spacing.s,
-    gap: theme.spacing.s,
+    marginBottom: theme.spacing.xs,
+    gap: theme.spacing.xs,
   },
   starBtn: {
     padding: 4,
@@ -151,32 +156,32 @@ const styles = StyleSheet.create({
     fontSize: theme.font.bodyLarge,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   label: {
     alignSelf: 'flex-start',
     fontSize: theme.font.body,
     fontWeight: '600',
     color: theme.colors.text,
-    marginBottom: theme.spacing.s,
+    marginBottom: theme.spacing.xs,
   },
   input: {
     alignSelf: 'stretch',
-    backgroundColor: theme.colors.backgroundAlt,
+    backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderRadius: 12,
     borderWidth: 1,
     color: theme.colors.text,
     fontSize: theme.font.body,
     minHeight: 100,
-    padding: theme.spacing.m,
+    padding: theme.spacing.sm,
     textAlignVertical: 'top',
   },
   footer: {
     backgroundColor: theme.colors.background,
     borderTopColor: theme.colors.border,
     borderTopWidth: 1,
-    padding: theme.spacing.m,
-    paddingBottom: Platform.OS === 'ios' ? 32 : theme.spacing.m,
+    padding: theme.spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 32 : theme.spacing.sm,
   },
 });
