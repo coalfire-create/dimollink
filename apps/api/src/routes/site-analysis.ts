@@ -12,8 +12,10 @@ import {
   type SiteAnalyzer,
 } from '../site-analysis/analyzer.js';
 import type { VolumeEstimator } from '../estimation/provider.js';
-
+import { uploadBase64Photo } from '../storage/s3.js';
+import { randomUUID } from 'node:crypto';
 import type { SiteAnalysisQueue } from '../site-analysis/queue.js';
+import type { SiteAnalysisStore } from '../site-analysis/store.js';
 
 /**
  * 현장 사진 AI 분석 API (로드맵 Phase 6).
@@ -26,6 +28,7 @@ export function createSiteAnalysisRouter(
   primary: SiteAnalyzer,
   fallback: SiteAnalyzer,
   queue: SiteAnalysisQueue,
+  store: SiteAnalysisStore,
   estimator?: VolumeEstimator,
 ): Router {
   const router = Router();
@@ -107,14 +110,49 @@ export function createSiteAnalysisRouter(
     const input = parseInput((req.body ?? {}) as Record<string, unknown>);
     const job = queue.createJob();
     
+    // S3 Key 생성
+    const photoKey = `dimolvision/${Date.now()}-${randomUUID()}.jpg`;
+
     // 비동기 처리 시작
     analyzeWithFallback(input)
-      .then(result => {
+      .then(async (result) => {
         queue.updateJob(job.id, { status: 'COMPLETED', result });
+        
+        try {
+          if (input.imageBase64) {
+            // S3에 원본 이미지 저장
+            await uploadBase64Photo({
+              key: photoKey,
+              base64: input.imageBase64,
+              contentType: input.mimeType || 'image/jpeg',
+            });
+          }
+          // 데이터 수집용 DB에 저장
+          await store.create({
+            id: job.id,
+            photoKey,
+            result,
+            buildingLedger: input.building,
+            siteAddress: input.siteAddress,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (storageErr) {
+          console.error('[site-analysis] 저장 실패:', storageErr);
+        }
       })
-      .catch(err => {
+      .catch((err) => {
         const error = err instanceof SiteAnalysisValidationError ? err.message : '현장 분석 처리 오류';
         queue.updateJob(job.id, { status: 'FAILED', error });
+        store.create({
+            id: job.id,
+            photoKey,
+            error,
+            buildingLedger: input.building,
+            siteAddress: input.siteAddress,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        }).catch(() => {});
       });
 
     res.status(202).json({ jobId: job.id });

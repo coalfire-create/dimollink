@@ -24,6 +24,7 @@ import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
 import { SiteAnalysisQueue } from './site-analysis/queue.js';
+import { SiteAnalysisStore, type SiteAnalysisRecord } from './site-analysis/store.js';
 import {
   ClaudeSiteAnalyzer,
   GeminiSiteAnalyzer,
@@ -391,9 +392,10 @@ export function createApp(
           })
         : mockSiteAnalyzer;
   const siteAnalysisQueue = new SiteAnalysisQueue();
+  const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
   app.use(
     '/api',
-    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, new HeuristicVolumeEstimator()),
+    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, new HeuristicVolumeEstimator()),
   );
   app.use(
     '/api',

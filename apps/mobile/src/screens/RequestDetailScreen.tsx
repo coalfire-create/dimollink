@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import {
   ASBESTOS_RISK_LABELS,
   BUILDING_TYPE_LABELS,
@@ -20,6 +20,7 @@ import {
   getRequest,
   listQuotes,
   updateRequestStatus,
+  getSitePhotoViewUrl,
 } from '../api/client';
 import {
   AppButton,
@@ -34,6 +35,7 @@ import {
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
+import { VISION_MATERIAL_LABELS } from '@dimol/shared';
 
 /**
  * 요청 상세 — 상태 타임라인 + 취소 + 채팅 진입.
@@ -69,6 +71,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const [refundMode, setRefundMode] = useState(false);
   const [refunding, setRefunding] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +82,21 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         setQuotes(await listQuotes(requestId).catch(() => []));
       } else {
         setQuotes([]);
+      }
+      
+      // Load photos
+      if (r.sitePhotoKeys && r.sitePhotoKeys.length > 0) {
+        const urls = await Promise.all(
+          r.sitePhotoKeys.map(async (key) => {
+            try {
+              const res = await getSitePhotoViewUrl(key);
+              return res.viewUrl;
+            } catch {
+              return '';
+            }
+          })
+        );
+        setPhotoUrls(urls.filter((u) => u !== ''));
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
@@ -287,10 +305,39 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 />
               ) : null}
               {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
-                <InfoRow
-                  label="✨ 디몰비전 분석"
-                  value={request.demolitionDetails.dimolVisionAnalysis.summary}
-                />
+                <>
+                  <InfoRow
+                    label="✨ AI 분석 요약"
+                    value={request.demolitionDetails.dimolVisionAnalysis.summary}
+                  />
+                  {request.demolitionDetails.dimolVisionAnalysis.hazards && request.demolitionDetails.dimolVisionAnalysis.hazards.length > 0 ? (
+                    <InfoRow
+                      label="⚠️ 위험요소"
+                      value={request.demolitionDetails.dimolVisionAnalysis.hazards.join(', ')}
+                    />
+                  ) : null}
+                  {request.demolitionDetails.dimolVisionAnalysis.materials && request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
+                    <InfoRow
+                      label="🧱 감지된 소재"
+                      value={request.demolitionDetails.dimolVisionAnalysis.materials.map(m => VISION_MATERIAL_LABELS[m as keyof typeof VISION_MATERIAL_LABELS] ?? m).join(', ')}
+                    />
+                  ) : null}
+                  {request.demolitionDetails.dimolVisionAnalysis.confidence ? (
+                    <InfoRow
+                      label="분석 정확도"
+                      value={request.demolitionDetails.dimolVisionAnalysis.confidence}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {request.wasteItems && request.wasteItems.length > 0 ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontWeight: '600', marginBottom: 4 }}>폐기물 상세 내역</Text>
+                  {request.wasteItems.map((item, idx) => (
+                    <InfoRow key={idx} label={VISION_MATERIAL_LABELS[item.material] ?? item.material} value={`${item.kg} kg`} />
+                  ))}
+                  <InfoRow label="총 예상 무게" value={`${request.wasteTons} 톤`} />
+                </View>
               ) : null}
             </>
           ) : null}
@@ -310,6 +357,18 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             />
           ) : null}
           <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
+          {photoUrls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+              {photoUrls.map((url, idx) => (
+                <Image
+                  key={idx}
+                  source={{ uri: url }}
+                  style={{ width: 120, height: 120, borderRadius: 8, marginRight: 8, backgroundColor: '#f0f0f0' }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          ) : null}
           <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 

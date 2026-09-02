@@ -527,3 +527,6 @@ export const getRatingSummary = (userId: string) =>
 export const reportIncident = (input: { requestId: string; type: 'NO_SHOW' | 'DISPUTE'; detail?: string }) =>
   api<{ id: string }>('/incidents', { method: 'POST', body: JSON.stringify(input) });
 
+// ── 사진 업로드 및 조회 API
+export const getSitePhotoViewUrl = (key: string) =>
+  api<{ key: string; viewUrl: string; expiresInSec: number }>(`/uploads/site-photos/view-url?key=${encodeURIComponent(key)}`);
