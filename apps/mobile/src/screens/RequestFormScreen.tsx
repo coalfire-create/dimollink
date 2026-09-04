@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
@@ -12,6 +13,7 @@ import {
   asbestosRisk,
   buildingTypeOf,
   elevatorCount,
+  isCompanyType,
   floorLabel,
   hasLedgerData,
   ledgerDisplayRows,
@@ -273,7 +275,7 @@ export function RequestFormScreen({
           analyzedAt: analysis.analyzedAt,
         };
         setDimolVision(summaryObj);
-        setPhotoSummary(`✨ 디몰비전 AI 분석 완료: ${analysis.summary}`);
+        setPhotoSummary(`현장 분석 완료: ${analysis.summary}`);
       } else {
         if (wasteItems.length === 0) {
           setPhotoSummary('사진에서 소재를 찾지 못했어요. 직접 입력해 주세요.');
@@ -296,7 +298,7 @@ export function RequestFormScreen({
   const tons = wasteItemsToTons(wasteItems);
   const allbaroMandatory =
     kind !== 'DEMOLITION' && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
-  const canRequestAllbaro = user.userType === 'DEMOLITION_COMPANY' || user.userType === 'WASTE_TREATMENT_PLANT';
+  const canRequestAllbaro = isCompanyType(user.userType);
 
   async function submit() {
     setError(null);
@@ -592,8 +594,11 @@ export function RequestFormScreen({
                 </View>
               </Pressable>
 
-              {/* ✨ 디몰비전 AI 사진 분석 — 주소 확정 이후에만 열린다 */}
-              <Text style={styles.sectionLabel}>✨ 디몰비전 AI 현장 분석</Text>
+              {/* 디몰비전 현장 분석 — 주소 확정 이후에만 열린다 */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
+                <Feather name="search" size={18} color={theme.colors.text} style={{ marginRight: 6 }} />
+                <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>현장 분석</Text>
+              </View>
               <View style={styles.visionStepsRow}>
                 <VisionStep index={1} label="현장 주소 지정" done={addressReady} />
                 <View style={styles.visionStepBar} />
@@ -611,9 +616,9 @@ export function RequestFormScreen({
                 <View style={styles.visionLockNotice}>
                   <Text style={styles.visionLockTitle}>먼저 현장 주소를 지정해 주세요</Text>
                   <Text style={styles.visionLockBody}>
-                    주소를 지정하면 건축물대장(공공데이터)에서 그 건물의 용도·구조·층수·사용승인일을
-                    먼저 확인한 뒤, 그 정보를 기준으로 사진을 분석해요. 그래야 철거 공정과 위험
-                    요소를 정확하게 안내할 수 있어요.
+                    주소를 지정하면 건축물대장(공공데이터)을 통해 건물의 용도·구조·층수·사용승인일을
+                    먼저 확인한 후, 해당 정보를 바탕으로 현장 사진을 분석합니다. 이를 통해 철거 공정과 위험
+                    요소를 정확하게 파악할 수 있습니다.
                   </Text>
                 </View>
               ) : null}
@@ -625,13 +630,18 @@ export function RequestFormScreen({
                 onPress={() => guardVision(() => setGuidedOpen(true))}
                 disabled={visionDisabled}
               >
-                <Text style={styles.photoFillText}>
-                  {photoBusy
-                    ? '디몰비전 AI 분석 중…'
-                    : ledgerState === 'loading'
-                      ? '건축물대장 확인 중…'
-                      : '🧭 가이드 촬영 (현장 전체 빠짐없이)'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  {!photoBusy && ledgerState !== 'loading' && (
+                    <Feather name="camera" size={16} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                  )}
+                  <Text style={styles.photoFillText}>
+                    {photoBusy
+                      ? '현장 사진 분석 중…'
+                      : ledgerState === 'loading'
+                        ? '건축물대장 확인 중…'
+                        : '가이드 촬영 (현장 전체 빠짐없이)'}
+                  </Text>
+                </View>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -657,7 +667,7 @@ export function RequestFormScreen({
               {dimolVision ? (
                 <View style={styles.visionCard}>
                   <View style={styles.visionCardHeader}>
-                    <Text style={styles.visionCardBadge}>디몰비전 AI분석</Text>
+                    <Text style={styles.visionCardBadge}>현장 분석</Text>
                     <Text style={styles.visionConfidence}>
                       신뢰도: {dimolVision.confidence ?? 'NORMAL'}
                     </Text>
