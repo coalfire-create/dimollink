@@ -3,6 +3,17 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
+
+LocaleConfig.locales['kr'] = {
+  monthNames: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+  monthNamesShort: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+  dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'],
+  dayNamesShort: ['일','월','화','수','목','금','토'],
+  today: '오늘'
+};
+LocaleConfig.defaultLocale = 'kr';
+
 import {
   ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON,
   ASBESTOS_RISK_LABELS,
@@ -114,6 +125,11 @@ export function RequestFormScreen({
   const [hasElevator, setHasElevator] = useState<boolean>(true);
   const [hasVehicleAccess, setHasVehicleAccess] = useState<boolean>(true);
   const [desiredDate, setDesiredDate] = useState('');
+  const [selectedDates, setSelectedDates] = useState<Record<string, any>>({});
+
+  React.useEffect(() => {
+    setDesiredDate(Object.keys(selectedDates).sort().join(', '));
+  }, [selectedDates]);
   const [description, setDescription] = useState(
     prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : '',
   );
@@ -431,13 +447,7 @@ export function RequestFormScreen({
         </View>
 
         <FadeInUp delay={40}>
-          <Field
-            label="지역"
-            value={region}
-            onChangeText={setRegion}
-            placeholder="예) 서울, 경기 양평, 부산"
-            hint="현장이 위치한 지역이에요."
-          />
+
           {kind === 'DEMOLITION' ? (
             <>
               <AddressPickerField
@@ -577,22 +587,27 @@ export function RequestFormScreen({
                 </View>
               </View>
 
-              <Pressable
-                onPress={() => {
-                  setDatePickerTarget('desiredDate');
-                  setShowDatePicker(true);
-                }}
-              >
-                <View pointerEvents="none">
-                  <Field
-                    label="희망 철거 날짜"
-                    value={desiredDate}
-                    onChangeText={setDesiredDate}
-                    placeholder="터치하여 날짜 선택"
-                    editable={false}
-                  />
-                </View>
-              </Pressable>
+              <Text style={styles.sectionLabel}>희망 일정 (다중 선택 가능)</Text>
+              <View style={{ marginBottom: theme.spacing.md }}>
+                <Calendar
+                  onDayPress={(day: any) => {
+                    const dateString = day.dateString;
+                    const newSelectedDates = { ...selectedDates };
+                    if (newSelectedDates[dateString]) {
+                      delete newSelectedDates[dateString];
+                    } else {
+                      newSelectedDates[dateString] = { selected: true, selectedColor: theme.colors.primary };
+                    }
+                    setSelectedDates(newSelectedDates);
+                  }}
+                  markedDates={selectedDates}
+                  theme={{
+                    arrowColor: theme.colors.primary,
+                    todayTextColor: theme.colors.primary,
+                    selectedDayBackgroundColor: theme.colors.primary,
+                  }}
+                />
+              </View>
 
               {/* 디몰비전 현장 분석 — 주소 확정 이후에만 열린다 */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
@@ -834,9 +849,7 @@ export function RequestFormScreen({
       {showDatePicker && (
         <DateTimePicker
           value={
-            datePickerTarget === 'desiredDate' && desiredDate
-              ? new Date(desiredDate)
-              : datePickerTarget === 'visitAt' && visitAt
+            datePickerTarget === 'visitAt' && visitAt
                 ? new Date(visitAt)
                 : new Date()
           }
@@ -846,9 +859,7 @@ export function RequestFormScreen({
             setShowDatePicker(false);
             if (event.type === 'set' && selectedDate) {
               const dateString = selectedDate.toISOString().split('T')[0];
-              if (datePickerTarget === 'desiredDate') {
-                setDesiredDate(dateString);
-              } else if (datePickerTarget === 'visitAt') {
+              if (datePickerTarget === 'visitAt') {
                 setVisitAt(dateString);
               }
             }
@@ -1254,16 +1265,16 @@ const styles = StyleSheet.create({
   },
   chipItem: {
     backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.button,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 2,
+    borderColor: 'transparent',
+    borderWidth: 1.5,
+    borderRadius: 999,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 4,
     marginRight: spacing.xs,
     marginBottom: spacing.xs,
   },
   chipItemActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
   unitToggle: {
@@ -1293,12 +1304,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   chipText: {
-    color: colors.text,
+    color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
   },
   chipTextActive: {
-    color: '#FFFFFF',
+    color: colors.primary,
     fontWeight: '700',
   },
   conditionRow: {
