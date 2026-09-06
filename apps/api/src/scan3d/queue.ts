@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   scan3DProgress,
+  volumeFromRawUnits,
   type Scan3DJob,
   type Scan3DResult,
   type Scan3DStage,
@@ -61,6 +62,28 @@ export class Scan3DQueue {
     job.status = 'FAILED';
     job.error = error;
     job.updatedAt = new Date().toISOString();
+  }
+
+  /**
+   * 기준 물체 재측정으로 배율만 다시 적용한다 — **복원을 다시 돌리지 않는다.**
+   * 부피는 배율의 세제곱이라 원시 부피만 있으면 재계산이 공짜다(GPU 비용 0).
+   */
+  rescale(id: string, factor: number): Scan3DJob | undefined {
+    const job = this.jobs.get(id);
+    if (!job?.result) return undefined;
+    const raw = job.result.rawVolumeUnits;
+    if (!raw || raw <= 0) return undefined;
+
+    job.result = {
+      ...job.result,
+      grossVolumeM3: volumeFromRawUnits(raw, factor),
+      scaleSource: 'REFERENCE_OBJECT',
+      // 스케일 근거가 생겼으니 "치수 기준 없음" 사유는 사라진다. 나머지 품질 사유는 유지.
+      reasons: job.result.reasons.filter((r) => !r.includes('치수 기준')),
+      usable: true,
+    };
+    job.updatedAt = new Date().toISOString();
+    return job;
   }
 
   /** 오래된 완료·실패 잡 정리(메모리 누수 방지). */

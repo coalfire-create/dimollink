@@ -12,7 +12,9 @@ from .quality import (
     ScanQuality,
     assess_scan_usability,
     resolve_scale,
+    scale_factor_from_reference,
     scale_factor_from_walking,
+    volume_from_raw_units,
     scaled_volume_m3,
     stride_length_m,
 )
@@ -34,6 +36,8 @@ __all__ = [
     "scaled_volume_m3",
     "resolve_scale",
     "scale_factor_from_walking",
+    "scale_factor_from_reference",
+    "volume_from_raw_units",
     "stride_length_m",
     "ReconstructionResult",
     "run_reconstruction",

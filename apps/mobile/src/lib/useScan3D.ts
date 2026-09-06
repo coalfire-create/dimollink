@@ -7,6 +7,7 @@ import {
   getScanJob,
   getScanSceneUrl,
   presignScanVideo,
+  rescaleScanJob,
   uploadScanVideo,
 } from '../api/client';
 import type { Scan3DCaptureResult } from '../components/Scan3DCaptureModal';
@@ -26,6 +27,8 @@ export interface UseScan3D {
   busy: boolean;
   error: string | null;
   start: (capture: Scan3DCaptureResult, building?: BuildingLedgerInfo) => Promise<void>;
+  /** 기준 물체 측정으로 배율만 다시 적용(복원 재실행 없음). */
+  rescale: (realLengthM: number, measuredUnits: number) => Promise<void>;
   reset: () => void;
 }
 
@@ -36,6 +39,9 @@ export function useScan3D(): UseScan3D {
   const [error, setError] = useState<string | null>(null);
   // 화면을 떠난 뒤 폴링이 계속 도는 것을 막는다.
   const alive = useRef(true);
+  // 재계산은 최신 잡 id 가 필요한데, 콜백이 오래된 state 를 붙잡지 않도록 ref 로 둔다.
+  const jobRef = useRef<Scan3DJob | null>(null);
+  jobRef.current = job;
 
   useEffect(() => {
     alive.current = true;
@@ -89,7 +95,21 @@ export function useScan3D(): UseScan3D {
     [],
   );
 
-  return { job, sceneUrl, busy, error, start, reset };
+  const rescale = useCallback(
+    async (realLengthM: number, measuredUnits: number) => {
+      const current = jobRef.current;
+      if (!current) return;
+      setError(null);
+      try {
+        setJob(await rescaleScanJob(current.id, realLengthM, measuredUnits));
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : '크기 재계산에 실패했어요.');
+      }
+    },
+    [],
+  );
+
+  return { job, sceneUrl, busy, error, start, rescale, reset };
 }
 
 async function pollUntilDone(

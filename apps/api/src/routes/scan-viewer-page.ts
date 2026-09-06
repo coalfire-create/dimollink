@@ -68,11 +68,29 @@ export function renderScanViewerPage(sceneUrl: string): string {
     background: rgba(0,0,0,0.55); color: #E5E7EB; border-radius: 12px; padding: 12px 16px;
     font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
   [hidden] { display: none !important; }
+  .measure {
+    position: absolute; left: 16px; right: 16px; bottom: 16px;
+    background: rgba(20,40,90,0.92); color: #fff; border-radius: 12px; padding: 16px;
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  }
+  .measure p { margin: 0 0 12px; }
+  button {
+    width: 100%; min-height: 48px; border: 0; border-radius: 12px;
+    background: #2C55E9; color: #fff; font-size: 16px; font-weight: 700;
+  }
+  #measureStart {
+    position: absolute; left: 16px; right: 16px; bottom: 16px; width: auto;
+  }
 </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
 <div class="hint" id="hint" hidden>한 손가락으로 돌리고, 두 손가락으로 확대·이동하세요.</div>
+<div class="measure" id="measure" hidden>
+  <p id="measureText">크기를 아는 물건의 <b>양 끝</b>을 차례로 두 번 누르세요.</p>
+  <button type="button" id="measureCancel">측정 취소</button>
+</div>
+<button type="button" id="measureStart" hidden>기준 물체로 크기 재기</button>
 <div class="panel" id="panel">
   <h1 id="panelTitle">3D 복원을 준비하고 있어요</h1>
   <p id="panelBody">촬영한 영상으로 입체 모형을 만드는 중입니다. 20~40분 걸립니다.</p>
@@ -139,11 +157,96 @@ export function renderScanViewerPage(sceneUrl: string): string {
         panel.hidden = true;
         hint.hidden = false;
         viewer.start();
+        setupMeasure(viewer);
       });
     })
     .catch(function () {
       status('장면을 여는 데 실패했어요', '복원이 아직 끝나지 않았거나 네트워크 문제일 수 있습니다.');
     });
+
+  /**
+   * 기준 물체 측정 — 3D 장면에서 두 점을 찍어 그 사이 거리를 잰다.
+   *
+   * 이 거리는 복원 좌표계 단위다. 앱이 "이건 A4 긴 변 0.297m" 같은 실제 길이와 나누면
+   * 배율이 나오고, 부피는 배율의 세제곱으로 재계산된다 — **복원 재실행은 필요 없다.**
+   */
+  function setupMeasure(viewer) {
+    var startBtn = document.getElementById('measureStart');
+    var box = document.getElementById('measure');
+    var text = document.getElementById('measureText');
+    var cancel = document.getElementById('measureCancel');
+    var picked = [];
+    var active = false;
+
+    // 레이캐스팅을 못 쓰는 빌드면 측정 버튼 자체를 띄우지 않는다(먹통 버튼 금지).
+    if (!viewer.raycaster || typeof viewer.raycaster.setFromCameraAndScreenPosition !== 'function') {
+      return;
+    }
+    startBtn.hidden = false;
+
+    startBtn.onclick = function () {
+      active = true;
+      picked = [];
+      startBtn.hidden = true;
+      box.hidden = false;
+      text.innerHTML = '크기를 아는 물건의 <b>양 끝</b>을 차례로 두 번 누르세요.';
+    };
+    cancel.onclick = function () {
+      active = false;
+      picked = [];
+      box.hidden = true;
+      startBtn.hidden = false;
+    };
+
+    canvas.addEventListener('pointerdown', function (event) {
+      if (!active) return;
+      var point = pick(viewer, event);
+      if (!point) {
+        text.textContent = '그 지점에서는 표면을 찾지 못했어요. 물체 표면을 눌러 주세요.';
+        return;
+      }
+      picked.push(point);
+      if (picked.length === 1) {
+        text.textContent = '반대쪽 끝을 눌러 주세요.';
+        return;
+      }
+      var dx = picked[0].x - picked[1].x;
+      var dy = picked[0].y - picked[1].y;
+      var dz = picked[0].z - picked[1].z;
+      var distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      active = false;
+      box.hidden = true;
+      startBtn.hidden = false;
+      // 앱(WebView)이 받아 실제 길이와 나눠 배율을 만든다.
+      postToApp({ type: 'REFERENCE_MEASURED', measuredUnits: distance });
+    });
+  }
+
+  /** 화면 좌표 → 장면 표면의 3D 점. 못 찾으면 null. */
+  function pick(viewer, event) {
+    try {
+      var rect = canvas.getBoundingClientRect();
+      var position = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+      viewer.raycaster.setFromCameraAndScreenPosition(viewer.camera, position, {
+        x: rect.width,
+        y: rect.height
+      });
+      var hits = viewer.raycaster.intersectSplatMesh(viewer.splatMesh, []);
+      var hit = hits && hits[0];
+      return hit && hit.origin ? hit.origin : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function postToApp(message) {
+    var payload = JSON.stringify(message);
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(payload);
+    else window.parent.postMessage(payload, '*');
+  }
 })();
 </script>
 </body>

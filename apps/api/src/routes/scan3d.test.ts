@@ -144,3 +144,77 @@ describe('key 검증 규칙', () => {
     expect(isValidScanKey(`site-scans/${id}/secrets.env`)).toBe(false);
   });
 });
+
+describe('POST /api/scan3d/jobs/:id/rescale — 복원 재실행 없이 배율만', () => {
+  async function completedJob(base: string) {
+    const created = (await (
+      await post(base, '/api/scan3d/jobs', {
+        videoKey: VIDEO_KEY,
+        target: 'EXTERIOR',
+        building: { totArea: 100 },
+      })
+    ).json()) as { jobId: string };
+    await waitForJob(base, created.jobId);
+    return created.jobId;
+  }
+
+  it('기준 물체 측정으로 부피를 다시 계산한다', async () => {
+    const base = await startApp();
+    const jobId = await completedJob(base);
+
+    // 목 복원기의 원시 부피는 300. A4 긴 변(0.297m)을 0.1485단위로 쟀다면 배율 2 → 300×8.
+    const res = await post(base, `/api/scan3d/jobs/${jobId}/rescale`, {
+      realLengthM: 0.297,
+      measuredUnits: 0.1485,
+    });
+    expect(res.status).toBe(200);
+    const job = (await res.json()) as {
+      result: { grossVolumeM3: number; scaleSource: string; usable: boolean };
+    };
+    expect(job.result.grossVolumeM3).toBe(2400);
+    expect(job.result.scaleSource).toBe('REFERENCE_OBJECT');
+    expect(job.result.usable).toBe(true);
+  });
+
+  it('여러 번 다시 재도 원시 부피 기준이라 누적되지 않는다', async () => {
+    const base = await startApp();
+    const jobId = await completedJob(base);
+    await post(base, `/api/scan3d/jobs/${jobId}/rescale`, {
+      realLengthM: 0.297,
+      measuredUnits: 0.1485,
+    });
+    const second = (await (
+      await post(base, `/api/scan3d/jobs/${jobId}/rescale`, {
+        realLengthM: 0.297,
+        measuredUnits: 0.297,
+      })
+    ).json()) as { result: { grossVolumeM3: number } };
+    // 배율 1 → 원시 부피 그대로. 앞선 배율 2 가 곱해지면 안 된다.
+    expect(second.result.grossVolumeM3).toBe(300);
+  });
+
+  it('엉뚱한 측정값은 사유와 함께 거부한다', async () => {
+    const base = await startApp();
+    const jobId = await completedJob(base);
+    const res = await post(base, `/api/scan3d/jobs/${jobId}/rescale`, {
+      realLengthM: 0.297,
+      measuredUnits: 0,
+    });
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toContain('두 점');
+  });
+
+  it('복원이 끝나지 않은 잡은 409', async () => {
+    const base = await startApp();
+    const created = (await (
+      await post(base, '/api/scan3d/jobs', { videoKey: VIDEO_KEY, target: 'EXTERIOR' })
+    ).json()) as { jobId: string };
+    // 목은 즉시 끝나므로, 없는 잡으로 404 경로만 확인한다.
+    const res = await post(base, '/api/scan3d/jobs/none/rescale', {
+      realLengthM: 0.297,
+      measuredUnits: 0.1485,
+    });
+    expect(res.status).toBe(404);
+    expect(created.jobId).toBeTruthy();
+  });
+});

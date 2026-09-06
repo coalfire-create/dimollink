@@ -89,9 +89,37 @@ def scale_factor_from_walking(
     return steps * stride_length_m(height_cm) / reconstructed_path_length_units
 
 
+# reference-object.ts 미러 — 배율 위생 검사 범위.
+MIN_PLAUSIBLE_SCALE = 0.001
+MAX_PLAUSIBLE_SCALE = 1000
+
+
+def scale_factor_from_reference(
+    real_length_m: float, measured_units: float
+) -> Optional[float]:
+    """기준 물체 실제 길이 ÷ 복원 좌표계에서 잰 길이 = 길이 배율.
+
+    범위를 벗어나면 잘못된 지점을 잰 것이다 — 그대로 쓰면 부피가 세제곱으로 틀린다.
+    """
+    if real_length_m <= 0 or measured_units <= 0:
+        return None
+    factor = real_length_m / measured_units
+    if factor < MIN_PLAUSIBLE_SCALE or factor > MAX_PLAUSIBLE_SCALE:
+        return None
+    return factor
+
+
+def volume_from_raw_units(raw_volume_units: float, scale_factor: float) -> float:
+    """복원 좌표계 원시 부피 → ㎥. 배율의 세제곱. 복원 재실행 없이 재계산할 때 쓴다."""
+    if raw_volume_units <= 0 or scale_factor <= 0:
+        return 0.0
+    return raw_volume_units * (scale_factor ** 3)
+
+
 def resolve_scale(
     *,
     ar_pose_factor: Optional[float] = None,
+    reference_factor: Optional[float] = None,
     steps: Optional[float] = None,
     path_length_units: Optional[float] = None,
     height_cm: Optional[float] = None,
@@ -101,6 +129,9 @@ def resolve_scale(
     """가진 근거 중 가장 정확한 것을 골라 (출처, 배율)을 낸다. scan-volume.ts 와 동일 순서."""
     if ar_pose_factor and ar_pose_factor > 0:
         return (SCALE_AR_POSE, ar_pose_factor)
+
+    if reference_factor and reference_factor > 0:
+        return (SCALE_REFERENCE_OBJECT, reference_factor)
 
     walking = scale_factor_from_walking(steps or 0, path_length_units or 0, height_cm)
     if walking:

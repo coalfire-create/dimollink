@@ -22,6 +22,7 @@ import {
 } from '../components/Scan3DCaptureModal';
 import { Scan3DProgressCard } from '../components/Scan3DProgressCard';
 import { Scan3DViewerModal } from '../components/Scan3DViewerModal';
+import { ReferenceObjectPicker } from '../components/ReferenceObjectPicker';
 import { useScan3D } from '../lib/useScan3D';
 import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
@@ -58,6 +59,8 @@ export function SiteAnalysisScreen() {
   // 3D 스캔 — 촬영 → 업로드 → 복원 폴링 → 뷰어.
   const [scanOpen, setScanOpen] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
+  // 3D 화면에서 잰 길이(복원 좌표계 단위). 어떤 물건이었는지 고르면 배율이 확정된다.
+  const [measuredUnits, setMeasuredUnits] = useState<number | null>(null);
   const scan = useScan3D();
 
   // ── 주소 선행 확인 ──────────────────────────────────────────────────────────
@@ -393,6 +396,20 @@ export function SiteAnalysisScreen() {
         visible={viewerOpen}
         sceneUrl={scan.sceneUrl}
         onClose={() => setViewerOpen(false)}
+        onMeasured={(units) => {
+          // 잰 직후 뷰어를 닫고 "그게 뭐였는지" 묻는다 — 실제 길이를 알아야 배율이 나온다.
+          setViewerOpen(false);
+          setMeasuredUnits(units);
+        }}
+      />
+      <ReferenceObjectPicker
+        visible={measuredUnits !== null}
+        onClose={() => setMeasuredUnits(null)}
+        onSelect={(object) => {
+          const units = measuredUnits;
+          setMeasuredUnits(null);
+          if (units) void scan.rescale(object.lengthM, units);
+        }}
       />
     </View>
   );

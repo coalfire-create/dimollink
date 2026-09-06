@@ -18,11 +18,17 @@ export function Scan3DViewerModal({
   visible,
   sceneUrl,
   onClose,
+  onMeasured,
 }: {
   visible: boolean;
   /** 장면(.ply) presigned URL. 아직 없으면 뷰어가 "복원 준비 중"을 보여준다. */
   sceneUrl?: string;
   onClose: () => void;
+  /**
+   * 사용자가 기준 물체 양 끝을 찍었을 때의 거리(복원 좌표계 단위).
+   * 실제 길이와 나누면 배율이 나오고, 복원 재실행 없이 부피가 다시 계산된다.
+   */
+  onMeasured?: (measuredUnits: number) => void;
 }) {
   const uri = `${WEB_BASE_URL}/scan-viewer${sceneUrl ? `?scene=${encodeURIComponent(sceneUrl)}` : ''}`;
 
@@ -32,6 +38,24 @@ export function Scan3DViewerModal({
         <WebView
           source={{ uri }}
           style={styles.web}
+          onMessage={(event) => {
+            // 뷰어가 보내는 메시지만 처리한다 — 형식이 다르면 조용히 무시.
+            try {
+              const message = JSON.parse(event.nativeEvent.data) as {
+                type?: string;
+                measuredUnits?: number;
+              };
+              if (
+                message.type === 'REFERENCE_MEASURED' &&
+                typeof message.measuredUnits === 'number' &&
+                message.measuredUnits > 0
+              ) {
+                onMeasured?.(message.measuredUnits);
+              }
+            } catch {
+              // 뷰어 외 스크립트가 보낸 메시지 — 무시한다.
+            }
+          }}
           // 장면 파일이 수십 MB — 캐시를 켜 두 번째 열람을 빠르게 한다.
           cacheEnabled
           // 3DGS 는 WebGL 을 쓴다. 안드로이드에서 하드웨어 가속을 끄면 렌더링이 안 된다.

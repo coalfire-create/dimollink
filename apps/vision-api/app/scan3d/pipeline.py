@@ -37,6 +37,8 @@ class ReconstructionResult:
     """복원 산출물 + 품질 근거. 그대로 JSON 으로 본체에 넘어간다."""
 
     gross_volume_m3: float
+    #: 복원 좌표계 원시 부피(단위³). 배율만 바꿔 재계산할 수 있게 남긴다.
+    raw_volume_units: float
     scale_source: str
     quality: ScanQuality
     usable: bool
@@ -50,6 +52,8 @@ class ReconstructionResult:
     def as_dict(self) -> Dict:
         return {
             "grossVolumeM3": round(self.gross_volume_m3, 3),
+            # 배율 재계산용 — 이 값이 있으면 기준 물체를 다시 재도 GPU 재실행이 필요 없다.
+            "rawVolumeUnits": round(self.raw_volume_units, 4),
             "scaleSource": self.scale_source,
             "quality": self.quality.as_dict(),
             "usable": self.usable,
@@ -228,6 +232,7 @@ def run_reconstruction(
 
     return ReconstructionResult(
         gross_volume_m3=scaled_volume_m3(volume_units, scale_factor),
+        raw_volume_units=volume_units,
         scale_source=scale_source,
         quality=quality,
         usable=usable,

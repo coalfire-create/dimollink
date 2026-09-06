@@ -228,6 +228,11 @@ export type Scan3DJobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
 /** 복원 결과 — 부피와 산출물, 그리고 왜 못 쓰는지. */
 export interface Scan3DResult {
   grossVolumeM3: number;
+  /**
+   * 복원 좌표계 원시 부피(단위³). **배율이 바뀌어도 복원을 다시 돌리지 않기 위해** 남긴다 —
+   * 부피는 배율의 세제곱이므로 이 값만 있으면 재계산이 공짜다([[reference-object]]).
+   */
+  rawVolumeUnits?: number;
   scaleSource: ScanScaleSource;
   /** 물량 산정에 쓸 수 있는지. false 면 본체가 연면적 원단위로 폴백한다. */
   usable: boolean;

@@ -69,6 +69,7 @@ export class MockReconstructor implements Reconstructor {
     });
     return {
       grossVolumeM3: volume,
+      rawVolumeUnits: volume,
       scaleSource: source,
       usable: source !== 'NONE',
       reasons:
@@ -137,6 +138,7 @@ function isStage(value: string): value is Scan3DStage {
 /** 복원 서버 응답을 계약으로 정규화(누락 필드는 안전한 기본값). */
 export function normalizeResult(body: {
   grossVolumeM3?: number;
+  rawVolumeUnits?: number;
   scaleSource?: string;
   usable?: boolean;
   reasons?: unknown;
@@ -146,6 +148,11 @@ export function normalizeResult(body: {
   const scale = body.scaleSource;
   return {
     grossVolumeM3: typeof body.grossVolumeM3 === 'number' ? body.grossVolumeM3 : 0,
+    // 배율 재계산(기준 물체 재측정)을 위해 원시 부피를 보존한다 — 없으면 GPU 재실행이 필요해진다.
+    rawVolumeUnits:
+      typeof body.rawVolumeUnits === 'number' && body.rawVolumeUnits > 0
+        ? body.rawVolumeUnits
+        : undefined,
     scaleSource:
       scale === 'AR_POSE' ||
       scale === 'REFERENCE_OBJECT' ||

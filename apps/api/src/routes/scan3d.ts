@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   isValidScanKey,
+  scaleFactorFromReference,
   totalFloorAreaM2,
   type BuildingLedgerInfo,
   type ScanTarget,
@@ -89,6 +90,37 @@ export function createScan3DRouter(queue: Scan3DQueue, reconstructor: Reconstruc
       return;
     }
     res.json(job);
+  });
+
+  // POST /api/scan3d/jobs/:id/rescale  { realLengthM, measuredUnits }
+  // 기준 물체를 3D 화면에서 잰 결과로 배율만 다시 적용한다 — 복원은 다시 돌리지 않는다.
+  router.post('/scan3d/jobs/:id/rescale', (req, res) => {
+    const job = queue.getJob(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: '작업을 찾을 수 없습니다.' });
+      return;
+    }
+    if (job.status !== 'COMPLETED' || !job.result?.rawVolumeUnits) {
+      res.status(409).json({ error: '복원이 끝난 뒤에 다시 잴 수 있습니다.' });
+      return;
+    }
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const scale = scaleFactorFromReference({
+      realLengthM: typeof body.realLengthM === 'number' ? body.realLengthM : NaN,
+      measuredUnits: typeof body.measuredUnits === 'number' ? body.measuredUnits : NaN,
+    });
+    if (!scale.ok) {
+      res.status(400).json({ error: scale.error });
+      return;
+    }
+
+    const updated = queue.rescale(job.id, scale.factor);
+    if (!updated) {
+      res.status(409).json({ error: '이 작업은 다시 계산할 수 없습니다.' });
+      return;
+    }
+    res.json(updated);
   });
 
   // GET /api/scan3d/scene-url?key=...  — 뷰어가 쓸 조회 URL.

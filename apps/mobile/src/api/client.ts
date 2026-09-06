@@ -577,6 +577,16 @@ export const createScanJob = (input: {
 
 export const getScanJob = (jobId: string) => api<Scan3DJob>(`/scan3d/jobs/${jobId}`);
 
+/**
+ * 기준 물체 측정 결과로 배율만 다시 적용한다 — **복원은 다시 돌리지 않는다.**
+ * 부피는 배율의 세제곱이라 원시 부피만 있으면 재계산이 공짜다(GPU 비용 0).
+ */
+export const rescaleScanJob = (jobId: string, realLengthM: number, measuredUnits: number) =>
+  api<Scan3DJob>(`/scan3d/jobs/${jobId}/rescale`, {
+    method: 'POST',
+    body: JSON.stringify({ realLengthM, measuredUnits }),
+  });
+
 export const getScanSceneUrl = (key: string) =>
   api<{ key: string; viewUrl: string }>(`/scan3d/scene-url?key=${encodeURIComponent(key)}`);
 
