@@ -60,23 +60,23 @@ export function renderScanViewerPage(sceneUrl: string): string {
   .panel {
     position: absolute; left: 16px; right: 16px; bottom: 16px;
     background: rgba(0,0,0,0.72); color: #fff; border-radius: 12px; padding: 16px;
-    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+    font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
   }
-  .panel h1 { font-size: 18px; margin: 0 0 8px; font-weight: 800; }
+  .panel h1 { font-size: 24px; margin: 0 0 8px; font-weight: 800; }
   .panel p { margin: 0; color: #D1D5DB; }
   .hint { position: absolute; top: 16px; left: 16px; right: 16px;
-    background: rgba(0,0,0,0.55); color: #E5E7EB; border-radius: 12px; padding: 12px 16px;
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
+    background: rgba(0,0,0,0.55); color: #E5E7EB; border-radius: 12px; padding: 16px;
+    font: 18px/1.4 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif; }
   [hidden] { display: none !important; }
   .measure {
     position: absolute; left: 16px; right: 16px; bottom: 16px;
     background: rgba(20,40,90,0.92); color: #fff; border-radius: 12px; padding: 16px;
-    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+    font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
   }
   .measure p { margin: 0 0 12px; }
   button {
     width: 100%; min-height: 48px; border: 0; border-radius: 12px;
-    background: #2C55E9; color: #fff; font-size: 16px; font-weight: 700;
+    background: #2C55E9; color: #fff; font-size: 18px; font-weight: 700;
   }
   #measureStart {
     position: absolute; left: 16px; right: 16px; bottom: 16px; width: auto;

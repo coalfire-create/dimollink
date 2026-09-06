@@ -153,6 +153,35 @@ export const SCAN_3D_STAGE_WEIGHTS: Record<Scan3DStage, number> = {
   MEASURING: 0.05,
 };
 
+/**
+ * 복원 전체 예상 소요(초). L4 기준 실측 근사 — COLMAP 매칭이 대부분을 차지한다.
+ * 정확한 값이 아니라 **기다릴 만한지 판단할 근거**를 주는 것이 목적이다.
+ */
+export const SCAN_3D_TOTAL_SECONDS = 30 * 60;
+
+/**
+ * 남은 예상 시간(초). 진행률과 경과 시간으로 보정한다.
+ *
+ * 20~40분 걸리는 작업에 진행률만 보여주면 사용자는 멈춘 것으로 오해한다.
+ * 실제 진행이 예상보다 느리면(경과/진행률이 크면) 남은 시간도 그만큼 늘려 잡아,
+ * "10분 남았다"가 30분째 그대로인 상황을 막는다.
+ */
+export function scan3DRemainingSeconds(progress: number, elapsedSeconds = 0): number {
+  const done = Math.min(0.99, Math.max(0, progress));
+  if (done <= 0) return SCAN_3D_TOTAL_SECONDS;
+  // 실측 속도가 있으면 그걸 쓰고, 없으면 기본 총량으로.
+  const projectedTotal =
+    elapsedSeconds > 0 ? Math.max(elapsedSeconds / done, SCAN_3D_TOTAL_SECONDS * 0.5) : SCAN_3D_TOTAL_SECONDS;
+  return Math.max(0, Math.round(projectedTotal - elapsedSeconds));
+}
+
+/** 남은 시간 → 사람이 읽는 문구. 초 단위 정밀도는 무의미하므로 분으로 반올림한다. */
+export function formatRemaining(seconds: number): string {
+  if (seconds <= 60) return '곧 끝납니다';
+  const minutes = Math.round(seconds / 60);
+  return minutes >= 60 ? `약 ${Math.round(minutes / 60)}시간 남음` : `약 ${minutes}분 남음`;
+}
+
 /** 진행 단계 → 0~1 진행률(앞 단계 가중치 누적). */
 export function scan3DProgress(stage: Scan3DStage): number {
   const order: Scan3DStage[] = [

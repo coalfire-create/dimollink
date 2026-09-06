@@ -70,10 +70,16 @@ describe('renderScanViewerPage', () => {
     expect(html).not.toMatch(/canvas\.getContext\('webgl2'\)/);
   });
 
-  it('모바일 접근성 — 본문 글씨가 16px 이상이다', () => {
+  it('접근성 — 본문 18px·제목 24px 이상 (CLAUDE.md 고령 사용자 기준)', () => {
     const html = renderScanViewerPage('');
     const sizes = [...html.matchAll(/font(?:-size)?:\s*(\d+)px/g)].map((m) => Number(m[1]));
     expect(sizes.length).toBeGreaterThan(0);
-    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(16);
+    for (const size of sizes) expect(size).toBeGreaterThanOrEqual(18);
+    // 제목은 24px 이상.
+    expect(html).toMatch(/\.panel h1 \{ font-size: 2[4-9]px/);
+  });
+
+  it('접근성 — 버튼 터치 영역 48px 이상', () => {
+    expect(renderScanViewerPage('')).toContain('min-height: 48px');
   });
 });

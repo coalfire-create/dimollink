@@ -2,7 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   SCAN_3D_STAGE_LABELS,
-  SCAN_CAPTURE_COPY,
+  formatRemaining,
+  scan3DRemainingSeconds,
   type Scan3DJob,
 } from '@dimol/shared';
 import { theme } from '../theme';
@@ -46,14 +47,29 @@ export function Scan3DProgressCard({ job }: { job: Scan3DJob }) {
 
   const percent = Math.round(job.progress * 100);
   const stageLabel = job.stage ? SCAN_3D_STAGE_LABELS[job.stage] : '준비하는 중';
+  // 진행률만 보여주면 20~40분 대기 중에 멈춘 것으로 오해한다 — 남은 시간을 함께 준다.
+  const elapsedSeconds = Math.max(
+    0,
+    (Date.parse(job.updatedAt) - Date.parse(job.createdAt)) / 1000,
+  );
+  const remaining = formatRemaining(scan3DRemainingSeconds(job.progress, elapsedSeconds));
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{stageLabel}</Text>
-      <View style={styles.track}>
+      <View style={styles.headRow}>
+        <Text style={styles.title}>{stageLabel}</Text>
+        <Text style={styles.remaining}>{remaining}</Text>
+      </View>
+      <View
+        style={styles.track}
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: percent }}
+      >
         <View style={[styles.fill, { width: `${Math.max(3, percent)}%` }]} />
       </View>
-      <Text style={styles.body}>{percent}% · {SCAN_CAPTURE_COPY.complete}</Text>
+      <Text style={styles.body}>
+        {percent}% · 앱을 닫아도 계속 진행됩니다. 끝나면 알려드릴게요.
+      </Text>
     </View>
   );
 }
@@ -72,7 +88,9 @@ const styles = StyleSheet.create({
   done: { borderColor: colors.primary },
   warn: { borderColor: colors.secondary },
   failed: { borderColor: colors.error },
-  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  headRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  title: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '800' },
+  remaining: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   body: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs },
   track: {
     backgroundColor: colors.border,

@@ -3,10 +3,13 @@ import {
   MIN_SELECTION_SURPLUS,
   RECOMMENDED_SCAN_SECONDS,
   SCAN_3D_STAGE_WEIGHTS,
+  SCAN_3D_TOTAL_SECONDS,
   SCAN_EXTRACT_FPS,
   TARGET_SCAN_FRAMES,
   assessScanDuration,
   expectedFrameCount,
+  formatRemaining,
+  scan3DRemainingSeconds,
   scan3DProgress,
   type Scan3DStage,
 } from '@dimol/shared';
@@ -92,5 +95,33 @@ describe('scan3DProgress — 진행률', () => {
   it('가장 오래 걸리는 단계는 매칭과 3DGS 학습이다', () => {
     expect(SCAN_3D_STAGE_WEIGHTS.MATCHING).toBeGreaterThan(SCAN_3D_STAGE_WEIGHTS.EXTRACTING);
     expect(SCAN_3D_STAGE_WEIGHTS.SPLATTING).toBeGreaterThan(SCAN_3D_STAGE_WEIGHTS.MEASURING);
+  });
+});
+
+describe('남은 시간 표시 — 20~40분 대기의 UX', () => {
+  it('진행 전에는 전체 예상 시간을 낸다', () => {
+    expect(scan3DRemainingSeconds(0)).toBe(SCAN_3D_TOTAL_SECONDS);
+  });
+
+  it('진행할수록 남은 시간이 줄어든다', () => {
+    const early = scan3DRemainingSeconds(0.2, 6 * 60);
+    const late = scan3DRemainingSeconds(0.8, 24 * 60);
+    expect(late).toBeLessThan(early);
+  });
+
+  it('실제가 예상보다 느리면 남은 시간도 늘려 잡는다', () => {
+    // 20% 진행에 20분이 걸렸다면 총 100분짜리다 — 기본값(30분)을 고집하면 안 된다.
+    const slow = scan3DRemainingSeconds(0.2, 20 * 60);
+    expect(slow).toBeGreaterThan(SCAN_3D_TOTAL_SECONDS - 20 * 60);
+  });
+
+  it('음수를 내지 않는다', () => {
+    expect(scan3DRemainingSeconds(0.99, 999 * 60)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('분 단위로 읽기 쉽게 표기한다', () => {
+    expect(formatRemaining(30)).toBe('곧 끝납니다');
+    expect(formatRemaining(20 * 60)).toBe('약 20분 남음');
+    expect(formatRemaining(90 * 60)).toContain('시간');
   });
 });
