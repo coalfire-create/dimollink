@@ -181,6 +181,14 @@ export const env = {
     scan3dApiKey: process.env.SCAN3D_API_KEY,
     /** 복원은 20~40분 걸린다 — 잡 생성 호출 자체의 타임아웃만 짧게 둔다. */
     scan3dTimeoutMs: Number(process.env.SCAN3D_TIMEOUT_MS ?? 30_000),
+    /**
+     * 공모전 데모용 접근 키. **설정하지 않으면 데모 문이 열리지 않는다**(기본 꺼짐).
+     * 설정 시 이 키를 헤더로 제시한 요청만 /api/site-analysis 를 로그인 없이 쓸 수 있다.
+     * 정적 사이트에 박히는 전제이므로 아래 일일 상한이 손실의 천장이 된다.
+     */
+    visionDemoKey: process.env.VISION_DEMO_KEY,
+    /** 데모 일일 총 호출 상한. 분당 레이트리밋만으로는 하루치 비용을 못 막는다. */
+    visionDemoDailyLimit: Number(process.env.VISION_DEMO_DAILY_LIMIT ?? 100),
   },
   buildingRegistry: {
     // 건축물대장 표제부 OpenAPI 키 (data.go.kr)

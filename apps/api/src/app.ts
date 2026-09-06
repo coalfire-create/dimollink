@@ -55,6 +55,7 @@ import { seedTestAccounts } from './dev/seed.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
+import { createDemoAccess } from './middleware/demo-access.js';
 import {
   createRateLimiter,
   requestId,
@@ -290,7 +291,13 @@ export function createApp(
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
   // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
-  app.use('/api/site-analysis', requireAuth);
+  // 디몰비전 공모전 데모: 키가 설정된 경우에만 로그인 없이 분석을 허용한다(일일 상한 적용).
+  // 키가 없으면 아래는 그대로 requireAuth 다 — 기본값은 여전히 "로그인 필수".
+  const visionDemo = createDemoAccess({
+    demoKey: env.ai.visionDemoKey,
+    dailyLimit: env.ai.visionDemoDailyLimit,
+  });
+  app.use('/api/site-analysis', visionDemo.wrap(requireAuth));
   app.use('/api/locations/building-info', requireAuth);
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
