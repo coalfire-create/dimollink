@@ -1,0 +1,279 @@
+"""3D 스캔 복원 — GPU 없이 검증 가능한 부분 전부.
+
+GPU 를 켜는 시간이 곧 비용이라, 배선 오류·계산 실수는 전부 여기서 잡고 올라간다.
+"""
+
+from __future__ import annotations
+
+import os
+
+from app.scan3d import (
+    ScanQuality,
+    assess_scan_usability,
+    pick_sharpest_per_bucket,
+    scaled_volume_m3,
+    select_frame_indices,
+)
+from app.scan3d.frames import (
+    MAX_SCAN_FRAMES,
+    MIN_SCAN_FRAMES,
+    enough_frames,
+    ffmpeg_extract_command,
+    sharpness_of,
+)
+from app.scan3d.pipeline import (
+    colmap_commands,
+    parse_colmap_stats,
+    result_to_json,
+    run_reconstruction,
+    splat_command,
+)
+from app.scan3d.quality import registered_ratio, scale_factor_from_ledger_area
+
+
+# ── 프레임 선별 ──────────────────────────────────────────────────────────────
+
+def test_select_frames_is_evenly_spaced():
+    picked = select_frame_indices(600, 200)
+    assert len(picked) == 200
+    gaps = {picked[i + 1] - picked[i] for i in range(len(picked) - 1)}
+    # 간격이 벌어지면 인접 사진의 겹침이 줄어 복원이 깨진다 — 균등해야 한다.
+    assert max(gaps) - min(gaps) <= 1
+
+
+def test_select_frames_keeps_all_when_few():
+    assert select_frame_indices(30, 200) == list(range(30))
+    assert select_frame_indices(0, 200) == []
+
+
+def test_pick_sharpest_per_bucket_avoids_blurry_frames():
+    # 구간마다 흐린 프레임 2장 + 선명한 1장. 선명한 것만 골라야 한다.
+    sharpness = []
+    for _ in range(4):
+        sharpness += [1.0, 900.0, 2.0]
+    picked = pick_sharpest_per_bucket(sharpness, target=4)
+    assert picked == [1, 4, 7, 10]
+
+
+def test_pick_sharpest_keeps_even_spacing():
+    picked = pick_sharpest_per_bucket([float(i % 7) for i in range(300)], target=100)
+    assert len(picked) == 100
+    assert picked == sorted(picked)
+
+
+def test_sharpness_discriminates_focus():
+    side = 24
+    def image(fn):
+        return [float(fn(x, y)) for y in range(side) for x in range(side)]
+    sharp = sharpness_of(image(lambda x, y: 0 if (x + y) % 2 == 0 else 255), side, side)
+    blurry = sharpness_of(image(lambda x, y: x / side * 255), side, side)
+    assert sharp > blurry
+    assert sharpness_of(image(lambda x, y: 128), side, side) == 0.0
+
+
+def test_enough_frames_gate():
+    assert enough_frames(MIN_SCAN_FRAMES) is None
+    msg = enough_frames(10)
+    assert msg and "다시 촬영" in msg
+
+
+def test_ffmpeg_command_shape():
+    cmd = ffmpeg_extract_command("/tmp/a.mp4", "/tmp/out", fps=3)
+    assert cmd[0] == "ffmpeg"
+    assert "fps=3" in " ".join(cmd)
+
+
+# ── 부피·스케일 ──────────────────────────────────────────────────────────────
+
+def test_scaled_volume_uses_cube_of_scale():
+    """길이 배율의 세제곱을 곱해야 한다. 제곱을 곱하면 그럴듯하게 틀린다."""
+    assert scaled_volume_m3(10, 2) == 80  # 10 × 2³
+    assert scaled_volume_m3(10, 1) == 10
+    assert scaled_volume_m3(0, 2) == 0.0
+    assert scaled_volume_m3(10, 0) == 0.0
+
+
+def test_scale_factor_from_ledger_area_is_sqrt_of_area_ratio():
+    assert abs(scale_factor_from_ledger_area(25, 100) - 2.0) < 1e-9
+    assert scale_factor_from_ledger_area(0, 100) is None
+    assert scale_factor_from_ledger_area(25, 0) is None
+
+
+def test_registered_ratio_clamps():
+    assert registered_ratio(70, 100) == 0.7
+    assert registered_ratio(0, 0) == 0.0
+    assert registered_ratio(120, 100) == 1.0
+
+
+# ── 품질 게이트 (scan-volume.ts 와 동일 규칙) ────────────────────────────────
+
+def test_quality_gate_matches_ts_rules():
+    good = ScanQuality(0.95, 250_000, True)
+    assert assess_scan_usability(good, "AR_POSE") == (True, [])
+
+    usable, reasons = assess_scan_usability(ScanQuality(0.4, 250_000, True), "AR_POSE")
+    assert not usable and "다시 촬영" in " ".join(reasons)
+
+    usable, _ = assess_scan_usability(ScanQuality(0.95, 500, True), "AR_POSE")
+    assert not usable
+
+    usable, reasons = assess_scan_usability(good, "NONE")
+    assert not usable and "치수" in " ".join(reasons)
+
+    usable, reasons = assess_scan_usability(ScanQuality(0.95, 250_000, False), "AR_POSE")
+    assert not usable and "뚫린" in " ".join(reasons)
+
+
+# ── COLMAP 명령·출력 파싱 ────────────────────────────────────────────────────
+
+def test_colmap_commands_use_sequential_matcher_with_loop_detection():
+    cmds = colmap_commands("/img", "/work")
+    joined = [" ".join(c) for c in cmds]
+    # 한 바퀴 촬영에는 순차 매칭 + 루프 감지가 exhaustive 보다 훨씬 빠르다.
+    assert any("sequential_matcher" in j for j in joined)
+    assert any("loop_detection 1" in j for j in joined)
+    # 무늬 없는 벽이 많아 특징점을 기본값보다 많이 뽑아야 한다.
+    assert any("max_num_features 16384" in j for j in joined)
+
+
+def test_colmap_gpu_flag_can_be_disabled():
+    joined = " ".join(" ".join(c) for c in colmap_commands("/img", "/work", use_gpu=False))
+    assert "use_gpu 0" in joined
+
+
+def test_splat_command_carries_iterations():
+    assert "--max-steps 7000" in " ".join(splat_command("/w", "/o", 7000))
+
+
+def test_parse_colmap_stats_counts_two_lines_per_image(tmp_path):
+    sparse = tmp_path / "sparse"
+    sparse.mkdir()
+    # images.txt 는 이미지 1장이 2줄(포즈 + 관측점)을 차지한다.
+    (sparse / "images.txt").write_text(
+        "# 주석\n1 0 0 0 1 0 0 0 1 a.jpg\n1 2 3\n2 0 0 0 1 0 0 0 1 b.jpg\n4 5 6\n",
+        encoding="utf-8",
+    )
+    (sparse / "points3D.txt").write_text("# 주석\n1 0 0 0\n2 1 1 1\n3 2 2 2\n", encoding="utf-8")
+
+    stats = parse_colmap_stats(str(sparse))
+    assert stats["registered_images"] == 2
+    assert stats["point_count"] == 3
+
+
+def test_parse_colmap_stats_on_missing_output():
+    assert parse_colmap_stats("/does/not/exist") == {"registered_images": 0, "point_count": 0}
+
+
+# ── 전 과정 배선 (GPU 없이) ──────────────────────────────────────────────────
+
+def test_run_reconstruction_wiring_without_gpu(tmp_path):
+    """외부 바이너리를 주입 대체해 단계 전이·결과 계산만 검증한다."""
+    work = tmp_path / "work"
+    (work / "sparse" / "0").mkdir(parents=True)
+    (work / "sparse" / "0" / "images.txt").write_text(
+        "".join(f"{i} p\n obs\n" for i in range(90)), encoding="utf-8"
+    )
+    (work / "sparse" / "0" / "points3D.txt").write_text(
+        "".join(f"{i} 0 0 0\n" for i in range(200_000)), encoding="utf-8"
+    )
+
+    ran: list = []
+    stages: list = []
+    result = run_reconstruction(
+        image_dir=str(tmp_path / "img"),
+        work_dir=str(work),
+        out_dir=str(tmp_path / "out"),
+        scale_factor=2.0,
+        scale_source="AR_POSE",
+        raw_volume_units=50.0,
+        input_image_count=100,
+        on_stage=stages.append,
+        runner=lambda cmd: ran.append(cmd[0]) or 0,
+    )
+
+    assert stages == ["MATCHING", "RECONSTRUCTING", "SPLATTING", "MEASURING"]
+    assert ran.count("colmap") == 3 and ran.count("python") == 1
+    assert result.quality.registered_ratio == 0.9
+    assert result.quality.point_count == 200_000
+    assert result.gross_volume_m3 == 400.0  # 50 × 2³
+    assert result.usable is True
+    assert "grossVolumeM3" in result_to_json(result)
+
+
+def test_run_reconstruction_reports_unusable_on_poor_registration(tmp_path):
+    work = tmp_path / "work"
+    (work / "sparse" / "0").mkdir(parents=True)
+    (work / "sparse" / "0" / "images.txt").write_text(
+        "".join(f"{i} p\n obs\n" for i in range(20)), encoding="utf-8"
+    )
+    (work / "sparse" / "0" / "points3D.txt").write_text("1 0 0 0\n", encoding="utf-8")
+
+    result = run_reconstruction(
+        image_dir=str(tmp_path / "img"), work_dir=str(work), out_dir=str(tmp_path / "out"),
+        scale_factor=1.0, scale_source="AR_POSE", raw_volume_units=10.0,
+        input_image_count=100, runner=lambda cmd: 0,
+    )
+    # 100장 중 20장만 정렬 → 부피를 믿을 수 없다.
+    assert result.usable is False
+    assert any("다시 촬영" in r for r in result.reasons)
+
+
+# ── 추출 fps: 흐림 선별이 실제로 작동하는가 (성능 측정에서 잡힌 결함) ──────────
+
+def test_extract_fps_creates_selection_surplus():
+    """목표와 같은 수만 뽑으면 구간당 후보가 1장뿐이라 흐림 필터가 무력해진다.
+
+    이전 설계(3fps)에서는 30초=90장 → 상한 이하라 전부 통과했고,
+    흔들린 프레임이 그대로 COLMAP 에 들어가 복원 실패의 원인이 됐다.
+    """
+    from app.scan3d.frames import (
+        MIN_SELECTION_SURPLUS, SCAN_EXTRACT_FPS, TARGET_SCAN_FRAMES,
+        selection_surplus, surplus_warning,
+    )
+    for seconds in (45, 60):  # 권장 촬영 시간(실측 무릎점 45초 이상)
+        extracted = seconds * SCAN_EXTRACT_FPS
+        assert selection_surplus(extracted) >= MIN_SELECTION_SURPLUS
+        assert surplus_warning(extracted) is None
+
+
+def test_surplus_warning_fires_when_too_short():
+    from app.scan3d.frames import SCAN_EXTRACT_FPS, surplus_warning
+    msg = surplus_warning(20 * SCAN_EXTRACT_FPS)  # 20초 — 너무 짧다
+    assert msg and "여유가 없습니다" in msg
+
+
+def _sharp_ratio_after_selection(seconds: int) -> float:
+    """3장 중 1장만 선명한 영상에서, 선별 후 선명 프레임 비율(실측용 헬퍼)."""
+    from app.scan3d.frames import SCAN_EXTRACT_FPS, TARGET_SCAN_FRAMES
+
+    extracted = seconds * SCAN_EXTRACT_FPS
+    sharpness = [900.0 if i % 3 == 0 else 5.0 for i in range(extracted)]
+    picked = pick_sharpest_per_bucket(sharpness, TARGET_SCAN_FRAMES)
+    assert len(picked) == TARGET_SCAN_FRAMES
+    return sum(1 for i in picked if sharpness[i] > 100) / len(picked)
+
+
+def test_selection_beats_random_at_30s():
+    """30초에서도 무작위 추출보다는 낫다 — 다만 절반 남짓에 그친다.
+
+    구간당 후보가 1.6장뿐이라서다. 권장 하한을 45초로 올린 실제 근거가 이 수치다.
+    """
+    ratio = _sharp_ratio_after_selection(30)
+    assert ratio > 1 / 3 * 1.4  # 무작위(33%) 대비 유의미한 개선
+    assert ratio > 0.5
+
+
+def test_longer_capture_filters_blur_much_better():
+    """여유가 늘면 선별 효과가 실제로 커진다 — '더 돌면 정확해진다'는 안내의 근거."""
+    short = _sharp_ratio_after_selection(30)
+    recommended = _sharp_ratio_after_selection(45)
+    full = _sharp_ratio_after_selection(60)
+    assert full > recommended > short
+    # 45초(구간당 2.4장)에서 80%, 60초(3.2장)면 사실상 전부 선명한 프레임만 남는다.
+    assert recommended >= 0.8
+    assert full > 0.9
+
+
+def test_selection_surplus_handles_zero_target():
+    from app.scan3d.frames import selection_surplus
+    assert selection_surplus(100, 0) == 0.0
