@@ -243,6 +243,87 @@ export function isPhotoQualityOk(stats: LumaStats): boolean {
 }
 
 /**
+ * 평균 밝기 상한 — 이보다 밝으면 과노출(역광·직사광)로 본다.
+ * 하얗게 날아간 면은 소재를 판독할 수 없다.
+ */
+export const QUALITY_MEAN_MAX = 235;
+
+/**
+ * 선명도(라플라시안 분산) 하한. 이보다 낮으면 초점이 안 맞은 것으로 본다.
+ *
+ * ⚠️ `QUALITY_VARIANCE_MIN`(밝기 분산)은 **대비**지 선명도가 아니다. 대비가 큰 장면을
+ * 흐리게 찍으면 밝기 분산은 그대로 높아 흐림을 통과시킨다. 초점은 이웃 화소 간
+ * 2차 미분(라플라시안)의 분산으로 재야 잡힌다.
+ */
+export const QUALITY_SHARPNESS_MIN = 60;
+
+/** 선명도 계산에 쓰는 축당 표본 수. 너무 줄이면 고주파가 사라져 흐림을 못 잡는다. */
+export const SHARPNESS_SAMPLE_PER_AXIS = 192;
+
+/**
+ * 라플라시안 분산으로 선명도를 잰다(값이 클수록 선명). RGBA 픽셀 + 폭·높이를 받는다.
+ * 4-이웃 라플라시안 커널을 회색조에 적용하고 그 응답의 분산을 반환한다.
+ */
+export function computeSharpness(
+  pixels: ArrayLike<number>,
+  width: number,
+  height: number,
+): number {
+  if (width < 3 || height < 3) return 0;
+  const gray = new Float64Array(width * height);
+  for (let i = 0, p = 0; p < gray.length; i += 4, p += 1) {
+    gray[p] = ((pixels[i] ?? 0) + (pixels[i + 1] ?? 0) + (pixels[i + 2] ?? 0)) / 3;
+  }
+
+  let sum = 0;
+  let sumSq = 0;
+  let n = 0;
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const c = y * width + x;
+      // ∇² ≈ 상+하+좌+우 − 4×중앙
+      const lap =
+        (gray[c - width] ?? 0) +
+        (gray[c + width] ?? 0) +
+        (gray[c - 1] ?? 0) +
+        (gray[c + 1] ?? 0) -
+        4 * (gray[c] ?? 0);
+      sum += lap;
+      sumSq += lap * lap;
+      n += 1;
+    }
+  }
+  if (n === 0) return 0;
+  const mean = sum / n;
+  return sumSq / n - mean * mean;
+}
+
+/** 품질 판정 결과 — 통과 여부와 **왜** 미달인지. */
+export interface PhotoQualityAssessment {
+  ok: boolean;
+  /** 사용자에게 그대로 보여줄 수 있는 사유. 통과면 빈 배열. */
+  reasons: string[];
+}
+
+/**
+ * 밝기·대비·선명도를 함께 보고 통과 여부와 사유를 낸다.
+ *
+ * 입력 품질은 인식 정확도를 올리는 가장 싼 수단이다 — 모델을 건드리지 않고
+ * 흐린 사진·암전·과노출을 촬영 시점에 되돌려 보내는 것만으로 오인식이 줄어든다.
+ * `sharpness` 를 주지 않으면 선명도 검사는 건너뛴다(플랫폼 미지원 폴백).
+ */
+export function assessPhotoQuality(stats: LumaStats, sharpness?: number): PhotoQualityAssessment {
+  const reasons: string[] = [];
+  if (stats.mean <= QUALITY_MEAN_MIN) reasons.push('사진이 너무 어둡습니다');
+  else if (stats.mean >= QUALITY_MEAN_MAX) reasons.push('사진이 너무 밝습니다(역광·과노출)');
+  if (stats.variance <= QUALITY_VARIANCE_MIN) reasons.push('명암 차이가 없습니다(렌즈 가림 의심)');
+  if (typeof sharpness === 'number' && sharpness < QUALITY_SHARPNESS_MIN) {
+    reasons.push('초점이 맞지 않아 흐립니다');
+  }
+  return { ok: reasons.length === 0, reasons };
+}
+
+/**
  * 큰 이미지의 RGBA 를 목표 축당 표본 수(perAxis)에 맞춰 균등 간격으로 골라
  * 작은 RGBA 배열로 압축한다(밝기·분산 계산 비용을 상수 시간으로 묶는다).
  * data 는 [r,g,b,a, ...] 순서(길이 = width*height*4).

@@ -28,6 +28,7 @@ import type {
   UserApprovalStatus,
   UserProfile,
   UserType,
+  SiteCaptureSlotId,
   VolumeEstimate,
   WasteItem,
 } from '@dimol/shared';
@@ -284,6 +285,10 @@ export const sendMessage = (requestId: string, senderId: string, content: string
 export interface AnalyzeImage {
   imageBase64: string;
   mimeType?: string;
+  /** 가이드 촬영 슬롯(정면벽·천장·바닥 등) — 부위별 사전확률·결측 선언에 쓰인다. */
+  slotId?: SiteCaptureSlotId;
+  /** 촬영 시점 품질 미달 사유(흐림·암전·과노출). 서버가 결측과 같은 급으로 다룬다. */
+  qualityWarnings?: string[];
 }
 export interface AnalyzeSiteInput {
   imageBase64?: string;

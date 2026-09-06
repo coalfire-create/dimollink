@@ -19,6 +19,11 @@ export interface CapturedPhoto {
   base64: string;
   mimeType: string;
   uri: string;
+  /**
+   * 품질 미달 사유(흐림·암전·과노출). 촬영을 막지는 않지만 서버로 함께 보내
+   * 그 사진에서 나온 판정의 신뢰도를 낮추는 데 쓴다.
+   */
+  qualityWarnings?: string[];
 }
 
 interface CameraCaptureModalProps {
@@ -90,9 +95,15 @@ export function CameraCaptureModal({
         uri: shot.uri.startsWith('data:') ? shot.uri : `data:image/jpeg;base64,${base64}`,
         mimeType: 'image/jpeg',
       });
+      // 품질 미달이어도 촬영을 막지는 않는다 — 사유를 달아 보내고 화면에 표시한다.
       setPhotos((prev) => [
         ...prev,
-        { base64: processed.base64, mimeType: 'image/jpeg', uri: shot.uri },
+        {
+          base64: processed.base64,
+          mimeType: 'image/jpeg',
+          uri: shot.uri,
+          qualityWarnings: processed.quality.reasons,
+        },
       ]);
     } finally {
       setCapturing(false);
