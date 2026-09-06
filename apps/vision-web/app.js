@@ -65,13 +65,71 @@
     analyzeBtn.disabled = selectedFiles.length === 0;
   });
 
+  // 건축물대장(공공데이터) 조회 결과. 디몰링크 본체가 조회해 준 "확정 사실" 문구다.
+  var ledgerFacts = null;
+
   function collectMeta() {
     return {
       building_use: el("building-use").value || undefined,
       floor_area: el("floor-area").value || undefined,
       floors: el("floors").value || undefined,
+      site_address: el("site-address").value || undefined,
+      // AI 서버가 인식 프롬프트에 "사진보다 신뢰도 높은 확정 정보"로 주입한다.
+      ledger_facts: ledgerFacts || undefined,
     };
   }
+
+  /**
+   * 주소 → 건축물대장 조회. 공공데이터 키는 디몰링크 본체에 있으므로 본체에 물어본다
+   * (키를 두 곳에 두지 않는다). 실패해도 분석은 계속된다 — 대장은 정확도를 올리는
+   * 보조 근거이지 필수 입력이 아니다.
+   */
+  async function lookupLedger() {
+    var address = el("site-address").value.trim();
+    var status = el("ledger-status");
+    if (!address) {
+      status.textContent = "주소를 입력해 주세요.";
+      return;
+    }
+    if (!config.dimollinkApiUrl) {
+      status.textContent = "건축물대장 조회가 설정되지 않았습니다. 없이도 분석은 됩니다.";
+      return;
+    }
+
+    status.textContent = "건축물대장을 확인하는 중…";
+    ledgerFacts = null;
+    try {
+      var headers = {};
+      if (config.demoKey) headers["X-Demo-Key"] = config.demoKey;
+      var res = await fetch(
+        config.dimollinkApiUrl + "/locations/building-info?address=" + encodeURIComponent(address),
+        { headers: headers }
+      );
+      if (!res.ok) {
+        status.textContent =
+          res.status === 404
+            ? "이 주소의 건축물대장을 찾지 못했습니다. 없이도 분석은 됩니다."
+            : "건축물대장 조회를 건너뜁니다. 없이도 분석은 됩니다.";
+        return;
+      }
+      var info = await res.json();
+      ledgerFacts = info.visionFacts || null;
+      // 대장에서 얻은 값으로 부가 정보를 채워 준다(사용자가 다시 입력하지 않게).
+      if (info.mainPurpsCdNm && !el("building-use").value) el("building-use").value = info.mainPurpsCdNm;
+      var area = info.totArea || info.vlRatEstmTotArea;
+      if (area && !el("floor-area").value) el("floor-area").value = Math.round(area);
+      if (info.grndFlrCnt && !el("floors").value) el("floors").value = info.grndFlrCnt;
+
+      status.textContent = ledgerFacts
+        ? "확인됨 — " + [info.mainPurpsCdNm, info.strctCdNm, area ? area + "㎡" : null]
+            .filter(Boolean).join(" · ")
+        : "대장은 찾았지만 활용할 정보가 없습니다.";
+    } catch (e) {
+      status.textContent = "건축물대장 조회를 건너뜁니다. 없이도 분석은 됩니다.";
+    }
+  }
+
+  el("ledger-btn").addEventListener("click", function () { void lookupLedger(); });
 
   analyzeBtn.addEventListener("click", function () {
     if (!selectedFiles.length) return;

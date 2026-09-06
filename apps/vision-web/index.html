@@ -37,6 +37,19 @@
         <div id="thumbs" class="thumbs" aria-live="polite"></div>
 
         <fieldset class="fieldset">
+          <legend class="field-label">현장 주소</legend>
+          <p class="hint">
+            주소를 넣으면 <strong>건축물대장(공공데이터)</strong>에서 주구조·연면적·사용승인일을
+            확인해 분석의 기준으로 씁니다. 사진 판독보다 신뢰도가 높은 확정 정보입니다.
+          </p>
+          <label class="field-label sub" for="site-address">주소</label>
+          <input id="site-address" class="text-input" type="text"
+                 placeholder="예: 경기도 양평군 양평읍 ..." autocomplete="street-address" />
+          <button id="ledger-btn" class="btn btn-ghost" type="button">건축물대장 확인</button>
+          <p id="ledger-status" class="hint" aria-live="polite"></p>
+        </fieldset>
+
+        <fieldset class="fieldset">
           <legend class="field-label">부가 정보 (선택)</legend>
           <label class="field-label sub" for="building-use">건물 용도</label>
           <input id="building-use" class="text-input" type="text" placeholder="예: 단독주택" />

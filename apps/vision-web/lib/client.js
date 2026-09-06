@@ -232,6 +232,16 @@
       return h;
     }
 
+    /** File → data:image/...;base64,... (AI 서버가 그대로 읽는 형식). */
+    function toDataUrl(file) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(reader.result); };
+        reader.onerror = function () { reject(new Error("사진을 읽지 못했습니다.")); };
+        reader.readAsDataURL(file);
+      });
+    }
+
     return {
       cancel: function () {
         if (polling) { clearTimeout(polling); polling = null; }
@@ -241,9 +251,9 @@
         var onDone = handlers.onDone || function () {};
         var onError = handlers.onError || function () {};
         try {
-          var urls = files.map(function (_, i) {
-            return "local://demo/photo-" + (i + 1) + ".jpg";
-          });
+          // 사진을 data: URI 로 그대로 실어 보낸다. 별도 저장소 왕복이 없어 데모가 단순해지고,
+          // AI 서버(Groq)가 OpenAI 호환 image_url 로 그대로 읽는다.
+          var urls = await Promise.all(files.map(toDataUrl));
           var res = await fetch(base + "/jobs", {
             method: "POST",
             headers: headers(),
