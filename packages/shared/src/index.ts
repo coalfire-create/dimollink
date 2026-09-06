@@ -25,6 +25,7 @@ export * from './estimation.js';
 export * from './scan-volume.js';
 export * from './reference-object.js';
 export * from './site-scan-3d.js';
+export * from './scan-coach.js';
 export * from './building-ledger.js';
 export * from './site-analysis.js';
 export * from './waste-composition.js';

@@ -10,6 +10,7 @@ import {
   type ScanDurationAssessment,
   type ScanTarget,
 } from '@dimol/shared';
+import { useScanCoach } from '../lib/useScanCoach';
 import { AppButton } from './ui';
 import { theme } from '../theme';
 
@@ -83,6 +84,8 @@ export function Scan3DCaptureModal({ visible, target, onClose, onComplete }: Pro
   }, [visible]);
 
   const assessment: ScanDurationAssessment = assessScanDuration(elapsed);
+  // 찍는 도중에 속도·커버리지를 판정해 화면으로 알린다([[scan-coach]]).
+  const coach = useScanCoach(recording);
 
   async function start() {
     if (!cameraRef.current || recording) return;
@@ -168,7 +171,34 @@ export function Scan3DCaptureModal({ visible, target, onClose, onComplete }: Pro
                       {RECOMMENDED_SCAN_SECONDS.max}초
                     </Text>
                   </View>
-                  {/* 촬영 중 판정 — 다 찍고 실패를 알리는 것보다 지금 말하는 편이 낫다. */}
+                  {/* 실시간 코치 — 가장 중요한 한 마디만. 걸으면서 여러 줄은 못 읽는다. */}
+                  {coach.supported ? (
+                    <Text
+                      style={[
+                        styles.coach,
+                        coach.advice.level === 'warn' && styles.coachWarn,
+                        coach.advice.level === 'good' && styles.coachGood,
+                      ]}
+                    >
+                      {coach.advice.message}
+                    </Text>
+                  ) : null}
+                  {/* 한 바퀴 커버리지 — 어디를 안 찍었는지 눈으로 보이게. */}
+                  {coach.supported ? (
+                    <View style={styles.sectorRow}>
+                      {coach.state.covered.map((done, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.sector,
+                            done && styles.sectorDone,
+                            coach.state.blurred[i] && styles.sectorBlurred,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  ) : null}
+                  {/* 촬영 길이 판정 — 다 찍고 실패를 알리는 것보다 지금 말하는 편이 낫다. */}
                   <Text
                     style={[
                       styles.assessment,
@@ -239,6 +269,19 @@ const styles = StyleSheet.create({
   recDot: { backgroundColor: colors.error, borderRadius: 6, height: 12, width: 12 },
   timer: { color: '#FFFFFF', fontSize: font.bodyLarge, fontWeight: '800' },
   assessment: { color: '#FCD34D', fontSize: font.body, marginTop: spacing.xs },
+  // 코치 문구는 가장 크고 눈에 띄게 — 걸으면서 흘깃 봐도 읽혀야 한다.
+  coach: { color: '#FFFFFF', fontSize: font.bodyLarge, fontWeight: '800', marginTop: spacing.xs },
+  coachWarn: { color: '#FCA5A5' },
+  coachGood: { color: '#6EE7B7' },
+  sectorRow: { flexDirection: 'row', gap: 3, marginTop: spacing.xs },
+  sector: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 2,
+    flex: 1,
+    height: 8,
+  },
+  sectorDone: { backgroundColor: '#6EE7B7' },
+  sectorBlurred: { backgroundColor: '#FCA5A5' },
   assessmentGood: { color: '#6EE7B7' },
   steps: { color: '#93C5FD', fontSize: font.body, marginTop: spacing.xs },
   tips: { maxHeight: 220 },
