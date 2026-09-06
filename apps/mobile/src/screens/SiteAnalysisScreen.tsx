@@ -16,6 +16,13 @@ import { AddressPickerField } from '../components/AddressPickerField';
 import { processCapturedPhoto } from '../lib/photoQuality';
 import { AppIcon } from '../components/AppIcon';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
+import {
+  Scan3DCaptureModal,
+  type Scan3DCaptureResult,
+} from '../components/Scan3DCaptureModal';
+import { Scan3DProgressCard } from '../components/Scan3DProgressCard';
+import { Scan3DViewerModal } from '../components/Scan3DViewerModal';
+import { useScan3D } from '../lib/useScan3D';
 import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader } from '../navigation';
@@ -48,6 +55,10 @@ export function SiteAnalysisScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  // 3D 스캔 — 촬영 → 업로드 → 복원 폴링 → 뷰어.
+  const [scanOpen, setScanOpen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const scan = useScan3D();
 
   // ── 주소 선행 확인 ──────────────────────────────────────────────────────────
   // 이 화면도 디몰비전 입구다. 요청 폼과 같은 규칙으로 주소를 먼저 받고,
@@ -147,6 +158,12 @@ export function SiteAnalysisScreen() {
 
   function takePhoto() {
     guardCapture(() => setCameraOpen(true));
+  }
+
+  function handleScanCaptured(capture: Scan3DCaptureResult) {
+    setScanOpen(false);
+    // 대장 정보를 함께 넘겨야 AR 포즈가 없을 때 연면적으로 스케일을 역산할 수 있다.
+    void scan.start(capture, building ?? undefined);
   }
 
   async function analyze() {
@@ -324,6 +341,32 @@ export function SiteAnalysisScreen() {
           </View>
         </FadeInUp>
 
+        {/* 3D 스캔 — 한 바퀴 영상으로 실측 부피를 얻는다(층고·증축부가 반영된다). */}
+        <FadeInUp delay={80}>
+          <PressableScale
+            style={[styles.scanCard, captureLocked && styles.actionCardLocked]}
+            onPress={() => guardCapture(() => setScanOpen(true))}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: captureLocked }}
+          >
+            <View style={styles.actionIconCircle}>
+              <AppIcon name="recycle" size={26} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionCardTitle}>3D 스캔 (건물 한 바퀴)</Text>
+              <Text style={styles.actionCardSub}>
+                45~60초 촬영으로 실제 크기를 재서 물량을 더 정확하게 산정해요
+              </Text>
+            </View>
+          </PressableScale>
+        </FadeInUp>
+
+        {scan.error ? <ErrorBanner message={scan.error} /> : null}
+        {scan.job ? <Scan3DProgressCard job={scan.job} /> : null}
+        {scan.sceneUrl ? (
+          <AppButton label="3D로 보기" onPress={() => setViewerOpen(true)} />
+        ) : null}
+
         <ErrorBanner message={error} />
 
         {result ? <AnalysisResult result={result} /> : null}
@@ -339,6 +382,17 @@ export function SiteAnalysisScreen() {
         visible={cameraOpen}
         onClose={() => setCameraOpen(false)}
         onCapture={handleCameraCapture}
+      />
+      <Scan3DCaptureModal
+        visible={scanOpen}
+        target="EXTERIOR"
+        onClose={() => setScanOpen(false)}
+        onComplete={handleScanCaptured}
+      />
+      <Scan3DViewerModal
+        visible={viewerOpen}
+        sceneUrl={scan.sceneUrl}
+        onClose={() => setViewerOpen(false)}
       />
     </View>
   );
@@ -956,6 +1010,18 @@ const styles = StyleSheet.create({
     fontSize: font.bodyLarge,
     fontWeight: '800',
     marginBottom: spacing.xs,
+  },
+  scanCard: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    minHeight: 48,
+    padding: spacing.md,
   },
   hazardItem: {
     color: colors.error,

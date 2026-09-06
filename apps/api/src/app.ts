@@ -23,6 +23,7 @@ import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-coll
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
+import { ScanVolumeEstimator } from './estimation/scan-estimator.js';
 import { SiteAnalysisQueue } from './site-analysis/queue.js';
 import { SiteAnalysisStore, type SiteAnalysisRecord } from './site-analysis/store.js';
 import {
@@ -375,7 +376,9 @@ export function createApp(
   app.use('/api', createNotificationsRouter(notificationService));
   app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
   app.use('/api', createChatRouter(new ChatStore(requestStore, notificationService, persistence<ChatMessage>('chat'))));
-  app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
+  // 3D 스캔 실측이 있으면 그걸 쓰고, 없거나 품질 미달이면 연면적 원단위로 폴백한다.
+  const volumeEstimator = new ScanVolumeEstimator(new HeuristicVolumeEstimator());
+  app.use('/api', createEstimationRouter(volumeEstimator));
   // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
   const mockSiteAnalyzer = new MockSiteAnalyzer();
   // 공급자 우선순위: Groq(무료·카드불필요) > Gemini(무료티어) > Claude(유료) > 목. 실패 시 라우터가 목 폴백.
@@ -413,7 +416,7 @@ export function createApp(
   const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
   app.use(
     '/api',
-    createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, new HeuristicVolumeEstimator()),
+    createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, volumeEstimator),
   );
   app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
   app.use(

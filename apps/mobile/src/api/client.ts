@@ -28,6 +28,8 @@ import type {
   UserApprovalStatus,
   UserProfile,
   UserType,
+  Scan3DJob,
+  ScanTarget,
   SiteCaptureSlotId,
   VolumeEstimate,
   WasteItem,
@@ -540,3 +542,57 @@ export const reportIncident = (input: { requestId: string; type: 'NO_SHOW' | 'DI
 // ── 사진 업로드 및 조회 API
 export const getSitePhotoViewUrl = (key: string) =>
   api<{ key: string; viewUrl: string; expiresInSec: number }>(`/uploads/site-photos/view-url?key=${encodeURIComponent(key)}`);
+
+// ── 3D 현장 스캔 ─────────────────────────────────────────────────────────────
+
+/**
+ * 스캔 영상 업로드 → 복원 잡 생성 → 완료까지 폴링.
+ *
+ * 영상은 API 를 거치지 않고 스토리지에 **직접** 올린다(최대 200MB — 서버로 흘리면
+ * 메모리가 터진다). 복원은 20~40분 걸리므로 잡 id 로 진행 단계를 폴링한다.
+ */
+export interface ScanPresignResponse {
+  scanId: string;
+  key: string;
+  uploadUrl: string;
+  requiredHeaders: { 'Content-Type': string; 'Content-Length': string };
+  expiresInSec: number;
+}
+
+export const presignScanVideo = (contentType: string, contentLength: number) =>
+  api<ScanPresignResponse>('/scan3d/presign', {
+    method: 'POST',
+    body: JSON.stringify({ contentType, contentLength }),
+  });
+
+export const createScanJob = (input: {
+  videoKey: string;
+  target: ScanTarget;
+  building?: BuildingLedgerInfo;
+  hasArPose?: boolean;
+}) =>
+  api<{ jobId: string }>('/scan3d/jobs', { method: 'POST', body: JSON.stringify(input) });
+
+export const getScanJob = (jobId: string) => api<Scan3DJob>(`/scan3d/jobs/${jobId}`);
+
+export const getScanSceneUrl = (key: string) =>
+  api<{ key: string; viewUrl: string }>(`/scan3d/scene-url?key=${encodeURIComponent(key)}`);
+
+/** 복원 폴링 간격(ms). 20~40분 걸리는 작업이라 촘촘히 물을 이유가 없다. */
+export const SCAN_POLL_INTERVAL_MS = 5000;
+
+/**
+ * 영상 파일을 presigned URL 로 직접 업로드한다.
+ * 서명에 Content-Type/Length 가 포함돼 있어 헤더가 다르면 스토리지가 거부한다.
+ */
+export async function uploadScanVideo(
+  presigned: ScanPresignResponse,
+  blob: Blob,
+): Promise<void> {
+  const res = await fetch(presigned.uploadUrl, {
+    method: 'PUT',
+    headers: presigned.requiredHeaders,
+    body: blob,
+  });
+  if (!res.ok) throw new ApiError('영상 업로드에 실패했어요. 네트워크를 확인해 주세요.', res.status);
+}
