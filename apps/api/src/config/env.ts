@@ -77,6 +77,18 @@ export const env = {
     apiUrl: process.env.SMS_API_URL,
     apiKey: process.env.SMS_API_KEY,
   },
+  /**
+   * 지도 페이지를 iframe 으로 띄워도 되는 외부 오리진(콤마 구분).
+   *
+   * 기본은 동일 출처만이다. 디몰비전(별도 서비스)이 같은 지도를 써야 해서 좁게 연다 —
+   * 지도 페이지에는 사용자 데이터가 없고, 이 목록에 적힌 오리진만 프레이밍할 수 있다.
+   * ⚠️ 다른 페이지(API·앱)에는 적용되지 않는다. 이 문서 하나에만 해당한다.
+   */
+  mapFrameAncestors: (process.env.MAP_FRAME_ANCESTORS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+
   /** 앱에 그대로 내려도 되는 공개 설정(클라이언트 키 등). 시크릿은 절대 넣지 않는다. */
   publicConfig: {
     /**

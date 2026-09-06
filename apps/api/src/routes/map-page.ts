@@ -26,8 +26,14 @@ export function createMapPageRouter(): Router {
     res.setHeader('Cache-Control', 'no-cache');
     // 전역 보안 헤더는 X-Frame-Options: DENY 다. 이 문서만 앱이 iframe 으로 띄워야 하므로
     // 동일 출처 프레이밍만 허용한다(외부 사이트의 클릭재킹은 계속 차단).
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    // 디몰비전 등 허용된 외부 오리진이 이 지도를 iframe 으로 쓸 수 있게 한다.
+    // frame-ancestors 가 지정되면 최신 브라우저는 X-Frame-Options 를 무시하므로,
+    // 외부 허용이 있을 때는 CSP 만 두어 둘이 충돌하지 않게 한다.
+    const ancestors = ["'self'", ...env.mapFrameAncestors];
+    if (env.mapFrameAncestors.length === 0) {
+      res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    }
+    res.setHeader('Content-Security-Policy', `frame-ancestors ${ancestors.join(' ')}`);
     // 카카오/OSM 타일을 받아야 하므로 same-site 로 묶인 리소스 정책을 이 문서에서만 푼다.
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.send(renderMapPage(env.publicConfig.kakaoJsKey ?? null, center));
