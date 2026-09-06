@@ -56,7 +56,16 @@ def validate_report(report: VisionReport) -> List[str]:
         if ASBESTOS_SUSPECT_GUIDANCE not in h.guidance:
             issues.append(f"hazards ASBESTOS_SUSPECT[{i}] 는 전문 조사 안내를 포함해야 합니다.")
 
-    # 5) 석면 유무 "확정" 표현 금지 — 리포트 전체 텍스트 스캔
+    # 5) 안전지침은 반드시 출처를 인용해야 한다(§3.4).
+    #    근거 없는 안전지침은 지침이 아예 없는 것보다 나쁘다 — 사람이 그대로 따라 하기 때문이다.
+    for si, step in enumerate(report.process_steps):
+        for gi, g in enumerate(step.safety_guidelines):
+            if not (g.source_document or "").strip():
+                issues.append(
+                    f"process_steps[{si}].safety_guidelines[{gi}] 에 근거 문서(source_document)가 없습니다."
+                )
+
+    # 6) 석면 유무 "확정" 표현 금지 — 리포트 전체 텍스트 스캔
     scanned_parts = [report.site_summary.scale_estimate]
     scanned_parts += [m.location_note for m in report.materials]
     for h in report.hazards:
