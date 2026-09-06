@@ -31,6 +31,9 @@ import {
   GroqSiteAnalyzer,
   MockSiteAnalyzer,
 } from './site-analysis/analyzer.js';
+import { ConsensusSiteAnalyzer } from './site-analysis/consensus.js';
+import { Scan3DQueue } from './scan3d/queue.js';
+import { HttpReconstructor, MockReconstructor } from './scan3d/reconstructor.js';
 import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { NotificationService } from './notifications/service.js';
@@ -69,7 +72,9 @@ import { createAdminRouter } from './routes/admin.js';
 import { createChatRouter } from './routes/chat.js';
 import { createEstimationRouter } from './routes/estimation.js';
 import { createMapPageRouter } from './routes/map-page.js';
+import { createScanViewerPageRouter } from './routes/scan-viewer-page.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
+import { createScan3DRouter } from './routes/scan3d.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -158,6 +163,8 @@ export function createApp(
   app.use('/api', healthRouter);
   // 지도 페이지 — 앱이 iframe/WebView 로 띄운다(실제 URL 이어야 카카오 SDK 가 동작).
   app.use('/', createMapPageRouter());
+  // 3D 스캔 뷰어 — 앱이 WebView 로 띄우는 실제 URL(지도 페이지와 같은 이유).
+  app.use('/', createScanViewerPageRouter());
 
   // 전역 레이트리밋(기본 DDoS·남용 완화) — IP 기준. 정상 사용에 넉넉한 상한.
   app.use(
@@ -391,12 +398,24 @@ export function createApp(
             timeoutMs: env.ai.visionTimeoutMs,
           })
         : mockSiteAnalyzer;
+  // 사진이 여러 장이면 한 장씩 따로 돌려 검출률로 신뢰도를 매긴다(모델 자가보고 대신).
+  const consensusSiteAnalyzer = new ConsensusSiteAnalyzer(siteAnalyzer, env.ai.visionConsensus);
+  // 3D 현장 스캔 — 복원 서버가 설정돼 있으면 실제, 없으면 목(GPU 없이 전 경로 검증 가능).
+  const scan3dQueue = new Scan3DQueue();
+  const reconstructor = env.ai.scan3dBaseUrl
+    ? new HttpReconstructor({
+        baseUrl: env.ai.scan3dBaseUrl,
+        apiKey: env.ai.scan3dApiKey,
+        timeoutMs: env.ai.scan3dTimeoutMs,
+      })
+    : new MockReconstructor();
   const siteAnalysisQueue = new SiteAnalysisQueue();
   const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
   app.use(
     '/api',
-    createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, new HeuristicVolumeEstimator()),
+    createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, new HeuristicVolumeEstimator()),
   );
+  app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
   app.use(
     '/api',
     createAdminRouter(
