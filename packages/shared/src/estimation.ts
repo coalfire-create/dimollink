@@ -77,8 +77,13 @@ export interface VolumeEstimate {
   /** 차량 대수 환산(참고). */
   truckLoads: TruckLoad[];
   confidence: EstimateConfidence;
-  /** 추정 방법 식별자 (AREA_HEURISTIC: 원단위, AI_VISION: 사진 분석 — 연동 후). */
-  method: 'AREA_HEURISTIC' | 'AI_VISION';
+  /**
+   * 추정 방법 식별자.
+   * - `AREA_HEURISTIC`: 연면적 × 원단위(통계). 층고·증축부를 못 본다.
+   * - `SCAN_VOLUME`: 3D 스캔 실측 부피 × 부피 원단위([[scan-volume]]). 층고가 반영된다.
+   * - `AI_VISION`: 사진 분석 기반(연동 후).
+   */
+  method: 'AREA_HEURISTIC' | 'SCAN_VOLUME' | 'AI_VISION';
   /** UI 필수 노출 문구 — 추정치의 한계 고지. */
   disclaimer: string;
   estimatedAt: string;
