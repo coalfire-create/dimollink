@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     # Groq 로 보낼 사진 수 상한. 업로드는 max_photos 까지 받되, 한 요청에 base64 로 다 실으면
     # 페이로드가 수십 MB 가 되어 거부된다. 인식은 대표 장수만으로도 충분하다.
     groq_max_images: int = 5
+    # 응답 토큰 상한. Groq 무료 티어는 **분당 출력 토큰(OTPM) 1000** 이라, 이보다 크게 잡으면
+    # 요청이 아예 거부된다(429 "Request too large ... on output tokens per minute").
+    # 인식(자재 코드 목록)은 수십 토큰이면 되고, 생성(공정표)만 넉넉히 필요하다.
+    groq_max_tokens_recognition: int = 256
+    groq_max_tokens_generation: int = 900
 
     environment: str = "local"
 

@@ -61,6 +61,8 @@ def get_pipeline(settings: Settings) -> AnalysisPipeline:
             top_k=settings.kb_top_k,
             timeout=settings.job_timeout_seconds,
             max_images=settings.groq_max_images,
+            max_tokens_recognition=settings.groq_max_tokens_recognition,
+            max_tokens_generation=settings.groq_max_tokens_generation,
         )
     if settings.pipeline == "vllm":
         return VLLMPipeline(

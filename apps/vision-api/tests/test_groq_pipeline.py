@@ -38,7 +38,7 @@ def _pipe(monkeypatch, generation, materials=None, retriever=None):
     )
     seen = {}
 
-    async def fake_chat(messages, json_object=True):
+    async def fake_chat(messages, json_object=True, max_tokens=900):
         seen["last_system"] = messages[0]["content"]
         seen.setdefault("user", []).append(messages[1]["content"])
         if "자재 인식기" in messages[0]["content"]:

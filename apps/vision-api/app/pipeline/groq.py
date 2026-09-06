@@ -99,6 +99,8 @@ class GroqPipeline:
         top_k: int = 3,
         timeout: float = 120.0,
         max_images: int = 5,
+        max_tokens_recognition: int = 256,
+        max_tokens_generation: int = 900,
     ) -> None:
         self._model = model
         self._model_version = model_version
@@ -108,15 +110,19 @@ class GroqPipeline:
         self._top_k = top_k
         self._timeout = timeout
         self._max_images = max_images
+        self._max_tokens_recognition = max_tokens_recognition
+        self._max_tokens_generation = max_tokens_generation
 
-    async def _chat(self, messages: list, *, json_object: bool = True) -> dict:
+    async def _chat(self, messages: list, *, json_object: bool = True, max_tokens: int = 900) -> dict:
         payload = {
             "model": self._model,
             "messages": messages,
             "temperature": 0,
             # qwen3 계열은 추론(<think>) 모델이라 끄지 않으면 JSON 앞에 사고 과정이 붙는다.
             "reasoning_effort": "none",
-            "max_tokens": 2000,
+            # ⚠️ Groq 무료 티어는 분당 출력 토큰(OTPM)이 1000 이다. 이보다 크게 요청하면
+            # 실제 출력이 짧아도 429 로 거부된다 — 단계별로 필요한 만큼만 잡는다.
+            "max_tokens": max_tokens,
         }
         if json_object:
             payload["response_format"] = {"type": "json_object"}
@@ -158,7 +164,8 @@ class GroqPipeline:
             [
                 {"role": "system", "content": _RECOGNITION_SYSTEM},
                 {"role": "user", "content": content},
-            ]
+            ],
+            max_tokens=self._max_tokens_recognition,
         )
         codes = result.get("materials", []) if isinstance(result, dict) else []
         return enrich_recognition(codes, request.input_meta)
@@ -185,7 +192,8 @@ class GroqPipeline:
             [
                 {"role": "system", "content": _GENERATION_SYSTEM},
                 {"role": "user", "content": prompt},
-            ]
+            ],
+            max_tokens=self._max_tokens_generation,
         )
 
     def _retrieve(self, recognition: dict) -> list:
