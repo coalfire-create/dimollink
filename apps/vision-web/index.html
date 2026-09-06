@@ -45,7 +45,16 @@
           <label class="field-label sub" for="site-address">주소</label>
           <input id="site-address" class="text-input" type="text"
                  placeholder="예: 경기도 양평군 양평읍 ..." autocomplete="street-address" />
-          <button id="ledger-btn" class="btn btn-ghost" type="button">건축물대장 확인</button>
+          <button id="address-search-btn" class="btn btn-ghost" type="button">주소 검색</button>
+          <div id="address-results" class="address-results"></div>
+
+          <p class="hint">지도를 움직여 <strong>현장 위치를 정확히</strong> 찝어 주세요.</p>
+          <iframe id="map-frame" class="map-frame" title="현장 위치 지도"
+                  referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+          <button id="address-confirm-btn" class="btn btn-primary" type="button">
+            이 위치로 건축물대장 확인
+          </button>
           <p id="ledger-status" class="hint" aria-live="polite"></p>
         </fieldset>
 

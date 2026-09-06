@@ -329,3 +329,34 @@ body {
   height: 24px;
   flex: 0 0 auto;
 }
+
+/* ── 주소 선택(지도 핀 찝기) — 디몰링크와 같은 흐름 ───────────────────────── */
+.map-frame {
+  width: 100%;
+  height: 320px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  margin: var(--sp-xs) 0;
+  background: var(--color-surface);
+}
+.address-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+  margin: var(--sp-xs) 0;
+}
+.address-result {
+  width: 100%;
+  min-height: var(--btn-h);
+  text-align: left;
+  padding: var(--sp-xs) var(--sp-sm);
+  font-size: var(--fs-body);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+/* 지도가 움직이는 동안에는 주소가 옛 값이라는 걸 눈으로 알린다. */
+.text-input.is-stale {
+  opacity: 0.5;
+}

@@ -22,8 +22,11 @@ window.DimolVision.config = {
 
   // 건축물대장(공공데이터) 조회는 디몰링크 본체가 담당한다 — 공공데이터 키가 거기 있고,
   // 키를 두 곳에 두지 않기 위해서다. 여기서는 조회 결과(사실 문구)만 받아 분석에 넘긴다.
-  dimollinkApiUrl: "https://demolink-api-production.up.railway.app/api",
-  demoKey: "",   // 본체의 VISION_DEMO_KEY. 비어 있으면 대장 조회를 건너뛴다.
+  // ⚠️ 주소 검색·역지오코딩·대장 조회는 **자기 오리진의 /api 프록시**로 나간다(server.mjs).
+  // CORS 가 필요 없고, 데모 키가 브라우저에 노출되지 않는다. 그래서 여기엔 키가 없다.
+
+  // 지도 페이지는 디몰링크가 서빙한다(카카오 키가 거기 있다). iframe 으로 띄운다.
+  dimollinkWebUrl: "https://demolink-api-production.up.railway.app",
 
   // 철거 분석은 사진이 많을수록 정확하다(촬영 프로토콜: 현장당 20~40장). 내부 위주로 많이 유도.
   // ⚠️ 백엔드와 일치해야 함: supabase/functions/_shared/env.ts, apps/vision-api/app/config.py (VISION_MAX_PHOTOS 기본 40).
