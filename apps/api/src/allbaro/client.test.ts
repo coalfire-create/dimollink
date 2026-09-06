@@ -198,3 +198,95 @@ describe('AllbaroClient.getCommonCodes', () => {
     expect(codes[0].code_type).toBe('A0');
   });
 });
+
+describe('AllbaroClient 역할별 회원 검증 & 신규 기능', () => {
+  it('운반자 검증 시 T300_4001_05로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(allbaroResponse([{ firm_name: '샘플운반', entn_type: 'TRAN' }]));
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const res = await client.verifyMember(VALID, 'TRANSPORT');
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/selectT300_4001_05');
+    expect(res.verified).toBe(true);
+    expect(res.memberName).toBe('샘플운반');
+  });
+
+  it('처리자 검증 시 T400_4001_05로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(allbaroResponse([{ firm_name: '샘플처리장', entn_type: 'TRTM' }]));
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const res = await client.verifyMember(VALID, 'DISPOSAL');
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/selectT400_4001_05');
+    expect(res.verified).toBe(true);
+    expect(res.memberName).toBe('샘플처리장');
+  });
+
+  it('운반 정보 등록(registerTransportInfo)은 /insertT300_5001_01로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(allbaroResponse([]));
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const res = await client.registerTransportInfo({
+      manifestNo: 'M-12345',
+      vehicleNo: '서울80바1234',
+      transportedTons: 10.5,
+      pickupAt: '2026-08-14 10:00',
+    });
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/insertT300_5001_01');
+    expect(res.success).toBe(true);
+  });
+
+  it('처리자 반입 정보 등록(registerDisposalInfo)은 /insertT400_5001_01로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(allbaroResponse([]));
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const res = await client.registerDisposalInfo({
+      manifestNo: 'M-12345',
+      weighedTons: 10.2,
+      receivedAt: '2026-08-14 11:30',
+    });
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/insertT400_5001_01');
+    expect(res.success).toBe(true);
+  });
+
+  it('처리자 최종 처리완료 등록(registerTreatmentCompletion)은 /insertT400_5001_02로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(allbaroResponse([]));
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const res = await client.registerTreatmentCompletion({
+      manifestNo: 'M-12345',
+      completedAt: '2026-08-14 15:00',
+    });
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/insertT400_5001_02');
+    expect(res.success).toBe(true);
+  });
+
+  it('인계서 상태 조회(getManifestStatus)는 /selectT200_4001_01로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      allbaroResponse([{ manf_num: 'M-12345', status: 'IN_TRANSIT', dscd_nm: '배출업체A' }]),
+    );
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const status = await client.getManifestStatus('M-12345');
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/selectT200_4001_01');
+    expect(status.manifestNo).toBe('M-12345');
+    expect(status.status).toBe('IN_TRANSIT');
+    expect(status.dischargerName).toBe('배출업체A');
+  });
+
+  it('공지사항 조회(getNotices)는 /selectT100_1001_01로 호출한다', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      allbaroResponse([{ notice_id: '101', title: '올바로 점검 안내', created_at: '2026-08-14' }]),
+    );
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const notices = await client.getNotices();
+
+    expect(fetchFn.mock.calls[0][0]).toBe('https://sandbox.allbaro.example/selectT100_1001_01');
+    expect(notices).toHaveLength(1);
+    expect(notices[0].title).toBe('올바로 점검 안내');
+  });
+});
+

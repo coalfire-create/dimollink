@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import biumLogo from '../../assets/bium_logo.png';
+import brandmark from '../../assets/brandmark.png';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
@@ -28,7 +28,12 @@ export function WelcomeScreen({
       {/* 상단: 파란색 배경 + 로고 + 타이포 */}
       <View style={styles.heroSection}>
         <View style={styles.logoWrap}>
-          <Image source={biumLogo} style={styles.logoImage} resizeMode="contain" />
+          <Image
+            source={brandmark}
+            style={styles.logoImage}
+            resizeMode="contain"
+            accessibilityLabel="비움 로고"
+          />
         </View>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>

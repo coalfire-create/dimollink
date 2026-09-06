@@ -16,7 +16,8 @@ import {
 import { SUPPORT_PHONE, SUPPORT_PHONE_TEL_URL } from '@dimol/shared';
 import { statusColor, theme } from '../theme';
 import { PressableScale, usePressScale } from './motion';
-import biumLogo from '../../assets/bium_logo.png';
+import brandmark from '../../assets/brandmark.png';
+import { AppIcon, type IconName } from './AppIcon';
 
 /**
  * 우하단 고객센터 플로팅 버튼 — 주요 화면 위에 떠 있는 원형 문의 버튼.
@@ -36,7 +37,7 @@ export function FloatingSupportButton({ onPress }: { onPress?: () => void }) {
 }
 
 /**
- * 빈 이미지 자리 placeholder — 이미지가 없을 때 회색 빈칸 대신 비움(BEEUM) 로고를 노출한다.
+ * 빈 이미지 자리 placeholder — 이미지가 없을 때 회색 빈칸 대신 비움 로고를 노출한다.
  * 사진 업로드 전 미리보기 자리 등 "빈 이미지 자리"의 기본값으로 재사용한다.
  */
 export function ImagePlaceholder({
@@ -50,7 +51,7 @@ export function ImagePlaceholder({
 }) {
   return (
     <View style={[styles.imagePlaceholder, { height }]}>
-      <Image source={biumLogo} style={styles.imagePlaceholderLogo} resizeMode="contain" />
+      <Image source={brandmark} style={styles.imagePlaceholderLogo} resizeMode="contain" />
       {label ? <Text style={styles.imagePlaceholderLabel}>{label}</Text> : null}
       {children}
     </View>
@@ -344,18 +345,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   fieldInput: {
-    backgroundColor: colors.surface,
-    borderColor: 'transparent',
-    borderRadius: radius.button,
-    borderWidth: 2,
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radius.card,
+    borderWidth: 1.5,
     color: colors.text,
     fontSize: font.bodyLarge,
     minHeight: touch.primaryButtonHeight,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   fieldInputFocused: {
-    backgroundColor: colors.background,
     borderColor: colors.primary,
+    ...theme.shadow.card,
   },
   fieldHint: {
     color: colors.textMuted,

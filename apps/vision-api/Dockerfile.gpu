@@ -1,0 +1,40 @@
+# 디몰비전 AI 서버 - GPU 서빙 전용(vLLM / 3D 처리)
+# NVIDIA CUDA 기반 이미지 사용
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+
+# 기본 패키지 설치
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    git \
+    wget \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# python을 python3.10으로 맵핑
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1
+
+WORKDIR /app
+
+# 캐싱 향상을 위해 의존성 파일 먼저 복사
+COPY pyproject.toml ./
+
+# pip 및 패키지 설치 (vllm 포함)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e ".[dev]" && \
+    pip install --no-cache-dir vllm
+
+# 애플리케이션 코드 복사
+COPY . ./
+
+# 모델 캐시 디렉터리 (필요시 호스트와 볼륨 매핑)
+ENV HUGGINGFACE_HUB_CACHE=/app/data/models
+ENV VISION_PIPELINE=vllm
+
+EXPOSE 8000
+
+# 서버 실행 (host 0.0.0.0 포트 8000)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

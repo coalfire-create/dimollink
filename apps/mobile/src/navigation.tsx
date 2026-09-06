@@ -11,10 +11,15 @@ import { theme } from './theme';
  */
 export interface RequestFormPrefill {
   wasteItems?: WasteItem[];
+  wasteTons?: number;
   region?: string;
   location?: GeoPoint;
   loadAddress?: string;
   unloadAddress?: string;
+  /** 철거 상세 폼 용 프리필 */
+  spaceSize?: string;
+  floorCount?: string;
+  buildingType?: string;
   /** 연결된 요청 id(예약↔운반 세트). */
   linkedRequestId?: string;
 }
@@ -39,7 +44,9 @@ export type Route =
   // 인테리어 밀봉 역경매 (파일럿 밖 · FEATURE_INTERIOR)
   | { name: 'interiorForm' }
   | { name: 'interiorList'; scope: 'mine' | 'open' }
-  | { name: 'interiorDetail'; requestId: string };
+  | { name: 'interiorDetail'; requestId: string }
+  | { name: 'reviewForm'; requestId: string }
+  | { name: 'tracking'; requestId: string };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

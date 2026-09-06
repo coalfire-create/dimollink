@@ -2,9 +2,15 @@
 
 from .metrics import (
     ASBESTOS_SUSPECT_RECALL_TARGET,
+    DEPLOYMENT_DOMAIN,
+    DOMAIN_AERIAL,
+    DOMAIN_PATCH,
+    DOMAIN_SITE,
+    DOMAIN_UNKNOWN,
     MAJOR_5_MATERIALS,
     MATERIAL_RECALL_TARGET,
     QUANTITY_ERROR_TOLERANCE_V1,
+    ClassMetrics,
     EvalReport,
     EvalSample,
     evaluate,
@@ -21,4 +27,10 @@ __all__ = [
     "ASBESTOS_SUSPECT_RECALL_TARGET",
     "QUANTITY_ERROR_TOLERANCE_V1",
     "MAJOR_5_MATERIALS",
+    "ClassMetrics",
+    "DEPLOYMENT_DOMAIN",
+    "DOMAIN_AERIAL",
+    "DOMAIN_PATCH",
+    "DOMAIN_SITE",
+    "DOMAIN_UNKNOWN",
 ]

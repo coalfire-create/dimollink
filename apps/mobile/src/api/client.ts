@@ -2,9 +2,11 @@ import { Platform } from 'react-native';
 import type {
   AppNotification,
   AuthSession,
+  BuildingLedgerInfo,
   CallAvailability,
   CancellationStage,
   ChatMessage,
+  DemolitionDetails,
   GeoPoint,
   InteriorBid,
   InteriorCategory,
@@ -26,6 +28,9 @@ import type {
   UserApprovalStatus,
   UserProfile,
   UserType,
+  Scan3DJob,
+  ScanTarget,
+  SiteCaptureSlotId,
   VolumeEstimate,
   WasteItem,
 } from '@dimol/shared';
@@ -51,11 +56,7 @@ const PROD_API_BASE_URL =
  *  - 네이티브 운영(안드로이드/iOS 릴리스): Railway 운영 API.
  */
 export const API_BASE_URL =
-  isWeb && !__DEV__
-    ? '/api'
-    : __DEV__
-      ? `http://${HOST}:4000/api`
-      : PROD_API_BASE_URL;
+  isWeb && !__DEV__ ? '/api' : __DEV__ ? `http://${HOST}:4000/api` : PROD_API_BASE_URL;
 
 /**
  * 웹 페이지(약관·개인정보처리방침·랜딩) 베이스 — API 와 동일 호스트의 루트(/api 제외).
@@ -174,10 +175,10 @@ export const createUser = (input: CreateUserInput) =>
 export const getUser = (id: string) => api<UserProfile>(`/users/${id}`);
 
 /** 운반업체 콜대기 상태 토글 (ONLINE=대기, OFFLINE=종료). */
-export const setAvailability = (userId: string, availability: CallAvailability) =>
+export const setAvailability = (userId: string, availability: CallAvailability, radiusKm?: number) =>
   api<UserProfile>(`/users/${userId}/availability`, {
     method: 'PATCH',
-    body: JSON.stringify({ availability }),
+    body: JSON.stringify({ availability, radiusKm }),
   });
 
 /** 처리장 운반요청 제공 여부 토글 (true=운반요청 가능, false=운반 별도). */
@@ -218,7 +219,7 @@ export interface CreateRequestInput {
   requesterId: string;
   region: string;
   wasteCategory: string;
-  /** 소재별 항목(종류+kg). 최소 1개. 서버가 wasteTons 를 합계에서 자동 산출한다. */
+  /** 소재별 항목(종류+kg). 운반/처리장 필수, 철거요청 선택. */
   wasteItems?: WasteItem[];
   /** 레거시(하위호환) — wasteItems 미지정 시에만 사용. */
   wasteTons?: number;
@@ -226,6 +227,7 @@ export interface CreateRequestInput {
   /** 현장 좌표(거리 기반 매칭용, 선택). */
   location?: GeoPoint;
   siteAddress?: string;
+  demolitionDetails?: DemolitionDetails;
   loadAddress?: string;
   unloadAddress?: string;
   visitAt?: string;
@@ -269,6 +271,11 @@ export const listMessages = (requestId: string, viewerId: string, since?: string
       (since ? `&since=${encodeURIComponent(since)}` : ''),
   );
 
+export const markMessagesAsRead = (requestId: string) =>
+  api<void>(`/requests/${requestId}/messages/read`, {
+    method: 'PATCH',
+  });
+
 export const sendMessage = (requestId: string, senderId: string, content: string) =>
   api<ChatMessage>(`/requests/${requestId}/messages`, {
     method: 'POST',
@@ -276,8 +283,53 @@ export const sendMessage = (requestId: string, senderId: string, content: string
   });
 
 // ── 현장 사진 AI 분석 (Phase 6): 소재 식별 + 철거 공정 안내
-export const analyzeSite = (input: { imageBase64: string; mimeType?: string; note?: string }) =>
-  api<SiteAnalysis>('/site-analysis/analyze', { method: 'POST', body: JSON.stringify(input) });
+/** 분석에 보낼 한 장의 사진. 여러 각도로 여러 장을 보내면 AI가 종합 분석한다. */
+export interface AnalyzeImage {
+  imageBase64: string;
+  mimeType?: string;
+  /** 가이드 촬영 슬롯(정면벽·천장·바닥 등) — 부위별 사전확률·결측 선언에 쓰인다. */
+  slotId?: SiteCaptureSlotId;
+  /** 촬영 시점 품질 미달 사유(흐림·암전·과노출). 서버가 결측과 같은 급으로 다룬다. */
+  qualityWarnings?: string[];
+}
+export interface AnalyzeSiteInput {
+  imageBase64?: string;
+  mimeType?: string;
+  images?: AnalyzeImage[];
+  note?: string;
+  buildingStructure?: string;
+  /** 현장 주소로 미리 조회한 건축물대장 정보 — 분석 정확도를 올리는 사전 사실. */
+  building?: BuildingLedgerInfo;
+  siteAddress?: string;
+}
+// POST /api/site-analysis/analyze
+// Returns { jobId } and polls /api/site-analysis/jobs/:id
+export const analyzeSite = async (input: AnalyzeSiteInput): Promise<SiteAnalysis> => {
+  const { jobId } = await api<{ jobId: string }>('/site-analysis/analyze', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return new Promise((resolve, reject) => {
+    const poll = async () => {
+      try {
+        const job = await api<{ status: string; result?: SiteAnalysis; error?: string }>(
+          `/site-analysis/jobs/${jobId}`
+        );
+        if (job.status === 'COMPLETED' && job.result) {
+          resolve(job.result);
+        } else if (job.status === 'FAILED') {
+          reject(new ApiError(job.error || '분석 실패', 500));
+        } else {
+          setTimeout(poll, 2000); // Poll every 2 seconds
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    poll();
+  });
+};
 
 /** 사진 → 소재 식별 + (연면적 있으면) 총 중량 추정 → 요청서 소재별 항목(wasteItems) 자동 변환. */
 export interface PhotoWasteItemsResult {
@@ -285,9 +337,14 @@ export interface PhotoWasteItemsResult {
   wasteItems: WasteItem[];
 }
 export const analyzeSiteWasteItems = (input: {
-  imageBase64: string;
+  imageBase64?: string;
   mimeType?: string;
+  images?: AnalyzeImage[];
   floorAreaM2?: number;
+  buildingStructure?: string;
+  /** 현장 주소로 미리 조회한 건축물대장 정보 — 분석 정확도를 올리는 사전 사실. */
+  building?: BuildingLedgerInfo;
+  siteAddress?: string;
 }) =>
   api<PhotoWasteItemsResult>('/site-analysis/waste-items', {
     method: 'POST',
@@ -295,13 +352,21 @@ export const analyzeSiteWasteItems = (input: {
   });
 
 // ── 물량 추정 (Phase 6)
-export const estimateVolume = (input: { floorAreaM2: number; structure?: string }) =>
-  api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });
+export const estimateVolume = (input: {
+  floorAreaM2: number;
+  /** 층수(선택) — 주면 floorAreaM2 를 한 층 바닥면적으로 보고 곱한다. */
+  floors?: number;
+  structure?: string;
+}) => api<VolumeEstimate>('/estimation/volume', { method: 'POST', body: JSON.stringify(input) });
 
 // ── 견적 (처리장 견적 비교 등 · Phase 3)
 /** 업체가 요청에 견적 제출(제출자는 인증된 본인). party: TRANSPORT | DISPOSAL. */
-export const submitQuote = (input: { requestId: string; party: ProviderRole; amount: number; memo?: string }) =>
-  api<Quote>('/quotes', { method: 'POST', body: JSON.stringify(input) });
+export const submitQuote = (input: {
+  requestId: string;
+  party: ProviderRole;
+  amount: number;
+  memo?: string;
+}) => api<Quote>('/quotes', { method: 'POST', body: JSON.stringify(input) });
 
 /** 요청의 견적 목록(가격 비교용). */
 export const listQuotes = (requestId: string) =>
@@ -329,7 +394,11 @@ export const prepay = (input: {
 }) => api<PrepayResult>('/payments/prepay', { method: 'POST', body: JSON.stringify(input) });
 
 /** 취소/환불 — 결제자 본인만. stage 로 위약금 정책 결정. */
-export const cancelPayment = (input: { paymentId: string; stage: CancellationStage; reason?: string }) =>
+export const cancelPayment = (input: {
+  paymentId: string;
+  stage: CancellationStage;
+  reason?: string;
+}) =>
   api<{ breakdown: { refundAmount: number; penaltyAmount: number } }>('/payments/cancel', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -354,8 +423,7 @@ export const createInteriorRequest = (input: CreateInteriorRequestInput) =>
 export const listInteriorRequests = (scope: 'mine' | 'open') =>
   api<InteriorRequest[]>(`/interior/requests?scope=${scope}`);
 
-export const getInteriorRequest = (id: string) =>
-  api<InteriorRequest>(`/interior/requests/${id}`);
+export const getInteriorRequest = (id: string) => api<InteriorRequest>(`/interior/requests/${id}`);
 
 /** 업체가 밀봉 입찰 제출(입찰자는 인증된 본인). */
 export const submitInteriorBid = (requestId: string, amount: number, memo?: string) =>
@@ -395,7 +463,11 @@ export const adminListRequests = (adminToken: string, status?: MatchStatus) =>
   });
 
 /** 정산(지급대행) 실행 — 관리자 토큰. 금액·사업자번호는 서버 확정값. */
-export const adminExecutePayout = (adminToken: string, matchRequestId: string, completedDate: string) =>
+export const adminExecutePayout = (
+  adminToken: string,
+  matchRequestId: string,
+  completedDate: string,
+) =>
   api<{ settlementDate: string; payouts: unknown[]; taxInvoices: unknown[] }>('/payments/payouts', {
     method: 'POST',
     headers: { 'x-admin-token': adminToken },
@@ -430,3 +502,109 @@ export const adminListPricing = (adminToken: string) =>
   api<ProviderPricing[]>('/admin/pricing', {
     headers: { 'x-admin-token': adminToken },
   });
+
+/** 주소 및 건물명 검색 API. */
+export interface AddressSearchResult {
+  addressName: string;
+  roadAddressName: string;
+  buildingName?: string;
+  region: string;
+  location?: GeoPoint;
+  /**
+   * 실제 주소를 확정하지 못한 근사 결과(역지오코딩 키 없음·API 실패 등).
+   * 좌표는 정확하므로 지도 표시는 그대로 하되, 주소로 취급해 저장하면 안 된다.
+   */
+  approximate?: boolean;
+}
+
+export const searchAddress = (query: string) =>
+  api<AddressSearchResult[]>(`/locations/search-address?query=${encodeURIComponent(query)}`);
+
+export const coord2Address = (lat: number, lng: number) =>
+  api<AddressSearchResult>(`/locations/coord2address?lat=${lat}&lng=${lng}`);
+
+/** 건축물대장 표제부(공공데이터). 필드 정의는 @dimol/shared 단일 출처를 쓴다. */
+export type BuildingInfo = BuildingLedgerInfo;
+
+export const getBuildingInfo = (address: string) =>
+  api<BuildingInfo>(`/locations/building-info?address=${encodeURIComponent(address)}`);
+
+// ── 리뷰 및 인시던트 API
+export const createReview = (input: { requestId: string; rating: number; comment?: string }) =>
+  api<{ id: string }>('/reviews', { method: 'POST', body: JSON.stringify(input) });
+
+export const getRatingSummary = (userId: string) =>
+  api<RatingSummary>(`/users/${userId}/rating`);
+
+export const reportIncident = (input: { requestId: string; type: 'NO_SHOW' | 'DISPUTE'; detail?: string }) =>
+  api<{ id: string }>('/incidents', { method: 'POST', body: JSON.stringify(input) });
+
+// ── 사진 업로드 및 조회 API
+export const getSitePhotoViewUrl = (key: string) =>
+  api<{ key: string; viewUrl: string; expiresInSec: number }>(`/uploads/site-photos/view-url?key=${encodeURIComponent(key)}`);
+
+// ── 3D 현장 스캔 ─────────────────────────────────────────────────────────────
+
+/**
+ * 스캔 영상 업로드 → 복원 잡 생성 → 완료까지 폴링.
+ *
+ * 영상은 API 를 거치지 않고 스토리지에 **직접** 올린다(최대 200MB — 서버로 흘리면
+ * 메모리가 터진다). 복원은 20~40분 걸리므로 잡 id 로 진행 단계를 폴링한다.
+ */
+export interface ScanPresignResponse {
+  scanId: string;
+  key: string;
+  uploadUrl: string;
+  requiredHeaders: { 'Content-Type': string; 'Content-Length': string };
+  expiresInSec: number;
+}
+
+export const presignScanVideo = (contentType: string, contentLength: number) =>
+  api<ScanPresignResponse>('/scan3d/presign', {
+    method: 'POST',
+    body: JSON.stringify({ contentType, contentLength }),
+  });
+
+export const createScanJob = (input: {
+  videoKey: string;
+  target: ScanTarget;
+  building?: BuildingLedgerInfo;
+  hasArPose?: boolean;
+  /** 촬영 중 걸음수 — 복원 경로 길이와 대조해 실제 치수 배율을 얻는다. */
+  steps?: number;
+}) =>
+  api<{ jobId: string }>('/scan3d/jobs', { method: 'POST', body: JSON.stringify(input) });
+
+export const getScanJob = (jobId: string) => api<Scan3DJob>(`/scan3d/jobs/${jobId}`);
+
+/**
+ * 기준 물체 측정 결과로 배율만 다시 적용한다 — **복원은 다시 돌리지 않는다.**
+ * 부피는 배율의 세제곱이라 원시 부피만 있으면 재계산이 공짜다(GPU 비용 0).
+ */
+export const rescaleScanJob = (jobId: string, realLengthM: number, measuredUnits: number) =>
+  api<Scan3DJob>(`/scan3d/jobs/${jobId}/rescale`, {
+    method: 'POST',
+    body: JSON.stringify({ realLengthM, measuredUnits }),
+  });
+
+export const getScanSceneUrl = (key: string) =>
+  api<{ key: string; viewUrl: string }>(`/scan3d/scene-url?key=${encodeURIComponent(key)}`);
+
+/** 복원 폴링 간격(ms). 20~40분 걸리는 작업이라 촘촘히 물을 이유가 없다. */
+export const SCAN_POLL_INTERVAL_MS = 5000;
+
+/**
+ * 영상 파일을 presigned URL 로 직접 업로드한다.
+ * 서명에 Content-Type/Length 가 포함돼 있어 헤더가 다르면 스토리지가 거부한다.
+ */
+export async function uploadScanVideo(
+  presigned: ScanPresignResponse,
+  blob: Blob,
+): Promise<void> {
+  const res = await fetch(presigned.uploadUrl, {
+    method: 'PUT',
+    headers: presigned.requiredHeaders,
+    body: blob,
+  });
+  if (!res.ok) throw new ApiError('영상 업로드에 실패했어요. 네트워크를 확인해 주세요.', res.status);
+}

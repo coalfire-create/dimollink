@@ -85,3 +85,22 @@ export async function presignSitePhotoView(key: string): Promise<{
   const viewUrl = await getSignedUrl(getClient(), command, { expiresIn: expiresInSec });
   return { key, viewUrl, expiresInSec };
 }
+
+/**
+ * 백엔드에서 Base64 이미지를 직접 S3에 업로드합니다 (디몰비전 원본 사진 저장용).
+ */
+export async function uploadBase64Photo(params: {
+  key: string;
+  base64: string;
+  contentType: string;
+}): Promise<void> {
+  const buffer = Buffer.from(params.base64, 'base64');
+  const command = new PutObjectCommand({
+    Bucket: env.storage.bucket,
+    Key: params.key,
+    Body: buffer,
+    ContentType: params.contentType,
+    ContentLength: buffer.length,
+  });
+  await getClient().send(command);
+}

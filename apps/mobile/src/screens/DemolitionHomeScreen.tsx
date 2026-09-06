@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type MarketRate, type ProviderJobs, type ServiceRequest } from '@dimol/shared';
+import {
+  REQUEST_KIND_LABELS,
+  REQUEST_STATUS_LABELS,
+  type MarketRate,
+  type ProviderJobs,
+  type ServiceRequest,
+} from '@dimol/shared';
 import { acceptJob, getMarketRate, listJobs } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
@@ -98,11 +104,11 @@ export function DemolitionHomeScreen() {
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
             <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
-              <AppIcon name="building" size={48} color={theme.colors.primary} />
+              <AppIcon name="building" size={48} color="#FFFFFF" />
             </View>
           </View>
         </FadeInUp>
-        
+
         <View style={styles.gridContainer}>
           <View style={styles.gridLeft}>
             <FadeInUp delay={100}>
@@ -131,13 +137,10 @@ export function DemolitionHomeScreen() {
               </Pressable>
             </FadeInUp>
             <FadeInUp delay={220}>
-              <Pressable
-                style={styles.cardSmall}
-                onPress={() => nav.push({ name: 'estimate' })}
-              >
+              <Pressable style={styles.cardSmall} onPress={() => nav.push({ name: 'estimate' })}>
                 <View style={styles.cardSmallContent}>
                   <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
-                  <AppIcon name="sparkles" size={32} color={theme.colors.primary} />
+                  <AppIcon name="document" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>

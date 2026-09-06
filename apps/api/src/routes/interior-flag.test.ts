@@ -1,13 +1,7 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PersistenceFactory } from '../lib/json-collection.js';
-
-/** 테스트용 인메모리 영속화(파일 IO 없이 createApp 구동). */
-const memoryPersistenceFactory: PersistenceFactory = () => ({
-  load: () => [],
-  save: () => {},
-});
+import { memoryPersistenceFactory } from '../lib/memory-persistence.js';
 
 /**
  * FEATURE_INTERIOR 게이트가 app.ts 배선에서 실제로 동작하는지 검증한다.
@@ -29,7 +23,7 @@ afterEach(async () => {
 
 async function startApp(): Promise<string> {
   const { createApp } = await import('../app.js');
-  const app = createApp(memoryPersistenceFactory);
+  const app = createApp(memoryPersistenceFactory());
   await new Promise<void>((resolve) => {
     server = app.listen(0, resolve);
   });

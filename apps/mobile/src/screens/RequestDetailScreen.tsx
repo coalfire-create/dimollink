@@ -1,8 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import {
+  ASBESTOS_RISK_LABELS,
+  BUILDING_TYPE_LABELS,
+  DEMOLITION_TYPE_LABELS,
   REQUEST_STATUS_LABELS,
+  asbestosRisk,
   isRequestCancellable,
+  ledgerDisplayRows,
   type MatchStatus,
   type Quote,
   type ServiceRequest,
@@ -15,6 +20,7 @@ import {
   getRequest,
   listQuotes,
   updateRequestStatus,
+  getSitePhotoViewUrl,
 } from '../api/client';
 import {
   AppButton,
@@ -29,6 +35,7 @@ import {
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
+import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
 
 /**
  * 요청 상세 — 상태 타임라인 + 취소 + 채팅 진입.
@@ -36,7 +43,14 @@ import { theme } from '../theme';
  * (진행중부터는 취소 불가 — 취소 정책).
  */
 
-const TIMELINE: MatchStatus[] = ['REQUESTED', 'MATCHED', 'PAID', 'IN_PROGRESS', 'COMPLETED', 'SETTLED'];
+const TIMELINE: MatchStatus[] = [
+  'REQUESTED',
+  'MATCHED',
+  'PAID',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'SETTLED',
+];
 
 const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
   DEMOLITION: '철거 요청',
@@ -57,6 +71,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const [refundMode, setRefundMode] = useState(false);
   const [refunding, setRefunding] = useState(false);
   const [advancing, setAdvancing] = useState(false);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +82,21 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         setQuotes(await listQuotes(requestId).catch(() => []));
       } else {
         setQuotes([]);
+      }
+      
+      // Load photos
+      if (r.sitePhotoKeys && r.sitePhotoKeys.length > 0) {
+        const urls = await Promise.all(
+          r.sitePhotoKeys.map(async (key) => {
+            try {
+              const res = await getSitePhotoViewUrl(key);
+              return res.viewUrl;
+            } catch {
+              return '';
+            }
+          })
+        );
+        setPhotoUrls(urls.filter((u) => u !== ''));
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
@@ -178,7 +208,9 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                         ]}
                       />
                       {!isLast ? (
-                        <View style={[styles.timelineLine, reached && styles.timelineLineReached]} />
+                        <View
+                          style={[styles.timelineLine, reached && styles.timelineLineReached]}
+                        />
                       ) : null}
                     </View>
                     <Text
@@ -209,10 +241,105 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         <SectionTitle>요청 정보</SectionTitle>
         <Card>
           <InfoRow label="지역" value={request.region} />
-          <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
-          <InfoRow label="올바로 신고" value={request.allbaroRequested ? '신청함' : '간이 확인서'} />
+          {request.kind !== 'DEMOLITION' ? (
+            <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
+          ) : null}
+          <InfoRow
+            label="올바로 신고"
+            value={request.allbaroRequested ? '신청함' : '간이 확인서'}
+          />
           {request.kind === 'DEMOLITION' ? (
-            <InfoRow label="현장 주소" value={request.siteAddress} />
+            <>
+              <InfoRow label="현장 주소" value={request.siteAddress} />
+              {request.demolitionDetails?.buildingType ? (
+                <InfoRow
+                  label="건물 종류"
+                  value={
+                    BUILDING_TYPE_LABELS[request.demolitionDetails.buildingType] ??
+                    request.demolitionDetails.buildingType
+                  }
+                />
+              ) : null}
+              {request.demolitionDetails?.demolitionType ? (
+                <InfoRow
+                  label="철거 종류"
+                  value={
+                    DEMOLITION_TYPE_LABELS[request.demolitionDetails.demolitionType] ??
+                    request.demolitionDetails.demolitionType
+                  }
+                />
+              ) : null}
+              {request.demolitionDetails?.spaceSize ? (
+                <InfoRow label="평수 / 면적" value={request.demolitionDetails.spaceSize} />
+              ) : null}
+              {request.demolitionDetails?.floorCount ? (
+                <InfoRow label="층수" value={request.demolitionDetails.floorCount} />
+              ) : null}
+              {request.demolitionDetails?.hasElevator !== undefined ? (
+                <InfoRow
+                  label="엘리베이터"
+                  value={request.demolitionDetails.hasElevator ? '있음' : '없음'}
+                />
+              ) : null}
+              {request.demolitionDetails?.hasVehicleAccess !== undefined ? (
+                <InfoRow
+                  label="차량/사다리 진입"
+                  value={request.demolitionDetails.hasVehicleAccess ? '가능' : '불가'}
+                />
+              ) : null}
+              {request.demolitionDetails?.desiredDate ? (
+                <InfoRow label="희망 철거일" value={request.demolitionDetails.desiredDate} />
+              ) : null}
+              {request.demolitionDetails?.description ? (
+                <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
+              ) : null}
+              {ledgerDisplayRows(request.demolitionDetails?.buildingLedger).map((row) => (
+                <InfoRow key={`ledger-${row.label}`} label={`대장 ${row.label}`} value={row.value} />
+              ))}
+              {request.demolitionDetails?.buildingLedger &&
+              (asbestosRisk(request.demolitionDetails.buildingLedger) === 'HIGH' ||
+                asbestosRisk(request.demolitionDetails.buildingLedger) === 'POSSIBLE') ? (
+                <InfoRow
+                  label="⚠️ 석면"
+                  value={`${ASBESTOS_RISK_LABELS[asbestosRisk(request.demolitionDetails.buildingLedger)]} — 철거 전 석면 사전조사 필요`}
+                />
+              ) : null}
+              {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
+                <>
+                  <InfoRow
+                    label="✨ AI 분석 요약"
+                    value={request.demolitionDetails.dimolVisionAnalysis.summary}
+                  />
+                  {request.demolitionDetails.dimolVisionAnalysis.hazards && request.demolitionDetails.dimolVisionAnalysis.hazards.length > 0 ? (
+                    <InfoRow
+                      label="⚠️ 위험요소"
+                      value={request.demolitionDetails.dimolVisionAnalysis.hazards.join(', ')}
+                    />
+                  ) : null}
+                  {request.demolitionDetails.dimolVisionAnalysis.materials && request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
+                    <InfoRow
+                      label="🧱 감지된 소재"
+                      value={request.demolitionDetails.dimolVisionAnalysis.materials.map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m)).join(', ')}
+                    />
+                  ) : null}
+                  {request.demolitionDetails.dimolVisionAnalysis.confidence ? (
+                    <InfoRow
+                      label="분석 정확도"
+                      value={request.demolitionDetails.dimolVisionAnalysis.confidence}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+              {request.wasteItems && request.wasteItems.length > 0 ? (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontWeight: '600', marginBottom: 4 }}>폐기물 상세 내역</Text>
+                  {request.wasteItems.map((item, idx) => (
+                    <InfoRow key={idx} label={visionMaterialLabel(item.material)} value={`${item.kg} kg`} />
+                  ))}
+                  <InfoRow label="총 예상 무게" value={`${request.wasteTons} 톤`} />
+                </View>
+              ) : null}
+            </>
           ) : null}
           {request.kind === 'TRANSPORT' ? (
             <>
@@ -230,10 +357,19 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             />
           ) : null}
           <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
-          <InfoRow
-            label="접수일"
-            value={new Date(request.createdAt).toLocaleDateString('ko-KR')}
-          />
+          {photoUrls.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+              {photoUrls.map((url, idx) => (
+                <Image
+                  key={idx}
+                  source={{ uri: url }}
+                  style={{ width: 120, height: 120, borderRadius: 8, marginRight: 8, backgroundColor: '#f0f0f0' }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
+          ) : null}
+          <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 
         {quotes.length > 0 ? (
@@ -298,7 +434,11 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                     loading={refunding}
                   />
                   <View style={{ height: spacing.xs }} />
-                  <AppButton label="돌아가기" variant="outline" onPress={() => setRefundMode(false)} />
+                  <AppButton
+                    label="돌아가기"
+                    variant="outline"
+                    onPress={() => setRefundMode(false)}
+                  />
                 </View>
               ) : (
                 <AppButton
@@ -319,12 +459,20 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               {request.status === 'PAID' ? (
                 <>
                   <Text style={styles.quoteHint}>현장 도착 후 작업을 시작하세요.</Text>
-                  <AppButton label="작업 시작" onPress={() => advance('IN_PROGRESS')} loading={advancing} />
+                  <AppButton
+                    label="작업 시작"
+                    onPress={() => advance('IN_PROGRESS')}
+                    loading={advancing}
+                  />
                 </>
               ) : (
                 <>
                   <Text style={styles.quoteHint}>작업이 끝나면 완료 처리하세요.</Text>
-                  <AppButton label="작업 완료" onPress={() => advance('COMPLETED')} loading={advancing} />
+                  <AppButton
+                    label="작업 완료"
+                    onPress={() => advance('COMPLETED')}
+                    loading={advancing}
+                  />
                 </>
               )}
             </Card>
@@ -338,6 +486,26 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               label="채팅하기"
               variant="outline"
               onPress={() => nav.push({ name: 'chat', requestId: request.id, counterpartyId })}
+            />
+            
+            {request.kind === 'TRANSPORT' && (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
+              <AppButton
+                label="실시간 트럭 위치 확인"
+                variant="primary"
+                style={{ marginTop: spacing.sm }}
+                onPress={() => nav.push({ name: 'tracking', requestId: request.id })}
+              />
+            ) : null}
+          </>
+        ) : null}
+
+        {counterpartyId && (request.status === 'COMPLETED' || request.status === 'SETTLED') ? (
+          <>
+            <SectionTitle>서비스 평가</SectionTitle>
+            <AppButton
+              label="리뷰 남기기"
+              variant="outline"
+              onPress={() => nav.push({ name: 'reviewForm', requestId: request.id })}
             />
           </>
         ) : null}
@@ -357,7 +525,12 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 onChangeText={setCancelReason}
                 placeholder="예) 일정이 변경됐어요"
               />
-              <AppButton label="요청 취소하기" variant="danger" onPress={confirmCancel} loading={cancelling} />
+              <AppButton
+                label="요청 취소하기"
+                variant="danger"
+                onPress={confirmCancel}
+                loading={cancelling}
+              />
               <View style={{ height: spacing.xs }} />
               <AppButton label="돌아가기" variant="outline" onPress={() => setCancelMode(false)} />
             </Card>

@@ -19,18 +19,22 @@
     "@aws-sdk/s3-request-presigner": "^3.1078.0",
     "@dimol/shared": "*",
     "@portone/server-sdk": "^0.19.0",
+    "@types/compression": "^1.8.1",
     "@upstash/redis": "^1.38.0",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.1",
-    "redis": "^4.7.0"
+    "redis": "^4.7.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

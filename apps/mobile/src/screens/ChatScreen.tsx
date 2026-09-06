@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { CHAT_MESSAGE_MAX_LENGTH, type ChatMessage } from '@dimol/shared';
-import { ApiError, listMessages, sendMessage } from '../api/client';
+import { ApiError, listMessages, markMessagesAsRead, sendMessage } from '../api/client';
 import { EmptyState, ErrorBanner } from '../components/ui';
 import { PressableScale } from '../components/motion';
 import { ScreenHeader, useSession } from '../navigation';
@@ -35,6 +35,10 @@ export function ChatScreen({ requestId }: { requestId: string }) {
       if (newest) {
         lastCreatedAt.current = newest.createdAt;
         setMessages((prev) => [...prev, ...fresh]);
+      }
+      // If there are fresh messages and we are viewing them, mark them as read
+      if (fresh.some(m => m.senderId !== user.id && !m.readAt)) {
+        await markMessagesAsRead(requestId).catch(() => {});
       }
       setError(null);
     } catch (err) {
@@ -88,12 +92,17 @@ export function ChatScreen({ requestId }: { requestId: string }) {
                 <Text style={[styles.bubbleText, mine && { color: colors.background }]}>
                   {item.content}
                 </Text>
-                <Text style={[styles.bubbleTime, mine && { color: '#C7D9F5' }]}>
-                  {new Date(item.createdAt).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 }}>
+                  {mine && item.readAt && (
+                    <Text style={{ fontSize: 10, color: '#C7D9F5', marginRight: 4 }}>읽음</Text>
+                  )}
+                  <Text style={[styles.bubbleTime, mine && { color: '#C7D9F5' }]}>
+                    {new Date(item.createdAt).toLocaleTimeString('ko-KR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
               </View>
             </View>
           );

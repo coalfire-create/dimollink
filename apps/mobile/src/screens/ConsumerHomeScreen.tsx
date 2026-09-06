@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type MarketRate, type ServiceRequest } from '@dimol/shared';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  REQUEST_KIND_LABELS,
+  REQUEST_STATUS_LABELS,
+  type MarketRate,
+  type ServiceRequest,
+} from '@dimol/shared';
 import { getMarketRate, listRequests } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
-import { TabBar, useNavigation, useSession } from '../navigation';
+import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
-
-import homeWasteBed from '../../assets/home_waste_bed.png';
-import homeHelmet from '../../assets/home_helmet.png';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
 
@@ -24,29 +26,19 @@ export function ConsumerHomeScreen() {
   const nav = useNavigation();
   const user = useSession();
   const config = ROLE_CONFIG.CONSUMER;
-  const { homeActive } = config;
 
-  const [active, setActive] = useState<ServiceRequest[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [rate, setRate] = useState<MarketRate | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [activeRes, rateRes] = await Promise.allSettled([
-      homeActive ? listRequests(user.id) : Promise.resolve(null),
+    const [reqsRes, rateRes] = await Promise.allSettled([
+      listRequests(user.id),
       config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
     ]);
-
-    if (activeRes.status === 'fulfilled' && activeRes.value) {
-      setActive(
-        activeRes.value
-          .filter((r) => r.status !== 'CANCELLED' && r.status !== 'SETTLED')
-          .slice(0, 3)
-      );
-    }
-    if (rateRes.status === 'fulfilled' && rateRes.value) {
-      setRate(rateRes.value);
-    }
-  }, [user.id, homeActive, config.marketRateParty]);
+    if (reqsRes.status === 'fulfilled') setRequests(reqsRes.value);
+    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
+  }, [user.id, config.marketRateParty]);
 
   useEffect(() => {
     void load();
@@ -59,35 +51,24 @@ export function ConsumerHomeScreen() {
   }
 
   const renderActiveRequests = () => {
-    if (!homeActive) return null;
+    const active = requests.filter((r) => r.status !== 'COMPLETED' && r.status !== 'SETTLED');
+    if (active.length === 0) return null;
+
     return (
-      <>
-        <SectionTitle>{homeActive.title}</SectionTitle>
-        {active.length > 0 ? (
-          active.map((request) => (
-            <Card
-              key={request.id}
-              onPress={() => nav.push({ name: 'requestDetail', requestId: request.id })}
-            >
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[request.kind]}</Text>
-                <StatusBadge
-                  status={request.status}
-                  label={REQUEST_STATUS_LABELS[request.status]}
-                />
-              </View>
-              <Text style={styles.requestMeta}>
-                {request.wasteTons}톤 · {new Date(request.createdAt).toLocaleDateString('ko-KR')}
-              </Text>
-            </Card>
-          ))
-        ) : (
-          <View style={styles.emptyCard}>
-            <AppIcon name="document" size={24} color={theme.colors.primary} />
-            <Text style={styles.emptyCardText}>{homeActive.empty}</Text>
-          </View>
-        )}
-      </>
+      <View>
+        <SectionTitle>진행 중인 내 요청</SectionTitle>
+        {active.map((req) => (
+          <Card key={req.id} onPress={() => nav.push({ name: 'requestDetail', requestId: req.id })}>
+            <View style={styles.requestRow}>
+              <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[req.kind]}</Text>
+              <StatusBadge status={req.status} label={REQUEST_STATUS_LABELS[req.status]} />
+            </View>
+            <Text style={styles.requestMeta}>
+              {req.wasteTons}톤 · {new Date(req.createdAt).toLocaleDateString('ko-KR')}
+            </Text>
+          </Card>
+        ))}
+      </View>
     );
   };
 
@@ -111,47 +92,34 @@ export function ConsumerHomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.customHeader}>
-        <View style={styles.addressSelector}>
-          <Text style={styles.greetingHi}>안녕하세요</Text>
-          <Text style={styles.addressText}>{user.name}{config.homeGreetingSuffix}</Text>
-        </View>
-        <Pressable style={styles.notiButton} onPress={() => nav.switchTab('notifications')}>
-          <AppIcon name="notifications" size={22} color={theme.colors.text} />
-        </Pressable>
-      </View>
-
+      <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
       <ScrollView
-        contentContainerStyle={styles.consumerContent}
+        contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         <FadeInUp delay={40}>
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
-              <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>원스톱 폐기물 매칭</Text>
-              </View>
-              <Text style={styles.bannerTitle}>철거를 더 쉽고,{'\n'}더 똑똑하게</Text>
-              <Text style={styles.bannerSubtitle}>전국 매칭 · 올바로 자동 전자인계서</Text>
+              <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
+              <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
             </View>
-            <Image source={homeWasteBed} style={styles.bannerImage} resizeMode="contain" />
+            <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
+              <AppIcon name="building" size={48} color="#FFFFFF" />
+            </View>
           </View>
         </FadeInUp>
 
-        {/* 메인 주요 기능 4분할 그리드 */}
         <View style={styles.gridContainer}>
           <View style={styles.gridLeft}>
             <FadeInUp delay={100}>
               <Pressable
-                style={[styles.cardLarge, styles.cardPrimaryGradient]}
+                style={styles.cardLarge}
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardBadgePill}>원스톱 신청</Text>
-                </View>
                 <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <Text style={styles.cardSubtext}>견적부터 인계서까지 한 번에</Text>
-                <Image source={homeHelmet} style={styles.cardLargeImage} resizeMode="contain" />
+                <View style={{ alignItems: 'center', marginTop: 20 }}>
+                  <AppIcon name="hammer" size={44} color={theme.colors.primary} />
+                </View>
               </Pressable>
             </FadeInUp>
           </View>
@@ -159,28 +127,20 @@ export function ConsumerHomeScreen() {
           <View style={styles.gridRight}>
             <FadeInUp delay={160}>
               <Pressable
-                style={[styles.cardLarge, styles.cardAiGradient]}
+                style={styles.cardSmall}
                 onPress={() => nav.push({ name: 'siteAnalysis' })}
               >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardAiBadgePill}>AI Vision</Text>
-                </View>
-                <Text style={styles.cardLargeTitle}>현장 AI 분석{'\n'}소재 · 철거공정</Text>
-                <Text style={styles.cardSubtext}>사진 한 장으로 소재/공정 안내</Text>
-                <View style={{ marginTop: 8 }}>
-                  <AppIcon name="camera" size={28} color={theme.colors.primary} />
+                <View style={styles.cardSmallContent}>
+                  <Text style={styles.cardSmallTitle}>현장 사진{'\n'}분석</Text>
+                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
             <FadeInUp delay={220}>
-              <Pressable
-                style={styles.cardLarge}
-                onPress={() => nav.push({ name: 'estimate' })}
-              >
-                <Text style={styles.cardLargeTitle}>폐기물 양{'\n'}미리 계산</Text>
-                <Text style={styles.cardSubtext}>부피/무게 빠른 계산기</Text>
-                <View style={{ marginTop: 8 }}>
-                  <AppIcon name="sparkles" size={28} color={theme.colors.primary} />
+              <Pressable style={styles.cardSmall} onPress={() => nav.push({ name: 'estimate' })}>
+                <View style={styles.cardSmallContent}>
+                  <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
+                  <AppIcon name="document" size={32} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -190,17 +150,19 @@ export function ConsumerHomeScreen() {
         {/* 소비자가 직접 운반 차량을 부른다(사진으로 소재·무게 자동 채움 가능). */}
         <FadeInUp delay={240}>
           <Pressable
-            style={styles.transportCard}
+            style={styles.interiorCard}
             onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
           >
-            <AppIcon name="truck" size={26} color={theme.colors.primary} />
-            <View style={styles.transportTextBox}>
-              <Text style={styles.transportTitle}>운반 차량 직접 부르기</Text>
-              <Text style={styles.transportSubtitle} numberOfLines={2}>
+            <View style={{ marginRight: 12 }}>
+              <AppIcon name="truck" size={26} color={theme.colors.primary} />
+            </View>
+            <View style={styles.interiorTextBox}>
+              <Text style={styles.interiorTitle}>운반 차량 직접 부르기</Text>
+              <Text style={styles.interiorSubtitle} numberOfLines={2}>
                 사진 한 장이면 소재·무게를 자동으로 채워 드려요
               </Text>
             </View>
-            <Text style={styles.transportChevron}>›</Text>
+            <Text style={styles.interiorChevron}>›</Text>
           </Pressable>
         </FadeInUp>
 
@@ -211,7 +173,9 @@ export function ConsumerHomeScreen() {
               style={styles.interiorCard}
               onPress={() => nav.push({ name: 'interiorForm' })}
             >
-              <AppIcon name="tools" size={26} color={theme.colors.primary} />
+              <View style={{ marginRight: 12 }}>
+                <AppIcon name="tools" size={26} color={theme.colors.primary} />
+              </View>
               <View style={styles.interiorTextBox}>
                 <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
                 <Text style={styles.interiorSubtitle} numberOfLines={2}>
@@ -247,42 +211,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
   },
-  customHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.background,
-  },
-  addressSelector: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  greetingHi: {
-    fontSize: font.caption,
-    fontWeight: '600',
-    color: colors.textMuted,
-  },
-  addressText: {
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 1,
-  },
-  notiButton: {
-    padding: 6,
-  },
-  notiIcon: {
-    fontSize: font.title,
-  },
-  consumerContent: {
+  content: {
+    padding: spacing.sm,
     paddingBottom: spacing.lg,
-    backgroundColor: '#F6F7F9',
   },
   contentPadding: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 0,
   },
   bannerContainer: {
     backgroundColor: colors.primary,
@@ -301,78 +235,22 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   bannerTitle: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: font.body,
+    fontWeight: '600',
+  },
+  bannerSubtitle: {
     color: '#FFFFFF',
     fontSize: font.title,
     fontWeight: '800',
-    lineHeight: font.title + 6,
-  },
-  bannerSubtitle: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: font.caption,
-    fontWeight: '600',
     marginTop: 4,
   },
-  heroBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 999,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  heroBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  cardBadgePill: {
-    backgroundColor: '#2563EB',
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  cardAiBadgePill: {
-    backgroundColor: '#7C3AED',
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  cardSubtext: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  cardPrimaryGradient: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
-  },
-  cardAiGradient: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#DDD6FE',
-    borderWidth: 1,
-    marginBottom: 12,
-  },
   bannerImage: {
-    width: 90,
-    height: 90,
+    width: 76,
+    height: 76,
     position: 'absolute',
-    right: 12,
-    bottom: 6,
+    right: 16,
+    top: 22,
     zIndex: 1,
   },
   gridContainer: {
@@ -405,16 +283,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: font.title + 4,
   },
-  cardLargeImage: {
-    width: '100%',
-    height: 120,
-    alignSelf: 'center',
-  },
-  cardLargeEmoji: {
-    fontSize: 72,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
   cardSmall: {
     backgroundColor: colors.background,
     borderRadius: 20,
@@ -442,41 +310,6 @@ const styles = StyleSheet.create({
     lineHeight: font.bodyLarge + 2,
     flex: 1,
   },
-  cardSmallImage: {
-    width: 54,
-    height: 54,
-  },
-  transportCard: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 20,
-    flexDirection: 'row',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-  },
-  transportEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
-  },
-  transportTextBox: {
-    flex: 1,
-  },
-  transportTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  transportSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 2,
-  },
-  transportChevron: {
-    color: colors.primary,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-  },
   interiorCard: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
@@ -485,10 +318,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     padding: spacing.md,
-  },
-  interiorEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
   },
   interiorTextBox: {
     flex: 1,
@@ -564,14 +393,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.lg,
   },
-  emptyCardIcon: {
-    fontSize: 34,
-    marginBottom: spacing.xs,
-  },
   emptyCardText: {
     color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
     textAlign: 'center',
+    marginTop: spacing.xs,
   },
 });

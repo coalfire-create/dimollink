@@ -1,4 +1,4 @@
-import type { ProviderRole, RequestKind, UserType } from '@dimol/shared';
+import type { ProviderRole, UserType } from '@dimol/shared';
 import type { TabName } from './navigation';
 import type { IconName } from './components/AppIcon';
 

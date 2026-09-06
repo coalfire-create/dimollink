@@ -18,10 +18,10 @@ export function createQuotesRouter(
   }
 
   // POST /api/quotes  { requestId, providerId, party, amount, memo? }
-  router.post('/quotes', (req, res) => {
+  router.post('/quotes', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const quote = store.createQuote({
+      const quote = await store.createQuote({
         requestId: String(body.requestId ?? ''),
         providerId: authUserId(req),
         party: body.party as ProviderRole,
@@ -40,9 +40,9 @@ export function createQuotesRouter(
   });
 
   // POST /api/quotes/:id/accept — 배출자(요청자 본인)가 견적 수락 → 정산 금액 확정
-  router.post('/quotes/:id/accept', (req, res) => {
+  router.post('/quotes/:id/accept', async (req, res) => {
     try {
-      res.json(store.accept(req.params.id, authUserId(req)));
+      res.json(await store.accept(req.params.id, authUserId(req)));
     } catch (err) {
       if (err instanceof QuoteValidationError) {
         const status = err.message.includes('찾을 수 없습니다') ? 404 : 400;
@@ -59,27 +59,27 @@ export function createQuotesRouter(
   //  · 요청자(배출자)  → 해당 요청의 모든 견적
   //  · 업체(운반/처리) → 자기가 제출한 견적만 (경쟁사 금액 비공개)
   //  · 소비자(제3자)   → 금액 열람 불가(빈 목록). 요청 상태·매칭결과는 /api/requests 로 확인
-  router.get('/quotes', (req, res) => {
+  router.get('/quotes', async (req, res) => {
     const { requestId, providerId, party } = req.query;
     const viewerId = authUserId(req);
-    const viewerIsConsumer = userStore.get(viewerId)?.userType === 'CONSUMER';
+    const viewerIsConsumer = (await userStore.get(viewerId))?.userType === 'CONSUMER';
 
     // 요청 미지정 전체 조회는 경쟁사 금액을 노출한다 → 본인 제출 견적만 반환(소비자는 빈 목록).
     if (typeof requestId !== 'string' || requestId === '') {
       res.json(
         viewerIsConsumer
           ? []
-          : store.listQuotes({ providerId: viewerId, party: parseParty(party) }),
+          : await store.listQuotes({ providerId: viewerId, party: parseParty(party) }),
       );
       return;
     }
 
-    const request = requestStore.get(requestId);
+    const request = await requestStore.get(requestId);
     if (!request) {
       res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
       return;
     }
-    const all = store.listQuotes({
+    const all = await store.listQuotes({
       requestId,
       providerId: typeof providerId === 'string' ? providerId : undefined,
       party: parseParty(party),
@@ -88,13 +88,13 @@ export function createQuotesRouter(
   });
 
   // GET /api/quotes/market-rate?party=TRANSPORT|DISPOSAL — 평균 시세
-  router.get('/quotes/market-rate', (req, res) => {
+  router.get('/quotes/market-rate', async (req, res) => {
     const party = parseParty(req.query.party);
     if (!party) {
       res.status(400).json({ error: 'party 는 TRANSPORT | DISPOSAL 이어야 합니다.' });
       return;
     }
-    res.json(store.marketRate(party));
+    res.json(await store.marketRate(party));
   });
 
   return router;

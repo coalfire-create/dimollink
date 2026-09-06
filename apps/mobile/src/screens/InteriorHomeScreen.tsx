@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';

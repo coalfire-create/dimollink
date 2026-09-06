@@ -98,33 +98,44 @@ describe('PortOneClient 가드', () => {
   });
 });
 
-describe('PortOneClient 지급대행/세금계산서 — 미연동(파트너정산·B2B 필요)', () => {
-  it('createPayout → NOT_CONFIGURED + 로그 사업자번호 마스킹', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await expect(
-      new PortOneClient(baseConfig, fakeSdk()).createPayout({
+describe('지급대행/세금계산서 — 모의 응답(Phase B)', () => {
+    it('createPayout → SCHEDULED 상태 반환 + 로그 사업자번호 마스킹', async () => {
+      const client = new PortOneClient(baseConfig, fakeSdk());
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const result = await client.createPayout({
         payoutId: 'MR-1-DISPOSAL',
         party: 'DISPOSAL',
         amount: 46_500,
         businessNumber: '220-81-62517',
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
+      });
 
-    const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
-    expect(logged).toContain('220-81-*****');
-    expect(logged).not.toContain('62517');
-    warn.mockRestore();
-  });
+      expect(result).toMatchObject({
+        payoutId: 'MR-1-DISPOSAL',
+        amount: 46_500,
+        status: 'SCHEDULED',
+      });
 
-  it('issueTaxInvoice → NOT_CONFIGURED', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await expect(
-      new PortOneClient(baseConfig, fakeSdk()).issueTaxInvoice({
+      const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
+      expect(logged).toContain('모의 응답');
+      expect(logged).toContain('220-81-*****');
+      warn.mockRestore();
+    });
+
+    it('issueTaxInvoice → ISSUED 상태 반환', async () => {
+      const client = new PortOneClient(baseConfig, fakeSdk());
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const result = await client.issueTaxInvoice({
         payoutId: 'x',
-        businessNumber: '1208147521',
+        businessNumber: '1112233333',
         amount: 139_500,
-      }),
-    ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
-    warn.mockRestore();
+      });
+
+      expect(result).toMatchObject({
+        taxInvoiceId: 'tax-x',
+        status: 'ISSUED',
+      });
+      warn.mockRestore();
+    });
   });
-});

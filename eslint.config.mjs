@@ -9,6 +9,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/build/**',
       '**/.expo/**',
+      'apps/api/public/**',
+      'apps/vision-web/**',
       'apps/mobile/android/**',
       'apps/mobile/ios/**',
     ],

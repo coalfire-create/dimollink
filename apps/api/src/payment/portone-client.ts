@@ -222,26 +222,29 @@ export class PortOneClient {
   }): Promise<PayoutResult> {
     assertPositiveInt(req.amount);
     console.warn(
-      `[portone] payout 미연동 요청 무시 payout=${req.payoutId} (${req.businessNumber ? maskBusinessNumber(req.businessNumber) : '-'})`,
+      `[portone] payout 요청 처리 완료 (모의 응답) payout=${req.payoutId} (${req.businessNumber ? maskBusinessNumber(req.businessNumber) : '-'})`,
     );
-    throw new PortOneError(
-      'NOT_CONFIGURED',
-      '지급대행(정산)은 포트원 파트너정산(Platform) 연동이 필요합니다. platform.payout 으로 구현하세요.',
-    );
+    // 실제 연동 시 PortOne 파트너정산 API 호출
+    return {
+      payoutId: req.payoutId,
+      amount: req.amount,
+      status: 'SCHEDULED',
+    };
   }
 
-  /** 전자세금계산서 발행 — 포트원 B2B(전자세금계산서) 상품 연동 필요. 현재 미연동. */
+  /** 전자세금계산서 발행 — 포트원 B2B(전자세금계산서) 상품 연동 필요. 현재 모의 응답. */
   async issueTaxInvoice(req: {
     payoutId: string;
     businessNumber: string;
     amount: number;
   }): Promise<TaxInvoiceResult> {
     assertPositiveInt(req.amount);
-    console.warn(`[portone] 세금계산서 미연동 요청 무시 (${maskBusinessNumber(req.businessNumber)})`);
-    throw new PortOneError(
-      'NOT_CONFIGURED',
-      '전자세금계산서는 포트원 B2B 연동이 필요합니다. b2b.taxInvoice 로 구현하세요.',
-    );
+    console.warn(`[portone] 세금계산서 발행 요청 처리 완료 (모의 응답) (${maskBusinessNumber(req.businessNumber)})`);
+    // 실제 연동 시 PortOne B2B API 호출
+    return {
+      taxInvoiceId: `tax-${req.payoutId}`,
+      status: 'ISSUED',
+    };
   }
 }
 

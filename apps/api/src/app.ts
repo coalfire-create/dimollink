@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import compression from 'compression';
 import cors from 'cors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type {
@@ -22,7 +23,18 @@ import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-coll
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
-import { ClaudeSiteAnalyzer, GeminiSiteAnalyzer, GroqSiteAnalyzer, MockSiteAnalyzer } from './site-analysis/analyzer.js';
+import { ScanVolumeEstimator } from './estimation/scan-estimator.js';
+import { SiteAnalysisQueue } from './site-analysis/queue.js';
+import { SiteAnalysisStore, type SiteAnalysisRecord } from './site-analysis/store.js';
+import {
+  ClaudeSiteAnalyzer,
+  GeminiSiteAnalyzer,
+  GroqSiteAnalyzer,
+  MockSiteAnalyzer,
+} from './site-analysis/analyzer.js';
+import { ConsensusSiteAnalyzer } from './site-analysis/consensus.js';
+import { Scan3DQueue } from './scan3d/queue.js';
+import { HttpReconstructor, MockReconstructor } from './scan3d/reconstructor.js';
 import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { NotificationService } from './notifications/service.js';
@@ -43,7 +55,12 @@ import { seedTestAccounts } from './dev/seed.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
-import { createRateLimiter, requestId, requestLogger, securityHeaders } from './middleware/security.js';
+import {
+  createRateLimiter,
+  requestId,
+  requestLogger,
+  securityHeaders,
+} from './middleware/security.js';
 import { Metrics, metricsMiddleware } from './observability/metrics.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
 import { createAuthRouter } from './routes/auth.js';
@@ -55,7 +72,10 @@ import { createPaymentsRouter } from './routes/payments.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createChatRouter } from './routes/chat.js';
 import { createEstimationRouter } from './routes/estimation.js';
+import { createMapPageRouter } from './routes/map-page.js';
+import { createScanViewerPageRouter } from './routes/scan-viewer-page.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
+import { createScan3DRouter } from './routes/scan3d.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -87,13 +107,13 @@ export function createApp(
   app.disable('x-powered-by');
   app.set('trust proxy', true); // 프록시(로드밸런서/Vercel) 뒤 실제 클라이언트 IP 사용.
 
+  // 응답 압축(gzip/br) — 웹 번들 1.8MB, 목록 JSON 응답이 모바일 회선에서 가장 큰 비용이다.
+  // 이미 압축된 포맷(이미지·폰트)은 compression 이 알아서 건너뛴다.
+  app.use(compression());
+
   // CORS: 운영에서는 허용 출처(CORS_ORIGINS)만, 미설정 시(개발) 전체 허용.
   app.use(
-    cors(
-      env.corsOrigins.length > 0
-        ? { origin: env.corsOrigins, credentials: true }
-        : undefined,
-    ),
+    cors(env.corsOrigins.length > 0 ? { origin: env.corsOrigins, credentials: true } : undefined),
   );
   app.use(securityHeaders(env.isProduction));
   app.use(requestId());
@@ -102,6 +122,9 @@ export function createApp(
   app.use(requestLogger());
   // 포트원 웹훅은 서명 검증에 원본 바디가 필요하므로 이 경로만 raw 로 받는다(전역 json 이전).
   app.use('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }));
+  // 디몰비전 현장 사진은 가이드 촬영 최대 7슬롯을 base64 로 함께 올린다(클라이언트에서
+  // 장변 1600px·JPEG 로 축소해 보내므로 장당 ~250KB). 이 경로만 한도를 올린다.
+  app.use('/api/site-analysis', express.json({ limit: '12mb' }));
   app.use(express.json({ limit: '1mb' })); // 과대 페이로드 차단.
 
   // ── 정적 자산: Expo 웹 앱(SPA) + 법적 고지 페이지. Railway 단일 호스팅(Netlify 대체).
@@ -113,28 +136,41 @@ export function createApp(
       index: false,
       setHeaders: (res, path) => {
         if (path.endsWith('.html')) {
+          // 배포 즉시 새 번들을 받도록 HTML 은 캐시하지 않는다.
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
           res.setHeader('Pragma', 'no-cache');
           res.setHeader('Expires', '0');
+          return;
+        }
+        // Expo export 산출물은 파일명에 콘텐츠 해시가 박혀 있어 내용이 바뀌면 이름도 바뀐다.
+        // 재방문·재실행 시 번들을 다시 받지 않도록 장기 immutable 캐시를 준다.
+        // Expo 는 `index-<hash>.js`(하이픈)와 `asset.<hash>.png`(점) 두 형태를 모두 낸다.
+        if (/[.-][0-9a-f]{16,}\.(js|css|png|jpg|jpeg|svg|ttf|otf|woff2?)$/i.test(path)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
       },
     }),
   );
   // 법적 고지·랜딩 — 스토어/앱 링크가 요구하는 공개 URL(명시 경로).
-  app.get('/privacy', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'privacy.html')));
+  app.get('/privacy', (_req: Request, res: Response) =>
+    res.sendFile(join(publicDir, 'privacy.html')),
+  );
   app.get('/terms', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'terms.html')));
-  app.get('/landing', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'index.html')));
+  app.get('/landing', (_req: Request, res: Response) =>
+    res.sendFile(join(publicDir, 'index.html')),
+  );
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);
+  // 지도 페이지 — 앱이 iframe/WebView 로 띄운다(실제 URL 이어야 카카오 SDK 가 동작).
+  app.use('/', createMapPageRouter());
+  // 3D 스캔 뷰어 — 앱이 WebView 로 띄우는 실제 URL(지도 페이지와 같은 이유).
+  app.use('/', createScanViewerPageRouter());
 
   // 전역 레이트리밋(기본 DDoS·남용 완화) — IP 기준. 정상 사용에 넉넉한 상한.
   app.use(
     '/api',
-    createRateLimiter(
-      { windowMs: 60_000, max: 300, keyPrefix: 'global' },
-      shared.rateLimitStore,
-    ),
+    createRateLimiter({ windowMs: 60_000, max: 300, keyPrefix: 'global' }, shared.rateLimitStore),
   );
   // 인증 엔드포인트 남용(무차별 대입·OTP 폭탄) 방지 — 더 엄격한 상한.
   app.use(
@@ -150,24 +186,51 @@ export function createApp(
     ),
   );
 
+  // 외부 유료·쿼터 API 를 호출하는 경로(비전 AI, 공공데이터 건축물대장)는 더 엄격히 제한한다.
+  // 호출당 실제 비용·일일 쿼터가 걸려 있어 전역 상한(300/분)만으로는 남용을 못 막는다.
+  app.use(
+    '/api/site-analysis',
+    createRateLimiter(
+      {
+        windowMs: 60_000,
+        max: 10,
+        keyPrefix: 'vision',
+        message: '현장 분석 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      shared.rateLimitStore,
+    ),
+  );
+  app.use(
+    '/api/locations/building-info',
+    createRateLimiter(
+      {
+        windowMs: 60_000,
+        max: 30,
+        keyPrefix: 'bldg',
+        message: '건축물대장 조회가 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+      },
+      shared.rateLimitStore,
+    ),
+  );
+
   const notificationService = new NotificationService(
     new ConsoleNotificationProvider(),
     persistence<AppNotification>('notifications'),
   );
   const requestStore = new RequestStore(
     persistence<ServiceRequest>('requests'),
-    (request) => notificationService.notifyStatusChange(request),
-    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
     (request) => {
+      notificationService.notifyStatusChange(request);
+    },
+    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
+    async (request) => {
       if (request.kind !== 'TRANSPORT') return;
-      const companies = userStore
-        .list({ userType: 'TRANSPORT_COMPANY' })
-        .filter(
-          (u) =>
-            u.availability === 'ONLINE' &&
-            u.region === request.region &&
-            u.id !== request.requesterId,
-        );
+      const companies = (await userStore.list({ userType: 'TRANSPORT_COMPANY' })).filter(
+        (u) =>
+          u.availability === 'ONLINE' &&
+          u.region === request.region &&
+          u.id !== request.requesterId,
+      );
       notificationService.notifyTransportCall(request, companies);
     },
   );
@@ -177,7 +240,7 @@ export function createApp(
     persistence<CredentialRecord>('credentials', (c) => c.userId),
   );
   // 테스트/스테이징 배포: 역할별 계정 시드(멱등). 운영에서는 SEED_TEST_ACCOUNTS 를 켜지 않는다.
-  if (env.seedTestAccounts) seedTestAccounts(userStore);
+  if (env.seedTestAccounts) void seedTestAccounts(userStore);
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
@@ -208,9 +271,7 @@ export function createApp(
     persistence<InteriorRequest>('interior-requests'),
     persistence<InteriorBid>('interior-bids'),
   );
-  const paymentStore = new PaymentStore(
-    persistence<PaymentRecord>('payments', (p) => p.paymentId),
-  );
+  const paymentStore = new PaymentStore(persistence<PaymentRecord>('payments', (p) => p.paymentId));
   // 업체 단가(마이페이지 설정) — 견적 기본값·시세 참고에 쓴다.
   const pricingStore = new PricingStore(persistence<ProviderPricing>('pricing', (p) => p.userId));
 
@@ -227,6 +288,10 @@ export function createApp(
   app.post('/api/allbaro/verify-member', requireAuth);
   app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
+  // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
+  // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
+  app.use('/api/site-analysis', requireAuth);
+  app.use('/api/locations/building-info', requireAuth);
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
@@ -259,23 +324,49 @@ export function createApp(
       userStore,
     ),
   );
-  app.use('/api', createMatchingRouter((providerId) => reviewStore.ratingSummary(providerId).average));
+  const geocoder = createGeocoder();
+  app.use(
+    '/api',
+    createMatchingRouter(async (providerId) => (await reviewStore.ratingSummary(providerId)).average),
+  );
   app.use('/api', createUploadsRouter());
-  app.use('/api', createRequestsRouter(requestStore, createGeocoder()));
+  app.use('/api', createRequestsRouter(requestStore, geocoder));
   app.use('/api', createJobsRouter(requestStore, userStore));
   app.use('/api', createAuthRouter(userStore, otpService, sessionStore, credentialStore));
   // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.
   const oauthService = new OAuthService({
     credentials: {
-      kakao: { clientId: env.oauth.kakao.clientId ?? '', clientSecret: env.oauth.kakao.clientSecret ?? '' },
-      google: { clientId: env.oauth.google.clientId ?? '', clientSecret: env.oauth.google.clientSecret ?? '' },
-      naver: { clientId: env.oauth.naver.clientId ?? '', clientSecret: env.oauth.naver.clientSecret ?? '' },
+      kakao: {
+        clientId: env.oauth.kakao.clientId ?? '',
+        clientSecret: env.oauth.kakao.clientSecret ?? '',
+      },
+      google: {
+        clientId: env.oauth.google.clientId ?? '',
+        clientSecret: env.oauth.google.clientSecret ?? '',
+      },
+      naver: {
+        clientId: env.oauth.naver.clientId ?? '',
+        clientSecret: env.oauth.naver.clientSecret ?? '',
+      },
     },
     redirectBase: env.oauth.redirectBase,
     secret: env.oauth.secret,
   });
-  app.use('/api', createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect));
-  app.use('/api', createUsersRouter(userStore, otpService, sessionStore, credentialStore, undefined, oauthService));
+  app.use(
+    '/api',
+    createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect),
+  );
+  app.use(
+    '/api',
+    createUsersRouter(
+      userStore,
+      otpService,
+      sessionStore,
+      credentialStore,
+      undefined,
+      oauthService,
+    ),
+  );
   app.use('/api', createReviewsRouter(reviewStore));
   app.use('/api', createQuotesRouter(quoteStore, userStore, requestStore));
   app.use('/api', createPricingRouter(pricingStore));
@@ -283,12 +374,11 @@ export function createApp(
   if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
   app.use('/api', createOffersRouter(offerStore));
   app.use('/api', createNotificationsRouter(notificationService));
-  app.use('/api', createLocationsRouter(new LocationStore(requestStore)));
-  app.use(
-    '/api',
-    createChatRouter(new ChatStore(requestStore, persistence<ChatMessage>('chat'))),
-  );
-  app.use('/api', createEstimationRouter(new HeuristicVolumeEstimator()));
+  app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
+  app.use('/api', createChatRouter(new ChatStore(requestStore, notificationService, persistence<ChatMessage>('chat'))));
+  // 3D 스캔 실측이 있으면 그걸 쓰고, 없거나 품질 미달이면 연면적 원단위로 폴백한다.
+  const volumeEstimator = new ScanVolumeEstimator(new HeuristicVolumeEstimator());
+  app.use('/api', createEstimationRouter(volumeEstimator));
   // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
   const mockSiteAnalyzer = new MockSiteAnalyzer();
   // 공급자 우선순위: Groq(무료·카드불필요) > Gemini(무료티어) > Claude(유료) > 목. 실패 시 라우터가 목 폴백.
@@ -311,7 +401,24 @@ export function createApp(
             timeoutMs: env.ai.visionTimeoutMs,
           })
         : mockSiteAnalyzer;
-  app.use('/api', createSiteAnalysisRouter(siteAnalyzer, mockSiteAnalyzer, new HeuristicVolumeEstimator()));
+  // 사진이 여러 장이면 한 장씩 따로 돌려 검출률로 신뢰도를 매긴다(모델 자가보고 대신).
+  const consensusSiteAnalyzer = new ConsensusSiteAnalyzer(siteAnalyzer, env.ai.visionConsensus);
+  // 3D 현장 스캔 — 복원 서버가 설정돼 있으면 실제, 없으면 목(GPU 없이 전 경로 검증 가능).
+  const scan3dQueue = new Scan3DQueue();
+  const reconstructor = env.ai.scan3dBaseUrl
+    ? new HttpReconstructor({
+        baseUrl: env.ai.scan3dBaseUrl,
+        apiKey: env.ai.scan3dApiKey,
+        timeoutMs: env.ai.scan3dTimeoutMs,
+      })
+    : new MockReconstructor();
+  const siteAnalysisQueue = new SiteAnalysisQueue();
+  const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
+  app.use(
+    '/api',
+    createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, volumeEstimator),
+  );
+  app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
   app.use(
     '/api',
     createAdminRouter(

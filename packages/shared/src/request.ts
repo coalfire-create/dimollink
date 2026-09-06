@@ -1,3 +1,5 @@
+// 타입 전용 순환 참조(building-ledger 는 BuildingType 을 여기서 가져간다) — 컴파일 시 지워진다.
+import type { BuildingLedgerInfo } from './building-ledger.js';
 import type { GeoPoint } from './geo.js';
 import type { MatchStatus, WasteCategory } from './types.js';
 import type { UserType } from './user.js';
@@ -139,11 +141,58 @@ interface ServiceRequestBase {
   updatedAt: string;
 }
 
-/** 철거요청 — 철거 현장 주소 기반. */
+export type BuildingType = 'APARTMENT' | 'COMMERCIAL' | 'HOUSING' | 'OFFICE' | 'FACTORY' | 'OTHER';
+
+export const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
+  APARTMENT: '아파트',
+  COMMERCIAL: '상가·점포',
+  HOUSING: '주택',
+  OFFICE: '사무실',
+  FACTORY: '공장·창고',
+  OTHER: '기타',
+};
+
+/** 철거 종류 (원상복구 제외) */
+export type DemolitionType = 'TOTAL' | 'INTERIOR' | 'STRUCTURE';
+
+export const DEMOLITION_TYPE_LABELS: Record<DemolitionType, string> = {
+  TOTAL: '전체 철거 (건물 멸실)',
+  INTERIOR: '내부/부분 철거',
+  STRUCTURE: '구조물/옥외 철거',
+};
+
+export interface DimolVisionSummary {
+  summary?: string;
+  hazards?: string[];
+  materials?: string[];
+  confidence?: string;
+  analyzedAt?: string;
+}
+
+export interface DemolitionDetails {
+  buildingType?: BuildingType;
+  demolitionType?: DemolitionType;
+  spaceSize?: string;
+  floorCount?: string;
+  hasElevator?: boolean;
+  hasVehicleAccess?: boolean;
+  desiredDate?: string;
+  description?: string;
+  dimolVisionAnalysis?: DimolVisionSummary;
+  /**
+   * 현장 주소로 조회한 건축물대장 표제부(공공데이터). 철거 업체가 현장을 보기 전에
+   * 구조·용도·층수·사용승인일(석면 시기)을 확인할 수 있도록 요청과 함께 보관한다.
+   */
+  buildingLedger?: BuildingLedgerInfo;
+}
+
+/** 철거요청 — 철거 현장 주소 기반 + 현장 상세 / 디몰비전 정보. */
 export interface DemolitionRequest extends ServiceRequestBase {
   kind: 'DEMOLITION';
   /** 철거 현장 주소. */
   siteAddress: string;
+  /** 철거 현장 조건 및 디몰비전 AI 분석 상세. */
+  demolitionDetails?: DemolitionDetails;
 }
 
 /** 운반요청 — 상차지 → 하차지. */

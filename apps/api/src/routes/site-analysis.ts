@@ -1,11 +1,24 @@
 import { Router } from 'express';
-import { siteAnalysisToWasteItems, type SiteAnalysis } from '@dimol/shared';
+import {
+  SITE_CAPTURE_SLOTS,
+  siteAnalysisToWasteItems,
+  structureCodeOf,
+  totalFloorAreaM2,
+  type BuildingLedgerInfo,
+  type SiteAnalysis,
+  type SiteCaptureSlotId,
+} from '@dimol/shared';
 import {
   SiteAnalysisValidationError,
   type AnalyzeSiteInput,
   type SiteAnalyzer,
 } from '../site-analysis/analyzer.js';
+import { applyLedgerConsistency } from '../site-analysis/consistency.js';
 import type { VolumeEstimator } from '../estimation/provider.js';
+import { uploadBase64Photo } from '../storage/s3.js';
+import { randomUUID } from 'node:crypto';
+import type { SiteAnalysisQueue } from '../site-analysis/queue.js';
+import type { SiteAnalysisStore } from '../site-analysis/store.js';
 
 /**
  * 현장 사진 AI 분석 API (로드맵 Phase 6).
@@ -17,41 +30,173 @@ import type { VolumeEstimator } from '../estimation/provider.js';
 export function createSiteAnalysisRouter(
   primary: SiteAnalyzer,
   fallback: SiteAnalyzer,
+  queue: SiteAnalysisQueue,
+  store: SiteAnalysisStore,
   estimator?: VolumeEstimator,
 ): Router {
   const router = Router();
 
   function parseInput(body: Record<string, unknown>): AnalyzeSiteInput {
+    const images = Array.isArray(body.images)
+      ? body.images
+          .filter(
+            (it): it is { imageBase64: string; mimeType?: unknown } =>
+              typeof it === 'object' &&
+              it !== null &&
+              typeof (it as { imageBase64?: unknown }).imageBase64 === 'string',
+          )
+          .map((it) => ({
+            imageBase64: it.imageBase64,
+            mimeType: typeof it.mimeType === 'string' ? it.mimeType : undefined,
+            // 가이드 촬영 슬롯 — 부위별 사전확률·결측 선언에 쓴다. 정의된 값만 통과시킨다.
+            slotId: parseSlotId((it as { slotId?: unknown }).slotId),
+            // 촬영 시점 품질 판정(흐림·암전) — 결측과 같은 급으로 다룬다.
+            qualityWarnings: parseStringList((it as { qualityWarnings?: unknown }).qualityWarnings),
+          }))
+      : undefined;
     return {
       imageBase64: typeof body.imageBase64 === 'string' ? body.imageBase64 : undefined,
       mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
+      images: images && images.length > 0 ? images : undefined,
       note: typeof body.note === 'string' ? body.note : undefined,
+      buildingStructure:
+        typeof body.buildingStructure === 'string' ? body.buildingStructure : undefined,
+      building: parseBuilding(body.building),
+      siteAddress: typeof body.siteAddress === 'string' ? body.siteAddress : undefined,
     };
+  }
+
+  /** 정의된 슬롯 ID 만 통과(임의 문자열이 프롬프트로 흘러들지 않게). */
+  function parseSlotId(raw: unknown): SiteCaptureSlotId | undefined {
+    return typeof raw === 'string' && SITE_CAPTURE_SLOTS.some((s) => s.id === raw)
+      ? (raw as SiteCaptureSlotId)
+      : undefined;
+  }
+
+  /** 문자열 배열만 통과 + 길이 제한(프롬프트 주입·과대 페이로드 방지). */
+  function parseStringList(raw: unknown): string[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const list = raw
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .slice(0, 5)
+      .map((v) => v.trim().slice(0, 120));
+    return list.length > 0 ? list : undefined;
+  }
+
+  /** 클라이언트가 넘긴 건축물대장 정보를 화이트리스트로 정규화(임의 필드 프롬프트 주입 방지). */
+  function parseBuilding(raw: unknown): BuildingLedgerInfo | undefined {
+    if (typeof raw !== 'object' || raw === null) return undefined;
+    const b = raw as Record<string, unknown>;
+    const text = (v: unknown) =>
+      typeof v === 'string' && v.trim().length > 0 ? v.trim().slice(0, 120) : undefined;
+    const number = (v: unknown) =>
+      typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    const info: BuildingLedgerInfo = {
+      strctCdNm: text(b.strctCdNm),
+      roofCdNm: text(b.roofCdNm),
+      etcStrct: text(b.etcStrct),
+      vlRatEstmTotArea: number(b.vlRatEstmTotArea),
+      totArea: number(b.totArea),
+      mainPurpsCdNm: text(b.mainPurpsCdNm),
+      grndFlrCnt: number(b.grndFlrCnt),
+      ugrndFlrCnt: number(b.ugrndFlrCnt),
+      useAprDay: text(b.useAprDay),
+      bldNm: text(b.bldNm),
+      platArea: number(b.platArea),
+      archArea: number(b.archArea),
+      bcRat: number(b.bcRat),
+      vlRat: number(b.vlRat),
+      jiyukCdNm: text(b.jiyukCdNm),
+      jiguCdNm: text(b.jiguCdNm),
+      guyukCdNm: text(b.guyukCdNm),
+      heit: number(b.heit),
+      rideUseElvtCnt: number(b.rideUseElvtCnt),
+      emgenUseElvtCnt: number(b.emgenUseElvtCnt),
+      mechParkingCnt: number(b.mechParkingCnt),
+    };
+    return Object.values(info).some((v) => v !== undefined) ? info : undefined;
   }
 
   /** 실제 분석 실패 → 목으로 폴백(방법=MOCK 이라 사용자에게 구분됨). */
   async function analyzeWithFallback(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    let analysis: SiteAnalysis;
     try {
-      return await primary.analyze(input);
+      analysis = await primary.analyze(input);
     } catch (err) {
       if (err instanceof SiteAnalysisValidationError) throw err;
       console.error('[site-analysis] 분석 폴백', err instanceof Error ? err.message : 'error');
-      return fallback.analyze(input);
+      analysis = await fallback.analyze(input);
     }
+    // 대장은 사진 판독보다 신뢰도가 높은 확정 정보 — 응답을 받은 뒤 규칙으로 한 번 더 맞춘다.
+    const { analysis: adjusted, applied } = applyLedgerConsistency(analysis, input.building);
+    if (applied.length > 0) {
+      console.info('[site-analysis] 대장 정합성 규칙 적용', applied.join(','));
+    }
+    return adjusted;
   }
 
   // POST /api/site-analysis/analyze  { imageBase64, mimeType?, note? }
-  router.post('/site-analysis/analyze', async (req, res) => {
+  // 큐 기반 비동기 처리로 변경: jobId를 반환하고 백그라운드에서 분석 수행
+  router.post('/site-analysis/analyze', (req, res) => {
     const input = parseInput((req.body ?? {}) as Record<string, unknown>);
-    try {
-      res.json(await analyzeWithFallback(input));
-    } catch (err) {
-      if (err instanceof SiteAnalysisValidationError) {
-        res.status(400).json({ error: err.message });
-        return;
-      }
-      res.status(500).json({ error: '현장 분석 처리 오류' });
+    const job = queue.createJob();
+    
+    // S3 Key 생성
+    const photoKey = `dimolvision/${Date.now()}-${randomUUID()}.jpg`;
+
+    // 비동기 처리 시작
+    analyzeWithFallback(input)
+      .then(async (result) => {
+        queue.updateJob(job.id, { status: 'COMPLETED', result });
+        
+        try {
+          if (input.imageBase64) {
+            // S3에 원본 이미지 저장
+            await uploadBase64Photo({
+              key: photoKey,
+              base64: input.imageBase64,
+              contentType: input.mimeType || 'image/jpeg',
+            });
+          }
+          // 데이터 수집용 DB에 저장
+          await store.create({
+            id: job.id,
+            photoKey,
+            result,
+            buildingLedger: input.building,
+            siteAddress: input.siteAddress,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (storageErr) {
+          console.error('[site-analysis] 저장 실패:', storageErr);
+        }
+      })
+      .catch((err) => {
+        const error = err instanceof SiteAnalysisValidationError ? err.message : '현장 분석 처리 오류';
+        queue.updateJob(job.id, { status: 'FAILED', error });
+        store.create({
+            id: job.id,
+            photoKey,
+            error,
+            buildingLedger: input.building,
+            siteAddress: input.siteAddress,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        }).catch(() => {});
+      });
+
+    res.status(202).json({ jobId: job.id });
+  });
+
+  // GET /api/site-analysis/jobs/:id
+  router.get('/site-analysis/jobs/:id', (req, res) => {
+    const job = queue.getJob(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: '작업을 찾을 수 없습니다.' });
+      return;
     }
+    res.json(job);
   });
 
   // POST /api/site-analysis/waste-items  { imageBase64, mimeType?, note?, floorAreaM2? }
@@ -60,20 +205,28 @@ export function createSiteAnalysisRouter(
   router.post('/site-analysis/waste-items', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const input = parseInput(body);
+    // 연면적은 요청값 우선, 없으면 건축물대장 연면적으로 자동 보완(사진만으로는 알 수 없는 값).
     const floorAreaM2 =
-      typeof body.floorAreaM2 === 'number' && body.floorAreaM2 > 0 ? body.floorAreaM2 : undefined;
+      typeof body.floorAreaM2 === 'number' && body.floorAreaM2 > 0
+        ? body.floorAreaM2
+        : totalFloorAreaM2(input.building);
+    const structure = structureCodeOf(input.building);
     try {
       const analysis = await analyzeWithFallback(input);
       let totalKg: number | undefined;
       if (estimator && floorAreaM2 !== undefined) {
         try {
-          const estimate = await estimator.estimate({ floorAreaM2 });
+          const estimate = await estimator.estimate({ floorAreaM2, structure });
           totalKg = estimate.estimatedTons * 1000;
         } catch {
           // 중량 추정 실패해도 소재별 기본값으로 진행(사진 분석 자체는 성공).
         }
       }
-      res.json({ analysis, wasteItems: siteAnalysisToWasteItems(analysis.materials, totalKg) });
+      // 구조를 함께 넘겨야 성상 구성비로 나눈다(없으면 표의 기본 구조를 쓴다).
+      res.json({
+        analysis,
+        wasteItems: siteAnalysisToWasteItems(analysis.materials, totalKg, structure),
+      });
     } catch (err) {
       if (err instanceof SiteAnalysisValidationError) {
         res.status(400).json({ error: err.message });

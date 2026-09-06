@@ -1,5 +1,5 @@
 import {
-  TRANSPORT_MATCH_RADIUS_KM,
+  MATCH_RADIUS_KM,
   isValidGeoPoint,
   type GeoPoint,
   type MatchCandidate,
@@ -27,7 +27,7 @@ function parseGeoPoint(raw: unknown): GeoPoint | null {
  * 필터링한 후보를 서버가 조회해 넘기도록 교체한다.
  */
 /** 평점 조회 훅 — 리뷰 저장소(Phase 2)에서 평균 평점을 가져온다. 없으면 후보 입력값 사용. */
-export type RatingLookup = (providerId: string) => number | null;
+export type RatingLookup = (providerId: string) => number | null | Promise<number | null>;
 
 export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
   const router = Router();
@@ -39,7 +39,7 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
     }
     if (typeof body.maxRadiusKm === 'number') options.maxRadiusKm = body.maxRadiusKm;
     // 운반업체 후보는 명시 지정이 없으면 기본 반경 30km 이내만 노출한다.
-    else if (options.role === 'TRANSPORT') options.maxRadiusKm = TRANSPORT_MATCH_RADIUS_KM;
+    else if (options.role === 'TRANSPORT') options.maxRadiusKm = MATCH_RADIUS_KM;
     if (typeof body.limit === 'number') options.limit = body.limit;
     return options;
   }
@@ -73,7 +73,7 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
 
   // POST /api/matching/recommend — 가중치 추천 정렬 (로드맵 Phase 3)
   // { origin, candidates: [{ ..., price?, rating? }], weights?: { distance?, price?, rating? }, ... }
-  router.post('/matching/recommend', (req, res) => {
+  router.post('/matching/recommend', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
     const origin = parseGeoPoint(body.origin);
@@ -97,8 +97,10 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
     }
 
     // 평점 미지정 후보는 리뷰 저장소의 평균 평점으로 채운다.
-    const candidates = (body.candidates as RecommendCandidate[]).map((c) =>
-      c.rating === undefined && ratingLookup ? { ...c, rating: ratingLookup(c.id) } : c,
+    const candidates = await Promise.all(
+      (body.candidates as RecommendCandidate[]).map(async (c) =>
+        c.rating === undefined && ratingLookup ? { ...c, rating: await ratingLookup(c.id) } : c,
+      ),
     );
 
     try {

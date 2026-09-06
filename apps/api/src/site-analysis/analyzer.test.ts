@@ -82,4 +82,30 @@ describe('ClaudeSiteAnalyzer', () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('여러 장(images)이면 모든 이미지 블록을 전송하고 종합 분석을 지시한다', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        content: [{ type: 'text', text: '{"summary":"현장","materials":[],"demolitionSteps":[],"hazards":[],"confidence":"LOW"}' }],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const analyzer = new ClaudeSiteAnalyzer({ apiKey: 'k', model: 'm', timeoutMs: 5000 });
+    await analyzer.analyze({
+      images: [
+        { imageBase64: IMG, mimeType: 'image/jpeg' },
+        { imageBase64: `${IMG}B`, mimeType: 'image/png' },
+      ],
+    });
+
+    const sentBody = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    const content = sentBody.messages[0].content;
+    const imageBlocks = content.filter((c: { type: string }) => c.type === 'image');
+    const textBlock = content.find((c: { type: string }) => c.type === 'text');
+    expect(imageBlocks).toHaveLength(2);
+    expect(imageBlocks[1].source.media_type).toBe('image/png');
+    expect(textBlock.text).toContain('2장');
+  });
 });

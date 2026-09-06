@@ -2,8 +2,14 @@ import {
   isValidBusinessNumber,
   maskBusinessNumber,
   normalizeBusinessNumber,
+  type AllbaroManifestStatus,
   type AllbaroMemberVerification,
+  type AllbaroNoticeItem,
+  type AllbaroRoleType,
+  type DisposalInfoRequest,
   type ManifestIssueRequest,
+  type TransportInfoRequest,
+  type TreatmentCompletionRequest,
 } from '@dimol/shared';
 import { env } from '../config/env.js';
 import { ALLBARO_SPEC, type AllbaroApiSpec } from './spec.js';
@@ -66,9 +72,12 @@ export class AllbaroClient {
 
   /**
    * 사업자등록번호로 올바로 회원 여부를 실시간 검증한다.
-   * T200_4001_05 (배출자_업체정보조회) — GET /selectT200_4001_05
+   * T200_4001_05 (배출자_업체정보조회), T300_4001_05 (운반자), T400_4001_05 (처리자)
    */
-  async verifyMember(businessNumberInput: string): Promise<AllbaroMemberVerification> {
+  async verifyMember(
+    businessNumberInput: string,
+    roleType: AllbaroRoleType = 'DISCHARGER',
+  ): Promise<AllbaroMemberVerification> {
     const businessNumber = normalizeBusinessNumber(businessNumberInput);
 
     if (!isValidBusinessNumber(businessNumber)) {
@@ -78,10 +87,14 @@ export class AllbaroClient {
       );
     }
 
+    let interfaceId = this.spec.memberVerifyInterfaceId;
+    if (roleType === 'TRANSPORT') interfaceId = this.spec.transportVerifyInterfaceId;
+    if (roleType === 'DISPOSAL') interfaceId = this.spec.disposalVerifyInterfaceId;
+
     const data = await this.callApi(
       'select',
-      this.spec.memberVerifyInterfaceId,
-      this.spec.buildMemberVerifyBody(businessNumber),
+      interfaceId,
+      this.spec.buildMemberVerifyBody(businessNumber, roleType),
       maskBusinessNumber(businessNumber),
     );
 
@@ -118,6 +131,70 @@ export class AllbaroClient {
   }
 
   /**
+   * 운반자 인수/차량 정보 등록 (T300_5001_01)
+   */
+  async registerTransportInfo(request: TransportInfoRequest): Promise<{ success: boolean }> {
+    await this.callApi(
+      'insert',
+      this.spec.transportInfoInterfaceId,
+      this.spec.buildTransportInfoBody(request),
+      `transport-manifest=${request.manifestNo}`,
+    );
+    return { success: true };
+  }
+
+  /**
+   * 처리자 반입/계량 정보 등록 (T400_5001_01)
+   */
+  async registerDisposalInfo(request: DisposalInfoRequest): Promise<{ success: boolean }> {
+    await this.callApi(
+      'insert',
+      this.spec.disposalInfoInterfaceId,
+      this.spec.buildDisposalInfoBody(request),
+      `disposal-manifest=${request.manifestNo}`,
+    );
+    return { success: true };
+  }
+
+  /**
+   * 처리자 최종 처리완료 정보 등록 (T400_5001_02)
+   */
+  async registerTreatmentCompletion(request: TreatmentCompletionRequest): Promise<{ success: boolean }> {
+    await this.callApi(
+      'insert',
+      this.spec.treatmentCompletionInterfaceId,
+      this.spec.buildTreatmentCompletionBody(request),
+      `complete-manifest=${request.manifestNo}`,
+    );
+    return { success: true };
+  }
+
+  /**
+   * 인계서 상태/상세 조회 (T200_4001_01)
+   */
+  async getManifestStatus(manifestNo: string): Promise<AllbaroManifestStatus> {
+    const data = await this.callApi(
+      'select',
+      this.spec.manifestStatusInterfaceId,
+      this.spec.buildManifestStatusBody(manifestNo),
+      `status-manifest=${manifestNo}`,
+    );
+    const status = this.spec.parseManifestStatus(data, manifestNo);
+    if (!status) {
+      throw new AllbaroError('UPSTREAM_ERROR', '해당 인계번호의 상태를 찾을 수 없습니다.');
+    }
+    return status;
+  }
+
+  /**
+   * 공지사항 조회 (T100_1001_01)
+   */
+  async getNotices(): Promise<AllbaroNoticeItem[]> {
+    const data = await this.callApi('select', this.spec.noticesInterfaceId, {}, 'notices');
+    return this.spec.parseNotices(data);
+  }
+
+  /**
    * 공통코드 조회 — T100_3001_02. 연결 테스트 및 폐기물 코드 캐시에 사용.
    * GET /selectT100_3001_02
    */
@@ -125,6 +202,7 @@ export class AllbaroClient {
     const data = await this.callApi('select', 'T100_3001_02', {}, 'common-codes');
     return Array.isArray(data.dataList) ? (data.dataList as Record<string, unknown>[]) : [];
   }
+
 
   /**
    * 올바로 API 공통 호출 메서드.
@@ -163,9 +241,11 @@ export class AllbaroClient {
       `${this.config.userId}:${this.config.password}`,
     ).toString('base64');
 
+    const companyCode = this.config.companyCode ?? this.config.userId;
     const body: Record<string, unknown> = {
       api_cert_key: this.config.apiCertKey,
-      entn_lkcd: this.config.companyCode ?? this.config.userId,
+      entn_lkcd: companyCode,
+      enrn_licst: companyCode,
       ...additionalBody,
     };
 

@@ -3,19 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { PricingStore, PricingValidationError } from './store.js';
 
 describe('PricingStore — 업체 단가', () => {
-  it('단가 설정/조회, 재설정은 덮어쓴다', () => {
+  it('단가 설정/조회, 재설정은 덮어쓴다', async () => {
     const store = new PricingStore();
-    expect(store.get('u1')).toBeUndefined();
-    expect(store.set('u1', 80000).unitPrice).toBe(80000);
-    expect(store.get('u1')?.unitPrice).toBe(80000);
-    expect(store.set('u1', 90000).unitPrice).toBe(90000);
+    expect(await store.get('u1')).toBeUndefined();
+    expect((await store.set('u1', 80000)).unitPrice).toBe(80000);
+    expect((await store.get('u1'))?.unitPrice).toBe(80000);
+    expect((await store.set('u1', 90000)).unitPrice).toBe(90000);
   });
 
-  it('양의 정수가 아니면 거부', () => {
+  it('양의 정수가 아니면 거부', async () => {
     const store = new PricingStore();
-    expect(() => store.set('u1', 0)).toThrow(PricingValidationError);
-    expect(() => store.set('u1', -100)).toThrow(PricingValidationError);
-    expect(() => store.set('u1', 1.5)).toThrow(PricingValidationError);
+    await expect(store.set('u1', 0)).rejects.toThrow(PricingValidationError);
+    await expect(store.set('u1', -100)).rejects.toThrow(PricingValidationError);
+    await expect(store.set('u1', 1.5)).rejects.toThrow(PricingValidationError);
   });
 });
 

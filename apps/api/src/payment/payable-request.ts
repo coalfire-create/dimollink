@@ -27,8 +27,8 @@ export interface PayableStatusPatch {
 }
 
 export interface PayableRequestStore {
-  get(id: string): PayableRequest | undefined;
-  changeStatus(id: string, to: MatchStatus, options?: PayableStatusPatch): void;
+  get(id: string): Promise<PayableRequest | undefined>;
+  changeStatus(id: string, to: MatchStatus, options?: PayableStatusPatch): Promise<void>;
 }
 
 /**
@@ -41,16 +41,16 @@ export function compositePayableStore(
   interior: InteriorStore,
 ): PayableRequestStore {
   return {
-    get(id) {
-      return waste.get(id) ?? interior.getRequest(id);
+    async get(id) {
+      return (await waste.get(id)) ?? (await interior.getRequest(id));
     },
-    changeStatus(id, to, options = {}) {
-      if (waste.get(id)) {
-        waste.changeStatus(id, to, options);
+    async changeStatus(id, to, options = {}) {
+      if (await waste.get(id)) {
+        await waste.changeStatus(id, to, options);
         return;
       }
-      if (interior.getRequest(id)) {
-        interior.changeRequestStatus(id, to, options);
+      if (await interior.getRequest(id)) {
+        await interior.changeRequestStatus(id, to, options);
       }
       // 소유 스토어가 없으면 무시 — 호출부가 이미 존재를 확인한 뒤 호출한다.
     },

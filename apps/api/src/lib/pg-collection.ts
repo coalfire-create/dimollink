@@ -6,19 +6,10 @@ import {
 } from './json-collection.js';
 
 /**
- * PostgreSQL 영속화 어댑터 — 엔티티(행) 단위 저장.
- *
- * 각 엔티티를 entities(collection, id, data jsonb) 테이블의 한 행으로 저장한다.
- * 부팅 시 컬렉션 전체를 메모리로 프리로드해 동기 인터페이스(load/save)를 만족시키고,
- * save 는 변경 엔티티만 백그라운드로 upsert 한다.
- *
- * 장점(통짜 JSONB 대비): 서로 다른 엔티티를 동시에 쓰는 인스턴스끼리 클로버링하지 않음
- *   (행 단위 upsert). 같은 엔티티 동시 쓰기는 last-write-wins.
- * 한계: 여전히 컬렉션 전체를 메모리 캐시로 들고, 필드 단위 컬럼/인덱스는 없음(대규모 시 정규화 필요).
- *   현재 앱은 하드 삭제가 없으므로(취소/정지는 상태 전이) 삭제 전파는 다루지 않는다.
+ * PostgreSQL 영속화 어댑터 — Stateless 아키텍처용.
+ * 메모리 캐시 없이 매 요청마다 DB에 쿼리를 실행합니다.
  */
 
-/** 저장 대상 컬렉션 이름(부팅 시 프리로드). */
 export const COLLECTION_NAMES = [
   'notifications',
   'requests',
@@ -35,64 +26,79 @@ export const COLLECTION_NAMES = [
   'interior-bids',
 ] as const;
 
-/** 테스트에서 모킹 가능한 최소 쿼리 인터페이스. */
 export interface PgQueryable {
   query(text: string, params?: unknown[]): Promise<{ rows: Array<Record<string, unknown>> }>;
 }
 
 export class PgEntityStore<T> implements CollectionPersistence<T> {
-  private cache: T[];
-  private writeChain: Promise<void> = Promise.resolve();
-
   constructor(
     private readonly pool: PgQueryable,
     private readonly name: string,
-    initial: T[],
     private readonly keyOf: (item: T) => string,
-  ) {
-    this.cache = initial;
+  ) {}
+
+  async get(id: string): Promise<T | undefined> {
+    const { rows } = await this.pool.query(
+      `SELECT data FROM entities WHERE collection = $1 AND id = $2`,
+      [this.name, id],
+    );
+    const row = rows[0];
+    if (!row) return undefined;
+    return row.data as T;
   }
 
-  load(): T[] {
-    return this.cache;
+  async list(): Promise<T[]> {
+    const { rows } = await this.pool.query(
+      `SELECT data FROM entities WHERE collection = $1 ORDER BY updated_at DESC`,
+      [this.name],
+    );
+    return rows.map((row) => row.data as T);
   }
 
-  save(items: T[]): void {
-    // 이전 캐시 대비 변경/추가된 엔티티만 골라 행 단위 upsert(전체 재작성 안 함).
-    const prev = new Map(this.cache.map((it) => [this.keyOf(it), JSON.stringify(it)]));
-    const changed: T[] = [];
+  /** 최상위 필드 완전일치를 jsonb 포함(@>) 조건으로 내려 인덱스로 거른다. */
+  async listBy(equals: Record<string, string>): Promise<T[]> {
+    const entries = Object.entries(equals).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return this.list();
+    const filter = Object.fromEntries(entries);
+    const { rows } = await this.pool.query(
+      `SELECT data FROM entities
+        WHERE collection = $1 AND data @> $2::jsonb
+        ORDER BY updated_at DESC`,
+      [this.name, JSON.stringify(filter)],
+    );
+    return rows.map((row) => row.data as T);
+  }
+
+  async save(item: T): Promise<void> {
+    const id = this.keyOf(item);
+    await this.pool.query(
+      `INSERT INTO entities(collection, id, data, updated_at)
+       VALUES($1, $2, $3::jsonb, now())
+       ON CONFLICT(collection, id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+      [this.name, id, JSON.stringify(item)],
+    );
+  }
+
+  async saveAll(items: T[]): Promise<void> {
+    // 트랜잭션 없이 순차 실행 (단순화)
+    // 운영 환경에서는 Batch Insert/트랜잭션 최적화가 필요할 수 있음
     for (const item of items) {
-      const key = this.keyOf(item);
-      const serialized = JSON.stringify(item);
-      if (prev.get(key) !== serialized) changed.push(item);
+      await this.save(item);
     }
-    this.cache = items;
-    if (changed.length === 0) return;
+  }
 
-    this.writeChain = this.writeChain.then(async () => {
-      for (const item of changed) {
-        try {
-          await this.pool.query(
-            `INSERT INTO entities(collection, id, data, updated_at)
-             VALUES($1, $2, $3::jsonb, now())
-             ON CONFLICT(collection, id) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-            [this.name, this.keyOf(item), JSON.stringify(item)],
-          );
-        } catch (err) {
-          console.error(
-            `[pg] '${this.name}' 엔티티 저장 실패`,
-            err instanceof Error ? err.message : 'error',
-          );
-        }
-      }
-    });
+  async delete(id: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM entities WHERE collection = $1 AND id = $2`,
+      [this.name, id],
+    );
   }
 }
 
-/** 스키마 보장 + 프리로드 후 PostgreSQL 영속화 팩토리를 만든다. */
+/** 스키마 보장 후 PostgreSQL 영속화 팩토리를 반환합니다. */
 export async function initPgPersistence(
   pool: PgQueryable,
-  names: readonly string[] = COLLECTION_NAMES,
+  _names: readonly string[] = COLLECTION_NAMES,
 ): Promise<PersistenceFactory> {
   await pool.query(
     `CREATE TABLE IF NOT EXISTS entities(
@@ -103,21 +109,21 @@ export async function initPgPersistence(
        PRIMARY KEY(collection, id)
      )`,
   );
-  const preloaded = new Map<string, unknown[]>();
-  for (const name of names) preloaded.set(name, []);
-  const { rows } = await pool.query(
-    `SELECT collection, data FROM entities WHERE collection = ANY($1)`,
-    [[...names]],
+  // 목록 조회 인덱스 — list() 의 collection + updated_at 정렬을 인덱스 스캔으로 처리한다.
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS entities_collection_updated_idx
+       ON entities(collection, updated_at DESC)`,
   );
-  for (const row of rows) {
-    const list = preloaded.get(row.collection as string);
-    if (list) list.push(row.data);
-  }
+  // listBy() 의 jsonb 포함(@>) 조건용 GIN 인덱스 — 상태·종류로 좁히는 목록 조회에 쓴다.
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS entities_data_gin_idx ON entities USING GIN(data jsonb_path_ops)`,
+  );
+
+  // 부팅 시 데이터를 미리 불러오지 않고 팩토리만 반환합니다.
   return <T>(name: string, keyOf: (item: T) => string = defaultKeyOf): CollectionPersistence<T> =>
-    new PgEntityStore<T>(pool, name, (preloaded.get(name) as T[] | undefined) ?? [], keyOf);
+    new PgEntityStore<T>(pool, name, keyOf);
 }
 
-/** 운영용 pg Pool 생성(연결 문자열 기반). */
 export function createPgPool(connectionString: string): pg.Pool {
   return new pg.Pool({ connectionString, max: 10 });
 }

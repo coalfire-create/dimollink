@@ -8,7 +8,9 @@ import {
   type ServiceRequest,
 } from '@dimol/shared';
 import * as PortOne from '@portone/react-native-sdk';
-import type { PaymentRequest, PaymentResponse } from '@portone/browser-sdk/v2';
+type PortOnePaymentProps = React.ComponentProps<typeof PortOne.Payment>;
+type PaymentRequest = PortOnePaymentProps['request'];
+type PaymentResponse = Parameters<NonNullable<PortOnePaymentProps['onComplete']>>[0];
 import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
 import { PORTONE } from '../config';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';

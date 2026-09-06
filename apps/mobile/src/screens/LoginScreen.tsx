@@ -8,7 +8,6 @@ import {
   View,
 } from 'react-native';
 import brandmark from '../../assets/brandmark.png';
-import biumLogo from '../../assets/bium_logo.png';
 import type { AuthSession } from '@dimol/shared';
 import { ApiError, login } from '../api/client';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
@@ -78,8 +77,8 @@ export function LoginScreen({
       <FadeInUp delay={60}>
         <View style={s.header}>
           <Image
-            source={biumLogo}
-            style={{ width: 140, height: 50, marginBottom: spacing.xs }}
+            source={brandmark}
+            style={s.brandmark}
             resizeMode="contain"
             accessibilityLabel="비움 로고"
           />

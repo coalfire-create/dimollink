@@ -128,7 +128,7 @@ export function createUsersRouter(
         res.status(400).json({ error: '소셜 인증이 만료되었습니다. 다시 로그인해 주세요.', code: 'SOCIAL_TICKET_INVALID' });
         return;
       }
-      const linkedElsewhere = store.getBySocialIdentity(parsed.provider, parsed.providerUserId);
+      const linkedElsewhere = await store.getBySocialIdentity(parsed.provider, parsed.providerUserId);
       if (linkedElsewhere) {
         res.status(409).json({ error: '이미 가입된 소셜 계정입니다. 로그인해 주세요.', code: 'SOCIAL_ALREADY_LINKED' });
         return;
@@ -142,7 +142,7 @@ export function createUsersRouter(
     }
 
     try {
-      const created = store.create({
+      const created = await store.create({
         userType: userType as UserType,
         name: body.name,
         // 전국구 서비스 — 활동 지역은 입력받지 않고 기본값으로 둔다.
@@ -151,10 +151,11 @@ export function createUsersRouter(
         businessNumber,
         location: parseGeoPoint(body.location),
         ...(socialIdentity ? { socialIdentity } : {}),
+        autoApprove: !!allbaroVerifiedAt,
       } as CreateUserInput);
       // 올바로 검증 성공 시 [올바로 인증 업체] 배지 부여.
       const user = allbaroVerifiedAt
-        ? store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
+        ? await store.setAllbaroCertified(created.id, true, allbaroVerifiedAt)
         : created;
       // 비밀번호 설정(번호+비밀번호 로그인). 소셜 가입은 비밀번호 없이 통과 가능.
       if (isValidPassword(password)) {
@@ -170,10 +171,10 @@ export function createUsersRouter(
   });
 
   // GET /api/users?userType=&approvalStatus= — 목록
-  router.get('/users', (req, res) => {
+  router.get('/users', async (req, res) => {
     const { userType, approvalStatus } = req.query;
     res.json(
-      store.list({
+      await store.list({
         userType: typeof userType === 'string' ? (userType as UserType) : undefined,
         approvalStatus:
           typeof approvalStatus === 'string'
@@ -184,8 +185,8 @@ export function createUsersRouter(
   });
 
   // GET /api/users/:id — 프로필 조회. 본인은 전체, 타인은 PII(연락처·사업자번호) 제외 공개 프로필.
-  router.get('/users/:id', (req, res) => {
-    const user = store.get(req.params.id);
+  router.get('/users/:id', async (req, res) => {
+    const user = await store.get(req.params.id);
     if (!user) {
       res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
       return;
@@ -202,7 +203,7 @@ export function createUsersRouter(
   });
 
   // PATCH /api/users/:id/availability — 운반업체 콜대기 상태 토글 (ONLINE/OFFLINE)
-  router.patch('/users/:id/availability', (req, res) => {
+  router.patch('/users/:id/availability', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     const availability = body.availability;
@@ -210,15 +211,16 @@ export function createUsersRouter(
       res.status(400).json({ error: "availability 는 'ONLINE' 또는 'OFFLINE' 이어야 합니다." });
       return;
     }
+    const radiusKm = typeof body.radiusKm === 'number' ? body.radiusKm : undefined;
     try {
-      res.json(store.setAvailability(req.params.id, availability as CallAvailability));
+      res.json(await store.setAvailability(req.params.id, availability as CallAvailability, radiusKm));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // PATCH /api/users/:id/offers-transport — 처리장 운반요청 제공 여부 토글 (처리장만)
-  router.patch('/users/:id/offers-transport', (req, res) => {
+  router.patch('/users/:id/offers-transport', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     if (typeof body.offersTransport !== 'boolean') {
@@ -226,19 +228,19 @@ export function createUsersRouter(
       return;
     }
     try {
-      res.json(store.setOffersTransport(req.params.id, body.offersTransport));
+      res.json(await store.setOffersTransport(req.params.id, body.offersTransport));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // PATCH /api/users/:id/certifications — 보험·허가증 등록 (업체만, 로드맵 Phase 2 인증 고도화)
-  router.patch('/users/:id/certifications', (req, res) => {
+  router.patch('/users/:id/certifications', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
-        store.setCertifications(req.params.id, {
+        await store.setCertifications(req.params.id, {
           insuranceRegistered:
             typeof body.insuranceRegistered === 'boolean' ? body.insuranceRegistered : undefined,
           permitRegistered:
@@ -251,12 +253,12 @@ export function createUsersRouter(
   });
 
   // PATCH /api/users/:id — 프로필 수정 (이름/연락처/지역)
-  router.patch('/users/:id', (req, res) => {
+  router.patch('/users/:id', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
       res.json(
-        store.update(req.params.id, {
+        await store.update(req.params.id, {
           name: typeof body.name === 'string' ? body.name : undefined,
           region: typeof body.region === 'string' ? body.region : undefined,
           phone: typeof body.phone === 'string' ? body.phone : undefined,

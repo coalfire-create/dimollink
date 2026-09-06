@@ -84,18 +84,98 @@ export function createAllbaroRouter(
   const router = Router();
   const onExhausted = (item: RetryQueueItem) => adminAlerter.notifyExhausted(item);
 
-  // POST /api/allbaro/verify-member  { businessNumber: string }
+  // POST /api/allbaro/verify-member  { businessNumber: string, roleType?: 'DISCHARGER'|'TRANSPORT'|'DISPOSAL' }
   router.post('/allbaro/verify-member', async (req, res) => {
-    const businessNumber = (req.body as { businessNumber?: unknown })?.businessNumber;
+    const b = (req.body ?? {}) as { businessNumber?: unknown; roleType?: unknown };
+    const businessNumber = b.businessNumber;
     if (typeof businessNumber !== 'string' || businessNumber.trim() === '') {
       res.status(400).json({ error: 'businessNumber(문자열)가 필요합니다.' });
       return;
     }
+    const roleType = (b.roleType === 'TRANSPORT' || b.roleType === 'DISPOSAL' ? b.roleType : 'DISCHARGER') as 'DISCHARGER' | 'TRANSPORT' | 'DISPOSAL';
 
     try {
-      res.json(await client.verifyMember(businessNumber));
+      res.json(await client.verifyMember(businessNumber, roleType));
     } catch (err) {
       sendAllbaroError(res, err, '회원 검증 처리 중 오류가 발생했습니다.');
+    }
+  });
+
+  // GET /api/allbaro/notices  공지사항 목록 조회 (T100_1001_01)
+  router.get('/allbaro/notices', async (_req, res) => {
+    try {
+      res.json(await client.getNotices());
+    } catch (err) {
+      sendAllbaroError(res, err, '공지사항 조회 중 오류가 발생했습니다.');
+    }
+  });
+
+  // GET /api/allbaro/manifest/:manifestNo  인계서 상태/상세 조회 (T200_4001_01)
+  router.get('/allbaro/manifest/:manifestNo', async (req, res) => {
+    const manifestNo = req.params.manifestNo;
+    if (!manifestNo) {
+      res.status(400).json({ error: 'manifestNo가 필요합니다.' });
+      return;
+    }
+    try {
+      res.json(await client.getManifestStatus(manifestNo));
+    } catch (err) {
+      sendAllbaroError(res, err, '인계서 상태 조회 중 오류가 발생했습니다.');
+    }
+  });
+
+  // POST /api/allbaro/transport-info  운반자 인수/차량 정보 등록 (T300_5001_01)
+  router.post('/allbaro/transport-info', async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof b.manifestNo !== 'string' || typeof b.vehicleNo !== 'string' || typeof b.transportedTons !== 'number' || typeof b.pickupAt !== 'string') {
+      res.status(400).json({ error: 'manifestNo(문자열), vehicleNo(문자열), transportedTons(숫자), pickupAt(문자열)이 필요합니다.' });
+      return;
+    }
+    try {
+      res.json(await client.registerTransportInfo({
+        manifestNo: b.manifestNo,
+        vehicleNo: b.vehicleNo,
+        transportedTons: b.transportedTons,
+        pickupAt: b.pickupAt,
+      }));
+    } catch (err) {
+      sendAllbaroError(res, err, '운반 정보 등록 중 오류가 발생했습니다.');
+    }
+  });
+
+  // POST /api/allbaro/disposal-info  처리자 반입/계량 정보 등록 (T400_5001_01)
+  router.post('/allbaro/disposal-info', async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof b.manifestNo !== 'string' || typeof b.weighedTons !== 'number' || typeof b.receivedAt !== 'string') {
+      res.status(400).json({ error: 'manifestNo(문자열), weighedTons(숫자), receivedAt(문자열)이 필요합니다.' });
+      return;
+    }
+    try {
+      res.json(await client.registerDisposalInfo({
+        manifestNo: b.manifestNo,
+        weighedTons: b.weighedTons,
+        receivedAt: b.receivedAt,
+      }));
+    } catch (err) {
+      sendAllbaroError(res, err, '반입/계량 정보 등록 중 오류가 발생했습니다.');
+    }
+  });
+
+  // POST /api/allbaro/treatment-completion  처리자 최종 처리완료 등록 (T400_5001_02)
+  router.post('/allbaro/treatment-completion', async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof b.manifestNo !== 'string' || typeof b.completedAt !== 'string') {
+      res.status(400).json({ error: 'manifestNo(문자열), completedAt(문자열)이 필요합니다.' });
+      return;
+    }
+    try {
+      res.json(await client.registerTreatmentCompletion({
+        manifestNo: b.manifestNo,
+        completedAt: b.completedAt,
+        treatmentMethodCode: typeof b.treatmentMethodCode === 'string' ? b.treatmentMethodCode : undefined,
+      }));
+    } catch (err) {
+      sendAllbaroError(res, err, '최종 처리완료 등록 중 오류가 발생했습니다.');
     }
   });
 

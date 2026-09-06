@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { INTERIOR_CATEGORY_LABELS, type InteriorCategory } from '@dimol/shared';
 import { ApiError, createInteriorRequest } from '../api/client';
+import { AddressPickerField } from '../components/AddressPickerField';
 import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
@@ -104,11 +105,15 @@ export function InteriorFormScreen() {
             onChangeText={setRegion}
             placeholder="예) 서울, 경기 양평, 부산"
           />
-          <Field
+          <AddressPickerField
             label="현장 주소"
             value={siteAddress}
-            onChangeText={setSiteAddress}
+            onChangeAddress={(addr, reg) => {
+              setSiteAddress(addr);
+              if (reg) setRegion(reg);
+            }}
             placeholder="예) ○○시 ○○구 ○○동 12-3"
+            hint="주소를 검색하거나 지도를 움직여 현장 위치를 정확히 맞춰주세요."
           />
           <Field
             label="상세 요구사항"

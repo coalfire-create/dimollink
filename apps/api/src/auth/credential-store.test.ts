@@ -30,22 +30,22 @@ describe('isValidPassword', () => {
 });
 
 describe('CredentialStore', () => {
-  it('설정한 번호+비밀번호로만 로그인 검증된다', () => {
+  it('설정한 번호+비밀번호로만 로그인 검증된다', async () => {
     const store = new CredentialStore();
-    store.setPassword('user-1', '010-1234-5678', 'mypw12');
-    expect(store.verify('01012345678', 'mypw12')).toBe('user-1');
-    expect(store.verify('010-1234-5678', 'mypw12')).toBe('user-1'); // 하이픈 무시
-    expect(store.verify('01012345678', 'wrong')).toBeNull();
-    expect(store.verify('01099999999', 'mypw12')).toBeNull();
-    expect(store.hasPassword('user-1')).toBe(true);
-    expect(store.hasPassword('user-2')).toBe(false);
+    await store.setPassword('user-1', '010-1234-5678', 'mypw12');
+    expect(await store.verify('01012345678', 'mypw12')).toBe('user-1');
+    expect(await store.verify('010-1234-5678', 'mypw12')).toBe('user-1'); // 하이픈 무시
+    expect(await store.verify('01012345678', 'wrong')).toBeNull();
+    expect(await store.verify('01099999999', 'mypw12')).toBeNull();
+    expect(await store.hasPassword('user-1')).toBe(true);
+    expect(await store.hasPassword('user-2')).toBe(false);
   });
 
-  it('비밀번호 변경 시 이전 것으로는 로그인 안 된다', () => {
+  it('비밀번호 변경 시 이전 것으로는 로그인 안 된다', async () => {
     const store = new CredentialStore();
-    store.setPassword('u', '01011112222', 'oldpw1');
-    store.setPassword('u', '01011112222', 'newpw2');
-    expect(store.verify('01011112222', 'oldpw1')).toBeNull();
-    expect(store.verify('01011112222', 'newpw2')).toBe('u');
+    await store.setPassword('u', '01011112222', 'oldpw1');
+    await store.setPassword('u', '01011112222', 'newpw2');
+    expect(await store.verify('01011112222', 'oldpw1')).toBeNull();
+    expect(await store.verify('01011112222', 'newpw2')).toBe('u');
   });
 });

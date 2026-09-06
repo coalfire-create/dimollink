@@ -20,10 +20,10 @@ export function createOffersRouter(store: OfferStore): Router {
   }
 
   // POST /api/offers  { requestId, providerId, ttlMinutes? }
-  router.post('/offers', (req, res) => {
+  router.post('/offers', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     try {
-      const offer = store.createOffer({
+      const offer = await store.createOffer({
         requestId: String(body.requestId ?? ''),
         providerId: String(body.providerId ?? ''),
         ttlMinutes: typeof body.ttlMinutes === 'number' ? body.ttlMinutes : undefined,
@@ -35,31 +35,31 @@ export function createOffersRouter(store: OfferStore): Router {
   });
 
   // POST /api/offers/sweep — 만료 스윕 실행, 이번에 만료된 건(재매칭 대상) 반환
-  router.post('/offers/sweep', (_req, res) => {
-    res.json({ expired: store.sweepExpired() });
+  router.post('/offers/sweep', async (_req, res) => {
+    res.json({ expired: await store.sweepExpired() });
   });
 
   // POST /api/offers/:id/accept | /decline — 업체 응답
-  router.post('/offers/:id/accept', (req, res) => {
+  router.post('/offers/:id/accept', async (req, res) => {
     try {
-      res.json(store.respond(req.params.id, 'ACCEPT'));
+      res.json(await store.respond(req.params.id, 'ACCEPT'));
     } catch (err) {
       handleError(err, res);
     }
   });
-  router.post('/offers/:id/decline', (req, res) => {
+  router.post('/offers/:id/decline', async (req, res) => {
     try {
-      res.json(store.respond(req.params.id, 'DECLINE'));
+      res.json(await store.respond(req.params.id, 'DECLINE'));
     } catch (err) {
       handleError(err, res);
     }
   });
 
   // GET /api/offers?requestId=&providerId=&status=
-  router.get('/offers', (req, res) => {
+  router.get('/offers', async (req, res) => {
     const { requestId, providerId, status } = req.query;
     res.json(
-      store.list({
+      await store.list({
         requestId: typeof requestId === 'string' ? requestId : undefined,
         providerId: typeof providerId === 'string' ? providerId : undefined,
         status: typeof status === 'string' ? (status as MatchOfferStatus) : undefined,

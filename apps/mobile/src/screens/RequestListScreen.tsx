@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { ApiError, listRequests } from '../api/client';
-import { Card, EmptyState, ErrorBanner, LoadingView, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorBanner, LoadingView, StatusBadge } from '../components/ui';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';

@@ -5,15 +5,141 @@ import { env } from '../config/env.js';
  * 주소 → 좌표 변환(지오코딩). 거리 기반 매칭에 쓸 현장 좌표를 확보한다.
  * 현재 카카오 로컬 API를 지원하며, 미설정 시 NoopGeocoder(항상 null)로 폴백한다.
  */
-export interface Geocoder {
-  geocode(address: string): Promise<GeoPoint | null>;
+export interface AddressSearchResult {
+  addressName: string;
+  roadAddressName: string;
+  buildingName?: string;
+  region: string;
+  location?: GeoPoint;
+  bCode?: string; // 법정동코드(10자리)
+  mountainYn?: string; // 산 번지 여부 (Y/N 또는 1/0)
+  mainAddressNo?: string; // 본번
+  subAddressNo?: string; // 부번
+  /**
+   * 실제 주소를 확정하지 못한 근사 결과.
+   * 좌표는 정확하지만 주소 문자열은 권역 추정치라, UI 는 이걸 주소처럼 보여주면 안 되고
+   * 사용자에게 상세주소를 받아야 한다.
+   */
+  approximate?: boolean;
 }
 
-/** 지오코딩 비활성(좌표 없음) — 설정 전 폴백. */
+export interface Geocoder {
+  geocode(address: string): Promise<GeoPoint | null>;
+  searchAddress(query: string): Promise<AddressSearchResult[]>;
+  reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null>;
+}
+
+function extractRegion(fullAddress: string): string {
+  const parts = fullAddress.trim().split(/\s+/);
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    const p0 = parts[0].replace(/특별시|광역시|특별자치시|특별자치도|도/, '');
+    const p1 = parts[1].replace(/시|군|구/, '');
+    return `${p0} ${p1}`.trim();
+  }
+  return parts[0] ?? '양평';
+}
+
+const MOCK_ADDRESSES: AddressSearchResult[] = [
+  {
+    addressName: '경기 양평군 양평읍 양근리 120-5',
+    roadAddressName: '경기 양평군 양평읍 양근강변길 12',
+    buildingName: '양평군청 인근 상가',
+    region: '경기 양평',
+    location: { lat: 37.4912, lng: 127.4875 },
+  },
+  {
+    addressName: '경기 양평군 강상면 병산리 450',
+    roadAddressName: '경기 양평군 강상면 강남로 102',
+    buildingName: '병산리 단독주택',
+    region: '경기 양평',
+    location: { lat: 37.4789, lng: 127.4921 },
+  },
+  {
+    addressName: '경기 양평군 옥천면 신복리 77',
+    roadAddressName: '경기 양평군 옥천면 신복길 45',
+    buildingName: '옥천 사무실 타운',
+    region: '경기 양평',
+    location: { lat: 37.5123, lng: 127.4589 },
+  },
+  {
+    addressName: '경기 양평군 용문면 다문리 88',
+    roadAddressName: '경기 양평군 용문면 용문산로 15',
+    buildingName: '용문역 상업지구',
+    region: '경기 양평',
+    location: { lat: 37.4856, lng: 127.5942 },
+  },
+  {
+    addressName: '서울 강남구 역삼동 820-1',
+    roadAddressName: '서울 강남구 테헤란로 152',
+    buildingName: '강남 파이낸스 센터',
+    region: '서울 강남',
+    location: { lat: 37.5002, lng: 127.0364 },
+  },
+];
+
+/** 지오코딩 비활성(좌표 없음) — 모크 검색 폴백. */
 export class NoopGeocoder implements Geocoder {
   async geocode(): Promise<GeoPoint | null> {
     return null;
   }
+
+  async searchAddress(query: string): Promise<AddressSearchResult[]> {
+    const q = query.trim().toLowerCase();
+    if (!q) return MOCK_ADDRESSES.slice(0, 3);
+    const filtered = MOCK_ADDRESSES.filter(
+      (item) =>
+        item.addressName.toLowerCase().includes(q) ||
+        item.roadAddressName.toLowerCase().includes(q) ||
+        (item.buildingName && item.buildingName.toLowerCase().includes(q)),
+    );
+    if (filtered.length > 0) return filtered;
+    return [
+      {
+        addressName: query.trim(),
+        roadAddressName: query.trim(),
+        region: extractRegion(query),
+        location: { lat: 37.4912, lng: 127.4875 },
+      },
+    ];
+  }
+
+  async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
+    // 키가 없을 때의 근사 폴백. 좌표는 정확하지만 주소는 권역 추정치다.
+    // 예전에는 "경기 부근 · 위도 37.36134, 경도 127.10554" 처럼 좌표를 주소 문자열에
+    // 끼워 넣었는데, 화면에는 그게 주소로 보이고 그대로 현장 주소로 저장까지 됐다.
+    // 좌표는 location 에만 담고, 문자열에는 확정된 만큼만 적는다.
+    const region = approxKoreanRegion(lat, lng);
+    return {
+      addressName: `${region} 일대`,
+      roadAddressName: `${region} 일대`,
+      region,
+      location: { lat, lng },
+      approximate: true,
+    };
+  }
+}
+
+/** 역지오코딩 키가 없을 때 좌표 → 대략적 권역명. 실제 행정구역이 아닌 근사치. */
+function approxKoreanRegion(lat: number, lng: number): string {
+  const boxes: Array<{ name: string; latMin: number; latMax: number; lngMin: number; lngMax: number }> = [
+    { name: '서울', latMin: 37.42, latMax: 37.71, lngMin: 126.76, lngMax: 127.19 },
+    { name: '인천', latMin: 37.35, latMax: 37.6, lngMin: 126.35, lngMax: 126.76 },
+    { name: '대전', latMin: 36.2, latMax: 36.5, lngMin: 127.3, lngMax: 127.56 },
+    { name: '대구', latMin: 35.78, latMax: 36.0, lngMin: 128.47, lngMax: 128.76 },
+    { name: '광주', latMin: 35.06, latMax: 35.27, lngMin: 126.7, lngMax: 126.99 },
+    { name: '울산', latMin: 35.4, latMax: 35.72, lngMin: 129.2, lngMax: 129.5 },
+    { name: '부산', latMin: 34.98, latMax: 35.4, lngMin: 128.9, lngMax: 129.32 },
+    { name: '제주', latMin: 33.1, latMax: 33.6, lngMin: 126.1, lngMax: 126.99 },
+    { name: '강원', latMin: 37.0, latMax: 38.62, lngMin: 127.7, lngMax: 129.4 },
+    { name: '경기', latMin: 36.9, latMax: 38.3, lngMin: 126.3, lngMax: 127.9 },
+    { name: '충청', latMin: 35.98, latMax: 37.1, lngMin: 125.9, lngMax: 128.5 },
+    { name: '경상', latMin: 34.9, latMax: 36.9, lngMin: 127.8, lngMax: 129.6 },
+    { name: '전라', latMin: 34.2, latMax: 36.0, lngMin: 125.9, lngMax: 127.9 },
+  ];
+  const hit = boxes.find(
+    (b) => lat >= b.latMin && lat <= b.latMax && lng >= b.lngMin && lng <= b.lngMax,
+  );
+  return hit ? hit.name : '대한민국';
 }
 
 /** 카카오 로컬 API 기반 주소 지오코더. */
@@ -48,8 +174,130 @@ export class KakaoGeocoder implements Geocoder {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
       return { lat, lng };
     } catch (err) {
-      // 주소는 PII 성격 — 값은 로그에 남기지 않는다.
       console.warn('[geocode] 지오코딩 실패', err instanceof Error ? err.name : 'error');
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async searchAddress(query: string): Promise<AddressSearchResult[]> {
+    const q = query.trim();
+    if (!q) return [];
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      // 주소 검색 API & 키워드(장소) 검색 API 조인
+      const addrUrl = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=5`;
+      const keyUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=5`;
+      const [addrRes, keyRes] = await Promise.allSettled([
+        this.fetchFn(addrUrl, {
+          headers: { Authorization: `KakaoAK ${this.restKey}` },
+          signal: controller.signal,
+        }),
+        this.fetchFn(keyUrl, {
+          headers: { Authorization: `KakaoAK ${this.restKey}` },
+          signal: controller.signal,
+        }),
+      ]);
+
+      const results: AddressSearchResult[] = [];
+
+      if (addrRes.status === 'fulfilled' && addrRes.value.ok) {
+        const data = (await addrRes.value.json()) as {
+          documents?: Array<{
+            address_name?: string;
+            road_address?: { address_name?: string; building_name?: string };
+            address?: { address_name?: string; b_code?: string; mountain_yn?: string; main_address_no?: string; sub_address_no?: string };
+            x?: string;
+            y?: string;
+          }>;
+        };
+        for (const doc of data.documents ?? []) {
+          const mainAddr = doc.road_address?.address_name || doc.address_name || '';
+          if (!mainAddr) continue;
+          results.push({
+            addressName: doc.address?.address_name || doc.address_name || mainAddr,
+            roadAddressName: doc.road_address?.address_name || mainAddr,
+            buildingName: doc.road_address?.building_name || undefined,
+            region: extractRegion(mainAddr),
+            location: doc.x && doc.y ? { lat: Number(doc.y), lng: Number(doc.x) } : undefined,
+            bCode: doc.address?.b_code,
+            mountainYn: doc.address?.mountain_yn,
+            mainAddressNo: doc.address?.main_address_no,
+            subAddressNo: doc.address?.sub_address_no,
+          });
+        }
+      }
+
+      if (keyRes.status === 'fulfilled' && keyRes.value.ok) {
+        const data = (await keyRes.value.json()) as {
+          documents?: Array<{
+            place_name?: string;
+            road_address_name?: string;
+            address_name?: string;
+            x?: string;
+            y?: string;
+            // keyword 검색의 경우 상세 address 객체가 없을 수 있으므로 제한적임
+          }>;
+        };
+        for (const doc of data.documents ?? []) {
+          const mainAddr = doc.road_address_name || doc.address_name || '';
+          if (!mainAddr) continue;
+          if (results.some((r) => r.roadAddressName === mainAddr)) continue;
+          results.push({
+            addressName: doc.address_name || mainAddr,
+            roadAddressName: doc.road_address_name || mainAddr,
+            buildingName: doc.place_name || undefined,
+            region: extractRegion(mainAddr),
+            location: doc.x && doc.y ? { lat: Number(doc.y), lng: Number(doc.x) } : undefined,
+          });
+        }
+      }
+
+      if (results.length > 0) return results;
+      return new NoopGeocoder().searchAddress(query);
+    } catch (err) {
+      console.warn('[searchAddress] 카카오 검색 실패', err instanceof Error ? err.name : 'error');
+      return new NoopGeocoder().searchAddress(query);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async reverseGeocode(lat: number, lng: number): Promise<AddressSearchResult | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const url = `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${lng}&y=${lat}`;
+      const res = await this.fetchFn(url, {
+        headers: { Authorization: `KakaoAK ${this.restKey}` },
+        signal: controller.signal,
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        documents?: Array<{
+          road_address?: { address_name?: string; building_name?: string };
+          address?: { address_name?: string; b_code?: string; mountain_yn?: string; main_address_no?: string; sub_address_no?: string };
+        }>;
+      };
+      const doc = data.documents?.[0];
+      if (!doc) return null;
+      const mainAddr = doc.road_address?.address_name || doc.address?.address_name || '';
+      if (!mainAddr) return null;
+      return {
+        addressName: doc.address?.address_name || mainAddr,
+        roadAddressName: doc.road_address?.address_name || mainAddr,
+        buildingName: doc.road_address?.building_name || undefined,
+        region: extractRegion(mainAddr),
+        location: { lat, lng },
+        bCode: doc.address?.b_code,
+        mountainYn: doc.address?.mountain_yn,
+        mainAddressNo: doc.address?.main_address_no,
+        subAddressNo: doc.address?.sub_address_no,
+      };
+    } catch {
       return null;
     } finally {
       clearTimeout(timer);
@@ -59,8 +307,8 @@ export class KakaoGeocoder implements Geocoder {
 
 /** 환경설정 기반 지오코더. */
 export function createGeocoder(fetchFn: typeof fetch = fetch): Geocoder {
-  if (env.geocode.provider === 'kakao' && env.geocode.kakaoRestKey) {
-    return new KakaoGeocoder(env.geocode.kakaoRestKey, env.geocode.timeoutMs, fetchFn);
+  if (env.geocode.kakaoRestKey || env.geocode.provider === 'kakao') {
+    return new KakaoGeocoder(env.geocode.kakaoRestKey ?? '', env.geocode.timeoutMs, fetchFn);
   }
   return new NoopGeocoder();
 }

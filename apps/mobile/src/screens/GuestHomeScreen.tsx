@@ -1,6 +1,6 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppButton, Card } from '../components/ui';
+import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';

@@ -11,11 +11,6 @@ import {
 import type { CollectionPersistence } from '../lib/json-collection.js';
 import type { RequestStore } from '../requests/store.js';
 
-/**
- * 리뷰·평점 + 노쇼/분쟁 이력 저장소 (로드맵 Phase 2 · 신뢰 구축).
- * 리뷰는 완료된 요청의 당사자(배출자↔매칭 업체) 사이에서만, 요청당 평가자별 1회.
- */
-
 export class ReviewValidationError extends Error {}
 
 export interface CreateReviewInput {
@@ -32,7 +27,6 @@ export interface ReportIncidentInput {
   detail?: string;
 }
 
-/** 요청 당사자 검증: 평가자/신고자가 당사자면 상대 당사자 id 를 돌려준다. */
 function counterpartyOf(request: ServiceRequest, partyId: string): string {
   if (request.matchedProviderId === undefined) {
     throw new ReviewValidationError('매칭 업체가 확정되지 않은 요청입니다.');
@@ -43,22 +37,42 @@ function counterpartyOf(request: ServiceRequest, partyId: string): string {
 }
 
 export class ReviewStore {
-  private readonly reviews = new Map<string, Review>();
-  private readonly incidents = new Map<string, Incident>();
+  private readonly fallbackReviews = new Map<string, Review>();
+  private readonly fallbackIncidents = new Map<string, Incident>();
 
   constructor(
     private readonly requestStore: RequestStore,
     private readonly reviewPersistence?: CollectionPersistence<Review>,
     private readonly incidentPersistence?: CollectionPersistence<Incident>,
-  ) {
-    for (const review of reviewPersistence?.load() ?? []) this.reviews.set(review.id, review);
-    for (const incident of incidentPersistence?.load() ?? []) {
-      this.incidents.set(incident.id, incident);
-    }
+  ) {}
+
+  private async getReviewsInner(): Promise<Review[]> {
+    if (this.reviewPersistence) return this.reviewPersistence.list();
+    return [...this.fallbackReviews.values()];
   }
 
-  createReview(input: CreateReviewInput): Review {
-    const request = this.requestStore.get(input.requestId);
+  private async saveReviewInner(review: Review): Promise<void> {
+    if (this.reviewPersistence) await this.reviewPersistence.save(review);
+    else this.fallbackReviews.set(review.id, review);
+  }
+
+  private async getIncidentsInner(): Promise<Incident[]> {
+    if (this.incidentPersistence) return this.incidentPersistence.list();
+    return [...this.fallbackIncidents.values()];
+  }
+
+  private async saveIncidentInner(incident: Incident): Promise<void> {
+    if (this.incidentPersistence) await this.incidentPersistence.save(incident);
+    else this.fallbackIncidents.set(incident.id, incident);
+  }
+  
+  private async getIncidentInner(id: string): Promise<Incident | undefined> {
+    if (this.incidentPersistence) return this.incidentPersistence.get(id);
+    return this.fallbackIncidents.get(id);
+  }
+
+  async createReview(input: CreateReviewInput): Promise<Review> {
+    const request = await this.requestStore.get(input.requestId);
     if (!request) throw new ReviewValidationError('요청을 찾을 수 없습니다.');
     if (request.status !== 'COMPLETED' && request.status !== 'SETTLED') {
       throw new ReviewValidationError('처리 완료된 요청만 평가할 수 있습니다.');
@@ -69,7 +83,9 @@ export class ReviewStore {
         `rating 은 ${REVIEW_RATING_MIN}~${REVIEW_RATING_MAX} 정수여야 합니다.`,
       );
     }
-    const duplicate = [...this.reviews.values()].some(
+    
+    const allReviews = await this.getReviewsInner();
+    const duplicate = allReviews.some(
       (r) => r.requestId === input.requestId && r.raterId === input.raterId,
     );
     if (duplicate) throw new ReviewValidationError('이미 이 요청을 평가했습니다.');
@@ -83,13 +99,13 @@ export class ReviewStore {
       ...(input.comment?.trim() ? { comment: input.comment.trim() } : {}),
       createdAt: new Date().toISOString(),
     };
-    this.reviews.set(review.id, review);
-    this.reviewPersistence?.save([...this.reviews.values()]);
+    await this.saveReviewInner(review);
     return review;
   }
 
-  listReviews(filter: { ratedId?: string; requestId?: string } = {}): Review[] {
-    return [...this.reviews.values()]
+  async listReviews(filter: { ratedId?: string; requestId?: string } = {}): Promise<Review[]> {
+    const allReviews = await this.getReviewsInner();
+    return allReviews
       .filter(
         (r) =>
           (filter.ratedId === undefined || r.ratedId === filter.ratedId) &&
@@ -98,10 +114,10 @@ export class ReviewStore {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  /** 평점 요약 — 프로필 표시·매칭 추천 정렬(Phase 3)에서 사용. */
-  ratingSummary(userId: string): RatingSummary {
-    const reviews = this.listReviews({ ratedId: userId });
-    const incidents = [...this.incidents.values()].filter((i) => i.targetId === userId);
+  async ratingSummary(userId: string): Promise<RatingSummary> {
+    const reviews = await this.listReviews({ ratedId: userId });
+    const allIncidents = await this.getIncidentsInner();
+    const incidents = allIncidents.filter((i) => i.targetId === userId);
     const average =
       reviews.length === 0
         ? null
@@ -115,8 +131,8 @@ export class ReviewStore {
     };
   }
 
-  reportIncident(input: ReportIncidentInput): Incident {
-    const request = this.requestStore.get(input.requestId);
+  async reportIncident(input: ReportIncidentInput): Promise<Incident> {
+    const request = await this.requestStore.get(input.requestId);
     if (!request) throw new ReviewValidationError('요청을 찾을 수 없습니다.');
     if (input.type !== 'NO_SHOW' && input.type !== 'DISPUTE') {
       throw new ReviewValidationError('type 은 NO_SHOW | DISPUTE 여야 합니다.');
@@ -132,13 +148,13 @@ export class ReviewStore {
       status: 'OPEN',
       createdAt: new Date().toISOString(),
     };
-    this.incidents.set(incident.id, incident);
-    this.incidentPersistence?.save([...this.incidents.values()]);
+    await this.saveIncidentInner(incident);
     return incident;
   }
 
-  listIncidents(filter: { targetId?: string; status?: Incident['status'] } = {}): Incident[] {
-    return [...this.incidents.values()]
+  async listIncidents(filter: { targetId?: string; status?: Incident['status'] } = {}): Promise<Incident[]> {
+    const allIncidents = await this.getIncidentsInner();
+    return allIncidents
       .filter(
         (i) =>
           (filter.targetId === undefined || i.targetId === filter.targetId) &&
@@ -147,9 +163,8 @@ export class ReviewStore {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
-  /** 분쟁 조정 완료 처리 (Phase 5 백오피스에서 호출). */
-  resolveIncident(id: string, resolutionNote?: string): Incident {
-    const incident = this.incidents.get(id);
+  async resolveIncident(id: string, resolutionNote?: string): Promise<Incident> {
+    const incident = await this.getIncidentInner(id);
     if (!incident) throw new ReviewValidationError('인시던트를 찾을 수 없습니다.');
     const resolved: Incident = {
       ...incident,
@@ -157,8 +172,7 @@ export class ReviewStore {
       ...(resolutionNote?.trim() ? { resolutionNote: resolutionNote.trim() } : {}),
       resolvedAt: new Date().toISOString(),
     };
-    this.incidents.set(id, resolved);
-    this.incidentPersistence?.save([...this.incidents.values()]);
+    await this.saveIncidentInner(resolved);
     return resolved;
   }
 }

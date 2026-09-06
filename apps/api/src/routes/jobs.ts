@@ -1,5 +1,7 @@
 import {
-  TRANSPORT_MATCH_RADIUS_KM,
+  MATCH_RADIUS_KM,
+  regionMatches,
+  haversineDistanceKm,
   requestKindForProvider,
   type MatchStatus,
   type ProviderJobs,
@@ -28,9 +30,9 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
 
   // GET /api/jobs  — 내 유형·지역의 새 일감(open) + 내가 수락한 일감(assigned)
   // 요청자는 인증된 본인(토큰)으로 고정한다 — 남의 피드를 조회할 수 없다.
-  router.get('/jobs', (req, res) => {
+  router.get('/jobs', async (req, res) => {
     const providerId = authUserId(req);
-    const provider = userStore.get(providerId);
+    const provider = await userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
       return;
@@ -45,23 +47,28 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     const availabilityBlocksOpen =
       provider.userType === 'TRANSPORT_COMPANY' && provider.availability !== 'ONLINE';
 
+    // 기존의 완전일치 region 필터를 제거하고 모든 지역의 open 일감을 가져온다.
+    // 반경 30km 필터는 아래 rankByDistance 에서 수행된다.
     const openRaw = availabilityBlocksOpen
       ? []
-      : requestStore
-          .list({ kind, status: 'REQUESTED', region: provider.region })
+      : (await requestStore.list({ kind, status: 'REQUESTED' }))
           // 자기가 올린 요청은 제외.
           .filter((r) => r.requesterId !== providerId);
 
     // 거리 기반 매칭 추천 — 업체 기준 좌표에서 가까운 순으로 정렬(+distanceKm).
-    // 운반업체 콜 피드는 기본 반경 30km 이내 일감만 노출한다(좌표 없는 일감은 그대로 유지).
+    // 운반업체는 사용자 설정 반경(또는 기본 30km) 적용, 그 외 업체는 전국 단위(제한 없음).
+    const maxRadiusKm =
+      provider.userType === 'TRANSPORT_COMPANY'
+        ? (provider.matchRadiusKm ?? MATCH_RADIUS_KM)
+        : undefined;
+
     const open = rankByDistance(provider.location, openRaw, {
-      maxRadiusKm:
-        provider.userType === 'TRANSPORT_COMPANY' ? TRANSPORT_MATCH_RADIUS_KM : undefined,
+      maxRadiusKm,
     });
 
-    const assigned = requestStore
-      .list({ providerId })
-      .filter((r) => ASSIGNED_STATUSES.includes(r.status));
+    const assigned = (await requestStore.list({ providerId })).filter((r) =>
+      ASSIGNED_STATUSES.includes(r.status),
+    );
 
     const body: ProviderJobs = { open, assigned };
     res.json(body);
@@ -69,7 +76,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
 
   // POST /api/jobs/:requestId/accept  { amount? } — 선착순 수락 → MATCHED (요청자는 인증된 본인).
   // amount 를 주면 그 금액이 합의 금액(선결제 기준)으로 기록된다(철거/운반 선착순+금액).
-  router.post('/jobs/:requestId/accept', (req, res) => {
+  router.post('/jobs/:requestId/accept', async (req, res) => {
     const providerId = authUserId(req);
     const rawAmount = (req.body as { amount?: unknown } | undefined)?.amount;
     let agreedFee: number | undefined;
@@ -81,7 +88,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       }
       agreedFee = amount;
     }
-    const provider = userStore.get(providerId);
+    const provider = await userStore.get(providerId);
     if (!provider) {
       res.status(404).json({ error: '업체를 찾을 수 없습니다.' });
       return;
@@ -91,7 +98,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       return;
     }
 
-    const request = requestStore.get(req.params.requestId);
+    const request = await requestStore.get(req.params.requestId);
     if (!request) {
       res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
       return;
@@ -100,10 +107,18 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       res.status(403).json({ error: '내 업종에 맞는 일감이 아니에요.' });
       return;
     }
-    if (request.region !== provider.region) {
+
+    if (request.location && provider.location) {
+      const dist = haversineDistanceKm(request.location, provider.location);
+      if (dist > MATCH_RADIUS_KM) {
+        res.status(400).json({ error: `매칭 반경(${MATCH_RADIUS_KM}km)을 벗어난 일감은 수락할 수 없어요.` });
+        return;
+      }
+    } else if (!regionMatches(request.region, provider.region)) {
       res.status(400).json({ error: '다른 지역의 일감은 수락할 수 없어요.' });
       return;
     }
+
     if (provider.userType === 'TRANSPORT_COMPANY' && provider.availability !== 'ONLINE') {
       res.status(409).json({ error: '콜대기를 켜야 콜을 수락할 수 있어요.' });
       return;
@@ -114,7 +129,7 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
     }
 
     try {
-      const updated: ServiceRequest = requestStore.changeStatus(request.id, 'MATCHED', {
+      const updated: ServiceRequest = await requestStore.changeStatus(request.id, 'MATCHED', {
         matchedProviderId: providerId,
         agreedFee,
       });

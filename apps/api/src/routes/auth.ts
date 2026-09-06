@@ -42,13 +42,13 @@ export function createAuthRouter(
       res.status(400).json({ error: '휴대폰번호와 비밀번호를 입력해 주세요.' });
       return;
     }
-    const userId = credentialStore.verify(body.phone, body.password);
+    const userId = await credentialStore.verify(body.phone, body.password);
     // 번호/비번 어느 쪽이 틀렸는지 알려주지 않는다(계정 열거 방지).
     if (!userId) {
       res.status(401).json({ error: '휴대폰번호 또는 비밀번호가 올바르지 않습니다.' });
       return;
     }
-    const user = userStore.get(userId);
+    const user = await userStore.get(userId);
     if (!user) {
       res.status(401).json({ error: '휴대폰번호 또는 비밀번호가 올바르지 않습니다.' });
       return;
@@ -95,7 +95,7 @@ export function createAuthRouter(
       return;
     }
 
-    const user = userStore.getByPhone(body.phone);
+    const user = await userStore.getByPhone(body.phone);
     if (!user) {
       // 번호 인증은 됐지만 미가입 → 회원가입으로 진행(가입 시 번호 인증 상태 소진).
       res.json({ phoneVerified: true, session: null });
@@ -110,7 +110,7 @@ export function createAuthRouter(
   router.get('/auth/me', async (req, res) => {
     const token = bearerToken(req);
     const userId = token ? await sessionStore.resolve(token) : undefined;
-    const user = userId ? userStore.get(userId) : undefined;
+    const user = userId ? await userStore.get(userId) : undefined;
     if (!user) {
       res.status(401).json({ error: '세션이 만료되었습니다. 다시 로그인해 주세요.' });
       return;

@@ -77,9 +77,19 @@ export const env = {
     apiUrl: process.env.SMS_API_URL,
     apiKey: process.env.SMS_API_KEY,
   },
+  /** 앱에 그대로 내려도 되는 공개 설정(클라이언트 키 등). 시크릿은 절대 넣지 않는다. */
+  publicConfig: {
+    /**
+     * 카카오 지도 JavaScript 앱 키. REST API 키와 다른 값이며,
+     * 브라우저에 노출되는 것이 정상인 공개 키다(카카오 콘솔의 허용 도메인으로 보호).
+     * 미설정 시 지도는 OpenStreetMap 타일로 폴백한다.
+     */
+    kakaoJsKey: process.env.KAKAO_JS_KEY,
+  },
   geocode: {
-    // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 미설정 시 좌표 없이 진행.
-    provider: (process.env.GEOCODE_PROVIDER ?? 'none') as 'kakao' | 'none',
+    // 주소 → 좌표 변환. 현재 카카오 로컬 API 지원. 키가 있으면 자동으로 kakao 사용.
+    provider: (process.env.GEOCODE_PROVIDER ??
+      (process.env.KAKAO_REST_API_KEY ? 'kakao' : 'none')) as 'kakao' | 'none',
     kakaoRestKey: process.env.KAKAO_REST_API_KEY,
     timeoutMs: Number(process.env.GEOCODE_TIMEOUT_MS ?? 5000),
   },
@@ -153,8 +163,29 @@ export const env = {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
     // 비전 API 공통 요청 타임아웃(ms).
-    visionTimeoutMs: Number(process.env.VISION_TIMEOUT_MS ?? process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
+    visionTimeoutMs: Number(
+      process.env.VISION_TIMEOUT_MS ?? process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000,
+    ),
     anthropicTimeoutMs: Number(process.env.ANTHROPIC_TIMEOUT_MS ?? 30_000),
+    /**
+     * 사진 간 교차검증(합의) 분석. 사진을 한 장씩 따로 돌려 검출률로 신뢰도를 매긴다.
+     * 정확도가 크게 오르는 대신 호출 수가 사진 수에 비례해 늘어난다(N+1회).
+     * 비용을 아끼려면 `VISION_CONSENSUS=off`.
+     */
+    visionConsensus: (process.env.VISION_CONSENSUS ?? 'on').toLowerCase() !== 'off',
+    /**
+     * 3D 복원 서버(vision-api scan3d) 주소. 미설정이면 목 복원기가 동작한다 —
+     * GPU 없이도 촬영·큐·진행률·뷰어를 끝까지 검증할 수 있게 하기 위해서다.
+     */
+    scan3dBaseUrl: process.env.SCAN3D_API_BASE_URL,
+    scan3dApiKey: process.env.SCAN3D_API_KEY,
+    /** 복원은 20~40분 걸린다 — 잡 생성 호출 자체의 타임아웃만 짧게 둔다. */
+    scan3dTimeoutMs: Number(process.env.SCAN3D_TIMEOUT_MS ?? 30_000),
+  },
+  buildingRegistry: {
+    // 건축물대장 표제부 OpenAPI 키 (data.go.kr)
+    apiKey: process.env.VISION_BLDG_LEDGER_KEY,
+    timeoutMs: Number(process.env.BUILDING_REGISTRY_TIMEOUT_MS ?? 10_000),
   },
   portone: {
     baseUrl: process.env.PORTONE_API_BASE_URL ?? 'https://api.portone.io',

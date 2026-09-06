@@ -77,11 +77,11 @@ function transportReq(items: { material: string; kg: number }[]) {
 
 describe('백오피스 확장 현황', () => {
   it('소재별 kg 집계(waste-materials)', async () => {
-    transportReq([
+    await transportReq([
       { material: 'REINFORCED_CONCRETE', kg: 4000 },
       { material: 'WOOD', kg: 1000 },
     ]);
-    transportReq([{ material: 'REINFORCED_CONCRETE', kg: 2000 }]);
+    await transportReq([{ material: 'REINFORCED_CONCRETE', kg: 2000 }]);
     const { body } = await get('/api/admin/waste-materials');
     const concrete = body.find((r: { material: string }) => r.material === 'REINFORCED_CONCRETE');
     expect(concrete.totalKg).toBe(6000);
@@ -90,16 +90,16 @@ describe('백오피스 확장 현황', () => {
   });
 
   it('밀봉 견적 현황은 건수만(금액 없음)', async () => {
-    const req = transportReq([{ material: 'WOOD', kg: 500 }]);
-    quoteStore.createQuote({ requestId: req.id, providerId: 't-1', party: 'TRANSPORT', amount: 100000 });
-    quoteStore.createQuote({ requestId: req.id, providerId: 't-2', party: 'TRANSPORT', amount: 120000 });
+    const req = await transportReq([{ material: 'WOOD', kg: 500 }]);
+    await quoteStore.createQuote({ requestId: req.id, providerId: 't-1', party: 'TRANSPORT', amount: 100000 });
+    await quoteStore.createQuote({ requestId: req.id, providerId: 't-2', party: 'TRANSPORT', amount: 120000 });
     const { body } = await get('/api/admin/quotes-summary');
     expect(body[0]).toEqual({ requestId: req.id, quoteCount: 2 });
     expect(JSON.stringify(body)).not.toContain('amount');
   });
 
   it('단가 설정 현황', async () => {
-    pricingStore.set('u-1', 25000);
+    await pricingStore.set('u-1', 25000);
     const { body } = await get('/api/admin/pricing');
     expect(body[0].userId).toBe('u-1');
     expect(body[0].unitPrice).toBe(25000);

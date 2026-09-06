@@ -75,9 +75,14 @@ function makeRequest(requesterId: string) {
     siteAddress: '양평읍 현장',
   });
 }
-function acceptQuote(requestId: string, requesterId: string, party: 'TRANSPORT' | 'DISPOSAL', amount: number) {
-  const q = quoteStore.createQuote({ requestId, providerId: `${party}-p`, party, amount });
-  quoteStore.accept(q.id, requesterId);
+async function acceptQuote(
+  requestId: string,
+  requesterId: string,
+  party: 'TRANSPORT' | 'DISPOSAL',
+  amount: number,
+) {
+  const q = await quoteStore.createQuote({ requestId, providerId: `${party}-p`, party, amount });
+  await quoteStore.accept(q.id, requesterId);
 }
 const post = (path: string, token: string, body: unknown) =>
   fetch(`${base}${path}`, {
@@ -88,9 +93,9 @@ const post = (path: string, token: string, body: unknown) =>
 
 describe('선결제 — 금액 권위(수락 견적 기준)', () => {
   it('수락된 견적이 없으면 409(NO_ACCEPTED_QUOTE)', async () => {
-    const owner = makeUser('01060000001');
-    const request = makeRequest(owner.id);
-    const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
+    const owner = await makeUser('01060000001');
+    const request = await makeRequest(owner.id);
+    const res = await post('/api/payments/prepay', await sessionStore.issue(owner.id), {
       matchRequestId: request.id,
       paymentId: 'pay-test',
       completedDate: '2026-07-10',
@@ -100,12 +105,12 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
   });
 
   it('선결제 금액은 클라이언트 입력이 아닌 수락 견적에서 산출된다', async () => {
-    const owner = makeUser('01060000002');
-    const request = makeRequest(owner.id);
+    const owner = await makeUser('01060000002');
+    const request = await makeRequest(owner.id);
     // 요청 1건 = 단일 party(수락 시 매칭 확정). 여기선 운반 견적 하나를 수락.
-    acceptQuote(request.id, owner.id, 'TRANSPORT', 120000);
+    await acceptQuote(request.id, owner.id, 'TRANSPORT', 120000);
 
-    const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
+    const res = await post('/api/payments/prepay', await sessionStore.issue(owner.id), {
       matchRequestId: request.id,
       paymentId: 'pay-test',
       completedDate: '2026-07-10',
@@ -114,18 +119,18 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.plan.prepaymentAmount).toBe(120000); // 수락 견적 금액
-    expect(paymentStore.get('pay-test')?.amount).toBe(120000);
+    expect((await paymentStore.get('pay-test'))?.amount).toBe(120000);
   });
 
   it('선착순 합의 금액(agreedFee)으로도 결제 금액이 산출된다', async () => {
-    const owner = makeUser('01060000009');
-    const request = makeRequest(owner.id);
+    const owner = await makeUser('01060000009');
+    const request = await makeRequest(owner.id);
     // 선착순 수락 시뮬레이션: 매칭 + 합의 금액 기록.
-    requestStore.changeStatus(request.id, 'MATCHED', {
+    await requestStore.changeStatus(request.id, 'MATCHED', {
       matchedProviderId: 'demo-company',
       agreedFee: 150000,
     });
-    const res = await post('/api/payments/prepay', sessionStore.issue(owner.id), {
+    const res = await post('/api/payments/prepay', await sessionStore.issue(owner.id), {
       matchRequestId: request.id,
       paymentId: 'pay-test',
       completedDate: '2026-07-10',
@@ -135,11 +140,11 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
   });
 
   it('타인 요청은 결제 불가(403)', async () => {
-    const owner = makeUser('01060000003');
-    const other = makeUser('01060000004');
-    const request = makeRequest(owner.id);
-    acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
-    const res = await post('/api/payments/prepay', sessionStore.issue(other.id), {
+    const owner = await makeUser('01060000003');
+    const other = await makeUser('01060000004');
+    const request = await makeRequest(owner.id);
+    await acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
+    const res = await post('/api/payments/prepay', await sessionStore.issue(other.id), {
       matchRequestId: request.id,
       paymentId: 'pay-test',
       completedDate: '2026-07-10',
@@ -150,8 +155,8 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
 
 describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
   async function prepaid(owner: { id: string }, request: { id: string }) {
-    acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
-    await post('/api/payments/prepay', sessionStore.issue(owner.id), {
+    await acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
+    await post('/api/payments/prepay', await sessionStore.issue(owner.id), {
       matchRequestId: request.id,
       paymentId: 'pay-test',
       completedDate: '2026-07-10',
@@ -159,24 +164,24 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
   }
 
   it('본인 결제는 취소 가능 + 요청도 취소 처리된다', async () => {
-    const owner = makeUser('01060000005');
-    const request = makeRequest(owner.id);
+    const owner = await makeUser('01060000005');
+    const request = await makeRequest(owner.id);
     await prepaid(owner, request);
-    const res = await post('/api/payments/cancel', sessionStore.issue(owner.id), {
+    const res = await post('/api/payments/cancel', await sessionStore.issue(owner.id), {
       paymentId: 'pay-test',
       stage: 'BEFORE_DISPATCH',
     });
     expect(res.status).toBe(200);
-    expect(paymentStore.get('pay-test')?.status).toBe('CANCELLED');
-    expect(requestStore.get(request.id)?.status).toBe('CANCELLED');
+    expect((await paymentStore.get('pay-test'))?.status).toBe('CANCELLED');
+    expect((await requestStore.get(request.id))?.status).toBe('CANCELLED');
   });
 
   it('타인은 취소 불가(403)', async () => {
-    const owner = makeUser('01060000006');
-    const other = makeUser('01060000007');
-    const request = makeRequest(owner.id);
+    const owner = await makeUser('01060000006');
+    const other = await makeUser('01060000007');
+    const request = await makeRequest(owner.id);
     await prepaid(owner, request);
-    const res = await post('/api/payments/cancel', sessionStore.issue(other.id), {
+    const res = await post('/api/payments/cancel', await sessionStore.issue(other.id), {
       paymentId: 'pay-test',
       stage: 'BEFORE_DISPATCH',
     });
@@ -184,8 +189,8 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
   });
 
   it('없는 결제는 404', async () => {
-    const owner = makeUser('01060000008');
-    const res = await post('/api/payments/cancel', sessionStore.issue(owner.id), {
+    const owner = await makeUser('01060000008');
+    const res = await post('/api/payments/cancel', await sessionStore.issue(owner.id), {
       paymentId: 'no-such',
       stage: 'BEFORE_DISPATCH',
     });
@@ -195,13 +200,13 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
 
 describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
   it('작업완료 요청을 정산 실행하면 SETTLED 로 전이한다', async () => {
-    const owner = makeUser('01060000011');
-    const request = makeRequest(owner.id);
+    const owner = await makeUser('01060000011');
+    const request = await makeRequest(owner.id);
     // 라이프사이클: 매칭(금액)→결제→작업시작→작업완료.
-    requestStore.changeStatus(request.id, 'MATCHED', { matchedProviderId: 'p', agreedFee: 100000 });
-    requestStore.changeStatus(request.id, 'PAID', { paymentId: 'x' });
-    requestStore.changeStatus(request.id, 'IN_PROGRESS');
-    requestStore.changeStatus(request.id, 'COMPLETED');
+    await requestStore.changeStatus(request.id, 'MATCHED', { matchedProviderId: 'p', agreedFee: 100000 });
+    await requestStore.changeStatus(request.id, 'PAID', { paymentId: 'x' });
+    await requestStore.changeStatus(request.id, 'IN_PROGRESS');
+    await requestStore.changeStatus(request.id, 'COMPLETED');
 
     const res = await fetch(`${base}/api/payments/payouts`, {
       method: 'POST',
@@ -209,6 +214,6 @@ describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
       body: JSON.stringify({ matchRequestId: request.id, completedDate: '2026-07-10' }),
     });
     expect(res.status).toBe(200);
-    expect(requestStore.get(request.id)?.status).toBe('SETTLED');
+    expect((await requestStore.get(request.id))?.status).toBe('SETTLED');
   });
 });
