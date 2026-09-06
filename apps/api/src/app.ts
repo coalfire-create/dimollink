@@ -298,7 +298,9 @@ export function createApp(
     dailyLimit: env.ai.visionDemoDailyLimit,
   });
   app.use('/api/site-analysis', visionDemo.wrap(requireAuth));
-  app.use('/api/locations/building-info', requireAuth);
+  // 건축물대장도 같은 데모 문을 쓴다. 디몰비전 분석의 기준 정보라 둘이 함께 열려야
+  // 의미가 있고, 일일 상한도 하나로 공유해 총 사용량이 상한을 넘지 않는다.
+  app.use('/api/locations/building-info', visionDemo.wrap(requireAuth));
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
