@@ -67,6 +67,25 @@ _GENERATION_SYSTEM = (
 )
 
 
+class GroqError(RuntimeError):
+    """Groq 호출 실패. 재시도해도 소용없는 경우(레이트리밋·인증)를 구분한다."""
+
+    def __init__(self, status: int, body: str, retry_after: Optional[str] = None) -> None:
+        self.status = status
+        self.body = body
+        self.retry_after = retry_after
+        super().__init__(f"Groq {status}: {body}")
+
+    @property
+    def retryable(self) -> bool:
+        """즉시 재시도가 의미 있는가.
+
+        429(레이트리밋)·401/403(인증)은 곧바로 다시 걸어도 같은 결과이고, 429 는
+        오히려 한도를 더 소진시킨다. 일시적 서버 오류(5xx)만 재시도한다.
+        """
+        return self.status >= 500
+
+
 class GroqPipeline:
     """Groq OpenAI 호환 chat/completions 로 2패스를 수행한다."""
 
@@ -111,7 +130,10 @@ class GroqPipeline:
                 },
                 json=payload,
             )
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                # 상태코드만으로는 어떤 한도인지 알 수 없다. Groq 는 본문에 사유와
+                # 재시도 시점을 담아 보내므로 그대로 올려 진단이 가능하게 한다.
+                raise GroqError(resp.status_code, resp.text[:500], resp.headers.get("retry-after"))
             data = resp.json()
         return _parse_json(data["choices"][0]["message"]["content"])
 

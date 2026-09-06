@@ -118,10 +118,15 @@ class JobWorker:
                 request.callback_url, done, self._settings.callback_secret
             )
 
+    @staticmethod
+    def _noop() -> None:  # pragma: no cover - 자리표시(아래 헬퍼와 짝)
+        return None
+
     async def _handle_failure(self, job_id: str, exc: Exception, duration: float = 0.0) -> None:
         job = self._store.get(job_id)
         attempts = (job.attempts if job else 0) + 1
-        if attempts <= self._settings.max_retries:
+        # 레이트리밋·인증 오류는 재시도해도 같은 결과다. 429 는 다시 걸수록 한도만 더 깎는다.
+        if attempts <= self._settings.max_retries and _is_retryable(exc):
             logger.warning(
                 "잡 재시도 job=%s attempt=%d/%d: %s",
                 job_id,
@@ -141,3 +146,9 @@ class JobWorker:
                 error=str(exc),
             )
             self._metrics.record_failure(duration)
+
+
+def _is_retryable(exc: Exception) -> bool:
+    """재시도가 의미 있는 실패인지. 파이프라인이 판단을 노출하면 그것을 따른다."""
+    retryable = getattr(exc, "retryable", None)
+    return True if retryable is None else bool(retryable)

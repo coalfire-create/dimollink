@@ -157,3 +157,41 @@ def test_parse_json_survives_wrapping():
     assert _parse_json('설명\n{"a":1}\n끝') == {"a": 1}
     assert _parse_json("") == {}
     assert _parse_json("JSON 아님") == {}
+
+
+# ── 오류 처리: 재시도해도 소용없는 실패를 구분한다 ──────────────────────────
+
+def test_rate_limit_is_not_retryable():
+    """429 를 즉시 재시도하면 한도만 더 깎는다 — 재시도 대상이 아니다."""
+    from app.pipeline.groq import GroqError
+    from app.worker import _is_retryable
+
+    err = GroqError(429, '{"error":{"message":"rate limit"}}', retry_after="60")
+    assert err.retryable is False
+    assert _is_retryable(err) is False
+    # 진단에 필요한 정보가 메시지에 남아야 한다.
+    assert "429" in str(err) and "rate limit" in str(err)
+    assert err.retry_after == "60"
+
+
+def test_auth_error_is_not_retryable():
+    from app.pipeline.groq import GroqError
+    from app.worker import _is_retryable
+
+    assert _is_retryable(GroqError(401, "invalid api key")) is False
+
+
+def test_server_error_is_retryable():
+    """일시적 서버 오류는 재시도할 값어치가 있다."""
+    from app.pipeline.groq import GroqError
+    from app.worker import _is_retryable
+
+    assert GroqError(503, "upstream").retryable is True
+    assert _is_retryable(GroqError(503, "upstream")) is True
+
+
+def test_unknown_errors_stay_retryable():
+    """판단을 노출하지 않는 예외는 기존대로 재시도한다(동작을 바꾸지 않는다)."""
+    from app.worker import _is_retryable
+
+    assert _is_retryable(RuntimeError("네트워크 끊김")) is True
