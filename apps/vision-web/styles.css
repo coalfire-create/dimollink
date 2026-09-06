@@ -221,9 +221,10 @@ body {
 }
 .badge {
   display: inline-block;
-  font-size: 15px;
+  /* 토큰을 쓴다 — 하드코딩하면 접근성 기준(본문 18px 이상)에서 조용히 벗어난다. */
+  font-size: var(--fs-body);
   font-weight: 700;
-  padding: 2px 8px;
+  padding: var(--sp-xs) var(--sp-sm);
   border-radius: 999px;
   background: var(--color-primary-soft);
   color: var(--color-primary-dark);
