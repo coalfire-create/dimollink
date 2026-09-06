@@ -20,10 +20,11 @@ async function headersFor(mapFrameAncestors: string): Promise<Record<string, str
     },
     send: () => undefined,
   };
+  type Handler = (req: unknown, res: unknown, next: () => void) => void;
   const layer = (createMapPageRouter() as unknown as {
-    stack: { route: { path: string; stack: { handle: Function }[] } }[];
+    stack: { route?: { path: string; stack: { handle: Handler }[] } }[];
   }).stack.find((l) => l.route?.path === '/map');
-  layer!.route.stack[0]!.handle({ query: {} }, res, () => undefined);
+  layer!.route!.stack[0]!.handle({ query: {} }, res, () => undefined);
   return headers;
 }
 
