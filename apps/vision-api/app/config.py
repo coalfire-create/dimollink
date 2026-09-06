@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     model_base: str = "Qwen/Qwen3-VL-8B-Instruct"
     model_adapter_hash: str = "mock"
 
-    # 추론 파이프라인 선택: mock(로컬/CI) | vllm(GPU 서빙).
+    # 추론 파이프라인 선택: mock(로컬/CI) | groq(클라우드, GPU 불필요) | vllm(자체 GPU 서빙).
     pipeline: str = "mock"
 
     # 잡 저장소(초기 SQLite, 트래픽 증가 시 Redis 로 교체 — §3.3).
@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     # LoRA 어댑터 이름(vLLM --enable-lora 서빙 시). 설정하면 채팅 요청의 model 로 사용
     # (예: recognition-ground-v1). 비우면 base 모델을 그대로 호출.
     vllm_lora: str = ""
+
+    # Groq 클라우드 추론(§3.3 대안 — GPU 없이 상시 데모). pipeline=groq 일 때 사용.
+    # ⚠️ Groq 는 커스텀 LoRA 업로드를 지원하지 않는다. 자체 파인튜닝 어댑터는 vllm 경로 전용이고,
+    # 이 경로는 범용 모델이라 자재 인식이 덜 정확하다. 대신 무료 티어로 상시 구동이 가능하다.
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.6-27b"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    # Groq 로 보낼 사진 수 상한. 업로드는 max_photos 까지 받되, 한 요청에 base64 로 다 실으면
+    # 페이로드가 수십 MB 가 되어 거부된다. 인식은 대표 장수만으로도 충분하다.
+    groq_max_images: int = 5
 
     environment: str = "local"
 

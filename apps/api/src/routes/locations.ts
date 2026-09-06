@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { buildingFactsForVision } from '@dimol/shared';
 import { authUserId } from '../middleware/auth.js';
 import { LocationStore, LocationValidationError } from '../locations/store.js';
 import { createGeocoder, type Geocoder } from '../geo/geocoder.js';
@@ -65,7 +66,9 @@ export function createLocationsRouter(
         res.status(404).json({ error: '해당 위치의 건축물대장 정보를 찾을 수 없습니다.' });
         return;
       }
-      res.json(info);
+      // 디몰비전(별도 서비스)이 이 사실을 인식 프롬프트에 주입한다. 문자열 생성을 여기서
+      // 한 번만 하고 넘겨야 두 시스템이 서로 다른 문구를 쓰는 일이 없다.
+      res.json({ ...info, visionFacts: buildingFactsForVision(info) ?? undefined });
     } catch {
       res.status(500).json({ error: '건축물대장 조회 실패' });
     }

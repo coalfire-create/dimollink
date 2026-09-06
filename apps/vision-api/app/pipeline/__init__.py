@@ -7,10 +7,18 @@ import os
 
 from ..config import Settings
 from .base import AnalysisPipeline, StageCallback
+from .groq import GroqPipeline
 from .mock import MockPipeline
 from .vllm import VLLMPipeline
 
-__all__ = ["AnalysisPipeline", "StageCallback", "MockPipeline", "VLLMPipeline", "get_pipeline"]
+__all__ = [
+    "AnalysisPipeline",
+    "StageCallback",
+    "MockPipeline",
+    "GroqPipeline",
+    "VLLMPipeline",
+    "get_pipeline",
+]
 
 logger = logging.getLogger("vision.pipeline")
 
@@ -39,6 +47,21 @@ def _build_retriever(settings: Settings):
 
 def get_pipeline(settings: Settings) -> AnalysisPipeline:
     retriever = _build_retriever(settings)
+    if settings.pipeline == "groq":
+        # 키가 없으면 목으로 폴백한다 — 배포가 조용히 500 을 뱉는 것보다 낫다.
+        if not settings.groq_api_key:
+            logger.warning("VISION_GROQ_API_KEY 가 없어 mock 으로 폴백합니다.")
+            return MockPipeline(settings.model_version, retriever=retriever, top_k=settings.kb_top_k)
+        return GroqPipeline(
+            model=settings.groq_model,
+            model_version=f"{settings.groq_model}+groq",
+            api_key=settings.groq_api_key,
+            base_url=settings.groq_base_url,
+            retriever=retriever,
+            top_k=settings.kb_top_k,
+            timeout=settings.job_timeout_seconds,
+            max_images=settings.groq_max_images,
+        )
     if settings.pipeline == "vllm":
         return VLLMPipeline(
             model=settings.model_base,
