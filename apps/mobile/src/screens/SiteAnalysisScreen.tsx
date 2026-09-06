@@ -13,6 +13,7 @@ import {
 } from '@dimol/shared';
 import { ApiError, analyzeSite, getBuildingInfo } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
+import { processCapturedPhoto } from '../lib/photoQuality';
 import { AppIcon } from '../components/AppIcon';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import { AppButton, Card, ErrorBanner, StickyFooter } from '../components/ui';
@@ -33,6 +34,8 @@ interface PickedImage {
   base64: string;
   mimeType: string;
   uri: string;
+  /** 품질 미달 사유 — 서버로 함께 보내 그 사진 근거의 신뢰도를 낮춘다. */
+  qualityWarnings?: string[];
 }
 
 function mimeFromUri(uri: string): string {
@@ -99,14 +102,25 @@ export function SiteAnalysisScreen() {
     open();
   }
 
-  function applyAsset(asset: ImagePicker.ImagePickerAsset) {
+  async function applyAsset(asset: ImagePicker.ImagePickerAsset) {
     if (!asset.base64) {
       setError('사진을 불러오지 못했어요. 다시 시도해 주세요.');
       return;
     }
     setResult(null);
     setError(null);
-    setImage({ base64: asset.base64, mimeType: asset.mimeType ?? mimeFromUri(asset.uri), uri: asset.uri });
+    const mimeType = asset.mimeType ?? mimeFromUri(asset.uri);
+    // 앨범 사진도 촬영본과 같은 품질 게이트를 태운다(흐림·암전은 오인식의 주원인).
+    const processed = await processCapturedPhoto({ base64: asset.base64, uri: asset.uri, mimeType });
+    setImage({
+      base64: processed.base64,
+      mimeType: processed.resized ? 'image/jpeg' : mimeType,
+      uri: asset.uri,
+      qualityWarnings: processed.quality.reasons,
+    });
+    if (processed.quality.reasons.length > 0) {
+      setError(`${processed.quality.reasons.join(', ')}. 더 선명한 사진일수록 분석이 정확해요.`);
+    }
   }
 
   // 커스텀 카메라(가이드 오버레이)에서 촬영 완료 시 — 대표로 첫 장을 미리보기로 사용
@@ -117,6 +131,9 @@ export function SiteAnalysisScreen() {
     setError(null);
     setImage(first);
     setCameraOpen(false);
+    if (first.qualityWarnings && first.qualityWarnings.length > 0) {
+      setError(`${first.qualityWarnings.join(', ')}. 더 선명한 사진일수록 분석이 정확해요.`);
+    }
   }
 
   async function pickFromLibrary() {
@@ -125,7 +142,7 @@ export function SiteAnalysisScreen() {
       base64: true,
       quality: 0.5,
     });
-    if (!res.canceled && res.assets[0]) applyAsset(res.assets[0]);
+    if (!res.canceled && res.assets[0]) await applyAsset(res.assets[0]);
   }
 
   function takePhoto() {
@@ -139,8 +156,13 @@ export function SiteAnalysisScreen() {
     try {
       setResult(
         await analyzeSite({
-          imageBase64: image.base64,
-          mimeType: image.mimeType,
+          images: [
+            {
+              imageBase64: image.base64,
+              mimeType: image.mimeType,
+              qualityWarnings: image.qualityWarnings,
+            },
+          ],
           buildingStructure: building?.strctCdNm,
           building: building ?? undefined,
           siteAddress: siteAddress.trim() || undefined,
@@ -390,6 +412,9 @@ function MaterialRow({ m }: { m: DetectedMaterial }) {
       </View>
       <Text style={styles.materialMeta}>
         {MATERIAL_CATEGORY_LABELS[m.category]} · 신뢰도 {CONFIDENCE_LABELS[m.confidence] ?? m.confidence}
+        {/* 신뢰도의 근거를 그대로 보여준다 — "사진 6장 중 5장에서 확인" 이 등급보다 설득력 있다. */}
+        {m.detectedIn && m.photoCount ? ` (사진 ${m.photoCount}장 중 ${m.detectedIn}장에서 확인)` : ''}
+        {m.basis === 'LEDGER' ? ' · 건축물대장 근거' : ''}
         {m.note ? ` · ${m.note}` : ''}
       </Text>
     </View>
@@ -461,6 +486,20 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
             {result.hazards.map((h, i) => (
               <Text key={i} style={styles.hazardItem}>
                 • {h}
+              </Text>
+            ))}
+          </View>
+        </FadeInUp>
+      ) : null}
+
+      {/* 결측 선언 — 근거 없이 추정하는 것보다 "이건 확인 못 했다"고 말하는 편이 정확하다. */}
+      {result.coverageWarnings.length > 0 ? (
+        <FadeInUp>
+          <View style={styles.coverageCard}>
+            <Text style={styles.coverageTitle}>확인하지 못한 부분</Text>
+            {result.coverageWarnings.map((w, i) => (
+              <Text key={i} style={styles.coverageItem}>
+                • {w}
               </Text>
             ))}
           </View>
@@ -923,6 +962,26 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginTop: spacing.xs / 2,
     fontWeight: '600',
+  },
+  // 결측 선언 — 위험 경고(빨강)보다 약한, 중립적인 안내 톤.
+  coverageCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderColor: colors.border,
+    borderWidth: 1,
+    marginTop: spacing.md,
+    padding: spacing.md,
+  },
+  coverageTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+    marginBottom: spacing.xs,
+  },
+  coverageItem: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: spacing.xs / 2,
   },
   disclaimer: {
     color: colors.textMuted,

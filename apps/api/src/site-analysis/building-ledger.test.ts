@@ -190,7 +190,7 @@ describe('비전 프롬프트용 사실 문장', () => {
 
 describe('buildUserInstruction — 대장 정보 주입', () => {
   it('대장 정보가 있으면 단일 주구조 힌트 대신 전체 사실을 넣는다', () => {
-    const text = buildUserInstruction(undefined, '벽돌구조', 3, RC_2015);
+    const text = buildUserInstruction(undefined, '벽돌구조', [{}, {}, {}], RC_2015);
     expect(text).toContain('건축물대장 확인 사실');
     expect(text).toContain('제2종근린생활시설');
     expect(text).not.toContain('[핵심 힌트]');
@@ -198,13 +198,13 @@ describe('buildUserInstruction — 대장 정보 주입', () => {
   });
 
   it('대장 정보가 없으면 기존 주구조 힌트로 폴백한다(하위호환)', () => {
-    const text = buildUserInstruction(undefined, '철근콘크리트구조', 1);
+    const text = buildUserInstruction(undefined, '철근콘크리트구조', [{}]);
     expect(text).toContain('[핵심 힌트]');
     expect(text).toContain('철근콘크리트구조');
   });
 
   it('현장 메모는 그대로 덧붙인다', () => {
-    expect(buildUserInstruction('지하 물차 있음', undefined, 1)).toContain('[현장 메모] 지하 물차 있음');
+    expect(buildUserInstruction('지하 물차 있음', undefined, [{}])).toContain('[현장 메모] 지하 물차 있음');
   });
 });
 
