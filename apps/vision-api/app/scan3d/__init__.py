@@ -18,7 +18,13 @@ from .quality import (
     scaled_volume_m3,
     stride_length_m,
 )
-from .pipeline import ReconstructionResult, camera_path_length, run_reconstruction
+from .pipeline import (
+    ReconstructionResult,
+    camera_path_length,
+    colmap_has_cuda,
+    preflight_checks,
+    run_reconstruction,
+)
 from .volume import (
     VolumeMeasurement,
     auto_voxel_size,
@@ -42,6 +48,8 @@ __all__ = [
     "ReconstructionResult",
     "run_reconstruction",
     "camera_path_length",
+    "preflight_checks",
+    "colmap_has_cuda",
     "VolumeMeasurement",
     "measure_volume",
     "measure_ply",

@@ -142,7 +142,7 @@ def test_colmap_gpu_flag_can_be_disabled():
 
 
 def test_splat_command_carries_iterations():
-    assert "--max-steps 7000" in " ".join(splat_command("/w", "/o", 7000))
+    assert "--max_steps 7000" in " ".join(splat_command("/w", "/o", 7000))
 
 
 def test_parse_colmap_stats_counts_two_lines_per_image(tmp_path):
@@ -323,3 +323,65 @@ def test_camera_path_length_from_colmap_poses(tmp_path):
     )
     assert abs(camera_path_length(str(sparse)) - 2.0) < 1e-9
     assert camera_path_length("/nope") == 0.0
+
+
+# ── 사전 점검 · 학습 명령 (GPU 시간 낭비 방지) ───────────────────────────────
+
+def test_splat_command_uses_gsplat_example_script_not_a_module():
+    """gsplat 은 트레이너를 모듈로 설치하지 않는다.
+
+    `python -m gsplat.trainer` 로 두면 COLMAP 이 15분 돌아간 **뒤에** 실패해
+    GPU 시간을 통째로 날린다.
+    """
+    from app.scan3d.pipeline import splat_command
+    cmd = splat_command("/w", "/o", 7000)
+    assert "-m" not in cmd
+    assert cmd[1].endswith("simple_trainer.py")
+    # tyro CLI 라 전략(default)이 첫 인자로 와야 한다.
+    assert cmd[2] == "default"
+    joined = " ".join(cmd)
+    assert "--data_dir /w" in joined and "--max_steps 7000" in joined
+
+
+def test_splat_command_accepts_custom_trainer():
+    from app.scan3d.pipeline import splat_command
+    assert splat_command("/w", "/o", 100, trainer_script="/opt/train.py")[1] == "/opt/train.py"
+
+
+def test_preflight_reports_every_missing_dependency(tmp_path):
+    """문제를 하나만 알려주고 끝나면 고치고 또 실패한다 — 전부 모아서 낸다."""
+    from app.scan3d.pipeline import preflight_checks
+    problems = preflight_checks(str(tmp_path / "nope.py"))
+    joined = " ".join(problems)
+    # 로컬에는 ffmpeg·colmap·GPU 가 없으므로 전부 잡혀야 한다.
+    assert "ffmpeg" in joined
+    assert "colmap" in joined
+    assert "학습 스크립트" in joined
+    assert "nvidia-smi" in joined
+
+
+def test_preflight_passes_when_trainer_exists(tmp_path):
+    """존재하는 스크립트를 주면 그 항목은 문제 목록에서 빠진다."""
+    from app.scan3d.pipeline import preflight_checks
+    script = tmp_path / "simple_trainer.py"
+    script.write_text("", encoding="utf-8")
+    problems = preflight_checks(str(script))
+    assert not any("학습 스크립트" in p for p in problems)
+
+
+def test_run_reconstruction_can_fall_back_to_cpu_colmap(tmp_path):
+    """apt 판 COLMAP 은 CPU 전용일 수 있다 — use_gpu=False 로 내려가도 동작해야 한다."""
+    from app.scan3d.pipeline import run_reconstruction
+    work = tmp_path / "work"
+    (work / "sparse" / "0").mkdir(parents=True)
+    (work / "sparse" / "0" / "images.txt").write_text("", encoding="utf-8")
+    (work / "sparse" / "0" / "points3D.txt").write_text("", encoding="utf-8")
+
+    seen: list = []
+    run_reconstruction(
+        image_dir=str(tmp_path / "img"), work_dir=str(work), out_dir=str(tmp_path / "out"),
+        scale_factor=1.0, scale_source="AR_POSE", input_image_count=10,
+        raw_volume_units=1.0, use_gpu=False,
+        runner=lambda cmd: seen.append(" ".join(cmd)) or 0,
+    )
+    assert any("use_gpu 0" in c for c in seen)

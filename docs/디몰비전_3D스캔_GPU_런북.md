@@ -104,16 +104,32 @@ CLI 를 설치하지 않아도 된다. 콘솔 우상단 **Cloud Shell**(`>_` 아
 
 ```bash
 # COLMAP + ffmpeg
-sudo apt-get update && sudo apt-get install -y colmap ffmpeg
+sudo apt-get update && sudo apt-get install -y colmap ffmpeg git
 
-# 3DGS(gsplat) + 메시/부피 측정
-pip install gsplat trimesh open3d numpy
+# 3DGS — gsplat 은 **트레이너를 모듈로 설치하지 않는다.** 저장소의 예제 스크립트를 쓴다.
+# (`python -m gsplat.trainer` 는 존재하지 않아, COLMAP 이 15분 돌아간 뒤에 실패한다)
+pip install gsplat
+git clone https://github.com/nerfstudio-project/gsplat.git
+pip install -r gsplat/examples/requirements.txt
 
 # 확인 — 여기서 GPU 가 안 잡히면 진행하지 말 것
 nvidia-smi
-colmap -h | head -3
-python -c "import gsplat, trimesh; print('ok')"
 ```
+
+### 사전 점검 (과금 전 필수 · 0초)
+
+GPU 시간이 곧 비용이다. 15분 뒤에 터질 문제를 여기서 잡는다.
+
+```bash
+cd ~/vision-api
+python scripts/reconstruct.py --video /dev/null --check
+```
+
+`[사전점검] 통과` 가 나와야 다음으로 간다. 확인 항목:
+- ffmpeg · colmap · nvidia-smi 존재
+- 3DGS 학습 스크립트 경로 존재(`gsplat/examples/simple_trainer.py`)
+- **COLMAP 이 CUDA 로 빌드됐는지** — apt 판은 CPU 전용인 경우가 있다.
+  CPU 전용이면 경고를 띄우고 자동으로 CPU 경로로 내려간다(느리지만 동작한다).
 
 ---
 
@@ -136,25 +152,24 @@ cd ~/vision-api
 mkdir -p /tmp/scan/images
 ffmpeg -i site.mp4 -vf fps=8 -q:v 2 /tmp/scan/images/frame_%05d.jpg
 
-# ② COLMAP + 3DGS + 부피 (파이프라인이 단계별로 수행)
-python -c "
-from app.scan3d import run_reconstruction
-r = run_reconstruction(
-    image_dir='/tmp/scan/images',
-    work_dir='/tmp/scan/work',
-    out_dir='/tmp/scan/out',
-    scale_factor=1.0,          # AR 포즈가 있으면 1.0(이미 미터), 없으면 대장 역산값
-    scale_source='AR_POSE',
-    raw_volume_units=0.0,      # 메시에서 잰 부피를 넣는다
-    input_image_count=len(__import__('os').listdir('/tmp/scan/images')),
-    on_stage=print,
-)
-print(r.as_dict())
-"
+# ② 복원 — 첫 실행은 반드시 --fast (7k 반복)
+python scripts/reconstruct.py \
+  --video ~/site.mp4 \
+  --out /tmp/scan \
+  --scale-source LEDGER_AREA --ledger-area-m2 100 --recon-floor-area 25 \
+  --fast
 ```
 
-**첫 실행은 반드시 `--max-steps 7000`(빠른 모드)으로 확인한다.** 배선이 맞는지 6~8분에
-알 수 있고, 30k 로 25분 태운 뒤 실패하는 것보다 훨씬 싸다.
+프레임 추출은 스크립트가 알아서 한다(8fps). 부피도 산출 점군에서 직접 잰다.
+
+**첫 실행은 반드시 `--fast`(7k 반복).** 배선이 맞는지 6~8분에 알 수 있고,
+30k 로 25분 태운 뒤 실패하는 것보다 훨씬 싸다. 통과하면 `--fast` 를 빼고 다시 돌린다.
+
+스케일 옵션(하나만 주면 된다):
+- 걸음수를 앱에서 받았으면 그대로 — 자동으로 `WALKING_DISTANCE`
+- 대장만 있으면 `--scale-source LEDGER_AREA --ledger-area-m2 <연면적> --recon-floor-area <복원 바닥면적>`
+- 아무것도 없으면 복원만 하고, **앱에서 기준 물체로 나중에 재면 된다**
+  (`POST /api/scan3d/jobs/:id/rescale` — GPU 재실행 없음)
 
 ---
 

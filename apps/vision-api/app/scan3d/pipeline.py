@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
@@ -88,16 +89,70 @@ def colmap_commands(image_dir: str, work_dir: str, use_gpu: bool = True) -> List
     ]
 
 
+# 3DGS 학습 스크립트 경로.
+# ⚠️ gsplat 은 트레이너를 **모듈로 설치하지 않는다** — 저장소의 examples/simple_trainer.py 다.
+# `python -m gsplat.trainer` 는 존재하지 않아서, COLMAP 이 15분 돌아간 뒤에야 실패한다.
+# 환경변수로 덮어쓸 수 있게 해 다른 트레이너(inria train.py 등)도 붙일 수 있다.
+DEFAULT_SPLAT_TRAINER = os.environ.get("SPLAT_TRAINER", "gsplat/examples/simple_trainer.py")
+
+
 def splat_command(
-    work_dir: str, out_dir: str, iterations: int = SPLAT_ITERATIONS_QUALITY
+    work_dir: str,
+    out_dir: str,
+    iterations: int = SPLAT_ITERATIONS_QUALITY,
+    trainer_script: str = "",
 ) -> List[str]:
-    """3DGS 학습 명령(gsplat 계열 트레이너 기준)."""
+    """3DGS 학습 명령. gsplat simple_trainer 는 tyro CLI 라 전략(default)이 첫 인자다."""
     return [
-        "python", "-m", "gsplat.trainer",
-        "--data-dir", work_dir,
-        "--result-dir", out_dir,
-        "--max-steps", str(iterations),
+        "python",
+        trainer_script or DEFAULT_SPLAT_TRAINER,
+        "default",
+        "--data_dir", work_dir,
+        "--result_dir", out_dir,
+        "--max_steps", str(iterations),
     ]
+
+
+def preflight_checks(trainer_script: str = "") -> List[str]:
+    """복원을 시작하기 **전에** 환경을 확인한다. 문제 목록을 반환한다(비면 통과).
+
+    GPU 시간이 곧 비용이라, 15분 뒤에 터질 문제를 0초에 잡는 것이 목적이다.
+    """
+    problems: List[str] = []
+
+    if shutil.which("ffmpeg") is None:
+        problems.append("ffmpeg 가 없습니다: sudo apt-get install -y ffmpeg")
+    if shutil.which("colmap") is None:
+        problems.append("colmap 이 없습니다: sudo apt-get install -y colmap")
+
+    script = trainer_script or DEFAULT_SPLAT_TRAINER
+    if not os.path.exists(script):
+        problems.append(
+            f"3DGS 학습 스크립트가 없습니다: {script}\n"
+            "  git clone https://github.com/nerfstudio-project/gsplat.git\n"
+            "  (또는 SPLAT_TRAINER 환경변수로 경로 지정)"
+        )
+
+    if shutil.which("nvidia-smi") is None:
+        problems.append("nvidia-smi 가 없습니다 — GPU 드라이버를 확인하세요.")
+
+    return problems
+
+
+def colmap_has_cuda() -> bool:
+    """COLMAP 이 CUDA 지원으로 빌드됐는지. apt 판은 CPU 전용인 경우가 있다.
+
+    CPU 전용이면 `--SiftExtraction.use_gpu 1` 이 실패하므로, 호출부가
+    `colmap_commands(use_gpu=False)` 로 내려가야 한다(느리지만 동작한다).
+    """
+    try:
+        result = subprocess.run(
+            ["colmap", "feature_extractor", "--help"],
+            check=False, capture_output=True, text=True, timeout=30,
+        )
+        return "use_gpu" in (result.stdout + result.stderr)
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 def camera_path_length(sparse_dir: str) -> float:
@@ -188,6 +243,8 @@ def run_reconstruction(
     runner: Callable[[List[str]], int] = None,
     iterations: int = SPLAT_ITERATIONS_QUALITY,
     voxel_size: Optional[float] = None,
+    trainer_script: str = "",
+    use_gpu: bool = True,
 ) -> ReconstructionResult:
     """복원 전 과정을 실행하고 결과를 만든다.
 
@@ -199,7 +256,7 @@ def run_reconstruction(
     exec_cmd = runner or _default_runner
 
     stage("MATCHING")
-    cmds = colmap_commands(image_dir, work_dir)
+    cmds = colmap_commands(image_dir, work_dir, use_gpu=use_gpu)
     for cmd in cmds[:2]:
         exec_cmd(cmd)
 
@@ -208,7 +265,7 @@ def run_reconstruction(
     stats = parse_colmap_stats(os.path.join(work_dir, "sparse", "0"))
 
     stage("SPLATTING")
-    exec_cmd(splat_command(work_dir, out_dir, iterations))
+    exec_cmd(splat_command(work_dir, out_dir, iterations, trainer_script))
 
     stage("MEASURING")
     splat_path = os.path.join(out_dir, "point_cloud.ply")

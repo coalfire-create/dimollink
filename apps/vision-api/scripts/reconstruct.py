@@ -31,6 +31,8 @@ from app.scan3d.frames import (
 from app.scan3d.pipeline import (
     SPLAT_ITERATIONS_FAST,
     SPLAT_ITERATIONS_QUALITY,
+    colmap_has_cuda,
+    preflight_checks,
     run_reconstruction,
 )
 from app.scan3d.quality import scale_factor_from_ledger_area
@@ -51,7 +53,25 @@ def main() -> int:
     p.add_argument("--ledger-area-m2", type=float, help="대장 연면적(스케일 역산용)")
     p.add_argument("--recon-floor-area", type=float, help="복원 좌표계 바닥면적(역산용)")
     p.add_argument("--fast", action="store_true", help="3DGS 7k 반복(배선 확인용, 저렴)")
+    p.add_argument("--trainer", default="", help="3DGS 학습 스크립트 경로(기본 gsplat examples)")
+    p.add_argument("--check", action="store_true", help="환경만 점검하고 종료(과금 없음)")
     args = p.parse_args()
+
+    # ① 사전 점검 — GPU 시간이 곧 비용이라, 15분 뒤에 터질 문제를 0초에 잡는다.
+    problems = preflight_checks(args.trainer)
+    if problems:
+        print("[사전점검 실패] 아래를 먼저 해결하세요:", file=sys.stderr)
+        for problem in problems:
+            print(f"  - {problem}", file=sys.stderr)
+        return 1
+
+    use_gpu = colmap_has_cuda()
+    if not use_gpu:
+        print("[경고] COLMAP 이 CUDA 없이 빌드됐습니다 — CPU 로 진행합니다(느립니다).",
+              file=sys.stderr)
+    print("[사전점검] 통과", flush=True)
+    if args.check:
+        return 0
 
     images = os.path.join(args.out, "images")
     work = os.path.join(args.out, "work")
@@ -59,7 +79,7 @@ def main() -> int:
     for d in (images, work, out):
         os.makedirs(d, exist_ok=True)
 
-    # ① 프레임 추출 — 목표보다 넉넉히 뽑아야 흐림 선별이 의미를 갖는다.
+    # ② 프레임 추출 — 목표보다 넉넉히 뽑아야 흐림 선별이 의미를 갖는다.
     print("[1/2] 프레임 추출…", flush=True)
     subprocess.run(ffmpeg_extract_command(args.video, images, args.fps), check=True)
     frames = sorted(f for f in os.listdir(images) if f.endswith(".jpg"))
@@ -73,7 +93,7 @@ def main() -> int:
     if warning:
         print(f"[경고] {warning}", file=sys.stderr)
 
-    # ② 스케일 결정 — AR 포즈가 없으면 대장 연면적으로 역산한다.
+    # ③ 스케일 결정 — AR 포즈가 없으면 대장 연면적으로 역산한다.
     scale_factor = args.scale_factor
     if args.scale_source == "LEDGER_AREA" and args.ledger_area_m2 and args.recon_floor_area:
         derived = scale_factor_from_ledger_area(args.recon_floor_area, args.ledger_area_m2)
@@ -81,7 +101,7 @@ def main() -> int:
             scale_factor = derived
             print(f"      대장 역산 배율 {scale_factor:.4f}")
 
-    # ③ COLMAP + 3DGS + 부피
+    # ④ COLMAP + 3DGS + 부피
     print("[2/2] 복원…", flush=True)
     result = run_reconstruction(
         image_dir=images,
@@ -92,6 +112,8 @@ def main() -> int:
         input_image_count=len(frames),
         on_stage=lambda s: print(f"      → {s}", flush=True),
         iterations=SPLAT_ITERATIONS_FAST if args.fast else SPLAT_ITERATIONS_QUALITY,
+        trainer_script=args.trainer,
+        use_gpu=use_gpu,
     )
 
     print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
