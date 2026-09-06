@@ -39,10 +39,15 @@ export const WASTE_TON_PER_GROSS_M3: Record<BuildingStructure, number> = {
 
 /** 스케일(실제 치수)을 어디서 얻었는지. 부피 신뢰도를 좌우하는 가장 중요한 값이다. */
 export type ScanScaleSource =
-  /** ARKit/ARCore 포즈 — 미터 단위가 기기에서 직접 나온다. 가장 정확. */
+  /** ARKit/ARCore 포즈 — 미터 단위가 기기에서 직접 나온다. 가장 정확(네이티브 모듈 필요). */
   | 'AR_POSE'
   /** 기준 물체(A4 용지·줄자 등)를 함께 촬영해 역산. */
   | 'REFERENCE_OBJECT'
+  /**
+   * 촬영 중 걸은 거리(만보계 걸음수 × 보폭)와 복원 카메라 경로 길이를 대조해 역산.
+   * 추가 의존성 없이 얻는 **실제 물리 기준**이라, 대장이 없거나 틀린 현장에서 특히 유용하다.
+   */
+  | 'WALKING_DISTANCE'
   /** 건축물대장 연면적으로 역산 — 대장이 맞다는 전제. 폴백. */
   | 'LEDGER_AREA'
   /** 스케일 근거 없음 — 부피를 쓸 수 없다. */
@@ -51,6 +56,7 @@ export type ScanScaleSource =
 export const SCAN_SCALE_SOURCE_LABELS: Record<ScanScaleSource, string> = {
   AR_POSE: '기기 AR 측위(미터 단위 직접 측정)',
   REFERENCE_OBJECT: '기준 물체 대조',
+  WALKING_DISTANCE: '촬영 중 걸은 거리 대조',
   LEDGER_AREA: '건축물대장 연면적 역산',
   NONE: '스케일 근거 없음',
 };
@@ -58,13 +64,108 @@ export const SCAN_SCALE_SOURCE_LABELS: Record<ScanScaleSource, string> = {
 /**
  * 스케일 출처별 부피 오차폭(±비율).
  * AR 포즈는 기기가 미터를 직접 재므로 좁고, 대장 역산은 대장 자체 오차가 얹혀 넓다.
+ * 보행 거리는 보폭 개인차(±10~15%)가 지배한다.
  */
 export const SCALE_SOURCE_ERROR_RATIO: Record<ScanScaleSource, number> = {
   AR_POSE: 0.1,
   REFERENCE_OBJECT: 0.15,
+  WALKING_DISTANCE: 0.18,
   LEDGER_AREA: 0.25,
   NONE: 1,
 };
+
+/** 정확한 순서(앞이 더 정확). 여러 근거가 있으면 앞선 것을 쓴다. */
+export const SCALE_SOURCE_PRIORITY: readonly ScanScaleSource[] = [
+  'AR_POSE',
+  'REFERENCE_OBJECT',
+  'WALKING_DISTANCE',
+  'LEDGER_AREA',
+];
+
+/**
+ * 보폭 추정(m). 걷기 보폭은 키에 거의 비례한다 — 통상 키의 0.41~0.42배.
+ * 키를 모르면 한국 성인 평균 보폭으로 둔다.
+ */
+export const STRIDE_TO_HEIGHT_RATIO = 0.415;
+export const DEFAULT_STRIDE_M = 0.7;
+
+export function strideLengthM(heightCm?: number): number {
+  if (!heightCm || heightCm < 120 || heightCm > 220) return DEFAULT_STRIDE_M;
+  return Math.round(((heightCm / 100) * STRIDE_TO_HEIGHT_RATIO) * 1000) / 1000;
+}
+
+/**
+ * 걸음수 × 보폭 = 실제 이동 거리(m). 복원 카메라 경로 길이와 나누면 길이 배율이 나온다.
+ *
+ * 부피가 아니라 **길이** 배율이라 제곱근·세제곱 같은 변환이 없다 — 경로끼리의 비다.
+ * 걸음수가 너무 적으면(제자리 촬영) 신뢰할 수 없어 undefined 를 낸다.
+ */
+export const MIN_STEPS_FOR_SCALE = 15;
+
+export function scaleFactorFromWalking(
+  steps: number,
+  reconstructedPathLengthUnits: number,
+  heightCm?: number,
+): number | undefined {
+  if (
+    !Number.isFinite(steps) ||
+    steps < MIN_STEPS_FOR_SCALE ||
+    !Number.isFinite(reconstructedPathLengthUnits) ||
+    reconstructedPathLengthUnits <= 0
+  ) {
+    return undefined;
+  }
+  return (steps * strideLengthM(heightCm)) / reconstructedPathLengthUnits;
+}
+
+/** 스케일 근거 후보들. 있는 것만 채워 넣으면 된다. */
+export interface ScaleCandidates {
+  /** ARKit/ARCore 가 준 미터 배율(있으면 그대로 1.0 이 아니라 실제 배율). */
+  arPoseFactor?: number;
+  referenceObjectFactor?: number;
+  /** 촬영 중 걸음수. 복원 경로 길이와 함께 있어야 쓸 수 있다. */
+  steps?: number;
+  reconstructedPathLengthUnits?: number;
+  heightCm?: number;
+  /** 대장 연면적 역산에 필요한 두 값. */
+  reconstructedFloorAreaUnits?: number;
+  ledgerTotalFloorAreaM2?: number;
+}
+
+export interface ResolvedScale {
+  source: ScanScaleSource;
+  /** 복원 좌표계 길이 → 미터 배율. source 가 NONE 이면 undefined. */
+  factor?: number;
+}
+
+/**
+ * 가진 근거 중 **가장 정확한 것**을 골라 배율을 확정한다.
+ *
+ * 여러 근거가 동시에 있을 수 있다(대장도 있고 걸음수도 있는 경우). 우선순위를 코드
+ * 한 곳에 두어야 화면·서버·파이프라인이 서로 다른 답을 내지 않는다.
+ */
+export function resolveScale(candidates: ScaleCandidates): ResolvedScale {
+  if (candidates.arPoseFactor && candidates.arPoseFactor > 0) {
+    return { source: 'AR_POSE', factor: candidates.arPoseFactor };
+  }
+  if (candidates.referenceObjectFactor && candidates.referenceObjectFactor > 0) {
+    return { source: 'REFERENCE_OBJECT', factor: candidates.referenceObjectFactor };
+  }
+  const walking = scaleFactorFromWalking(
+    candidates.steps ?? 0,
+    candidates.reconstructedPathLengthUnits ?? 0,
+    candidates.heightCm,
+  );
+  if (walking) return { source: 'WALKING_DISTANCE', factor: walking };
+
+  const ledger = scaleFactorFromLedgerArea(
+    candidates.reconstructedFloorAreaUnits ?? 0,
+    candidates.ledgerTotalFloorAreaM2 ?? 0,
+  );
+  if (ledger) return { source: 'LEDGER_AREA', factor: ledger };
+
+  return { source: 'NONE' };
+}
 
 /**
  * 복원 품질 — 철거 현장은 포토그래메트리에 불리하다(도장 콘크리트·판넬은 특징점이 없고,

@@ -71,6 +71,8 @@ export function useScan3D(): UseScan3D {
           videoKey: presigned.key,
           target: capture.target,
           building,
+          // 걸음수가 있으면 대장 없이도 실제 치수를 잡는다(대장보다 오차폭이 좁다).
+          steps: capture.steps,
         });
 
         // ④ 완료까지 폴링. 20~40분 걸리므로 촘촘히 묻지 않는다.

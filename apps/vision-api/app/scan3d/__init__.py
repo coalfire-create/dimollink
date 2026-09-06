@@ -8,8 +8,15 @@ GPU 가 필요한 것은 COLMAP 매칭과 3DGS 학습뿐이다. 프레임 선별
 """
 
 from .frames import select_frame_indices, sharpness_of, pick_sharpest_per_bucket
-from .quality import ScanQuality, assess_scan_usability, scaled_volume_m3
-from .pipeline import ReconstructionResult, run_reconstruction
+from .quality import (
+    ScanQuality,
+    assess_scan_usability,
+    resolve_scale,
+    scale_factor_from_walking,
+    scaled_volume_m3,
+    stride_length_m,
+)
+from .pipeline import ReconstructionResult, camera_path_length, run_reconstruction
 from .volume import (
     VolumeMeasurement,
     auto_voxel_size,
@@ -25,8 +32,12 @@ __all__ = [
     "ScanQuality",
     "assess_scan_usability",
     "scaled_volume_m3",
+    "resolve_scale",
+    "scale_factor_from_walking",
+    "stride_length_m",
     "ReconstructionResult",
     "run_reconstruction",
+    "camera_path_length",
     "VolumeMeasurement",
     "measure_volume",
     "measure_ply",

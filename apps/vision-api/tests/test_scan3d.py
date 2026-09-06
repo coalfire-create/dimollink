@@ -277,3 +277,49 @@ def test_longer_capture_filters_blur_much_better():
 def test_selection_surplus_handles_zero_target():
     from app.scan3d.frames import selection_surplus
     assert selection_surplus(100, 0) == 0.0
+
+
+# ── 보행 거리 스케일 (scan-volume.ts 미러) ──────────────────────────────────
+
+def test_walking_scale_matches_ts_rules():
+    from app.scan3d.quality import (
+        DEFAULT_STRIDE_M, MIN_STEPS_FOR_SCALE,
+        scale_factor_from_walking, stride_length_m,
+    )
+    # 100걸음 × 0.7m = 70m 를 복원 35단위로 걸었으면 배율 2.
+    assert abs(scale_factor_from_walking(100, 35) - 2.0) < 1e-9
+    assert stride_length_m() == DEFAULT_STRIDE_M
+    assert stride_length_m(170) > stride_length_m(150)
+    # 제자리 촬영은 못 쓴다.
+    assert scale_factor_from_walking(MIN_STEPS_FOR_SCALE - 1, 35) is None
+    assert scale_factor_from_walking(100, 0) is None
+
+
+def test_resolve_scale_prefers_walking_over_ledger():
+    from app.scan3d.quality import resolve_scale
+    source, factor = resolve_scale(
+        steps=100, path_length_units=35,
+        reconstructed_floor_area_units=25, ledger_total_floor_area_m2=100,
+    )
+    assert source == "WALKING_DISTANCE" and abs(factor - 2.0) < 1e-9
+
+    source, _ = resolve_scale(reconstructed_floor_area_units=25, ledger_total_floor_area_m2=100)
+    assert source == "LEDGER_AREA"
+
+    assert resolve_scale()[0] == "NONE"
+    # AR 포즈는 무조건 최우선.
+    assert resolve_scale(ar_pose_factor=1.5, steps=100, path_length_units=35)[0] == "AR_POSE"
+
+
+def test_camera_path_length_from_colmap_poses(tmp_path):
+    """카메라가 x축으로 0→1→2 이동하면 경로 길이는 2."""
+    from app.scan3d.pipeline import camera_path_length
+    sparse = tmp_path / "sparse"
+    sparse.mkdir()
+    (sparse / "images.txt").write_text(
+        "# c\n1 1 0 0 0 0 0 0 1 a.jpg\n o\n2 1 0 0 0 -1 0 0 1 b.jpg\n o\n"
+        "3 1 0 0 0 -2 0 0 1 c.jpg\n o\n",
+        encoding="utf-8",
+    )
+    assert abs(camera_path_length(str(sparse)) - 2.0) < 1e-9
+    assert camera_path_length("/nope") == 0.0

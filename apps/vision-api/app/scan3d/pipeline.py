@@ -96,6 +96,54 @@ def splat_command(
     ]
 
 
+def camera_path_length(sparse_dir: str) -> float:
+    """복원된 카메라 경로 길이(복원 좌표계 단위).
+
+    보행 거리(걸음수 × 보폭)와 이 길이를 나누면 길이 배율이 나온다 — 대장이 없거나
+    틀린 현장에서도 실제 물리 기준으로 스케일을 잡을 수 있다.
+
+    COLMAP images.txt 의 각 줄은 `IMAGE_ID QW QX QY QZ TX TY TZ CAMERA_ID NAME`.
+    카메라 중심은 C = -R^T · t 인데, 여기서는 **경로 길이의 비**만 쓰므로
+    회전 없이 t 만으로도 스케일 비는 보존되지 않는다 — 그래서 R 을 제대로 적용한다.
+    """
+    images_txt = os.path.join(sparse_dir, "images.txt")
+    if not os.path.exists(images_txt):
+        return 0.0
+
+    centers: List[tuple] = []
+    lines = [ln for ln in _read_lines(images_txt) if ln.strip() and not ln.startswith("#")]
+    # 이미지 1장이 2줄(포즈 + 관측점)이라 짝수 줄만 포즈다.
+    for line in lines[::2]:
+        parts = line.split()
+        if len(parts) < 8:
+            continue
+        try:
+            qw, qx, qy, qz = (float(v) for v in parts[1:5])
+            tx, ty, tz = (float(v) for v in parts[5:8])
+        except ValueError:
+            continue
+        centers.append(_camera_center(qw, qx, qy, qz, tx, ty, tz))
+
+    total = 0.0
+    for a, b in zip(centers, centers[1:]):
+        total += sum((a[i] - b[i]) ** 2 for i in range(3)) ** 0.5
+    return total
+
+
+def _camera_center(qw: float, qx: float, qy: float, qz: float,
+                   tx: float, ty: float, tz: float) -> tuple:
+    """쿼터니언 + 평행이동 → 카메라 중심 C = -R^T · t."""
+    # R (world→camera) 를 쿼터니언에서 만든다.
+    r = (
+        (1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)),
+        (2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)),
+        (2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)),
+    )
+    t = (tx, ty, tz)
+    # R^T · t (전치라 열 방향으로 곱한다)
+    return tuple(-sum(r[k][i] * t[k] for k in range(3)) for i in range(3))
+
+
 def parse_colmap_stats(sparse_dir: str) -> Dict[str, int]:
     """COLMAP 산출물에서 등록 이미지 수·점군 수를 읽는다.
 

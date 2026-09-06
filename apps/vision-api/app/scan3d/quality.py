@@ -18,8 +18,14 @@ MIN_POINT_COUNT = 20_000
 
 SCALE_AR_POSE = "AR_POSE"
 SCALE_REFERENCE_OBJECT = "REFERENCE_OBJECT"
+SCALE_WALKING_DISTANCE = "WALKING_DISTANCE"
 SCALE_LEDGER_AREA = "LEDGER_AREA"
 SCALE_NONE = "NONE"
+
+# scan-volume.ts 미러 — 보폭은 키의 0.415배, 모르면 평균값.
+STRIDE_TO_HEIGHT_RATIO = 0.415
+DEFAULT_STRIDE_M = 0.7
+MIN_STEPS_FOR_SCALE = 15
 
 
 @dataclass
@@ -62,6 +68,51 @@ def scale_factor_from_ledger_area(
     if reconstructed_floor_area_units <= 0 or ledger_total_floor_area_m2 <= 0:
         return None
     return (ledger_total_floor_area_m2 / reconstructed_floor_area_units) ** 0.5
+
+
+def stride_length_m(height_cm: Optional[float] = None) -> float:
+    """보폭 추정(m). 걷기 보폭은 키에 거의 비례한다."""
+    if not height_cm or height_cm < 120 or height_cm > 220:
+        return DEFAULT_STRIDE_M
+    return round(height_cm / 100 * STRIDE_TO_HEIGHT_RATIO, 3)
+
+
+def scale_factor_from_walking(
+    steps: float, reconstructed_path_length_units: float, height_cm: Optional[float] = None
+) -> Optional[float]:
+    """걸음수 × 보폭 ÷ 복원 카메라 경로 길이 = 길이 배율.
+
+    경로끼리의 비라 제곱근·세제곱 변환이 없다. 제자리 촬영(걸음수 부족)은 못 쓴다.
+    """
+    if steps < MIN_STEPS_FOR_SCALE or reconstructed_path_length_units <= 0:
+        return None
+    return steps * stride_length_m(height_cm) / reconstructed_path_length_units
+
+
+def resolve_scale(
+    *,
+    ar_pose_factor: Optional[float] = None,
+    steps: Optional[float] = None,
+    path_length_units: Optional[float] = None,
+    height_cm: Optional[float] = None,
+    reconstructed_floor_area_units: Optional[float] = None,
+    ledger_total_floor_area_m2: Optional[float] = None,
+) -> Tuple[str, Optional[float]]:
+    """가진 근거 중 가장 정확한 것을 골라 (출처, 배율)을 낸다. scan-volume.ts 와 동일 순서."""
+    if ar_pose_factor and ar_pose_factor > 0:
+        return (SCALE_AR_POSE, ar_pose_factor)
+
+    walking = scale_factor_from_walking(steps or 0, path_length_units or 0, height_cm)
+    if walking:
+        return (SCALE_WALKING_DISTANCE, walking)
+
+    ledger = scale_factor_from_ledger_area(
+        reconstructed_floor_area_units or 0, ledger_total_floor_area_m2 or 0
+    )
+    if ledger:
+        return (SCALE_LEDGER_AREA, ledger)
+
+    return (SCALE_NONE, None)
 
 
 def scaled_volume_m3(raw_volume_units: float, scale_factor: float) -> float:

@@ -1,11 +1,19 @@
 import {
+  DEFAULT_STRIDE_M,
   DEMOLITION_TON_PER_M2,
+  MIN_STEPS_FOR_SCALE,
+  SCALE_SOURCE_ERROR_RATIO,
+  SCALE_SOURCE_PRIORITY,
+  STRIDE_TO_HEIGHT_RATIO,
   REFERENCE_STOREY_HEIGHT_M,
   WASTE_TON_PER_GROSS_M3,
   assessScanUsability,
   estimateTonsFromScan,
   impliedStoreyHeightM,
+  resolveScale,
   scaleFactorFromLedgerArea,
+  scaleFactorFromWalking,
+  strideLengthM,
   type Scan3DQuality,
 } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
@@ -161,5 +169,102 @@ describe('스케일 역산·층고 유도', () => {
   it('스캔 부피로 평균 층고를 역산한다', () => {
     expect(impliedStoreyHeightM(450, 100)).toBe(4.5);
     expect(impliedStoreyHeightM(0, 100)).toBeUndefined();
+  });
+});
+
+describe('보행 거리 스케일 — 대장 없이도 실제 치수를 잡는다', () => {
+  it('걸음수 × 보폭 ÷ 복원 경로 = 길이 배율', () => {
+    // 100걸음 × 0.7m = 70m 를 복원 좌표계에서 35단위로 걸었다면 배율은 2.
+    expect(scaleFactorFromWalking(100, 35)).toBeCloseTo(2, 6);
+  });
+
+  it('보폭은 키에서 추정한다', () => {
+    // 키 170cm → 1.70 × 0.415 ≈ 0.71m
+    expect(strideLengthM(170)).toBeCloseTo(1.7 * STRIDE_TO_HEIGHT_RATIO, 2);
+    // 키가 크면 보폭도 길다.
+    expect(strideLengthM(185)).toBeGreaterThan(strideLengthM(160));
+    // 키를 모르거나 비현실적이면 평균 보폭.
+    expect(strideLengthM()).toBe(DEFAULT_STRIDE_M);
+    expect(strideLengthM(50)).toBe(DEFAULT_STRIDE_M);
+    expect(strideLengthM(300)).toBe(DEFAULT_STRIDE_M);
+  });
+
+  it('걸음이 너무 적으면(제자리 촬영) 쓰지 않는다', () => {
+    expect(scaleFactorFromWalking(MIN_STEPS_FOR_SCALE - 1, 35)).toBeUndefined();
+    expect(scaleFactorFromWalking(100, 0)).toBeUndefined();
+  });
+});
+
+describe('resolveScale — 가장 정확한 근거를 고른다', () => {
+  it('AR 포즈가 있으면 무조건 그것을 쓴다', () => {
+    const resolved = resolveScale({
+      arPoseFactor: 1.5,
+      steps: 100,
+      reconstructedPathLengthUnits: 35,
+      reconstructedFloorAreaUnits: 25,
+      ledgerTotalFloorAreaM2: 100,
+    });
+    expect(resolved).toEqual({ source: 'AR_POSE', factor: 1.5 });
+  });
+
+  it('AR 이 없으면 보행 거리가 대장 역산보다 우선한다', () => {
+    const resolved = resolveScale({
+      steps: 100,
+      reconstructedPathLengthUnits: 35,
+      reconstructedFloorAreaUnits: 25,
+      ledgerTotalFloorAreaM2: 100,
+    });
+    expect(resolved.source).toBe('WALKING_DISTANCE');
+    expect(resolved.factor).toBeCloseTo(2, 6);
+  });
+
+  it('걸음수가 없으면 대장 연면적으로 역산한다', () => {
+    const resolved = resolveScale({
+      reconstructedFloorAreaUnits: 25,
+      ledgerTotalFloorAreaM2: 100,
+    });
+    expect(resolved.source).toBe('LEDGER_AREA');
+    expect(resolved.factor).toBeCloseTo(2, 6);
+  });
+
+  it('아무 근거도 없으면 NONE — 부피를 쓸 수 없다', () => {
+    expect(resolveScale({})).toEqual({ source: 'NONE' });
+    // 걸음수만 있고 복원 경로가 없으면 못 쓴다.
+    expect(resolveScale({ steps: 100 }).source).toBe('NONE');
+  });
+
+  it('보행 거리는 대장 역산보다 오차폭이 좁다', () => {
+    expect(SCALE_SOURCE_ERROR_RATIO.WALKING_DISTANCE).toBeLessThan(
+      SCALE_SOURCE_ERROR_RATIO.LEDGER_AREA,
+    );
+    // 다만 AR 측위보다는 넓다(보폭 개인차).
+    expect(SCALE_SOURCE_ERROR_RATIO.WALKING_DISTANCE).toBeGreaterThan(
+      SCALE_SOURCE_ERROR_RATIO.AR_POSE,
+    );
+  });
+
+  it('우선순위 목록이 실제 오차폭 순서와 일치한다', () => {
+    const ratios = SCALE_SOURCE_PRIORITY.map((s) => SCALE_SOURCE_ERROR_RATIO[s]);
+    expect([...ratios]).toEqual([...ratios].sort((a, b) => a - b));
+  });
+});
+
+describe('보행 거리 스케일로 산정한 물량', () => {
+  it('실측으로 인정되고 대장 역산보다 범위가 좁다', async () => {
+    const walking = await estimator.estimate({
+      floorAreaM2: 100,
+      structure: 'RC',
+      scan: { grossVolumeM3: 300, scaleSource: 'WALKING_DISTANCE', quality: GOOD_QUALITY },
+    });
+    const ledger = await estimator.estimate({
+      floorAreaM2: 100,
+      structure: 'RC',
+      scan: { grossVolumeM3: 300, scaleSource: 'LEDGER_AREA', quality: GOOD_QUALITY },
+    });
+    expect(walking.method).toBe('SCAN_VOLUME');
+    expect(walking.disclaimer).toContain('걸은 거리');
+    expect(walking.rangeMaxTons - walking.rangeMinTons).toBeLessThan(
+      ledger.rangeMaxTons - ledger.rangeMinTons,
+    );
   });
 });

@@ -73,7 +73,10 @@ function parseScan(raw: unknown): ScanMeasurement | undefined {
 
 /** 알 수 없는 값은 NONE — 모르면 부피를 쓰지 않는 쪽이 안전하다. */
 function parseScaleSource(value: unknown): ScanScaleSource {
-  return value === 'AR_POSE' || value === 'REFERENCE_OBJECT' || value === 'LEDGER_AREA'
+  return value === 'AR_POSE' ||
+    value === 'REFERENCE_OBJECT' ||
+    value === 'WALKING_DISTANCE' ||
+    value === 'LEDGER_AREA'
     ? value
     : 'NONE';
 }

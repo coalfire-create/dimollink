@@ -62,7 +62,14 @@ export function createScan3DRouter(queue: Scan3DQueue, reconstructor: Reconstruc
     // 복원은 20~40분이라 응답을 기다리지 않는다 — 잡 id 를 주고 폴링하게 한다.
     reconstructor
       .reconstruct(
-        { jobId: job.id, videoKey, target, ledgerFloorAreaM2, hasArPose: body.hasArPose === true },
+        {
+          jobId: job.id,
+          videoKey,
+          target,
+          ledgerFloorAreaM2,
+          hasArPose: body.hasArPose === true,
+          steps: typeof body.steps === 'number' && body.steps > 0 ? body.steps : undefined,
+        },
         (stage) => queue.advance(job.id, stage),
       )
       .then((result) => queue.complete(job.id, result))

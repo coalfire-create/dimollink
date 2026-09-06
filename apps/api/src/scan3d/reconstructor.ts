@@ -1,5 +1,7 @@
 import {
+  DEFAULT_STRIDE_M,
   SCAN_3D_STAGE_LABELS,
+  resolveScale,
   type Scan3DResult,
   type Scan3DStage,
   type ScanTarget,
@@ -19,6 +21,11 @@ export interface ReconstructInput {
   /** 스케일 역산용 — 건축물대장 연면적(㎡). */
   ledgerFloorAreaM2?: number;
   hasArPose?: boolean;
+  /**
+   * 촬영 중 걸음수. 복원 카메라 경로 길이와 대조해 실제 치수 배율을 얻는다.
+   * 대장 역산보다 오차폭이 좁아, 둘 다 있으면 이쪽이 우선한다([[scan-volume]] resolveScale).
+   */
+  steps?: number;
 }
 
 export type StageReporter = (stage: Scan3DStage) => void;
@@ -51,13 +58,21 @@ export class MockReconstructor implements Reconstructor {
     }
     // 대장 연면적이 있으면 층고 3m 를 가정한 부피를 돌려준다(원단위와 같은 답).
     const volume = input.ledgerFloorAreaM2 ? input.ledgerFloorAreaM2 * 3 : 300;
+    // 스케일 우선순위는 공유 로직이 정한다 — 목이 다른 답을 내면 안 된다.
+    const { source } = resolveScale({
+      arPoseFactor: input.hasArPose ? 1 : undefined,
+      steps: input.steps,
+      // 목은 복원을 하지 않으므로 경로 길이를 걸음수와 정합하는 값으로 가정한다.
+      reconstructedPathLengthUnits: input.steps ? input.steps * DEFAULT_STRIDE_M : undefined,
+      ledgerTotalFloorAreaM2: input.ledgerFloorAreaM2,
+      reconstructedFloorAreaUnits: input.ledgerFloorAreaM2 ? 1 : undefined,
+    });
     return {
       grossVolumeM3: volume,
-      scaleSource: input.hasArPose ? 'AR_POSE' : input.ledgerFloorAreaM2 ? 'LEDGER_AREA' : 'NONE',
-      usable: Boolean(input.hasArPose || input.ledgerFloorAreaM2),
-      reasons: input.hasArPose || input.ledgerFloorAreaM2
-        ? []
-        : ['실제 치수 기준이 없어 부피를 계산할 수 없습니다.'],
+      scaleSource: source,
+      usable: source !== 'NONE',
+      reasons:
+        source === 'NONE' ? ['실제 치수 기준이 없어 부피를 계산할 수 없습니다.'] : [],
       artifacts: {},
       frameCount: 150,
     };
@@ -94,6 +109,7 @@ export class HttpReconstructor implements Reconstructor {
           target: input.target,
           ledger_floor_area_m2: input.ledgerFloorAreaM2,
           has_ar_pose: input.hasArPose,
+          steps: input.steps,
         }),
       });
       if (!res.ok) throw new Error(`scan3d ${res.status}`);
@@ -131,7 +147,10 @@ export function normalizeResult(body: {
   return {
     grossVolumeM3: typeof body.grossVolumeM3 === 'number' ? body.grossVolumeM3 : 0,
     scaleSource:
-      scale === 'AR_POSE' || scale === 'REFERENCE_OBJECT' || scale === 'LEDGER_AREA'
+      scale === 'AR_POSE' ||
+      scale === 'REFERENCE_OBJECT' ||
+      scale === 'WALKING_DISTANCE' ||
+      scale === 'LEDGER_AREA'
         ? scale
         : 'NONE',
     // 서버가 usable 을 말해주지 않으면 쓰지 않는다 — 모르면 안 쓰는 쪽이 안전하다.

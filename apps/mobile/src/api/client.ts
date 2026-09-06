@@ -570,6 +570,8 @@ export const createScanJob = (input: {
   target: ScanTarget;
   building?: BuildingLedgerInfo;
   hasArPose?: boolean;
+  /** 촬영 중 걸음수 — 복원 경로 길이와 대조해 실제 치수 배율을 얻는다. */
+  steps?: number;
 }) =>
   api<{ jobId: string }>('/scan3d/jobs', { method: 'POST', body: JSON.stringify(input) });
 

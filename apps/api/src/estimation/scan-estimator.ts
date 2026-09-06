@@ -53,7 +53,7 @@ export class ScanVolumeEstimator implements VolumeEstimator {
       rangeMaxTons: result.rangeMaxTons,
       floorAreaM2: floorAreaM2 ?? 0,
       truckLoads: toTruckLoads(result.estimatedTons),
-      // 실측이라도 스케일 출처가 대장 역산이면 대장 오차를 물려받는다.
+      // 실측이라도 스케일 출처가 약하면 신뢰도를 낮춘다 — 대장 역산은 대장 오차를 물려받는다.
       confidence: scan.scaleSource === 'AR_POSE' ? 'HIGH' : 'MEDIUM',
       method: 'SCAN_VOLUME',
       disclaimer: buildDisclaimer(result.grossVolumeM3, result.scaleSource, storeyHeight),
@@ -83,6 +83,7 @@ function totalAreaOf(input: EstimateVolumeInput): number | undefined {
 const SCALE_LABEL: Record<ScanScaleSource, string> = {
   AR_POSE: '기기 측위로 실제 치수를 직접 측정',
   REFERENCE_OBJECT: '기준 물체로 실제 치수를 환산',
+  WALKING_DISTANCE: '촬영 중 걸은 거리로 실제 치수를 환산',
   LEDGER_AREA: '건축물대장 연면적으로 치수를 역산',
   NONE: '치수 기준 없음',
 };

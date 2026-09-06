@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Pedometer } from 'expo-sensors';
 import {
   RECOMMENDED_SCAN_SECONDS,
   SCAN_CAPTURE_COPY,
@@ -28,6 +29,12 @@ export interface Scan3DCaptureResult {
   videoUri: string;
   target: ScanTarget;
   durationSeconds: number;
+  /**
+   * 촬영 중 걸은 걸음수. 복원된 카메라 경로 길이와 대조해 **실제 치수 배율**을 얻는다
+   * ([[scan-volume]] resolveScale). 건축물대장이 없거나 틀린 현장에서 특히 중요하다.
+   * 만보계를 못 쓰는 기기에서는 undefined — 대장 역산으로 폴백한다.
+   */
+  steps?: number;
 }
 
 interface Props {
@@ -46,6 +53,9 @@ export function Scan3DCaptureModal({ visible, target, onClose, onComplete }: Pro
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 걸음수 — 한 바퀴 도는 동안의 실제 이동 거리를 재는 유일한 무의존 수단.
+  const [steps, setSteps] = useState<number | undefined>();
+  const pedometerRef = useRef<{ remove: () => void } | null>(null);
 
   // 녹화 중 1초마다 경과 시간을 올려 판정 문구를 갱신한다.
   useEffect(() => {
@@ -77,19 +87,42 @@ export function Scan3DCaptureModal({ visible, target, onClose, onComplete }: Pro
   async function start() {
     if (!cameraRef.current || recording) return;
     setElapsed(0);
+    setSteps(undefined);
     setRecording(true);
+    void startPedometer();
     try {
       // recordAsync 는 중지될 때까지 resolve 되지 않는다.
       const video = await cameraRef.current.recordAsync({ maxDuration: MAX_RECORD_SECONDS });
       if (video?.uri) {
-        onComplete({ videoUri: video.uri, target, durationSeconds: elapsed });
+        onComplete({ videoUri: video.uri, target, durationSeconds: elapsed, steps });
       }
     } catch {
       // 녹화 실패는 사용자 흐름을 막지 않는다 — 다시 시도할 수 있게 상태만 되돌린다.
     } finally {
+      stopPedometer();
       setRecording(false);
     }
   }
+
+  /** 만보계 구독. 미지원 기기·권한 거부는 촬영을 막지 않는다(대장 역산으로 폴백). */
+  async function startPedometer() {
+    try {
+      if (!(await Pedometer.isAvailableAsync())) return;
+      const permission = await Pedometer.requestPermissionsAsync();
+      if (!permission.granted) return;
+      setSteps(0);
+      pedometerRef.current = Pedometer.watchStepCount((result) => setSteps(result.steps));
+    } catch {
+      // 만보계는 정확도를 올리는 보조 수단일 뿐 — 실패해도 스캔은 계속된다.
+    }
+  }
+
+  function stopPedometer() {
+    pedometerRef.current?.remove();
+    pedometerRef.current = null;
+  }
+
+  useEffect(() => stopPedometer, []);
 
   async function stop() {
     if (!cameraRef.current || !recording) return;
@@ -144,6 +177,10 @@ export function Scan3DCaptureModal({ visible, target, onClose, onComplete }: Pro
                   >
                     {assessment.message}
                   </Text>
+                  {/* 걸음수는 실제 치수 기준이 된다 — 사용자에게도 왜 걸어야 하는지 보인다. */}
+                  {steps !== undefined ? (
+                    <Text style={styles.steps}>{steps}걸음 — 실제 크기 측정에 쓰입니다</Text>
+                  ) : null}
                 </View>
               ) : (
                 <ScrollView style={styles.tips} contentContainerStyle={styles.tipsContent}>
@@ -203,6 +240,7 @@ const styles = StyleSheet.create({
   timer: { color: '#FFFFFF', fontSize: font.bodyLarge, fontWeight: '800' },
   assessment: { color: '#FCD34D', fontSize: font.body, marginTop: spacing.xs },
   assessmentGood: { color: '#6EE7B7' },
+  steps: { color: '#93C5FD', fontSize: font.body, marginTop: spacing.xs },
   tips: { maxHeight: 220 },
   tipsContent: {
     backgroundColor: 'rgba(0,0,0,0.65)',

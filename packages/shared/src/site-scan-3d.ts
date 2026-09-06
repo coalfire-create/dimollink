@@ -1,3 +1,5 @@
+import type { ScanScaleSource } from './scan-volume.js';
+
 /**
  * 3D 현장 스캔 계약 — 촬영 지침 · 잡 상태 · 결과물.
  *
@@ -226,16 +228,13 @@ export type Scan3DJobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
 /** 복원 결과 — 부피와 산출물, 그리고 왜 못 쓰는지. */
 export interface Scan3DResult {
   grossVolumeM3: number;
-  scaleSource: ScanScaleSourceLike;
+  scaleSource: ScanScaleSource;
   /** 물량 산정에 쓸 수 있는지. false 면 본체가 연면적 원단위로 폴백한다. */
   usable: boolean;
   reasons: string[];
   artifacts: Scan3DArtifacts;
   frameCount: number;
 }
-
-/** `scan-volume.ts` 의 ScanScaleSource 와 같은 값. 순환 참조를 피하려 별칭으로 둔다. */
-export type ScanScaleSourceLike = 'AR_POSE' | 'REFERENCE_OBJECT' | 'LEDGER_AREA' | 'NONE';
 
 /** 잡 1건. */
 export interface Scan3DJob {
