@@ -1,4 +1,4 @@
-import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { cacheControlFor, resolveFile } from '../../../vision-web/server.mjs';
 
@@ -7,7 +7,9 @@ import { cacheControlFor, resolveFile } from '../../../vision-web/server.mjs';
  * 정적 서버의 유일한 보안 표면이 여기라, 규칙을 테스트로 못 박는다.
  */
 
-const ROOT = resolve(process.cwd(), 'apps/vision-web');
+// ⚠️ process.cwd() 로 잡으면 안 된다 — vitest 워크스페이스마다 cwd 가 달라
+// 단독 실행은 통과하고 전체 스위트에서만 깨진다. 테스트 파일 위치를 기준으로 잡는다.
+const ROOT = fileURLToPath(new URL('../../../vision-web', import.meta.url));
 
 describe('resolveFile — 경로 탈출 차단', () => {
   it('루트 요청은 index.html 로 간다', () => {
