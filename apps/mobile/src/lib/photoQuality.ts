@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 import { decode as decodeJpeg } from 'jpeg-js';
-import { computeLumaStats, isPhotoQualityOk, subsampleRgba, type LumaStats } from '@dimol/shared';
+import {
+  SHARPNESS_SAMPLE_PER_AXIS,
+  assessPhotoQuality,
+  computeLumaStats,
+  computeSharpness,
+  subsampleRgba,
+  type LumaStats,
+} from '@dimol/shared';
 
 /**
  * 촬영 직후 사진 전처리 — ①품질(암전/렌즈 가림/흐림) 검증 ②디몰비전 전송용 축소.
@@ -21,6 +28,10 @@ export interface QualityResult {
   ok: boolean;
   /** 계산된 밝기 통계(지원 시). */
   stats?: LumaStats;
+  /** 선명도(라플라시안 분산). 클수록 선명. */
+  sharpness?: number;
+  /** 미달 사유 — 사용자에게 무엇이 문제인지 알려주고, 서버에는 경고로 넘긴다. */
+  reasons: string[];
 }
 
 export interface QualityInput {
@@ -51,7 +62,7 @@ export const UPLOAD_MAX_EDGE = 1600;
 /** 업로드용 JPEG 품질(0~100). 소재 질감이 뭉개지지 않는 선. */
 export const UPLOAD_JPEG_QUALITY = 72;
 
-const PASS: QualityResult = { supported: false, ok: true };
+const PASS: QualityResult = { supported: false, ok: true, reasons: [] };
 
 /** 원본 대비 축소 배율. 이미 충분히 작으면 null(재인코딩하지 않는다). */
 function scaleFor(width: number, height: number): number | null {
@@ -70,6 +81,26 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * 웹에서 선명도만 따로 잰다. 밝기 통계용 64px 캔버스로는 고주파가 이미 사라져
+ * 흐린 사진을 잡지 못하므로, 더 큰 캔버스에 한 번 더 그려 라플라시안을 계산한다.
+ * 실패하면 undefined — 선명도 검사만 건너뛴다(촬영을 막지 않는다).
+ */
+function sharpnessFromCanvas(img: HTMLImageElement): number | undefined {
+  try {
+    const side = SHARPNESS_SAMPLE_PER_AXIS;
+    const canvas = document.createElement('canvas');
+    canvas.width = side;
+    canvas.height = side;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return undefined;
+    ctx.drawImage(img, 0, 0, side, side);
+    return computeSharpness(ctx.getImageData(0, 0, side, side).data, side, side);
+  } catch {
+    return undefined;
+  }
+}
+
 async function processWeb(input: QualityInput): Promise<ProcessedPhoto> {
   if (typeof document === 'undefined') {
     return { quality: PASS, base64: input.base64, resized: false };
@@ -86,7 +117,9 @@ async function processWeb(input: QualityInput): Promise<ProcessedPhoto> {
     statCtx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
     const { data } = statCtx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
     const stats = computeLumaStats(data);
-    quality = { supported: true, ok: isPhotoQualityOk(stats), stats };
+    // 선명도는 고주파가 살아 있어야 재므로 더 큰 표본으로 따로 그린다.
+    const sharpness = sharpnessFromCanvas(img);
+    quality = { supported: true, ...assessPhotoQuality(stats, sharpness), stats, sharpness };
   }
 
   // ② 업로드용 축소 — 장변이 상한을 넘을 때만.
@@ -145,7 +178,23 @@ async function processNative(input: QualityInput): Promise<ProcessedPhoto> {
 
   const pixels = subsampleRgba(decoded.data, decoded.width, decoded.height, SAMPLE_SIZE);
   const stats = computeLumaStats(pixels);
-  const quality: QualityResult = { supported: true, ok: isPhotoQualityOk(stats), stats };
+  // 선명도용 표본은 더 크게 뜬다(64px 로 줄이면 흐림 신호가 사라진다).
+  const sharpSide = Math.min(
+    SHARPNESS_SAMPLE_PER_AXIS,
+    Math.min(decoded.width, decoded.height),
+  );
+  const sharpPixels = subsampleRgba(decoded.data, decoded.width, decoded.height, sharpSide);
+  const sharpWidth = Math.ceil(decoded.width / Math.max(1, Math.floor(decoded.width / sharpSide)));
+  const sharpHeight = Math.ceil(
+    decoded.height / Math.max(1, Math.floor(decoded.height / sharpSide)),
+  );
+  const sharpness = computeSharpness(sharpPixels, sharpWidth, sharpHeight);
+  const quality: QualityResult = {
+    supported: true,
+    ...assessPhotoQuality(stats, sharpness),
+    stats,
+    sharpness,
+  };
 
   const scale = scaleFor(decoded.width, decoded.height);
   if (scale === null) return { quality, base64: input.base64, resized: false };

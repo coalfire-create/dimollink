@@ -183,7 +183,19 @@ export function validateVisionReport(report: VisionReport): string[] {
     }
   }
 
-  // 5) 석면 유무 "확정" 표현 금지 — 리포트 전체 텍스트 스캔
+  // 5) 안전지침은 반드시 출처를 인용해야 한다(기획서 §3.4).
+  //    근거 없는 안전지침은 지침이 아예 없는 것보다 나쁘다 — 사람이 그대로 따라 하기 때문이다.
+  for (const [si, step] of report.process_steps.entries()) {
+    for (const [gi, g] of step.safety_guidelines.entries()) {
+      if (!g.source_document?.trim()) {
+        issues.push(
+          `process_steps[${si}].safety_guidelines[${gi}] 에 근거 문서(source_document)가 없습니다.`,
+        );
+      }
+    }
+  }
+
+  // 6) 석면 유무 "확정" 표현 금지 — 리포트 전체 텍스트 스캔
   const scanned = [
     report.site_summary.scale_estimate,
     ...report.materials.map((m) => m.location_note),

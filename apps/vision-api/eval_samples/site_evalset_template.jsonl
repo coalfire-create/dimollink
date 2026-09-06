@@ -1,0 +1,2 @@
+{"site_id": "REPLACE-현장ID", "domain": "site", "gt_materials": ["BRICK_MASONRY", "ROOFING_SLATE", "WOOD"], "pred_materials": [], "gt_asbestos": true, "pred_asbestos": false, "gt_quantity_ton": 0.0, "pred_quantity_ton": null}
+{"site_id": "REPLACE-현장ID-2", "domain": "site", "gt_materials": ["REINFORCED_CONCRETE", "METAL", "GYPSUM_BOARD"], "pred_materials": [], "gt_asbestos": false, "pred_asbestos": false, "gt_quantity_ton": 0.0, "pred_quantity_ton": null}

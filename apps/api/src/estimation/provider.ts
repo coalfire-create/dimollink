@@ -1,3 +1,4 @@
+import type { ScanMeasurement } from './scan-estimator.js';
 import {
   DEMOLITION_TON_PER_M2,
   ESTIMATE_RANGE_RATIO,
@@ -30,6 +31,11 @@ export interface EstimateVolumeInput {
   structure?: BuildingStructure;
   /** 현장 사진 키 — AI 비전 연동 시 사용. 목에서는 무시된다. */
   sitePhotoKeys?: string[];
+  /**
+   * 3D 스캔 실측값(있으면 연면적 원단위 대신 실측 부피로 산정).
+   * 품질·스케일 게이트를 통과하지 못하면 원단위로 폴백한다([[scan-estimator]]).
+   */
+  scan?: ScanMeasurement;
 }
 
 export interface VolumeEstimator {

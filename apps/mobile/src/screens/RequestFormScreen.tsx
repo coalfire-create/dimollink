@@ -40,6 +40,7 @@ import {
   type GeoPoint,
   type RequestKind,
   type ServiceRequest,
+  type SiteCaptureSlotId,
 } from '@dimol/shared';
 import {
   ApiError,
@@ -49,6 +50,7 @@ import {
   type AnalyzeImage,
 } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
+import { processCapturedPhoto } from '../lib/photoQuality';
 import { CameraCaptureModal, type CapturedPhoto } from '../components/CameraCaptureModal';
 import {
   GuidedSiteCaptureModal,
@@ -84,6 +86,12 @@ const BUILDING_TYPES: BuildingType[] = [
 const DEMOLITION_TYPES: DemolitionType[] = ['TOTAL', 'INTERIOR', 'STRUCTURE'];
 
 type AreaUnit = 'PYEONG' | 'M2';
+
+/** react-native-calendars 의 markedDates 값 — 다중 선택 표시에 쓰는 필드만 둔다. */
+interface MarkedDate {
+  selected: boolean;
+  selectedColor: string;
+}
 
 export function RequestFormScreen({
   kind,
@@ -125,7 +133,7 @@ export function RequestFormScreen({
   const [hasElevator, setHasElevator] = useState<boolean>(true);
   const [hasVehicleAccess, setHasVehicleAccess] = useState<boolean>(true);
   const [desiredDate, setDesiredDate] = useState('');
-  const [selectedDates, setSelectedDates] = useState<Record<string, any>>({});
+  const [selectedDates, setSelectedDates] = useState<Record<string, MarkedDate>>({});
 
   React.useEffect(() => {
     setDesiredDate(Object.keys(selectedDates).sort().join(', '));
@@ -216,7 +224,14 @@ export function RequestFormScreen({
     setGuidedOpen(false);
     setError(null);
     setPhotoSummary(null);
-    void runVision(photos.map((p) => ({ imageBase64: p.base64, mimeType: p.mimeType })));
+    // 슬롯(어느 부위를 찍었는지)을 함께 넘겨야 서버가 부위별 사전확률과 결측 선언을 쓴다.
+    void runVision(
+      photos.map((p) => ({
+        imageBase64: p.base64,
+        mimeType: p.mimeType,
+        slotId: p.slotId as SiteCaptureSlotId,
+      })),
+    );
   }
 
   // 앨범에서 사진 선택 → 디몰비전 분석
@@ -230,7 +245,19 @@ export function RequestFormScreen({
     });
     const asset = res.canceled ? undefined : res.assets[0];
     if (!asset?.base64) return;
-    void runVision([{ imageBase64: asset.base64, mimeType: asset.mimeType }]);
+    // 앨범 사진도 촬영본과 같은 품질 게이트를 태운다(흐림·암전은 오인식의 주원인).
+    const processed = await processCapturedPhoto({
+      base64: asset.base64,
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? 'image/jpeg',
+    });
+    void runVision([
+      {
+        imageBase64: processed.base64,
+        mimeType: processed.resized ? 'image/jpeg' : (asset.mimeType ?? 'image/jpeg'),
+        qualityWarnings: processed.quality.reasons,
+      },
+    ]);
   }
 
   // 가이드 카메라로 촬영(여러 장) → 디몰비전 종합 분석
@@ -238,7 +265,13 @@ export function RequestFormScreen({
     setCameraOpen(false);
     setError(null);
     setPhotoSummary(null);
-    void runVision(photos.map((p) => ({ imageBase64: p.base64, mimeType: p.mimeType })));
+    void runVision(
+      photos.map((p) => ({
+        imageBase64: p.base64,
+        mimeType: p.mimeType,
+        qualityWarnings: p.qualityWarnings,
+      })),
+    );
   }
 
   /**
@@ -590,7 +623,7 @@ export function RequestFormScreen({
               <Text style={styles.sectionLabel}>희망 일정 (다중 선택 가능)</Text>
               <View style={{ marginBottom: theme.spacing.md }}>
                 <Calendar
-                  onDayPress={(day: any) => {
+                  onDayPress={(day: { dateString: string }) => {
                     const dateString = day.dateString;
                     const newSelectedDates = { ...selectedDates };
                     if (newSelectedDates[dateString]) {

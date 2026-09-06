@@ -7,6 +7,12 @@ Korea 슬레이트(석면)와 결합해 지상 자재인식 + 석면 탐지 모�
 import argparse, json, os, random, collections
 
 # MINC 카테고리 → 디몰비전 12종. 대응 없는 카테고리(carpet/foliage/sky 등)는 제외.
+#
+# ⚠️ 메울 수 없는 공백: GYPSUM_BOARD(석고보드) · WATERPROOF_INSULATION(방수/단열재).
+# MINC-2500 에는 대응 카테고리가 없다("painted"/"wallpaper" 는 도장 콘크리트일 수도
+# 석고보드일 수도 있어 약라벨로 쓰면 정밀도를 깎는다). 둘 다 실내 철거 빈출 자재이므로
+# 실현장 촬영·라벨링으로만 확보된다 — 억지 매핑을 추가하지 말 것.
+# 평가에서는 정답 표본 0건으로 `unevaluated_classes` 에 드러난다(app/eval/metrics.py).
 MINC_MAP = {
     "brick": "BRICK_MASONRY",
     "stone": "BRICK_MASONRY",
