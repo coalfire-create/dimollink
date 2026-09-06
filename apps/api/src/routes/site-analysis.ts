@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import {
+  SITE_CAPTURE_SLOTS,
   siteAnalysisToWasteItems,
   structureCodeOf,
   totalFloorAreaM2,
   type BuildingLedgerInfo,
   type SiteAnalysis,
+  type SiteCaptureSlotId,
 } from '@dimol/shared';
 import {
   SiteAnalysisValidationError,
   type AnalyzeSiteInput,
   type SiteAnalyzer,
 } from '../site-analysis/analyzer.js';
+import { applyLedgerConsistency } from '../site-analysis/consistency.js';
 import type { VolumeEstimator } from '../estimation/provider.js';
 import { uploadBase64Photo } from '../storage/s3.js';
 import { randomUUID } from 'node:crypto';
@@ -45,6 +48,10 @@ export function createSiteAnalysisRouter(
           .map((it) => ({
             imageBase64: it.imageBase64,
             mimeType: typeof it.mimeType === 'string' ? it.mimeType : undefined,
+            // 가이드 촬영 슬롯 — 부위별 사전확률·결측 선언에 쓴다. 정의된 값만 통과시킨다.
+            slotId: parseSlotId((it as { slotId?: unknown }).slotId),
+            // 촬영 시점 품질 판정(흐림·암전) — 결측과 같은 급으로 다룬다.
+            qualityWarnings: parseStringList((it as { qualityWarnings?: unknown }).qualityWarnings),
           }))
       : undefined;
     return {
@@ -57,6 +64,23 @@ export function createSiteAnalysisRouter(
       building: parseBuilding(body.building),
       siteAddress: typeof body.siteAddress === 'string' ? body.siteAddress : undefined,
     };
+  }
+
+  /** 정의된 슬롯 ID 만 통과(임의 문자열이 프롬프트로 흘러들지 않게). */
+  function parseSlotId(raw: unknown): SiteCaptureSlotId | undefined {
+    return typeof raw === 'string' && SITE_CAPTURE_SLOTS.some((s) => s.id === raw)
+      ? (raw as SiteCaptureSlotId)
+      : undefined;
+  }
+
+  /** 문자열 배열만 통과 + 길이 제한(프롬프트 주입·과대 페이로드 방지). */
+  function parseStringList(raw: unknown): string[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const list = raw
+      .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+      .slice(0, 5)
+      .map((v) => v.trim().slice(0, 120));
+    return list.length > 0 ? list : undefined;
   }
 
   /** 클라이언트가 넘긴 건축물대장 정보를 화이트리스트로 정규화(임의 필드 프롬프트 주입 방지). */
@@ -95,13 +119,20 @@ export function createSiteAnalysisRouter(
 
   /** 실제 분석 실패 → 목으로 폴백(방법=MOCK 이라 사용자에게 구분됨). */
   async function analyzeWithFallback(input: AnalyzeSiteInput): Promise<SiteAnalysis> {
+    let analysis: SiteAnalysis;
     try {
-      return await primary.analyze(input);
+      analysis = await primary.analyze(input);
     } catch (err) {
       if (err instanceof SiteAnalysisValidationError) throw err;
       console.error('[site-analysis] 분석 폴백', err instanceof Error ? err.message : 'error');
-      return fallback.analyze(input);
+      analysis = await fallback.analyze(input);
     }
+    // 대장은 사진 판독보다 신뢰도가 높은 확정 정보 — 응답을 받은 뒤 규칙으로 한 번 더 맞춘다.
+    const { analysis: adjusted, applied } = applyLedgerConsistency(analysis, input.building);
+    if (applied.length > 0) {
+      console.info('[site-analysis] 대장 정합성 규칙 적용', applied.join(','));
+    }
+    return adjusted;
   }
 
   // POST /api/site-analysis/analyze  { imageBase64, mimeType?, note? }
@@ -191,7 +222,11 @@ export function createSiteAnalysisRouter(
           // 중량 추정 실패해도 소재별 기본값으로 진행(사진 분석 자체는 성공).
         }
       }
-      res.json({ analysis, wasteItems: siteAnalysisToWasteItems(analysis.materials, totalKg) });
+      // 구조를 함께 넘겨야 성상 구성비로 나눈다(없으면 표의 기본 구조를 쓴다).
+      res.json({
+        analysis,
+        wasteItems: siteAnalysisToWasteItems(analysis.materials, totalKg, structure),
+      });
     } catch (err) {
       if (err instanceof SiteAnalysisValidationError) {
         res.status(400).json({ error: err.message });

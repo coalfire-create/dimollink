@@ -29,6 +29,12 @@ from ..schemas import (
     VisionReport,
     WastePlan,
 )
+from ..quantity import (
+    build_waste_plan,
+    estimation_structure,
+    floor_area_from_meta,
+    quantity_by_material,
+)
 from ..taxonomy import (
     ASBESTOS_SUSPECT_GUIDANCE,
     MATERIAL_CODES,
@@ -70,19 +76,27 @@ def enrich_recognition(codes: List[str], input_meta: dict) -> dict:
     """인식 어댑터의 자재 코드 목록 → 리포트 1패스 계약(site_summary/materials/hazards).
 
     석면 의심 코드는 taxonomy 기준으로 hazards(ASBESTOS_SUSPECT)를 자동 유도한다(§7.1).
+    물량은 연면적 원단위 × 성상 구성비로 계산해 채운다([[quantity]]) — 모델은 물량을 추정하지 않는다.
     """
     seen: list = []
     for c in codes:
         if c in MATERIAL_TAXONOMY_V1 and c not in seen:
             seen.append(c)
 
+    structure = next((_STRUCTURE_BY_CODE[c] for c in seen if c in _STRUCTURE_BY_CODE), "UNKNOWN")
+    est_structure = estimation_structure(structure, input_meta)
+    quantities = quantity_by_material(
+        seen, est_structure, floor_area_from_meta(input_meta)
+    )
+    # 연면적 미상이면 수치를 지어내지 않는다(0 범위 = 현장 실측 필요).
+    unknown = {"value_min": 0.0, "value_max": 0.0, "unit": "ton"}
+
     materials = [
         {
             "category": c,
             "confidence": _PRESENCE_CONFIDENCE,
             "location_note": str(MATERIAL_TAXONOMY_V1[c]["label"]),
-            # 물량 미측정 — 2패스 생성 및 현장 실측이 채운다(임의 수치 금지).
-            "quantity_estimate": {"value_min": 0.0, "value_max": 0.0, "unit": "ton"},
+            "quantity_estimate": quantities.get(c, unknown),
         }
         for c in seen
     ]
@@ -95,7 +109,6 @@ def enrich_recognition(codes: List[str], input_meta: dict) -> dict:
         for c in seen
         if is_asbestos_suspect_material(c)
     ]
-    structure = next((_STRUCTURE_BY_CODE[c] for c in seen if c in _STRUCTURE_BY_CODE), "UNKNOWN")
     site_summary = {
         "building_type": str(input_meta.get("building_use") or input_meta.get("building_type") or "미상"),
         "structure": structure,
@@ -194,6 +207,7 @@ class VLLMPipeline:
             + "\n\n인용 가능한 안전지침 근거(이 안에서만 인용):\n"
             + json.dumps(evidence, ensure_ascii=False)
             + "\n\nprocess_steps 와 waste_plan 을 생성하라."
+            + "\n물량(톤·㎥)은 추정하지 마라. 연면적 원단위로 서버가 계산해 덮어쓴다."
         )
         return await self._chat(
             [
@@ -223,6 +237,18 @@ class VLLMPipeline:
         await on_stage(JobStage.PROCESS_GENERATION)
         generation = await self._pass2(recognition, request, guidelines)
 
+        # 물량은 계산이 정답이다 — 2패스가 지어낸 waste_plan 수치를 덮어쓴다.
+        # (이 수치로 올바로 의무신고 여부까지 판정되므로 환각을 남겨둘 수 없다.)
+        computed_plan = build_waste_plan(
+            [m["category"] for m in recognition.get("materials", [])],
+            estimation_structure(recognition["site_summary"].get("structure"), request.input_meta),
+            request.input_meta,
+        )
+        if computed_plan is not None:
+            generation["waste_plan"] = computed_plan
+
+        allowed_sources = {g.source for g in guidelines}
+
         report = VisionReport(
             site_summary=SiteSummary(**recognition["site_summary"]),
             materials=recognition.get("materials", []),
@@ -233,13 +259,24 @@ class VLLMPipeline:
             model_version=self._model_version,
             analyzed_at=datetime.now(timezone.utc).isoformat(),
         )
-        return self._enforce_safety(report)
+        return self._enforce_safety(report, allowed_sources)
 
     @staticmethod
-    def _enforce_safety(report: VisionReport) -> VisionReport:
+    def _enforce_safety(report: VisionReport, allowed_sources: Optional[set] = None) -> VisionReport:
         """안전 후처리(§7.1). 최종 방어선은 worker 의 validate_report."""
         # 고지 고정.
         report.disclaimer = REPORT_DISCLAIMER
+
+        # 인용 강제 — 검색된 근거에 없는 출처를 단 안전지침은 버린다.
+        # 프롬프트로 "근거만 인용하라"고 시켜도 모델은 그럴듯한 출처를 지어낸다.
+        # 안전지침에 가짜 근거가 붙는 것은 지침이 아예 없는 것보다 나쁘다.
+        if allowed_sources is not None:
+            for step in report.process_steps:
+                step.safety_guidelines = [
+                    g
+                    for g in step.safety_guidelines
+                    if g.source_document and g.source_document in allowed_sources
+                ]
         # 석면 의심 hazard 에 전문 조사 안내 보강.
         for h in report.hazards:
             if h.type == "ASBESTOS_SUSPECT" and ASBESTOS_SUSPECT_GUIDANCE not in h.guidance:
