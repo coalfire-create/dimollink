@@ -81,3 +81,31 @@ describe('proxyTarget — 본체 API 프록시 화이트리스트', () => {
     expect(proxyTarget('/')).toBeNull();
   });
 });
+
+describe('proxyTarget — 3D 스캔 경로(쓰기 포함)', () => {
+  it('presign·잡 생성은 POST 로만 통과한다', () => {
+    expect(proxyTarget('/api/scan3d/presign', 'POST')).toBe('/scan3d/presign');
+    expect(proxyTarget('/api/scan3d/jobs', 'POST')).toBe('/scan3d/jobs');
+    // GET 화이트리스트에는 없다 — 쓰기 경로가 읽기로도 열리면 안 된다.
+    expect(proxyTarget('/api/scan3d/presign', 'GET')).toBeNull();
+  });
+
+  it('잡 상태 폴링은 id 모양이 맞을 때만 통과한다', () => {
+    expect(proxyTarget('/api/scan3d/jobs/11111111-2222-4333-8444-555555555555', 'GET')).toBe(
+      '/scan3d/jobs/11111111-2222-4333-8444-555555555555',
+    );
+    // 경로 조각을 더 붙여 다른 엔드포인트로 새는 것을 막는다.
+    expect(proxyTarget('/api/scan3d/jobs/abc/rescale', 'GET')).toBeNull();
+    expect(proxyTarget('/api/scan3d/jobs/../../users', 'GET')).toBeNull();
+  });
+
+  it('capability 는 읽기로 열려 있다 — 화면이 실측/목 여부를 먼저 물어본다', () => {
+    expect(proxyTarget('/api/scan3d/capability', 'GET')).toBe('/scan3d/capability');
+  });
+
+  it('POST 라도 화이트리스트 밖은 막는다', () => {
+    for (const url of ['/api/auth/login', '/api/requests', '/api/scan3d/jobs/x/rescale']) {
+      expect(proxyTarget(url, 'POST')).toBeNull();
+    }
+  });
+});

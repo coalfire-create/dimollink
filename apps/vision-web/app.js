@@ -11,8 +11,10 @@
   };
   var views = {
     upload: el("upload-view"),
+    scan: el("scan-view"),
     progress: el("progress-view"),
     report: el("report-view"),
+    scanReport: el("scan-report-view"),
   };
   function show(name) {
     Object.keys(views).forEach(function (k) {
@@ -20,6 +22,28 @@
     });
     window.scrollTo(0, 0);
   }
+
+  /**
+   * 사진 분석 ↔ 3D 스캔 전환.
+   *
+   * 두 흐름은 요구하는 촬영(사진 여러 장 / 영상 한 바퀴)도 결과(자재·공정 / 부피)도 다르다.
+   * 한 화면에 섞어두면 무엇을 올려야 하는지 알 수 없어, 아예 갈라 놓는다.
+   */
+  var mode = "photo";
+  function setMode(next) {
+    mode = next;
+    el("mode-photo").classList.toggle("is-active", next === "photo");
+    el("mode-scan").classList.toggle("is-active", next === "scan");
+    el("mode-photo").setAttribute("aria-selected", String(next === "photo"));
+    el("mode-scan").setAttribute("aria-selected", String(next === "scan"));
+    show(next === "photo" ? "upload" : "scan");
+  }
+  el("mode-photo").addEventListener("click", function () {
+    setMode("photo");
+  });
+  el("mode-scan").addEventListener("click", function () {
+    setMode("scan");
+  });
 
   var photoInput = el("photo-input");
   var analyzeBtn = el("analyze-btn");
@@ -97,6 +121,18 @@
     analyzeBtn.disabled = selectedFiles.length === 0;
   }
 
+  // 웹 자체 카메라 — 찍는 도중에 흔들림·초점을 잡아준다([[camera]]).
+  // OS 기본 카메라는 화면 위에 아무것도 못 띄우므로 안내를 줄 수 없다.
+  el("photo-coach-btn").addEventListener("click", function () {
+    DV.openCamera({
+      mode: "photo",
+      onPhoto: function (blob) {
+        var name = "촬영-" + Date.now() + ".jpg";
+        addPhotos([new File([blob], name, { type: "image/jpeg" })]);
+      },
+    });
+  });
+
   ["photo-camera", "photo-input"].forEach(function (id) {
     el(id).addEventListener("change", function (e) {
       addPhotos(e.target.files);
@@ -156,7 +192,9 @@
 
   el("cancel-btn").addEventListener("click", function () {
     if (client.cancel) client.cancel();
-    show("upload");
+    if (scanAbort) scanAbort.abort();
+    el("progress-heading").textContent = "분석 중…";
+    setMode(mode);
   });
 
   // ---- 피드백(데이터 플라이휠 원천, §V5) ----
@@ -217,6 +255,154 @@
     feedbackSubmit.disabled = true;
     setFeedbackStatus(null);
     show("upload");
+  });
+
+  // ---- 3D 스캔(영상) ----
+  var scanFile = null;
+  var scanPreview = el("scan-preview");
+  var scanError = el("scan-error");
+  var scanAbort = null;
+
+  function setScanError(msg) {
+    scanError.hidden = !msg;
+    scanError.textContent = msg || "";
+  }
+
+  /** 이 배포에서 복원이 실제로 도는지 먼저 물어본다 — 목 결과를 실측처럼 보이면 안 된다. */
+  DV.scan3dCapability().then(function (cap) {
+    var box = el("scan-capability");
+    if (!cap) return;
+    if (cap.demo) {
+      box.hidden = false;
+      box.className = "notice is-warn";
+      box.textContent =
+        "지금은 시연 모드입니다. 촬영·업로드·진행 표시는 실제로 동작하지만, " +
+        "부피는 GPU 복원 대신 건축물대장 기준으로 계산한 값이라 실측이 아닙니다.";
+    }
+  });
+
+  function setScanFile(file, seconds) {
+    scanFile = file;
+    setScanError(null);
+    if (!file) {
+      scanPreview.hidden = true;
+      el("scan-file-info").textContent = "";
+      el("scan-submit-btn").disabled = true;
+      return;
+    }
+    scanPreview.hidden = false;
+    scanPreview.src = URL.createObjectURL(file);
+    var mb = (file.size / 1024 / 1024).toFixed(1);
+    var length = seconds ? Math.round(seconds) + "초 · " : "";
+    el("scan-file-info").textContent = length + mb + "MB";
+    // 45초 미만은 프레임이 모자라 복원이 자주 깨진다 — 올리기 전에 말해준다.
+    if (seconds && seconds < 45) {
+      setScanError(
+        "촬영이 " + Math.round(seconds) + "초로 짧습니다. 45초 이상 찍어야 복원이 안정적입니다."
+      );
+    }
+    el("scan-submit-btn").disabled = false;
+  }
+
+  el("scan-record-btn").addEventListener("click", function () {
+    DV.openCamera({
+      mode: "video",
+      onVideo: function (blob, seconds) {
+        var ext = (blob.type || "").indexOf("webm") >= 0 ? "webm" : "mp4";
+        setScanFile(new File([blob], "스캔-" + Date.now() + "." + ext, { type: blob.type }), seconds);
+      },
+    });
+  });
+
+  el("video-input").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (file.size > DV.MAX_VIDEO_BYTES) {
+      setScanFile(null);
+      setScanError("영상이 200MB를 넘습니다. 더 짧게(45~60초) 찍어주세요.");
+      return;
+    }
+    setScanFile(file, null);
+    e.target.value = "";
+  });
+
+  el("scan-submit-btn").addEventListener("click", function () {
+    if (!scanFile) return;
+    var target = document.querySelector('input[name="scan-target"]:checked');
+    var steps = Number(el("scan-steps").value) || undefined;
+
+    scanAbort = new AbortController();
+    show("progress");
+    el("progress-heading").textContent = "3D 복원 중…";
+    DV.report.renderProgress(el("progress-steps"), "UPLOADING");
+
+    DV.submitScan3D(scanFile, {
+      target: target ? target.value : "EXTERIOR",
+      steps: steps,
+      signal: scanAbort.signal,
+      onStage: function (stage) {
+        DV.report.renderProgress(el("progress-steps"), stage);
+      },
+    }).then(
+      function (job) {
+        renderScanReport(job.result);
+        show("scanReport");
+      },
+      function (err) {
+        show("scan");
+        setScanError((err && err.message) || "3D 복원에 실패했습니다.");
+      }
+    );
+  });
+
+  /** 3D 결과. 쓸 수 없는 스캔이면 **부피를 앞세우지 않는다** — 틀린 숫자가 더 위험하다. */
+  function renderScanReport(result) {
+    var body = el("scan-report-body");
+    body.innerHTML = "";
+    if (!result) {
+      body.textContent = "결과를 받지 못했습니다.";
+      return;
+    }
+
+    var labels = {
+      AR_POSE: "AR 포즈 (오차 ±10%)",
+      REFERENCE_OBJECT: "기준 물체 (±15%)",
+      WALKING_DISTANCE: "보행 거리 (±18%)",
+      LEDGER_AREA: "건축물대장 연면적 (±25%)",
+      NONE: "없음",
+    };
+
+    if (!result.usable) {
+      var warn = document.createElement("p");
+      warn.className = "notice is-warn";
+      warn.textContent =
+        "이 스캔은 쓸 수 없습니다. " +
+        ((result.reasons || []).join(" ") || "다시 촬영해 주세요.");
+      body.appendChild(warn);
+    } else {
+      var vol = document.createElement("p");
+      vol.className = "notice";
+      vol.textContent =
+        "건물 총 부피 약 " + Math.round(result.grossVolumeM3).toLocaleString("ko-KR") + "㎥";
+      body.appendChild(vol);
+    }
+
+    var meta = document.createElement("ul");
+    meta.className = "steps-list";
+    [
+      "크기 기준: " + (labels[result.scaleSource] || result.scaleSource),
+      "사용 프레임: " + (result.frameCount || 0) + "장",
+    ].forEach(function (line) {
+      var li = document.createElement("li");
+      li.textContent = line;
+      meta.appendChild(li);
+    });
+    body.appendChild(meta);
+  }
+
+  el("scan-restart-btn").addEventListener("click", function () {
+    setScanFile(null);
+    setMode("scan");
   });
 
   el("prefill-btn").addEventListener("click", function () {

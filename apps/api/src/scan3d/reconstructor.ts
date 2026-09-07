@@ -31,6 +31,11 @@ export interface ReconstructInput {
 export type StageReporter = (stage: Scan3DStage) => void;
 
 export interface Reconstructor {
+  /**
+   * 실제 GPU 복원인지 목인지. **화면이 사용자에게 그대로 알려야 하는 값이다** —
+   * 목 결과를 실측처럼 보여주면 안 된다(부피가 그럴듯하게 나오므로 더 위험하다).
+   */
+  readonly kind: 'GPU' | 'MOCK';
   reconstruct(input: ReconstructInput, onStage: StageReporter): Promise<Scan3DResult>;
 }
 
@@ -49,6 +54,8 @@ export const SCAN_STAGE_ORDER: readonly Scan3DStage[] = [
  * 단계를 순서대로 보고하고 결정적인 결과를 낸다.
  */
 export class MockReconstructor implements Reconstructor {
+  readonly kind = 'MOCK' as const;
+
   constructor(private readonly stageDelayMs = 0) {}
 
   async reconstruct(input: ReconstructInput, onStage: StageReporter): Promise<Scan3DResult> {
@@ -91,6 +98,8 @@ export interface HttpReconstructorConfig {
  * 복원은 20~40분이라 요청-응답으로 기다리지 않고, 잡을 만들고 폴링한다.
  */
 export class HttpReconstructor implements Reconstructor {
+  readonly kind = 'GPU' as const;
+
   constructor(private readonly config: HttpReconstructorConfig) {}
 
   async reconstruct(input: ReconstructInput, onStage: StageReporter): Promise<Scan3DResult> {

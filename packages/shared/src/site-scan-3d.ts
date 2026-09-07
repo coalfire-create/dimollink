@@ -135,7 +135,7 @@ export type Scan3DStage =
   | 'MEASURING'; //    부피 계산
 
 export const SCAN_3D_STAGE_LABELS: Record<Scan3DStage, string> = {
-  UPLOADING: '사진 올리는 중',
+  UPLOADING: '영상 올리는 중',
   EXTRACTING: '장면 나누는 중',
   MATCHING: '촬영 위치 계산 중',
   RECONSTRUCTING: '입체 형상 만드는 중',

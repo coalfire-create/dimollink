@@ -218,3 +218,15 @@ describe('POST /api/scan3d/jobs/:id/rescale — 복원 재실행 없이 배율�
     expect(created.jobId).toBeTruthy();
   });
 });
+
+describe('GET /api/scan3d/capability — 실측인지 목인지 화면에 알린다', () => {
+  it('목 복원기면 demo=true 로 알린다', async () => {
+    const base = await startApp();
+    const res = await fetch(`${base}/api/scan3d/capability`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { reconstructor: string; demo: boolean };
+    // 목 결과는 그럴듯한 부피를 낸다 — 실측으로 오인되지 않게 화면이 알아야 한다.
+    expect(body.reconstructor).toBe('MOCK');
+    expect(body.demo).toBe(true);
+  });
+});

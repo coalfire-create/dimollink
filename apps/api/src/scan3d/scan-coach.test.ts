@@ -24,15 +24,18 @@ function feed(
   state: CoachState,
   samples: Array<Partial<CaptureSample> & { elapsedSeconds: number }>,
 ): CoachState {
-  return samples.reduce(
-    (s, sample) =>
-      updateCoach(s, {
-        rotationRateDegPerSec: sample.rotationRateDegPerSec ?? 15,
-        azimuth: sample.azimuth,
-        elapsedSeconds: sample.elapsedSeconds,
-      }),
-    state,
-  );
+  return samples.reduce((s, sample) => {
+    // rotationRateDegPerSec 를 명시하지 않은 표본은 "정상 속도"로 본다.
+    // 명시적으로 undefined 를 준 표본은 센서가 없는 기기(웹)를 뜻하므로 그대로 둔다.
+    const hasRotation = 'rotationRateDegPerSec' in sample;
+    return updateCoach(s, {
+      rotationRateDegPerSec: hasRotation ? sample.rotationRateDegPerSec : 15,
+      frameChangeRatio: sample.frameChangeRatio,
+      sharpness: sample.sharpness,
+      azimuth: sample.azimuth,
+      elapsedSeconds: sample.elapsedSeconds,
+    });
+  }, state);
 }
 
 describe('sectorOf — 방위각 → 구간', () => {
@@ -171,5 +174,66 @@ describe('한 번에 한 마디만 — 우선순위', () => {
     const advice = coachAdvice(s);
     expect(advice.level).toBe('ok');
     expect(advice.message).toContain('%');
+  });
+});
+
+describe('프레임 기반 판정 — 웹은 화면을 직접 본다', () => {
+  it('프레임 변화가 크면 빠른 것으로 본다(센서 없이도)', () => {
+    const s = feed(createCoachState(), [
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.6, elapsedSeconds: 1 },
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.6, elapsedSeconds: 2 },
+    ] as never);
+    expect(coachAdvice(s).message).toContain('너무 빠릅니다');
+  });
+
+  it('프레임 변화가 거의 없으면 멈춘 것으로 본다', () => {
+    const s = feed(createCoachState(), [
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0, elapsedSeconds: 1 },
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0, elapsedSeconds: 3 },
+    ] as never);
+    expect(coachAdvice(s).message).toContain('멈춰');
+  });
+
+  it('초점 흐림은 프레임을 볼 때만 잡는다 — 센서로는 알 수 없다', () => {
+    const s = feed(createCoachState(), [
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.1, sharpness: 5, elapsedSeconds: 1 },
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.1, sharpness: 5, elapsedSeconds: 3 },
+    ] as never);
+    expect(coachAdvice(s).message).toContain('초점이 흐립니다');
+  });
+
+  it('빠르게 움직일 때의 흐림은 속도 경고로만 말한다(중복 경고 금지)', () => {
+    // 빠르면 당연히 흐리다. 두 경고를 함께 띄우면 무엇을 고쳐야 할지 흐려진다.
+    const s = feed(createCoachState(), [
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.9, sharpness: 1, elapsedSeconds: 1 },
+      { rotationRateDegPerSec: undefined, frameChangeRatio: 0.9, sharpness: 1, elapsedSeconds: 3 },
+    ] as never);
+    const advice = coachAdvice(s);
+    expect(advice.message).toContain('너무 빠릅니다');
+    expect(advice.message).not.toContain('초점');
+  });
+
+  it('신호가 하나도 없으면 멈춤으로 단정하지 않는다', () => {
+    const s = feed(createCoachState(), [
+      { rotationRateDegPerSec: undefined, elapsedSeconds: 1 },
+      { rotationRateDegPerSec: undefined, elapsedSeconds: 3 },
+    ] as never);
+    expect(coachAdvice(s).message).not.toContain('멈춰');
+  });
+});
+
+describe('나침반이 없으면 시간으로 진행률을 본다', () => {
+  it('커버리지가 0%로 굳어 보이지 않는다', () => {
+    const s = feed(createCoachState(), [{ frameChangeRatio: 0.1, elapsedSeconds: 30 }] as never);
+    // 방위각을 못 받았으므로 시간(30/60초)으로 절반 진행을 보여준다.
+    expect(coachAdvice(s, 30, 60).coverage).toBe(0.5);
+  });
+
+  it('방위각을 받으면 시간이 아니라 커버리지를 쓴다', () => {
+    const s = feed(createCoachState(), [
+      { azimuth: 15, elapsedSeconds: 60 },
+    ] as never);
+    // 한 구간만 찍었으므로 시간(100%)이 아니라 커버리지(1/12)여야 한다.
+    expect(coachAdvice(s, 60, 60).coverage).toBeLessThan(0.2);
   });
 });

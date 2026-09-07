@@ -21,6 +21,21 @@ import type { Reconstructor } from '../scan3d/reconstructor.js';
 export function createScan3DRouter(queue: Scan3DQueue, reconstructor: Reconstructor): Router {
   const router = Router();
 
+  /**
+   * GET /api/scan3d/capability — 이 배포에서 3D 스캔이 실제로 되는지.
+   *
+   * 화면이 이걸 물어보는 이유: 복원 서버가 없으면 목이 **그럴듯한 부피**를 돌려준다.
+   * 그걸 실측처럼 보여주면 안 되므로, 화면이 미리 알고 표시를 바꿀 수 있어야 한다.
+   */
+  router.get('/scan3d/capability', (_req, res) => {
+    res.json({
+      reconstructor: reconstructor.kind,
+      storage: isStorageConfigured(),
+      // 목일 때는 결과가 실측이 아니라는 것을 화면이 그대로 띄운다.
+      demo: reconstructor.kind === 'MOCK',
+    });
+  });
+
   // POST /api/scan3d/presign  { contentType, contentLength }
   router.post('/scan3d/presign', async (req, res) => {
     if (!isStorageConfigured()) {

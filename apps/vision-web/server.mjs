@@ -37,7 +37,18 @@ const PROXY_ALLOWED = new Set([
   '/locations/search-address',
   '/locations/coord2address',
   '/locations/building-info',
+  '/scan3d/capability',
 ]);
+
+/**
+ * 본문을 실어 보내야 하는(POST) 프록시 경로. 3D 스캔은 presign → 잡 생성 순서라
+ * 쓰기 호출이 필요하다. GET 화이트리스트와 분리해 두는 이유는, 쓰기가 열리는 경로를
+ * 한눈에 보이게 하기 위해서다.
+ */
+const PROXY_ALLOWED_POST = new Set(['/scan3d/presign', '/scan3d/jobs']);
+
+/** 잡 상태 폴링은 id 가 붙어 고정 문자열로 못 적는다. 모양을 정규식으로 못 박는다. */
+const PROXY_ALLOWED_PATTERNS = [/^\/scan3d\/jobs\/[0-9a-zA-Z-]{1,64}$/];
 
 /** 확장자 → Content-Type. 목록에 없으면 다운로드되지 않게 octet-stream 으로 둔다. */
 const MIME = {
@@ -79,36 +90,82 @@ export function cacheControlFor(file) {
  * 프록시 대상 경로인지 판정하고, 맞으면 본체 API 경로를 돌려준다.
  * 화이트리스트에 없으면 null — 임의 경로가 이 서버를 통해 본체로 새지 않게 한다.
  */
-export function proxyTarget(url, allowed = PROXY_ALLOWED) {
+export function proxyTarget(url, method = 'GET', allowed = PROXY_ALLOWED) {
   if (!url.startsWith('/api/')) return null;
   const [path, query] = url.slice('/api'.length).split('?');
-  if (!allowed.has(path)) return null;
+  const permitted =
+    method === 'POST'
+      ? PROXY_ALLOWED_POST.has(path)
+      : allowed.has(path) || PROXY_ALLOWED_PATTERNS.some((re) => re.test(path));
+  if (!permitted) return null;
   return query ? `${path}?${query}` : path;
 }
 
-async function handleProxy(target, res) {
+/** 프록시로 넘길 요청 본문. 영상 자체는 스토리지로 직접 올라가므로 작다(수백 바이트). */
+const MAX_PROXY_BODY_BYTES = 64 * 1024;
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      // 본문 크기를 막지 않으면 이 서버가 메모리로 채워진다.
+      if (size > MAX_PROXY_BODY_BYTES) {
+        reject(new Error('본문이 너무 큽니다'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function handleProxy(target, res, { method = 'GET', body } = {}) {
   try {
     const headers = { Accept: 'application/json' };
     // 데모 키는 서버에서만 붙인다 — 브라우저에 내려보내면 누구나 꺼내 쓴다.
     if (DEMO_KEY) headers['X-Demo-Key'] = DEMO_KEY;
+    if (method === 'POST') headers['Content-Type'] = 'application/json';
 
-    const upstream = await fetch(`${DIMOLLINK_API}${target}`, { headers });
-    const body = await upstream.text();
+    const upstream = await fetch(`${DIMOLLINK_API}${target}`, {
+      method,
+      headers,
+      ...(method === 'POST' ? { body } : {}),
+    });
+    // ⚠️ `body` 로 받지 말 것 — 인자 `body` 를 가려 TDZ 로 죽고, 아래 catch 가 그걸
+    // "연결 실패"로 삼켜 원인이 안 보인다(실제로 그렇게 한 번 당했다).
+    const text = await upstream.text();
     res.writeHead(upstream.status, {
       'Content-Type': upstream.headers.get('content-type') ?? 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
     });
-    res.end(body);
-  } catch {
+    res.end(text);
+  } catch (err) {
     // 본체가 죽어도 이 사이트는 살아 있어야 한다 — 화면이 사유를 보여준다.
+    // 사유는 로그로만 남긴다(응답에 넣으면 내부 주소가 새어나간다).
+    console.error('[vision-web] 프록시 실패', target, err instanceof Error ? err.message : err);
     res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ error: '디몰링크 연결에 실패했습니다.' }));
   }
 }
 
 const server = createServer((req, res) => {
-  const target = proxyTarget(req.url ?? '/');
+  const method = req.method ?? 'GET';
+  const target = proxyTarget(req.url ?? '/', method);
   if (target) {
+    if (method === 'POST') {
+      readBody(req).then(
+        (body) => handleProxy(target, res, { method, body }),
+        () => {
+          res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: '요청이 너무 큽니다.' }));
+        },
+      );
+      return;
+    }
     void handleProxy(target, res);
     return;
   }

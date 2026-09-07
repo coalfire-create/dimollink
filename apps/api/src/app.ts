@@ -301,6 +301,17 @@ export function createApp(
   // 건축물대장도 같은 데모 문을 쓴다. 디몰비전 분석의 기준 정보라 둘이 함께 열려야
   // 의미가 있고, 일일 상한도 하나로 공유해 총 사용량이 상한을 넘지 않는다.
   app.use('/api/locations/building-info', visionDemo.wrap(requireAuth));
+  // 3D 스캔도 같은 문을 쓴다. presign 을 익명에 열어두면 누구나 버킷에 200MB 를
+  // 밀어넣을 수 있다 — 스토리지 비용이 그대로 남용 대상이 된다.
+  // capability 조회는 상태 확인일 뿐이라 문 밖에 둔다(비용이 없고, 화면이 먼저 부른다).
+  const scan3dGate = visionDemo.wrap(requireAuth);
+  app.use('/api/scan3d', (req, res, next) => {
+    if (req.method === 'GET' && req.path === '/capability') {
+      next();
+      return;
+    }
+    scan3dGate(req, res, next);
+  });
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
   app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)

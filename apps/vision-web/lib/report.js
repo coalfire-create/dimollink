@@ -18,16 +18,25 @@
     return s;
   }
 
+  /**
+   * 진행 단계 표시.
+   *
+   * 사진 분석과 3D 스캔은 단계가 다르다. 단계 이름으로 어느 쪽인지 판별해 목록을 고른다 —
+   * 호출부마다 목록을 넘기게 하면 한 곳만 빠뜨려도 진행 표시가 통째로 빈다.
+   */
   function renderProgress(container, activeStage) {
     container.innerHTML = "";
-    var stages = DV.taxonomy.stageOrder;
+    var isScan = DV.taxonomy.scanStageOrder.indexOf(activeStage) >= 0;
+    var stages = isScan ? DV.taxonomy.scanStageOrder : DV.taxonomy.stageOrder;
     var activeIdx = stages.indexOf(activeStage);
     stages.forEach(function (stage, idx) {
       var li = el("li", null);
       if (idx < activeIdx) li.classList.add("done");
       else if (idx === activeIdx) li.classList.add("active");
       li.appendChild(el("span", "marker"));
-      li.appendChild(el("span", null, F.stageLabel(stage)));
+      li.appendChild(
+        el("span", null, isScan ? DV.taxonomy.scanStageLabels[stage] : F.stageLabel(stage)),
+      );
       container.appendChild(li);
     });
   }

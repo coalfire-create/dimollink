@@ -31,6 +31,23 @@ window.DimolVision.taxonomy = {
     STEEL: "철골조",
     UNKNOWN: "구조 미상",
   },
+  // 3D 스캔 단계(packages/shared SCAN_3D_STAGE_LABELS 미러).
+  scanStageOrder: [
+    "UPLOADING",
+    "EXTRACTING",
+    "MATCHING",
+    "RECONSTRUCTING",
+    "SPLATTING",
+    "MEASURING",
+  ],
+  scanStageLabels: {
+    UPLOADING: "영상 올리는 중",
+    EXTRACTING: "장면 나누는 중",
+    MATCHING: "촬영 위치 계산 중",
+    RECONSTRUCTING: "입체 형상 만드는 중",
+    SPLATTING: "실사 화질로 다듬는 중",
+    MEASURING: "크기·부피 재는 중",
+  },
   // 진행 단계 라벨(기획서 §3.2 순서).
   stageOrder: ["recognition", "guideline_search", "process_generation"],
   stageLabels: {

@@ -13,20 +13,44 @@
   <body>
     <header class="app-header">
       <h1 class="app-title">디몰비전</h1>
-      <p class="app-subtitle">현장 사진으로 철거 자재·공정·폐기물을 참고용으로 분석합니다</p>
+      <p class="app-subtitle">
+        <strong>사진</strong>으로 자재·공정·폐기물을, <strong>영상</strong>으로 건물 부피를
+        참고용으로 분석합니다
+      </p>
     </header>
 
     <main class="container">
+      <!-- 0) 무엇을 할지 먼저 고른다.
+           사진과 영상은 요구하는 촬영이 다르고 나오는 결과도 다르다. 한 화면에 섞어두면
+           "사진을 올리라는 건지 영상을 올리라는 건지" 알 수 없다. -->
+      <nav class="mode-tabs" role="tablist" aria-label="분석 방식">
+        <button id="mode-photo" class="mode-tab is-active" type="button"
+                role="tab" aria-selected="true" aria-controls="upload-view">
+          사진 분석
+          <span class="mode-tab-sub">자재 · 공정 · 폐기물</span>
+        </button>
+        <button id="mode-scan" class="mode-tab" type="button"
+                role="tab" aria-selected="false" aria-controls="scan-view">
+          3D 스캔 (영상)
+          <span class="mode-tab-sub">건물 부피 실측</span>
+        </button>
+      </nav>
+
       <!-- 1) 업로드 -->
       <section id="upload-view" class="card" aria-labelledby="upload-heading">
         <h2 id="upload-heading" class="section-title">현장 사진 올리기</h2>
 
         <label class="field-label" for="photo-input">사진 — 건물 내부 위주로 많이 (최대 40장)</label>
+        <!-- 권장 경로를 한 줄 차지하게 둔다. 세 개를 나란히 놓으면 셋 다 좁아져
+             글자가 세로로 서고, 무엇이 권장인지도 알 수 없다. -->
+        <button id="photo-coach-btn" class="btn btn-primary btn-block" type="button">
+          촬영 (실시간 안내)
+        </button>
         <div class="capture-row">
           <!-- 모바일에서 capture 속성이 있으면 앨범 대신 카메라가 바로 열린다.
                데스크톱은 이 속성을 무시하고 파일 선택으로 폴백한다. -->
-          <label class="btn btn-primary capture-btn" for="photo-camera">
-            사진 촬영
+          <label class="btn btn-ghost capture-btn" for="photo-camera">
+            기본 카메라
             <input id="photo-camera" class="visually-hidden" type="file"
                    accept="image/*" capture="environment" multiple />
           </label>
@@ -82,6 +106,70 @@
         <p id="upload-error" class="error-text" role="alert" hidden></p>
       </section>
 
+      <!-- 1-B) 3D 스캔 — 영상 -->
+      <section id="scan-view" class="card" aria-labelledby="scan-heading" hidden>
+        <h2 id="scan-heading" class="section-title">건물 한 바퀴 영상 올리기</h2>
+
+        <p id="scan-capability" class="notice" aria-live="polite" hidden></p>
+
+        <p class="hint">
+          <strong>사진이 아니라 영상입니다.</strong> 건물 주위를 <strong>45~60초</strong> 동안
+          한 바퀴 걸으면서 계속 찍어주세요. 사진 여러 장으로는 부피가 나오지 않습니다 —
+          연속된 화면이어야 카메라가 어디 있었는지 풀 수 있습니다.
+        </p>
+
+        <ol class="steps-list">
+          <li>건물이 화면에 <strong>다 들어오는 거리</strong>까지 물러섭니다.</li>
+          <li>카메라를 건물 쪽으로 향한 채 <strong>천천히</strong> 한 바퀴 걷습니다.</li>
+          <li><strong>멈추지 말고</strong> 계속 찍습니다. 끊으면 이어붙일 수 없습니다.</li>
+          <li>출발점으로 돌아와 <strong>2~3초 더</strong> 찍고 끝냅니다.</li>
+        </ol>
+
+        <button id="scan-record-btn" class="btn btn-primary btn-block" type="button">
+          지금 촬영 (실시간 안내)
+        </button>
+        <label class="btn btn-ghost capture-btn btn-block" for="video-input">
+          이미 찍은 영상 선택
+          <input id="video-input" class="visually-hidden" type="file" accept="video/*" />
+        </label>
+        <p class="hint">
+          &lsquo;지금 촬영&rsquo;은 화면에 <strong>너무 빠릅니다 / 초점이 흐립니다</strong> 같은
+          안내를 실시간으로 띄워, 다 찍고 나서 실패를 알게 되는 일을 막아줍니다.
+        </p>
+
+        <video id="scan-preview" class="scan-preview" controls playsinline hidden></video>
+        <p id="scan-file-info" class="hint" aria-live="polite"></p>
+
+        <fieldset class="fieldset">
+          <legend class="field-label">무엇을 찍었나요</legend>
+          <label class="radio-row">
+            <input type="radio" name="scan-target" value="EXTERIOR" checked />
+            <span>건물 바깥을 한 바퀴</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="scan-target" value="INTERIOR" />
+            <span>실내를 한 바퀴</span>
+          </label>
+          <label class="field-label sub" for="scan-steps">걸음 수 (선택)</label>
+          <p class="hint">
+            한 바퀴 도는 동안 걸은 걸음 수를 넣으면 <strong>실제 치수 오차가 줄어듭니다</strong>
+            (&plusmn;25% &rarr; &plusmn;18%). 휴대폰 만보기 값을 그대로 넣어도 됩니다.
+          </p>
+          <input id="scan-steps" class="text-input" type="number" inputmode="numeric"
+                 placeholder="예: 60" />
+        </fieldset>
+
+        <p class="hint">
+          현장 주소를 <strong>사진 분석 화면에서 먼저 확인</strong>해 두면 건축물대장 연면적으로
+          크기 기준을 잡아 정확도가 올라갑니다.
+        </p>
+
+        <button id="scan-submit-btn" class="btn btn-primary" type="button" disabled>
+          3D 복원 시작
+        </button>
+        <p id="scan-error" class="error-text" role="alert" hidden></p>
+      </section>
+
       <!-- 2) 진행 상태 -->
       <section id="progress-view" class="card" aria-labelledby="progress-heading" hidden>
         <h2 id="progress-heading" class="section-title">분석 중…</h2>
@@ -112,12 +200,36 @@
           <button id="restart-btn" class="btn btn-ghost" type="button">새 분석</button>
         </div>
       </section>
+
+      <!-- 3-B) 3D 결과 -->
+      <section id="scan-report-view" class="card" aria-labelledby="scan-report-heading" hidden>
+        <h2 id="scan-report-heading" class="section-title">3D 스캔 결과</h2>
+        <div id="scan-report-body"></div>
+        <div class="report-actions">
+          <button id="scan-restart-btn" class="btn btn-ghost" type="button">새 스캔</button>
+        </div>
+      </section>
     </main>
+
+    <!-- 촬영 화면(전체 화면). 실시간 코치가 여기 뜬다. -->
+    <div id="camera-overlay" class="camera-overlay" role="dialog"
+         aria-modal="true" aria-label="촬영 화면" hidden>
+      <video id="camera-video" class="camera-video" playsinline muted></video>
+      <p id="camera-coach" class="camera-coach" role="status" aria-live="polite"></p>
+      <div id="camera-sectors" class="camera-sectors" aria-hidden="true"></div>
+      <div class="camera-controls">
+        <button id="camera-close" class="btn btn-ghost" type="button">닫기</button>
+        <button id="camera-shutter" class="btn btn-primary" type="button">사진 찍기</button>
+      </div>
+    </div>
 
     <!-- 비모듈 경량 구성 (프레임워크 없음). 로드 순서 = 의존 순서. -->
     <script src="./config.js"></script>
     <script src="./taxonomy.js"></script>
     <script src="./lib/format.js"></script>
+    <script src="./lib/coach.js"></script>
+    <script src="./lib/camera.js"></script>
+    <script src="./lib/scan3d.js"></script>
     <script src="./lib/address.js"></script>
     <script src="./lib/client.js"></script>
     <script src="./lib/report.js"></script>
