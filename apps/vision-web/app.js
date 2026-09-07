@@ -37,32 +37,71 @@
     uploadError.textContent = msg;
   }
 
-  photoInput.addEventListener("change", function () {
+  /**
+   * 사진을 목록에 더한다.
+   *
+   * 촬영은 한 번에 한두 장씩 여러 번 하게 되므로 **덮어쓰지 않고 누적**한다.
+   * (앨범 선택도 같은 규칙 — 방마다 따로 고르는 흐름이 자연스럽다.)
+   * 같은 파일을 두 번 넣는 실수는 이름+크기로 걸러낸다.
+   */
+  function addPhotos(fileList) {
     setError(null);
-    thumbs.innerHTML = "";
-    selectedFiles = Array.prototype.slice.call(photoInput.files || []);
+    var incoming = Array.prototype.slice.call(fileList || []);
+    if (!incoming.length) return;
 
-    if (selectedFiles.length > config.maxPhotos) {
-      setError("사진은 최대 " + config.maxPhotos + "장까지 올릴 수 있습니다.");
-      analyzeBtn.disabled = true;
-      return;
-    }
-    var tooBig = selectedFiles.filter(function (f) {
+    var tooBig = incoming.filter(function (f) {
       return f.size > config.maxBytesPerPhoto;
     });
     if (tooBig.length) {
       setError("10MB를 넘는 사진이 있습니다. 다시 선택해 주세요.");
-      analyzeBtn.disabled = true;
       return;
     }
 
-    selectedFiles.forEach(function (f) {
+    incoming.forEach(function (f) {
+      var duplicate = selectedFiles.some(function (existing) {
+        return existing.name === f.name && existing.size === f.size;
+      });
+      if (!duplicate) selectedFiles.push(f);
+    });
+
+    if (selectedFiles.length > config.maxPhotos) {
+      selectedFiles = selectedFiles.slice(0, config.maxPhotos);
+      setError("사진은 최대 " + config.maxPhotos + "장까지 올릴 수 있어 앞의 " +
+               config.maxPhotos + "장만 사용합니다.");
+    }
+    renderThumbs();
+  }
+
+  /** 미리보기 다시 그리기. 각 장을 눌러 뺄 수 있게 한다(잘못 찍은 걸 지울 수 있어야 한다). */
+  function renderThumbs() {
+    thumbs.innerHTML = "";
+    selectedFiles.forEach(function (f, index) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "thumb-btn";
+      btn.title = "이 사진 빼기";
+      btn.setAttribute("aria-label", index + 1 + "번째 사진 빼기");
       var img = document.createElement("img");
       img.alt = "선택한 현장 사진 미리보기";
       img.src = URL.createObjectURL(f);
-      thumbs.appendChild(img);
+      btn.appendChild(img);
+      btn.onclick = function () {
+        selectedFiles.splice(index, 1);
+        renderThumbs();
+      };
+      thumbs.appendChild(btn);
     });
+    el("photo-count").textContent = selectedFiles.length
+      ? selectedFiles.length + "장 선택됨 (사진을 누르면 뺄 수 있어요)"
+      : "";
     analyzeBtn.disabled = selectedFiles.length === 0;
+  }
+
+  ["photo-camera", "photo-input"].forEach(function (id) {
+    el(id).addEventListener("change", function (e) {
+      addPhotos(e.target.files);
+      e.target.value = ""; // 같은 파일을 다시 고를 수 있게 초기화한다.
+    });
   });
 
   // 건축물대장(공공데이터) 조회 결과. 디몰링크 본체가 조회해 준 "확정 사실" 문구다.
@@ -170,9 +209,10 @@
 
   el("restart-btn").addEventListener("click", function () {
     selectedFiles = [];
+    // 촬영·앨범 두 입력 모두 비운다 — 하나만 비우면 같은 사진이 다시 안 골라진다.
+    el("photo-camera").value = "";
     photoInput.value = "";
-    thumbs.innerHTML = "";
-    analyzeBtn.disabled = true;
+    renderThumbs();
     feedbackCtl = null;
     feedbackSubmit.disabled = true;
     setFeedbackStatus(null);

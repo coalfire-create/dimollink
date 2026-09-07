@@ -22,18 +22,26 @@
         <h2 id="upload-heading" class="section-title">현장 사진 올리기</h2>
 
         <label class="field-label" for="photo-input">사진 — 건물 내부 위주로 많이 (최대 40장)</label>
-        <input
-          id="photo-input"
-          class="file-input"
-          type="file"
-          accept="image/*"
-          multiple
-        />
+        <div class="capture-row">
+          <!-- 모바일에서 capture 속성이 있으면 앨범 대신 카메라가 바로 열린다.
+               데스크톱은 이 속성을 무시하고 파일 선택으로 폴백한다. -->
+          <label class="btn btn-primary capture-btn" for="photo-camera">
+            사진 촬영
+            <input id="photo-camera" class="visually-hidden" type="file"
+                   accept="image/*" capture="environment" multiple />
+          </label>
+          <label class="btn btn-ghost capture-btn" for="photo-input">
+            앨범에서 선택
+            <input id="photo-input" class="visually-hidden" type="file"
+                   accept="image/*" multiple />
+          </label>
+        </div>
         <p id="photo-hint" class="hint">
           <strong>건물 내부를 방마다 여러 장씩, 최대한 많이 올려주세요.</strong>
           사진이 많을수록 자재 인식과 철거 과정 안내가 정확해집니다.
           외부 4방향·지붕재 근접 사진도 함께 넣으면 더 좋습니다.
         </p>
+        <p id="photo-count" class="hint" aria-live="polite"></p>
         <div id="thumbs" class="thumbs" aria-live="polite"></div>
 
         <fieldset class="fieldset">
