@@ -83,6 +83,9 @@ import { createMapPageRouter } from './routes/map-page.js';
 import { createScanViewerPageRouter } from './routes/scan-viewer-page.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
 import { createScan3DRouter } from './routes/scan3d.js';
+import { createDemolitionEstimateRouter } from './routes/demolition-estimates.js';
+import { DemolitionEstimateStore } from './demolition/store.js';
+import type { DemolitionEstimate } from '@dimol/shared';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -289,6 +292,10 @@ export function createApp(
     persistence<Incident>('incidents'),
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
+  const demolitionEstimateStore = new DemolitionEstimateStore(
+    requestStore,
+    persistence<DemolitionEstimate>('demolition-estimates'),
+  );
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
   // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
   const interiorStore = new InteriorStore(
@@ -312,6 +319,8 @@ export function createApp(
   app.post('/api/allbaro/verify-member', requireAuth);
   app.post('/api/allbaro/manifest', requireAuth);
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
+  // 철거 견적(개산·실사·확정) — 전 단계가 당사자 확인을 하므로 로그인 필수.
+  app.use('/api/demolition-estimates', requireAuth);
   // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
   // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
   // 디몰비전 공모전 데모: 키가 설정된 경우에만 로그인 없이 분석을 허용한다(일일 상한 적용).
@@ -427,7 +436,22 @@ export function createApp(
   app.use('/api', createOffersRouter(offerStore));
   app.use('/api', createNotificationsRouter(notificationService));
   app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
-  app.use('/api', createChatRouter(new ChatStore(requestStore, notificationService, persistence<ChatMessage>('chat'))));
+  // 철거는 실사 일정을 잡아야 견적이 나오는데 실사는 매칭 전 단계다 —
+  // 실사 예약된 업체도 대화 상대로 넣어야 정작 필요한 구간에서 막히지 않는다.
+  app.use(
+    '/api',
+    createChatRouter(
+      new ChatStore(
+        requestStore,
+        notificationService,
+        persistence<ChatMessage>('chat'),
+        async (requestId) =>
+          (await demolitionEstimateStore.listByRequest(requestId))
+            .filter((e) => e.visit && e.stage !== 'DECLINED')
+            .map((e) => e.providerId),
+      ),
+    ),
+  );
   // 3D 스캔 실측이 있으면 그걸 쓰고, 없거나 품질 미달이면 연면적 원단위로 폴백한다.
   const volumeEstimator = new ScanVolumeEstimator(new HeuristicVolumeEstimator());
   app.use('/api', createEstimationRouter(volumeEstimator));
@@ -471,6 +495,12 @@ export function createApp(
     createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, volumeEstimator),
   );
   app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
+  // 철거 견적 — 개산(범위) → 실사 → 확정. 운반·처리의 단발 견적과 분리한다
+  // (철거 금액은 현장을 봐야 정해져서, 사진만 보고 낸 금액을 계약금액으로 쓰면 안 된다).
+  app.use(
+    '/api',
+    createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore),
+  );
   app.use(
     '/api',
     createAdminRouter(

@@ -48,10 +48,10 @@ describe('ChatStore — 인앱 채팅', () => {
     expect(sent[1].userId).toBe('d-1');
   });
 
-  it('매칭 확정 전에는 채팅 불가', async () => {
+  it('상대가 정해지기 전에는 채팅 불가', async () => {
     const { store, request } = await setup(false);
     await expect(store.sendMessage(request.id, 'd-1', '안녕하세요')).rejects.toThrow(
-      '업체 매칭이 확정된 후에',
+      '업체가 정해진 후에',
     );
   });
 
@@ -93,5 +93,52 @@ describe('ChatStore — 인앱 채팅', () => {
 
     const newer = await store.listMessages(request.id, 'd-1', first.createdAt);
     expect(newer.map((m) => m.content)).toEqual(['둘째 메시지']);
+  });
+});
+
+describe('매칭 전 대화 — 철거 실사 예약 업체', () => {
+  /**
+   * 철거는 실사 일정을 잡아야 견적이 나오는데, 실사는 매칭 **전** 단계다.
+   * 참여자를 matchedProviderId 로만 보면 정작 이야기가 제일 필요한 구간에서 막힌다.
+   */
+  async function demolitionChat(visitProviders: string[]) {
+    const requestStore = new RequestStore();
+    const request = await requestStore.create({
+      kind: 'DEMOLITION',
+      requesterId: 'c-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 10,
+      siteAddress: '양평읍 1',
+    } as never);
+    const store = new ChatStore(
+      requestStore,
+      new NotificationService({ send: () => undefined }),
+      undefined,
+      async () => visitProviders,
+    );
+    return { store, request };
+  }
+
+  it('실사 예약된 업체는 매칭 전에도 대화할 수 있다', async () => {
+    const { store, request } = await demolitionChat(['demo-1']);
+    const sent = await store.sendMessage(request.id, 'demo-1', '실사 일정 언제가 편하신가요?');
+    expect(sent.senderId).toBe('demo-1');
+    // 요청자도 같은 대화를 본다.
+    expect(await store.listMessages(request.id, 'c-1')).toHaveLength(1);
+  });
+
+  it('실사 예약이 없는 업체는 여전히 막힌다', async () => {
+    const { store, request } = await demolitionChat(['demo-1']);
+    await expect(store.sendMessage(request.id, 'demo-2', '저희도요')).rejects.toThrow(
+      '요청 당사자만',
+    );
+  });
+
+  it('실사 예약이 하나도 없으면 아무도 대화할 수 없다', async () => {
+    const { store, request } = await demolitionChat([]);
+    await expect(store.sendMessage(request.id, 'c-1', '안녕하세요')).rejects.toThrow(
+      '업체가 정해진 후에',
+    );
   });
 });
