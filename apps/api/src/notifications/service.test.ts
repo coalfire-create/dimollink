@@ -1,7 +1,7 @@
-import type { AppNotification } from '@dimol/shared';
+import { TRANSPORT_CALL_FANOUT_LIMIT, type AppNotification } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
 import { RequestStore } from '../requests/store.js';
-import type { NotificationProvider } from './provider.js';
+import { ConsoleNotificationProvider, type NotificationProvider } from './provider.js';
 import { NotificationService } from './service.js';
 
 async function setup(provider?: NotificationProvider) {
@@ -144,5 +144,42 @@ describe('NotificationService — 신규 운반요청 콜 알림(반경 30km)', 
       location: { lat: 37.5, lng: 127.5 },
     });
     expect(sent).toHaveLength(0);
+  });
+});
+
+describe('콜 알림 팬아웃 상한 — 업체가 늘어도 비용이 곱해지지 않는다', () => {
+  it('가까운 순으로 상한까지만 보낸다', () => {
+    const service = new NotificationService(new ConsoleNotificationProvider());
+    // 반경 안에 상한보다 많은 업체가 있는 상황.
+    const companies = Array.from({ length: TRANSPORT_CALL_FANOUT_LIMIT + 15 }, (_, i) => ({
+      id: `t${i}`,
+      location: { lat: 37.49 + i * 0.0001, lng: 127.49 },
+    }));
+    const request = {
+      id: 'r1',
+      kind: 'TRANSPORT',
+      status: 'REQUESTED',
+      location: { lat: 37.49, lng: 127.49 },
+    } as never;
+
+    const created = service.notifyTransportCall(request, companies);
+    expect(created).toHaveLength(TRANSPORT_CALL_FANOUT_LIMIT);
+    // 가까운 순이어야 한다 — 잘라내는 쪽이 먼 업체다.
+    expect(created[0].userId).toBe('t0');
+  });
+
+  it('상한보다 적으면 전원에게 보낸다', () => {
+    const service = new NotificationService(new ConsoleNotificationProvider());
+    const companies = [
+      { id: 'a', location: { lat: 37.49, lng: 127.49 } },
+      { id: 'b', location: { lat: 37.4901, lng: 127.49 } },
+    ];
+    const request = {
+      id: 'r2',
+      kind: 'TRANSPORT',
+      status: 'REQUESTED',
+      location: { lat: 37.49, lng: 127.49 },
+    } as never;
+    expect(service.notifyTransportCall(request, companies)).toHaveLength(2);
   });
 });

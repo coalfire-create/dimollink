@@ -150,7 +150,7 @@ describe('PATCH /api/admin/users/:id/role — 관리자 지정(부트스트랩)'
 
 describe('PATCH /api/admin/requests/:id/status — 멈춘 요청 개입', () => {
   /** IN_PROGRESS 까지 진행된 요청(업체가 잠수한 상황을 만든다). */
-  async function stuckRequest() {
+  async function stuckRequest(paymentId?: string) {
     const r = await requestStore.create({
       kind: 'TRANSPORT',
       requesterId: 'u1',
@@ -161,7 +161,7 @@ describe('PATCH /api/admin/requests/:id/status — 멈춘 요청 개입', () => 
       unloadAddress: 'b',
     } as never);
     await requestStore.changeStatus(r.id, 'MATCHED', { matchedProviderId: 'p1' });
-    await requestStore.changeStatus(r.id, 'PAID');
+    await requestStore.changeStatus(r.id, 'PAID', { paymentId });
     await requestStore.changeStatus(r.id, 'IN_PROGRESS');
     return r.id;
   }
@@ -195,6 +195,27 @@ describe('PATCH /api/admin/requests/:id/status — 멈춘 요청 개입', () => 
     await requestStore.changeStatus(id, 'SETTLED');
     const res = await patch(id, { status: 'IN_PROGRESS', reason: '되돌리기 시도' });
     expect(res.status).toBe(400);
+  });
+
+  it('결제된 건을 취소하면 환불이 남았다고 알린다 — 돈은 따라 움직이지 않는다', async () => {
+    const paid = await stuckRequest('pay_123');
+    const res = await patch(paid, { status: 'CANCELLED', reason: '분쟁 조정' });
+    const body = await res.json();
+    expect(body.status).toBe('CANCELLED');
+    // 상태만 바뀌었을 뿐 환불은 별도다. 화면이 이걸 보고 운영자에게 알린다.
+    expect(body.refundRequired).toBe(true);
+  });
+
+  it('결제 전 건은 환불 안내를 띄우지 않는다', async () => {
+    const unpaid = await stuckRequest();
+    const res = await patch(unpaid, { status: 'CANCELLED', reason: '배출자 요청' });
+    expect((await res.json()).refundRequired).toBe(false);
+  });
+
+  it('취소가 아닌 전이에는 환불 안내가 없다', async () => {
+    const paid = await stuckRequest('pay_123');
+    const res = await patch(paid, { status: 'COMPLETED', reason: '현장 확인 완료' });
+    expect((await res.json()).refundRequired).toBe(false);
   });
 
   it('알 수 없는 상태는 거부한다', async () => {

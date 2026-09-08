@@ -129,14 +129,28 @@ export function createAdminRouter(
     }
     try {
       const actor = adminActor(req);
-      res.json(
-        await stores.requestStore.changeStatus(req.params.id, status as MatchStatus, {
-          adminOverride: { reason, actorId: actor?.id },
-          matchedProviderId:
-            typeof body.matchedProviderId === 'string' ? body.matchedProviderId : undefined,
-          cancelReason: typeof body.cancelReason === 'string' ? body.cancelReason : reason,
-        }),
-      );
+      const before = await stores.requestStore.get(req.params.id);
+      const request = await stores.requestStore.changeStatus(req.params.id, status as MatchStatus, {
+        adminOverride: { reason, actorId: actor?.id },
+        matchedProviderId:
+          typeof body.matchedProviderId === 'string' ? body.matchedProviderId : undefined,
+        cancelReason: typeof body.cancelReason === 'string' ? body.cancelReason : reason,
+      });
+      /**
+       * ⚠️ 상태만 바꾼다. **돈은 따라 움직이지 않는다.**
+       *
+       * 환불은 결제 기록 기준으로 `POST /api/payments/cancel` 이 수행한다(단계별 위약금
+       * 계산이 거기 있다). 여기서 자동으로 환불까지 하면 위약금 단계를 관리자가 못 고르고,
+       * 결제자 본인 확인도 건너뛴다. 대신 **환불이 남았다는 사실을 응답에 실어** 화면이
+       * 알리게 한다 — 조용히 갈라지면 "취소됐는데 돈은 안 돌아왔다"가 된다.
+       */
+      const refundRequired = status === 'CANCELLED' && Boolean(before?.paymentId);
+      if (refundRequired) {
+        console.warn(
+          `[admin] 강제 취소 — 환불 미처리 상태 request=${req.params.id} payment=${before?.paymentId}`,
+        );
+      }
+      res.json({ ...request, refundRequired });
     } catch (err) {
       handleError(err, res);
     }

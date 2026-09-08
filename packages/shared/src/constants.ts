@@ -28,6 +28,18 @@ export const ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON = 5;
  */
 export const MATCH_RADIUS_KM = 30;
 
+/**
+ * 신규 운반요청 "콜" 알림을 받는 업체 수 상한(가까운 순).
+ *
+ * 반경 안 전원에게 보내면 업체가 늘어난 만큼 **요청 1건당 문자 비용이 그대로 곱해진다**
+ * (알림이 문자로 나가기 전에는 로그뿐이라 공짜였다). 받는 쪽도 못 잡을 콜까지 계속
+ * 받으면 수신거부를 눌러 정작 중요한 알림을 놓친다.
+ *
+ * 일감 목록에는 반경 안 전원에게 그대로 보이므로 매칭 기회가 줄지는 않는다 —
+ * 줄어드는 것은 "먼저 알려주는" 대상뿐이다.
+ */
+export const TRANSPORT_CALL_FANOUT_LIMIT = 20;
+
 /** 고객센터 대표 전화번호(표시용). 문의 화면·고객센터 버튼에서 노출한다. */
 export const SUPPORT_PHONE = '070-4577-7960';
 

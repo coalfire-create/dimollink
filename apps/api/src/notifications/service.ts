@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   MATCH_RADIUS_KM,
+  TRANSPORT_CALL_FANOUT_LIMIT,
   type AppNotification,
   type GeoPoint,
   type MatchStatus,
@@ -112,7 +113,12 @@ export class NotificationService {
       maxRadiusKm: MATCH_RADIUS_KM,
     });
     // 현장 좌표가 있으면 반경 밖(거리 null 인 좌표 미보유 업체 포함)은 제외, 없으면 후보 전체.
-    const targets = request.location ? ranked.filter((c) => c.distanceKm !== null) : ranked;
+    // 가까운 순으로 상한까지만. 반경 안 전원에게 보내면 업체 수만큼 문자 비용이 곱해진다.
+    // 일감 목록에는 전원에게 그대로 보이므로 매칭 기회는 줄지 않는다([[constants]]).
+    const targets = (request.location ? ranked.filter((c) => c.distanceKm !== null) : ranked).slice(
+      0,
+      TRANSPORT_CALL_FANOUT_LIMIT,
+    );
 
     const created = targets.map<AppNotification>((company) => ({
       id: randomUUID(),
