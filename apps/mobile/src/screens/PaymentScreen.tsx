@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   INTERIOR_CATEGORY_LABELS,
-  PLATFORM_FEE_RATE,
+  calculateDeal,
   REQUEST_KIND_LABELS,
   type InteriorRequest,
   type ServiceRequest,
@@ -123,7 +123,9 @@ export function PaymentScreen({
   }
 
   const amount = request.agreedFee ?? 0;
-  const fee = Math.round(amount * PLATFORM_FEE_RATE);
+  // 수수료 계산은 서버 정산과 같은 공유 함수를 쓴다 — 여기서 따로 계산하면
+  // 반올림 규칙이 갈라져 화면 금액과 실제 정산액이 어긋난다([[marketplace]]).
+  const deal = calculateDeal(amount);
   const headline = isInterior(request)
     ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
     : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
@@ -170,7 +172,11 @@ export function PaymentScreen({
             <Text style={styles.amountLabel}>{headline}</Text>
             <Text style={styles.amount}>{amount.toLocaleString('ko-KR')}원</Text>
             <Text style={styles.feeNote}>
-              수수료 {Math.round(PLATFORM_FEE_RATE * 100)}%({fee.toLocaleString('ko-KR')}원)는 업체 정산 시 차감돼요
+              수수료 {Math.round(deal.feeRate * 100)}%(
+              {deal.platformFee.toLocaleString('ko-KR')}원)는 업체 정산 시 차감돼요
+            </Text>
+            <Text style={styles.feeNote}>
+              업체 수령액 {deal.sellerPayout.toLocaleString('ko-KR')}원
             </Text>
           </View>
         </FadeInUp>

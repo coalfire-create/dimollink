@@ -1,4 +1,4 @@
-import type { MatchStatus } from '@dimol/shared';
+import { payoutPartyForRequestKind, type MatchStatus, type PayoutParty } from '@dimol/shared';
 import type { RequestStore } from '../requests/store.js';
 import type { InteriorStore } from '../interior/store.js';
 
@@ -18,6 +18,14 @@ export interface PayableRequest {
   agreedFee?: number;
   /** 매칭 확정된 셀러 id (정산 지급 대상). */
   matchedProviderId?: string;
+  /**
+   * 이 거래에서 돈을 받는 쪽의 역할.
+   *
+   * 지급 멱등키(`요청id-party`)와 **세금계산서 건명**이 이 값으로 정해진다. 예전에는
+   * 무조건 TRANSPORT 로 넣어서, 철거업체·처리장에게 지급할 때도 "운반" 건으로
+   * 발행됐다. 스토어마다 자기 요청 종류를 알고 있으니 여기서 확정해 넘긴다.
+   */
+  payoutParty: PayoutParty;
 }
 
 /** 결제 흐름에서 요청에 기록하는 상태 부가정보. */
@@ -42,7 +50,13 @@ export function compositePayableStore(
 ): PayableRequestStore {
   return {
     async get(id) {
-      return (await waste.get(id)) ?? (await interior.getRequest(id));
+      const wasteRequest = await waste.get(id);
+      if (wasteRequest) {
+        return { ...wasteRequest, payoutParty: payoutPartyForRequestKind(wasteRequest.kind) };
+      }
+      const interiorRequest = await interior.getRequest(id);
+      // 인테리어는 파일럿 밖(FEATURE_INTERIOR)이지만 세금계산서 건명은 똑같이 중요하다.
+      return interiorRequest ? { ...interiorRequest, payoutParty: 'INTERIOR' } : undefined;
     },
     async changeStatus(id, to, options = {}) {
       if (await waste.get(id)) {

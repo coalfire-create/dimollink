@@ -1,4 +1,9 @@
-import type { PayoutInstruction, SettlementPlan } from '@dimol/shared';
+import {
+  calculateDeal,
+  type PayoutInstruction,
+  type PayoutParty,
+  type SettlementPlan,
+} from '@dimol/shared';
 import { calculateSettlement } from './calculate.js';
 import { calculateSettlementDate } from './settlement-date.js';
 
@@ -22,6 +27,51 @@ export interface BuildSettlementPlanInput {
   /** 지급 대상 사업자번호(PII, 선택). */
   transportBusinessNumber?: string;
   disposalBusinessNumber?: string;
+}
+
+/**
+ * 단일 수취인 거래의 정산 플랜 — 이 플랫폼의 실제 거래 형태.
+ *
+ * 소비자 → 철거업체, 철거업체 → 처리장 두 다리 모두 **결제자 한 명, 수취인 한 명**이다.
+ * 아래 buildSettlementPlan 은 "배출자가 운반비+처리비를 한 번에 내고 둘에게 나눠 지급"을
+ * 전제해 항상 두 건의 지급 지시를 만든다 — 그러면 금액 0짜리 유령 지급이 생기고,
+ * 무엇보다 수취인이 철거업체여도 party 가 TRANSPORT 로 찍혀 세금계산서가 틀어진다.
+ */
+export function buildDealSettlementPlan(input: {
+  /** 합의 금액(결제자가 내는 돈). */
+  amount: number;
+  /** 수취인 역할. 요청 종류에서 정한다([[marketplace]] payoutPartyForRequestKind). */
+  party: PayoutParty;
+  /** 처리완료일 'YYYY-MM-DD' (KST). */
+  completedDate: string;
+  holidays?: ReadonlySet<string>;
+  /** 지급 대상 사업자번호(PII). */
+  sellerBusinessNumber?: string;
+}): SettlementPlan {
+  const deal = calculateDeal(input.amount);
+  return {
+    breakdown: {
+      // 기존 SettlementBreakdown 계약을 유지하되, 단일 수취인이라 한쪽에만 담는다.
+      transportFee: input.party === 'TRANSPORT' ? input.amount : 0,
+      disposalFee: input.party === 'DISPOSAL' ? input.amount : 0,
+      grossAmount: deal.payerAmount,
+      platformFee: deal.platformFee,
+      payoutToTransport: input.party === 'TRANSPORT' ? deal.sellerPayout : 0,
+      payoutToDisposal: input.party === 'DISPOSAL' ? deal.sellerPayout : 0,
+      totalPayout: deal.sellerPayout,
+    },
+    prepaymentAmount: deal.payerAmount,
+    completedDate: input.completedDate,
+    settlementDate: calculateSettlementDate(input.completedDate, input.holidays),
+    // 지급 지시는 **하나**다. 받는 사람이 한 명이니까.
+    payouts: [
+      {
+        party: input.party,
+        amount: deal.sellerPayout,
+        businessNumber: input.sellerBusinessNumber,
+      },
+    ],
+  };
 }
 
 export function buildSettlementPlan(input: BuildSettlementPlanInput): SettlementPlan {

@@ -7,7 +7,11 @@ import { PortOneError } from '../payment/portone-client.js';
 import type { QuoteStore } from '../quotes/store.js';
 import type { PayableRequestStore } from '../payment/payable-request.js';
 import type { UserStore } from '../users/store.js';
-import { buildSettlementPlan, type BuildSettlementPlanInput } from '../settlement/plan.js';
+import {
+  buildDealSettlementPlan,
+  buildSettlementPlan,
+  type BuildSettlementPlanInput,
+} from '../settlement/plan.js';
 import { CancellationNotAllowedError, calculateRefund } from '../settlement/refund.js';
 
 /** PortOneError 코드 → HTTP 상태 매핑. */
@@ -263,12 +267,14 @@ export function createPaymentsRouter(
       const seller = request.matchedProviderId
         ? await userStore?.get(request.matchedProviderId)
         : undefined;
-      plan = buildSettlementPlan({
-        transportFee: amount,
-        disposalFee: 0,
+      // 수취인 역할을 요청 종류에서 정한다. 예전에는 무조건 TRANSPORT 로 넣어서
+      // 철거업체·처리장에게 지급할 때도 세금계산서가 "운반" 건으로 발행됐다.
+      plan = buildDealSettlementPlan({
+        amount,
+        party: request.payoutParty,
         completedDate: dateParsed.completedDate,
         holidays: dateParsed.holidays,
-        transportBusinessNumber: seller?.businessNumber,
+        sellerBusinessNumber: seller?.businessNumber,
       });
     } else {
       const parsed = parsePlanInput(req.body);

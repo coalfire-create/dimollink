@@ -163,8 +163,22 @@ export interface RefundBreakdown {
   refundAmount: number;
 }
 
-/** 정산 지급 대상(셀러). 포트원 지급대행은 셀러별로 개별 지급한다. */
-export type PayoutParty = 'TRANSPORT' | 'DISPOSAL';
+/**
+ * 정산 지급 대상(셀러). 포트원 지급대행은 셀러별로 개별 지급한다.
+ *
+ * DEMOLITION 이 있어야 하는 이유: 이 플랫폼의 거래는 두 다리다 —
+ * 소비자 → 철거업체(철거비), 철거업체 → 처리장(처리비). 첫 다리의 수취인이
+ * 철거업체인데 party 가 TRANSPORT 로만 있으면, 지급 멱등키와 **세금계산서가
+ * 운반 건으로 발행된다**(실제로 그랬다).
+ */
+export type PayoutParty = 'DEMOLITION' | 'TRANSPORT' | 'DISPOSAL' | 'INTERIOR';
+
+export const PAYOUT_PARTY_LABELS: Record<PayoutParty, string> = {
+  DEMOLITION: '철거업체',
+  TRANSPORT: '운반업체',
+  DISPOSAL: '처리장',
+  INTERIOR: '인테리어업체',
+};
 
 /** 셀러별 지급 지시 (포트원 지급대행 요청 단위). */
 export interface PayoutInstruction {
