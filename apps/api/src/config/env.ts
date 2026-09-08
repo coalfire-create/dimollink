@@ -45,6 +45,11 @@ export const env = {
   allowTestOtp: process.env.ALLOW_TEST_OTP === 'true',
   seedTestAccounts: process.env.SEED_TEST_ACCOUNTS === 'true',
   /**
+   * 주기 작업(올바로 재시도, 정산 대상 점검) 실행 여부. 기본 켜짐.
+   * ⚠️ 여러 인스턴스로 늘릴 때는 한 대만 켠다 — 잠금이 없어 중복 실행된다.
+   */
+  schedulerEnabled: process.env.SCHEDULER_ENABLED !== 'false',
+  /**
    * 기능 플래그. 파일럿(양평/철거) 범위 밖 기능은 기본 off 로 두고 명시적으로 켠다.
    * - interior: 소비자↔인테리어 업체 밀봉 역경매. 로드맵 Phase 편입 전까지 off 기본.
    */

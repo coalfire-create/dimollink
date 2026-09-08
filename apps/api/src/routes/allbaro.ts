@@ -110,6 +110,24 @@ export function createAllbaroRouter(
     }
   });
 
+  // ⚠️ 아래 두 라우트는 반드시 `/manifest/:manifestNo` **앞에** 있어야 한다.
+  // Express 는 등록 순서로 매칭하므로, 뒤에 두면 "queue"/"failures" 가 인계서 번호로
+  // 해석돼 올바로에 조회를 날린다 — 관리자 화면이 통째로 죽는다(실제로 그랬다).
+  // GET /api/allbaro/manifest/queue  재시도 큐 상태 조회 (PII 제외 요약)
+  router.get('/allbaro/manifest/queue', (_req, res) => {
+    res.json(getDefaultRetryQueue().all().map(toSafeQueueView));
+  });
+
+  // GET /api/allbaro/manifest/failures  재시도 소진 건 목록 (수동 재처리 대상, Phase 6)
+  router.get('/allbaro/manifest/failures', (_req, res) => {
+    res.json(
+      getDefaultRetryQueue()
+        .all()
+        .filter((item) => item.status === 'EXHAUSTED')
+        .map(toSafeQueueView),
+    );
+  });
+
   // GET /api/allbaro/manifest/:manifestNo  인계서 상태/상세 조회 (T200_4001_01)
   router.get('/allbaro/manifest/:manifestNo', async (req, res) => {
     const manifestNo = req.params.manifestNo;
@@ -204,11 +222,6 @@ export function createAllbaroRouter(
     }
   });
 
-  // GET /api/allbaro/manifest/queue  재시도 큐 상태 조회 (PII 제외 요약)
-  router.get('/allbaro/manifest/queue', (_req, res) => {
-    res.json(getDefaultRetryQueue().all().map(toSafeQueueView));
-  });
-
   // GET /api/allbaro/common-codes  공통코드 조회 (T100_3001_02) — 연결 테스트 겸용
   router.get('/allbaro/common-codes', async (_req, res) => {
     try {
@@ -216,16 +229,6 @@ export function createAllbaroRouter(
     } catch (err) {
       sendAllbaroError(res, err, '공통코드 조회 중 오류가 발생했습니다.');
     }
-  });
-
-  // GET /api/allbaro/manifest/failures  재시도 소진 건 목록 (수동 재처리 대상, Phase 6)
-  router.get('/allbaro/manifest/failures', (_req, res) => {
-    res.json(
-      getDefaultRetryQueue()
-        .all()
-        .filter((item) => item.status === 'EXHAUSTED')
-        .map(toSafeQueueView),
-    );
   });
 
   // POST /api/allbaro/manifest/failures/:id/retry  소진 건 수동 재처리 (재적재 + 즉시 1회 시도)

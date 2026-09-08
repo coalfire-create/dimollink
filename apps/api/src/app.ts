@@ -39,6 +39,9 @@ import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
 import { SmsNotificationProvider } from './notifications/sms-provider.js';
 import { configureDefaultRetryQueue } from './allbaro/manifest-service.js';
+import { createAllbaroClient } from './allbaro/client.js';
+import { startScheduler } from './scheduler/index.js';
+import { createRetryTask, createSettlementTask } from './scheduler/tasks.js';
 import type { RetryQueueItem } from './allbaro/retry-queue.js';
 import { NotificationService } from './notifications/service.js';
 import { OfferStore } from './offers/store.js';
@@ -496,6 +499,16 @@ export function createApp(
   app.use((_req, res) => {
     res.status(404).json({ error: '요청한 리소스를 찾을 수 없습니다.' });
   });
+
+  // 주기 작업 — 재시도 큐 처리와 정산 대상 점검.
+  // 이게 없으면 둘 다 관리자가 매일 손으로 눌러야 돌아간다. 안 누르면 전자인계서가
+  // 큐에 쌓인 채 미신고로 남고, 정산 대상도 아무도 모른다.
+  if (env.schedulerEnabled) {
+    startScheduler([
+      createRetryTask({ client: createAllbaroClient() }),
+      createSettlementTask({ requestStore }),
+    ]);
+  }
 
   // 중앙 오류 처리 — 미처리 예외를 500 JSON 으로 변환하고 스택/내부정보는 노출하지 않는다.
   // (JSON 파싱 오류 등 프레임워크 예외 포함)
