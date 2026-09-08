@@ -103,6 +103,20 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
       return;
     }
+    /**
+     * 철거는 선착순 수주를 막는다.
+     *
+     * 금액이 현장을 봐야 정해지는데 사진만 보고 던진 금액으로 계약이 굳으면, 실사 후
+     * 추가금 분쟁이 된다. 개산(범위) → 실사 → 확정 경로(`/demolition-estimates`)로만
+     * 매칭되게 한다. 화면을 바꾸는 것만으로는 옛 경로가 그대로 열려 있어 의미가 없다.
+     */
+    if (request.kind === 'DEMOLITION') {
+      res.status(400).json({
+        error: '철거는 개산 견적 → 현장 실사 → 확정 견적 순서로 진행합니다.',
+        code: 'DEMOLITION_REQUIRES_ESTIMATE_FLOW',
+      });
+      return;
+    }
     if (requestKindForProvider(provider.userType) !== request.kind) {
       res.status(403).json({ error: '내 업종에 맞는 일감이 아니에요.' });
       return;

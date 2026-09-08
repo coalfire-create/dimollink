@@ -234,3 +234,40 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     expect(body.open[1].distanceKm).toBeGreaterThan(0);
   });
 });
+
+describe('철거는 선착순 수주가 막혀 있다', () => {
+  /**
+   * 화면에서 버튼을 없애는 것만으로는 부족하다 — 옛 경로가 열려 있으면 3단계 견적을
+   * 건너뛰고 사진만 보고 낸 금액으로 계약이 굳는다.
+   */
+  it('철거 요청은 /jobs/:id/accept 로 수주할 수 없다', async () => {
+    const company = await userStore.create({
+      userType: 'DEMOLITION_COMPANY',
+      name: '대한철거',
+      region: PILOT.region,
+      phone: '01099990001',
+      businessNumber: BIZ_B,
+    });
+    await userStore.setApprovalStatus(company.id, 'APPROVED');
+    const request = await requestStore.create({
+      kind: 'DEMOLITION',
+      requesterId: 'consumer-1',
+      region: PILOT.region,
+      wasteCategory: PILOT.wasteCategory,
+      wasteTons: 10,
+      allbaroRequested: false,
+      siteAddress: '양평읍 1',
+    });
+
+    const res = await fetch(`${base}/api/jobs/${request.id}/accept`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${await tokenOf(company.id)}`,
+      },
+      body: JSON.stringify({ amount: 8_000_000 }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('DEMOLITION_REQUIRES_ESTIMATE_FLOW');
+  });
+});

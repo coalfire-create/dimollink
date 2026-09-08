@@ -7,12 +7,13 @@ import {
   type ProviderJobs,
   type ServiceRequest,
 } from '@dimol/shared';
-import { acceptJob, getMarketRate, listJobs } from '../api/client';
+import { getMarketRate, listJobs } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
+import { Card, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
+import { ProviderEstimatePanel } from '../components/demolition/ProviderEstimatePanel';
 import { theme } from '../theme';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
@@ -31,9 +32,6 @@ export function DemolitionHomeScreen() {
   const [jobs, setJobs] = useState<ProviderJobs | null>(null);
   const [rate, setRate] = useState<MarketRate | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
-  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [jobsRes, rateRes] = await Promise.allSettled([
@@ -52,24 +50,6 @@ export function DemolitionHomeScreen() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
-  }
-
-  async function accept(requestId: string) {
-    setQuoteError(null);
-    const amount = Number((quoteAmounts[requestId] ?? '').replace(/\D/g, ''));
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setQuoteError('수락 금액(원)을 정확히 입력해 주세요.');
-      return;
-    }
-    setAcceptingId(requestId);
-    try {
-      await acceptJob(requestId, amount);
-      await load();
-    } catch {
-      await load();
-    } finally {
-      setAcceptingId(null);
-    }
   }
 
   const renderMarketRate = () => {
@@ -164,7 +144,6 @@ export function DemolitionHomeScreen() {
         {renderMarketRate()}
 
         <SectionTitle>새 철거 요청</SectionTitle>
-        <ErrorBanner message={quoteError} />
         {jobs && jobs.open.length > 0 ? (
           jobs.open.map((job) => (
             <Card key={job.id}>
@@ -179,18 +158,10 @@ export function DemolitionHomeScreen() {
                 {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
               </Text>
               <View style={{ height: theme.spacing.xs }} />
-              <Field
-                label="수락 금액(원)"
-                value={quoteAmounts[job.id] ?? ''}
-                onChangeText={(v) => setQuoteAmounts((p) => ({ ...p, [job.id]: v }))}
-                placeholder="예) 80000"
-                keyboardType="number-pad"
-              />
-              <AppButton
-                label="수주하기"
-                onPress={() => accept(job.id)}
-                loading={acceptingId === job.id}
-              />
+              {/* 선착순 수주를 없앴다. 철거 금액은 현장을 봐야 정해지는데, 사진만 보고
+                  던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
+                  개산(범위) → 실사 → 확정 순서로 간다([[demolition-estimate]]). */}
+              <ProviderEstimatePanel requestId={job.id} />
             </Card>
           ))
         ) : (

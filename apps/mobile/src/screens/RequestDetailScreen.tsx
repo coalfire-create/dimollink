@@ -34,6 +34,7 @@ import {
 } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { EstimateComparison } from '../components/demolition/EstimateComparison';
 import { theme } from '../theme';
 import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
 
@@ -371,6 +372,12 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           ) : null}
           <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
+
+        {/* 철거는 현장을 봐야 금액이 정해진다 — 개산/실사/확정을 나눠 보여준다.
+            운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
+        {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
+          <EstimateComparison requestId={request.id} onMatched={() => void load()} />
+        ) : null}
 
         {quotes.length > 0 ? (
           <>

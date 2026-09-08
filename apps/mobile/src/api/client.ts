@@ -19,6 +19,7 @@ export * from './requests';
 export * from './notifications';
 export * from './vision';
 export * from './quotes';
+export * from './demolition';
 export * from './payments';
 export * from './interior';
 export * from './admin';
