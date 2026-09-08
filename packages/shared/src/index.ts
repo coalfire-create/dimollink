@@ -14,6 +14,7 @@ export * from './request-prefill.js';
 export * from './demolition-estimate.js';
 export * from './sales-product.js';
 export * from './marketplace.js';
+export * from './payout-account.js';
 export * from './user.js';
 export * from './auth.js';
 export * from './review.js';

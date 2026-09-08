@@ -89,10 +89,12 @@ import { createSiteAnalysisRouter } from './routes/site-analysis.js';
 import { createScan3DRouter } from './routes/scan3d.js';
 import { createDemolitionEstimateRouter } from './routes/demolition-estimates.js';
 import { createProductRouter } from './routes/products.js';
+import { createPayoutAccountRouter } from './routes/payout-accounts.js';
+import { PayoutAccountStore } from './payout/store.js';
 import { createPortOneClient } from './payment/portone-client.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
-import type { DemolitionEstimate, Subscription } from '@dimol/shared';
+import type { DemolitionEstimate, PayoutAccount, Subscription } from '@dimol/shared';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -300,6 +302,11 @@ export function createApp(
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
   const subscriptionStore = new SubscriptionStore(persistence<Subscription>('subscriptions'));
+  // ⚠️ 계좌번호·사업자번호(PII)를 담는다. 응답 경로는 전부 마스킹을 거친다.
+  const payoutAccountStore = new PayoutAccountStore(
+    userStore,
+    persistence<PayoutAccount>('payout-accounts', (a) => a.userId),
+  );
   // 상품 결제·정기결제가 쓰는 포트원 클라이언트. 결제 서비스와 같은 설정을 공유해야
   // 한쪽만 운영 전환되는 사고가 없다.
   const portOneClient = createPortOneClient();
@@ -347,6 +354,14 @@ export function createApp(
     requireAuth(req, res, next);
   });
   app.use('/api/subscriptions', requireAuth);
+  // 정산 계좌는 본인만 — 은행 목록만 로그인 없이 열어둔다(선택지일 뿐 개인정보가 아니다).
+  app.use('/api/payout-accounts', (req, res, next) => {
+    if (req.method === 'GET' && req.path === '/banks') {
+      next();
+      return;
+    }
+    requireAuth(req, res, next);
+  });
   // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
   // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
   // 디몰비전 공모전 데모: 키가 설정된 경우에만 로그인 없이 분석을 허용한다(일일 상한 적용).
@@ -409,6 +424,7 @@ export function createApp(
       quoteStore,
       paymentStore,
       userStore,
+      payoutAccountStore,
     ),
   );
   const geocoder = createGeocoder();
@@ -529,6 +545,8 @@ export function createApp(
   );
   // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
   app.use('/api', createProductRouter(subscriptionStore, portOneClient));
+  // 정산 계좌 — 파트너정산이든 직접 이체든 이 정보는 똑같이 필요하다.
+  app.use('/api', createPayoutAccountRouter(payoutAccountStore));
   app.use(
     '/api',
     createAdminRouter(

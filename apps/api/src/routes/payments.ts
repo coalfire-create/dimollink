@@ -1,4 +1,8 @@
-import { buildKoreanHolidaySet, type CancellationStage } from '@dimol/shared';
+import {
+  buildKoreanHolidaySet,
+  canReceivePayout,
+  type CancellationStage,
+} from '@dimol/shared';
 import { Router } from 'express';
 import { authUserId } from '../middleware/auth.js';
 import { PaymentService } from '../payment/payment-service.js';
@@ -7,6 +11,7 @@ import { PortOneError } from '../payment/portone-client.js';
 import type { QuoteStore } from '../quotes/store.js';
 import type { PayableRequestStore } from '../payment/payable-request.js';
 import type { UserStore } from '../users/store.js';
+import type { PayoutAccountStore } from '../payout/store.js';
 import {
   buildDealSettlementPlan,
   buildSettlementPlan,
@@ -90,6 +95,7 @@ export function createPaymentsRouter(
   quoteStore?: QuoteStore,
   paymentStore?: PaymentStore,
   userStore?: UserStore,
+  payoutAccountStore?: PayoutAccountStore,
 ): Router {
   const router = Router();
 
@@ -253,6 +259,8 @@ export function createPaymentsRouter(
 
     // 지급 금액 = 요청 합의 금액(권위). 사업자번호 = 매칭된 셀러의 등록번호.
     let plan;
+    /** 정산 계좌 확인에 쓴다(아래 블록 밖에서 필요해 여기서 선언). */
+    let sellerId: string | undefined;
     if (requestStore) {
       const request = await requestStore.get(matchRequestId);
       if (!request) {
@@ -264,9 +272,8 @@ export function createPaymentsRouter(
         res.status(409).json({ error: '확정된 정산 금액이 없습니다.', code: 'NO_AGREED_AMOUNT' });
         return;
       }
-      const seller = request.matchedProviderId
-        ? await userStore?.get(request.matchedProviderId)
-        : undefined;
+      sellerId = request.matchedProviderId;
+      const seller = sellerId ? await userStore?.get(sellerId) : undefined;
       // 수취인 역할을 요청 종류에서 정한다. 예전에는 무조건 TRANSPORT 로 넣어서
       // 철거업체·처리장에게 지급할 때도 세금계산서가 "운반" 건으로 발행됐다.
       plan = buildDealSettlementPlan({
@@ -283,6 +290,22 @@ export function createPaymentsRouter(
         return;
       }
       plan = buildSettlementPlan(parsed);
+    }
+
+    /**
+     * 정산 계좌 확인 — **지급 실행 전에** 막는다.
+     *
+     * 계좌가 없으면 보낼 곳이 없고, 실명확인 전이면 보내면 안 된다. 계좌번호를 한
+     * 자리만 틀려도 남의 통장으로 가고, 되돌리려면 수취인 동의가 필요하다.
+     * 지급이 나간 뒤에 알아채면 늦는다.
+     */
+    if (payoutAccountStore && sellerId) {
+      const account = await payoutAccountStore.getRaw(sellerId);
+      const usable = canReceivePayout(account);
+      if (!usable.ok) {
+        res.status(409).json({ error: usable.error, code: 'PAYOUT_ACCOUNT_NOT_READY' });
+        return;
+      }
     }
 
     try {

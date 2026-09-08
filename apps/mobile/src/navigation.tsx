@@ -53,7 +53,9 @@ export type Route =
   // (로그아웃 상태의 진입 경로는 공유 운영 토큰용으로 웰컴 화면에 따로 있다.)
   | { name: 'admin' }
   // 앱 안에서 실제로 결제되는 상품(일반결제 1건 · 월 정기결제 1건).
-  | { name: 'store' };
+  | { name: 'store' }
+  // 업체 정산 계좌. 등록·실명확인 전에는 정산금이 지급되지 않는다.
+  | { name: 'payoutAccount' };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

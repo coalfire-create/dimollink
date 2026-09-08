@@ -22,6 +22,7 @@ export * from './quotes';
 export * from './demolition';
 export * from './payments';
 export * from './products';
+export * from './payout-account';
 export * from './interior';
 export * from './admin';
 export * from './reviews';

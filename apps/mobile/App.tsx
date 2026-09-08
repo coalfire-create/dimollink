@@ -35,6 +35,7 @@ import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
+import { PayoutAccountScreen } from './src/screens/PayoutAccountScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -345,6 +346,8 @@ export default function App() {
         return <AdminScreen onBack={() => navigation.pop()} />;
       case 'store':
         return <StoreScreen />;
+      case 'payoutAccount':
+        return <PayoutAccountScreen />;
       case 'reviewForm':
         return <ReviewScreen requestId={route.requestId} />;
       case 'tracking':

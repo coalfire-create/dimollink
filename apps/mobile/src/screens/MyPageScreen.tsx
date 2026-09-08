@@ -174,6 +174,25 @@ export function MyPageScreen() {
             </View>
             <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
+          {/* 업체만 — 소비자는 정산받을 일이 없다. 등록 전에는 정산금이 지급되지 않으므로
+              가입 직후에 눈에 띄어야 한다. */}
+          {user.userType !== 'CONSUMER' ? (
+            <>
+              <View style={styles.menuDivider} />
+              <Pressable
+                style={styles.menuItem}
+                onPress={() => nav.push({ name: 'payoutAccount' })}
+              >
+                <View style={styles.menuLeft}>
+                  <View style={styles.menuIconCircle}>
+                    <AppIcon name="document" size={18} color={theme.colors.primary} />
+                  </View>
+                  <Text style={styles.menuLabel}>정산 계좌</Text>
+                </View>
+                <Text style={styles.arrowIcon}>›</Text>
+              </Pressable>
+            </>
+          ) : null}
           <View style={styles.menuDivider} />
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'store' })}>
             <View style={styles.menuLeft}>
