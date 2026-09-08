@@ -34,6 +34,7 @@ import { TrackingScreen } from './src/screens/TrackingScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
+import { StoreScreen } from './src/screens/StoreScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -342,6 +343,8 @@ export default function App() {
         return FEATURE_INTERIOR ? <InteriorDetailScreen requestId={route.requestId} /> : null;
       case 'admin':
         return <AdminScreen onBack={() => navigation.pop()} />;
+      case 'store':
+        return <StoreScreen />;
       case 'reviewForm':
         return <ReviewScreen requestId={route.requestId} />;
       case 'tracking':

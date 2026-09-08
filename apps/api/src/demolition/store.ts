@@ -17,6 +17,17 @@ import type { RequestStore } from '../requests/store.js';
 
 export class DemolitionEstimateError extends Error {}
 
+/**
+ * 견적 진행을 상대에게 알린다. 이 흐름은 상대가 다음 행동을 해야 이어지므로
+ * (개산 도착 → 실사 예약 → 확정 도착 → 수락) 알림이 빠지면 그 자리에서 멈춘다.
+ * 알림 서비스를 직접 알지 않도록 함수로 주입받는다.
+ */
+export type EstimateNotifier = (
+  requestId: string,
+  userId: string,
+  message: string,
+) => void | Promise<void>;
+
 export interface CreatePreliminaryInput {
   requestId: string;
   providerId: string;
@@ -32,7 +43,17 @@ export class DemolitionEstimateStore {
   constructor(
     private readonly requestStore: RequestStore,
     private readonly persistence?: CollectionPersistence<DemolitionEstimate>,
+    private readonly notify?: EstimateNotifier,
   ) {}
+
+  /** 알림 실패가 견적 흐름을 막지 않게 한다 — 알림은 부가 기능이다. */
+  private async announce(requestId: string, userId: string, message: string): Promise<void> {
+    try {
+      await this.notify?.(requestId, userId, message);
+    } catch {
+      // 여기서 막히면 견적 자체가 안 된다.
+    }
+  }
 
   private async listInner(): Promise<DemolitionEstimate[]> {
     if (this.persistence) return this.persistence.list();
@@ -100,6 +121,11 @@ export class DemolitionEstimateStore {
       createdAt: new Date().toISOString(),
     };
     await this.save(estimate);
+    await this.announce(
+      request.id,
+      request.requesterId,
+      `${input.providerName ?? '철거업체'}에서 개산 견적이 도착했어요. 확인 후 현장 실사를 요청해 주세요.`,
+    );
     return estimate;
   }
 
@@ -136,6 +162,11 @@ export class DemolitionEstimateStore {
       visit: { scheduledAt },
     };
     await this.save(updated);
+    await this.announce(
+      estimate.requestId,
+      estimate.providerId,
+      `현장 실사가 예약되었어요. ${new Date(scheduledAt).toLocaleString('ko-KR')}`,
+    );
     return updated;
   }
 
@@ -190,6 +221,14 @@ export class DemolitionEstimateStore {
       },
     };
     await this.save(updated);
+    const request = await this.requestStore.get(estimate.requestId);
+    if (request) {
+      await this.announce(
+        request.id,
+        request.requesterId,
+        `${estimate.providerName ?? '철거업체'}의 확정 견적이 도착했어요. 금액을 확인해 주세요.`,
+      );
+    }
     return updated;
   }
 
@@ -213,11 +252,17 @@ export class DemolitionEstimateStore {
 
     const accepted: DemolitionEstimate = { ...estimate, accepted: true };
     await this.save(accepted);
+    await this.announce(
+      request.id,
+      estimate.providerId,
+      '견적이 선정되었어요. 매칭이 확정되었습니다.',
+    );
 
-    // 떨어진 업체는 더 진행하지 않도록 닫는다.
+    // 떨어진 업체는 더 진행하지 않도록 닫는다. 알려주지 않으면 계속 기다린다.
     for (const other of await this.listByRequest(estimate.requestId)) {
       if (other.id === estimate.id || other.stage === 'DECLINED') continue;
       await this.save({ ...other, stage: 'DECLINED' });
+      await this.announce(request.id, other.providerId, '다른 업체가 선정되었어요.');
     }
     return accepted;
   }

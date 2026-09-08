@@ -41,7 +41,11 @@ import { SmsNotificationProvider } from './notifications/sms-provider.js';
 import { configureDefaultRetryQueue } from './allbaro/manifest-service.js';
 import { createAllbaroClient } from './allbaro/client.js';
 import { startScheduler } from './scheduler/index.js';
-import { createRetryTask, createSettlementTask } from './scheduler/tasks.js';
+import {
+  createRetryTask,
+  createSettlementTask,
+  createSubscriptionBillingTask,
+} from './scheduler/tasks.js';
 import type { RetryQueueItem } from './allbaro/retry-queue.js';
 import { NotificationService } from './notifications/service.js';
 import { OfferStore } from './offers/store.js';
@@ -84,8 +88,11 @@ import { createScanViewerPageRouter } from './routes/scan-viewer-page.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
 import { createScan3DRouter } from './routes/scan3d.js';
 import { createDemolitionEstimateRouter } from './routes/demolition-estimates.js';
+import { createProductRouter } from './routes/products.js';
+import { createPortOneClient } from './payment/portone-client.js';
+import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
-import type { DemolitionEstimate } from '@dimol/shared';
+import type { DemolitionEstimate, Subscription } from '@dimol/shared';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -292,9 +299,18 @@ export function createApp(
     persistence<Incident>('incidents'),
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
+  const subscriptionStore = new SubscriptionStore(persistence<Subscription>('subscriptions'));
+  // 상품 결제·정기결제가 쓰는 포트원 클라이언트. 결제 서비스와 같은 설정을 공유해야
+  // 한쪽만 운영 전환되는 사고가 없다.
+  const portOneClient = createPortOneClient();
   const demolitionEstimateStore = new DemolitionEstimateStore(
     requestStore,
     persistence<DemolitionEstimate>('demolition-estimates'),
+    // 견적 흐름은 상대가 다음 행동을 해야 이어진다 — 알림이 빠지면 그 자리에서 멈춘다.
+    async (requestId, userId, message) => {
+      const request = await requestStore.get(requestId);
+      if (request) notificationService.notifyEstimate(request, userId, message);
+    },
   );
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
   // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
@@ -321,6 +337,16 @@ export function createApp(
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   // 철거 견적(개산·실사·확정) — 전 단계가 당사자 확인을 하므로 로그인 필수.
   app.use('/api/demolition-estimates', requireAuth);
+  // 상품 목록(GET /api/products)은 로그인 없이 볼 수 있어야 한다 — 심사자가 먼저 본다.
+  // 결제·구독은 사람에게 귀속돼야 하므로 로그인 필수.
+  app.use('/api/products', (req, res, next) => {
+    if (req.method === 'GET') {
+      next();
+      return;
+    }
+    requireAuth(req, res, next);
+  });
+  app.use('/api/subscriptions', requireAuth);
   // 디몰비전 분석은 호출당 비전 AI 비용이 발생하고, 건축물대장은 공공데이터 일일 쿼터를 쓴다.
   // 익명 호출을 열어두면 비용·쿼터가 그대로 남용 대상이 되므로 로그인 사용자로 제한한다.
   // 디몰비전 공모전 데모: 키가 설정된 경우에만 로그인 없이 분석을 허용한다(일일 상한 적용).
@@ -501,6 +527,8 @@ export function createApp(
     '/api',
     createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore),
   );
+  // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
+  app.use('/api', createProductRouter(subscriptionStore, portOneClient));
   app.use(
     '/api',
     createAdminRouter(
@@ -537,6 +565,9 @@ export function createApp(
     startScheduler([
       createRetryTask({ client: createAllbaroClient() }),
       createSettlementTask({ requestStore }),
+      // 정산과 달리 자동으로 결제한다 — 구독은 이미 동의된 반복 결제라
+      // 매달 사람이 눌러야 한다면 상품이 성립하지 않는다.
+      createSubscriptionBillingTask({ subscriptions: subscriptionStore, portone: portOneClient }),
     ]);
   }
 

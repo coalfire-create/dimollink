@@ -15,8 +15,10 @@ import type { MatchStatus } from './types.js';
  * - STATUS: 매칭·결제·작업·정산 단계 전이. 놓치면 거래가 멈춘다 → 문자 발송.
  * - CALL: 운반업체 신규 콜. 놓치면 매칭이 안 된다 → 문자 발송.
  * - CHAT: 대화 메시지. 자주 오고 앱에서 바로 보인다 → 인앱만.
+ * - ESTIMATE: 철거 견적 진행(개산 도착·실사 예약·확정 도착). 다음 행동을 해야 흐름이
+ *   이어지는데 앱을 안 열면 멈춘다 → 문자 발송.
  */
-export type NotificationKind = 'STATUS' | 'CALL' | 'CHAT';
+export type NotificationKind = 'STATUS' | 'CALL' | 'CHAT' | 'ESTIMATE';
 
 export interface AppNotification {
   id: string;

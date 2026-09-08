@@ -133,6 +133,27 @@ export class NotificationService {
     return this.dispatch(created);
   }
 
+  /**
+   * 철거 견적 진행 알림(개산 도착·실사 예약·확정 도착).
+   *
+   * 이 흐름은 상대가 다음 행동을 해야 이어진다 — 개산이 와도 소비자가 모르면 실사를
+   * 못 부르고, 실사가 잡혀도 업체가 모르면 안 간다. 상태 전이가 아니라서 기존
+   * notifyStatusChange 로는 잡히지 않으므로 따로 둔다.
+   */
+  notifyEstimate(request: ServiceRequest, userId: string, message: string): AppNotification[] {
+    return this.dispatch([
+      {
+        id: randomUUID(),
+        userId,
+        requestId: request.id,
+        status: request.status,
+        message,
+        kind: 'ESTIMATE',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
   /** 알림 발송(어댑터) + 인앱 알림함 기록. 발송 실패해도 기록은 남긴다. */
   private dispatch(created: AppNotification[]): AppNotification[] {
     for (const notification of created) {

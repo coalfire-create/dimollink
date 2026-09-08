@@ -1,4 +1,7 @@
+import { findSalesProduct } from '@dimol/shared';
 import { calculateSettlementDate } from '../settlement/settlement-date.js';
+import type { SubscriptionStore } from '../subscriptions/store.js';
+import type { PortOneClient } from '../payment/portone-client.js';
 import type { ScheduledTask } from './index.js';
 import type { AllbaroClient } from '../allbaro/client.js';
 import { processRetryQueue, getDefaultRetryQueue } from '../allbaro/manifest-service.js';
@@ -20,6 +23,9 @@ export const RETRY_INTERVAL_MS = 5 * 60 * 1000;
 
 /** 정산 대상 점검 주기. 하루 한 번이면 되지만, 재시작이 잦아 1시간마다 본다. */
 export const SETTLEMENT_INTERVAL_MS = 60 * 60 * 1000;
+
+/** 정기결제 청구 주기. 결제일은 하루 단위라 1시간마다 보면 충분하다. */
+export const SUBSCRIPTION_INTERVAL_MS = 60 * 60 * 1000;
 
 export interface RetryTaskDeps {
   client: AllbaroClient;
@@ -46,6 +52,60 @@ export function createRetryTask(deps: RetryTaskDeps): ScheduledTask {
       console.info(
         `[scheduler] 올바로 재시도 처리: 성공 ${summary.succeeded} · 재적재 ${summary.requeued} · 소진 ${summary.exhausted}`,
       );
+    },
+  };
+}
+
+export interface SubscriptionTaskDeps {
+  subscriptions: SubscriptionStore;
+  portone: PortOneClient;
+  now?: () => Date;
+}
+
+/**
+ * 월 정기결제 청구.
+ *
+ * 정산(사람이 실행)과 달리 **자동으로 결제한다.** 구독은 사용자가 이미 동의한 반복
+ * 결제라 매달 사람이 눌러야 한다면 상품이 성립하지 않는다. 대신 금액은 서버 상품가로
+ * 고정돼 있고(앱이 못 바꾼다), 실패는 상태로 남겨 다음 주기에 다시 시도한다.
+ *
+ * ⚠️ 멱등성: paymentId 를 `구독id-결제일` 로 만든다. 스케줄러가 겹쳐 돌거나 재시작해도
+ * 같은 달에 두 번 청구되지 않는다(PG 가 같은 paymentId 를 거부한다).
+ */
+export function createSubscriptionBillingTask(deps: SubscriptionTaskDeps): ScheduledTask {
+  const now = deps.now ?? (() => new Date());
+  return {
+    name: 'subscription-billing',
+    intervalMs: SUBSCRIPTION_INTERVAL_MS,
+    async run() {
+      const today = kstDate(now());
+      const due = await deps.subscriptions.listDue(today);
+      for (const sub of due) {
+        const product = findSalesProduct(sub.productId);
+        if (!product || product.billingType !== 'MONTHLY_SUBSCRIPTION') continue;
+        try {
+          const result = await deps.portone.payWithBillingKey({
+            paymentId: `${sub.id}-${sub.nextBillingDate}`,
+            billingKey: sub.billingKey,
+            orderName: product.name,
+            amount: product.price,
+            customerId: sub.userId,
+          });
+          if (result.paid) {
+            await deps.subscriptions.markCharged(sub.id);
+          } else {
+            await deps.subscriptions.markFailed(sub.id, 'NOT_PAID');
+          }
+        } catch (err) {
+          // 사유는 코드/요약만 — 카드 정보가 섞이면 안 된다.
+          const reason = err instanceof Error ? err.message.slice(0, 120) : 'BILLING_ERROR';
+          await deps.subscriptions.markFailed(sub.id, reason);
+          console.warn(`[scheduler] 정기결제 실패 subscription=${sub.id}`);
+        }
+      }
+      if (due.length > 0) {
+        console.info(`[scheduler] 정기결제 처리 ${due.length}건`);
+      }
     },
   };
 }

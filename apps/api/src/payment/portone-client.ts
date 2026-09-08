@@ -77,6 +77,15 @@ export interface SdkPaymentClient {
     paymentId: string;
   }): Promise<{ status: string; amount?: { total: number } }>;
   cancelPayment(options: { paymentId: string; amount?: number; reason: string }): Promise<unknown>;
+  /** 빌링키 결제(정기결제). 카드정보는 PG 가 들고 있고 우리는 키로만 청구한다. */
+  payWithBillingKey?(options: {
+    paymentId: string;
+    billingKey: string;
+    orderName: string;
+    customer?: { id?: string };
+    amount: { total: number };
+    currency: string;
+  }): Promise<{ payment?: { status?: string; amount?: { total?: number } } }>;
 }
 
 export interface PortOneClientConfig {
@@ -160,6 +169,47 @@ export class PortOneClient {
     }
 
     return { paymentId: input.paymentId, amount: total, status, paid: status === PAID_STATUS };
+  }
+
+  /**
+   * 빌링키로 결제한다(월 정기결제).
+   *
+   * 빌링키는 정기결제창에서 발급받아 저장해 둔 값이다 — 카드번호가 아니라 PG 참조값이고,
+   * 우리 DB 에는 이 값만 있다. 실패는 예외로 던지고 호출부(스케줄러)가 구독 상태를 바꾼다.
+   */
+  async payWithBillingKey(input: {
+    paymentId: string;
+    billingKey: string;
+    orderName: string;
+    amount: number;
+    customerId?: string;
+  }): Promise<{ paymentId: string; amount: number; paid: boolean }> {
+    const client = this.ensureReady();
+    if (!client.payWithBillingKey) {
+      throw new PortOneError('CONFIG_MISSING', '정기결제(빌링키) 연동이 준비되지 않았습니다.');
+    }
+    let res: { payment?: { status?: string; amount?: { total?: number } } };
+    try {
+      res = await client.payWithBillingKey({
+        paymentId: input.paymentId,
+        billingKey: input.billingKey,
+        orderName: input.orderName,
+        amount: { total: input.amount },
+        currency: 'KRW',
+        ...(input.customerId ? { customer: { id: input.customerId } } : {}),
+      });
+    } catch (err) {
+      throw mapSdkError(err, `정기결제 실패(paymentId=${input.paymentId})`);
+    }
+    const status = res.payment?.status ?? 'UNKNOWN';
+    const total = res.payment?.amount?.total ?? 0;
+    if (total !== input.amount) {
+      throw new PortOneError(
+        'AMOUNT_MISMATCH',
+        `정기결제 금액이 상품가와 다릅니다(결제 ${total} ≠ 상품 ${input.amount}).`,
+      );
+    }
+    return { paymentId: input.paymentId, amount: total, paid: status === PAID_STATUS };
   }
 
   /**

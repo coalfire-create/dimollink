@@ -51,7 +51,9 @@ export type Route =
   | { name: 'tracking'; requestId: string }
   // 관리자 백오피스. **로그인한 채로** 들어가야 세션으로 인증되고 감사 로그에 사람이 남는다.
   // (로그아웃 상태의 진입 경로는 공유 운영 토큰용으로 웰컴 화면에 따로 있다.)
-  | { name: 'admin' };
+  | { name: 'admin' }
+  // 앱 안에서 실제로 결제되는 상품(일반결제 1건 · 월 정기결제 1건).
+  | { name: 'store' };
 
 export type TabName = 'home' | 'requests' | 'notifications' | 'mypage';
 

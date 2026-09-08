@@ -174,6 +174,16 @@ export function MyPageScreen() {
             </View>
             <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
+          <View style={styles.menuDivider} />
+          <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'store' })}>
+            <View style={styles.menuLeft}>
+              <View style={styles.menuIconCircle}>
+                <AppIcon name="sparkles" size={18} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.menuLabel}>스토어 · 멤버십</Text>
+            </View>
+            <Text style={styles.arrowIcon}>›</Text>
+          </Pressable>
           {/* 관리자에게만 보인다. 백오피스에 로그인한 채로 들어가야 서버 감사 로그에
               "누가" 했는지가 남는다 — 공유 토큰으로 들어가면 그게 안 남는다. */}
           {isAdminUser(user) ? (
