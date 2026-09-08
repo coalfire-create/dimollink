@@ -147,3 +147,68 @@ describe('PATCH /api/admin/users/:id/role — 관리자 지정(부트스트랩)'
     expect(res.status).toBe(401);
   });
 });
+
+describe('PATCH /api/admin/requests/:id/status — 멈춘 요청 개입', () => {
+  /** IN_PROGRESS 까지 진행된 요청(업체가 잠수한 상황을 만든다). */
+  async function stuckRequest() {
+    const r = await requestStore.create({
+      kind: 'TRANSPORT',
+      requesterId: 'u1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 5,
+      loadAddress: 'a',
+      unloadAddress: 'b',
+    } as never);
+    await requestStore.changeStatus(r.id, 'MATCHED', { matchedProviderId: 'p1' });
+    await requestStore.changeStatus(r.id, 'PAID');
+    await requestStore.changeStatus(r.id, 'IN_PROGRESS');
+    return r.id;
+  }
+
+  const patch = (id: string, body: unknown) =>
+    fetch(`${base}/api/admin/requests/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'x-admin-token': ADMIN },
+      body: JSON.stringify(body),
+    });
+
+  it('정상 전이로는 갈 수 없는 곳으로 보낼 수 있다 — 이게 개입의 목적이다', async () => {
+    const id = await stuckRequest();
+    // IN_PROGRESS → CANCELLED 는 일반 규칙상 불가(작업 시작 후 취소 불가).
+    const res = await patch(id, { status: 'CANCELLED', reason: '업체 연락두절 3일' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe('CANCELLED');
+    expect(body.cancelReason).toBe('업체 연락두절 3일');
+  });
+
+  it('사유가 없으면 거부한다 — 사유 없는 개입은 나중에 설명할 수 없다', async () => {
+    const id = await stuckRequest();
+    expect((await patch(id, { status: 'CANCELLED' })).status).toBe(400);
+    expect((await patch(id, { status: 'CANCELLED', reason: '   ' })).status).toBe(400);
+  });
+
+  it('정산완료는 되돌릴 수 없다 — 돈이 이미 나갔다', async () => {
+    const id = await stuckRequest();
+    await requestStore.changeStatus(id, 'COMPLETED');
+    await requestStore.changeStatus(id, 'SETTLED');
+    const res = await patch(id, { status: 'IN_PROGRESS', reason: '되돌리기 시도' });
+    expect(res.status).toBe(400);
+  });
+
+  it('알 수 없는 상태는 거부한다', async () => {
+    const id = await stuckRequest();
+    expect((await patch(id, { status: 'WHATEVER', reason: 'x' })).status).toBe(400);
+  });
+
+  it('토큰 없이는 막는다', async () => {
+    const id = await stuckRequest();
+    const res = await fetch(`${base}/api/admin/requests/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'CANCELLED', reason: 'x' }),
+    });
+    expect(res.status).toBe(401);
+  });
+});

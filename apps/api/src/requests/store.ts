@@ -54,6 +54,19 @@ export interface StatusChangeOptions {
   agreedFee?: number;
   paymentId?: string;
   cancelReason?: string;
+  /**
+   * 관리자 개입 — 정상 전이 규칙을 건너뛴다.
+   *
+   * 왜 필요한가: 업체가 배차만 하고 잠수하거나 배출자가 결제 후 연락이 끊기면 요청이
+   * 중간 상태에 영원히 멈춘다. 참여자만 상태를 바꿀 수 있어서 아무도 풀 수 없고,
+   * 정산 큐에도 안 잡힌다. 분쟁 조정은 예외 경로가 있어야 성립한다.
+   *
+   * 강제여도 지키는 것:
+   *  - 정산완료(SETTLED)에서는 못 나온다. 돈이 이미 나간 뒤라 되돌리면 장부가 깨진다.
+   *  - 매칭완료로 갈 때는 여전히 업체가 필요하다(누구와 매칭됐는지 없는 매칭은 성립 불가).
+   * 사유를 필수로 받는 이유는, 사유 없는 개입은 나중에 아무도 설명할 수 없기 때문이다.
+   */
+  adminOverride?: { reason: string; actorId?: string };
 }
 
 function requireText(value: unknown, message: string): string {
@@ -253,7 +266,16 @@ export class RequestStore {
     if (!request) {
       throw new RequestValidationError('요청을 찾을 수 없습니다.');
     }
-    if (!canTransitionRequestStatus(request.status, to)) {
+    const override = options.adminOverride;
+    if (override) {
+      if (override.reason.trim().length === 0) {
+        throw new RequestValidationError('관리자 개입에는 사유가 필요합니다.');
+      }
+      if (request.status === 'SETTLED') {
+        // 돈이 이미 나갔다. 여기서 되돌리면 장부와 실제 입금이 어긋난다.
+        throw new RequestValidationError('정산완료 상태는 되돌릴 수 없습니다.');
+      }
+    } else if (!canTransitionRequestStatus(request.status, to)) {
       throw new RequestValidationError(
         `'${REQUEST_STATUS_LABELS[request.status]}' 상태에서 '${REQUEST_STATUS_LABELS[to]}' 로 변경할 수 없습니다.`,
       );
@@ -274,6 +296,14 @@ export class RequestStore {
       ...(to === 'CANCELLED' && options.cancelReason ? { cancelReason: options.cancelReason } : {}),
     };
     
+    if (override) {
+      // 누가·무엇을·왜 바꿨는지 남긴다. 요청 내용에는 PII 가 있으므로 id 만 찍는다.
+      console.warn(
+        `[admin] 요청 상태 강제 변경 ${id}: ${request.status} → ${to} ` +
+          `(by ${override.actorId ?? 'SHARED_TOKEN'}, 사유: ${override.reason})`,
+      );
+    }
+
     await this.saveInner(updated);
     try {
       await this.onStatusChange?.(updated, request.status);

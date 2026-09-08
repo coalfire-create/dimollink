@@ -1,4 +1,5 @@
 import {
+  REQUEST_STATUS_LABELS,
   visionMaterialLabel,
   type MatchOfferStatus,
   type MatchStatus,
@@ -11,7 +12,7 @@ import { adminActor, createAdminAuth } from '../middleware/admin-auth.js';
 import type { OfferStore } from '../offers/store.js';
 import type { PricingStore } from '../pricing/store.js';
 import type { QuoteStore } from '../quotes/store.js';
-import type { RequestStore } from '../requests/store.js';
+import { RequestValidationError, type RequestStore } from '../requests/store.js';
 import { ReviewValidationError, type ReviewStore } from '../reviews/store.js';
 import { UserValidationError, type UserStore } from '../users/store.js';
 
@@ -43,7 +44,11 @@ export function createAdminRouter(
   router.use('/admin', typeof guard === 'function' ? guard : createAdminAuth(guard));
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
-    if (err instanceof UserValidationError || err instanceof ReviewValidationError) {
+    if (
+      err instanceof UserValidationError ||
+      err instanceof ReviewValidationError ||
+      err instanceof RequestValidationError
+    ) {
       const status = err.message.includes('찾을 수 없습니다') ? 404 : 400;
       res.status(status).json({ error: err.message });
       return;
@@ -102,6 +107,36 @@ export function createAdminRouter(
         `[admin] role 변경 ${req.params.id} → ${role} (by ${actor?.id ?? 'SHARED_TOKEN'})`,
       );
       res.json(updated);
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // PATCH /api/admin/requests/:id/status  { status, reason, matchedProviderId?, cancelReason? }
+  // 멈춘 요청을 푸는 개입 경로. 참여자만 상태를 바꿀 수 있어서, 업체가 잠수하거나
+  // 배출자가 연락 두절되면 아무도 못 푸는 상태가 된다. 사유는 필수다.
+  router.patch('/admin/requests/:id/status', async (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const status = body.status;
+    if (typeof status !== 'string' || !(status in REQUEST_STATUS_LABELS)) {
+      res.status(400).json({ error: 'status 가 올바르지 않습니다.' });
+      return;
+    }
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    if (reason.length === 0) {
+      res.status(400).json({ error: '개입 사유(reason)가 필요합니다.' });
+      return;
+    }
+    try {
+      const actor = adminActor(req);
+      res.json(
+        await stores.requestStore.changeStatus(req.params.id, status as MatchStatus, {
+          adminOverride: { reason, actorId: actor?.id },
+          matchedProviderId:
+            typeof body.matchedProviderId === 'string' ? body.matchedProviderId : undefined,
+          cancelReason: typeof body.cancelReason === 'string' ? body.cancelReason : reason,
+        }),
+      );
     } catch (err) {
       handleError(err, res);
     }

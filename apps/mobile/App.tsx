@@ -340,6 +340,8 @@ export default function App() {
         return FEATURE_INTERIOR ? <InteriorListScreen scope={route.scope} /> : null;
       case 'interiorDetail':
         return FEATURE_INTERIOR ? <InteriorDetailScreen requestId={route.requestId} /> : null;
+      case 'admin':
+        return <AdminScreen onBack={() => navigation.pop()} />;
       case 'reviewForm':
         return <ReviewScreen requestId={route.requestId} />;
       case 'tracking':
@@ -442,7 +444,13 @@ export default function App() {
           <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('INTERIOR')}>
             <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
           </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('admin'); }}>
+          <Pressable
+            style={styles.devHeaderBtn}
+            onPress={() =>
+              // 로그인 상태면 세션으로(감사 로그에 사람이 남는다), 아니면 공유 토큰 경로로.
+              isMember ? setStack([{ name: 'admin' }]) : setAuthRoute('admin')
+            }
+          >
             <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
           </Pressable>
           <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
