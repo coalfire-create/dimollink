@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
   Linking,
+  Platform,
   Pressable,
   SafeAreaView,
   StatusBar,
@@ -9,7 +10,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { AuthSession, UserProfile } from '@dimol/shared';
+import type { AuthSession, RequestPrefillPayload, UserProfile } from '@dimol/shared';
+import { parsePrefillFromUrl } from '@dimol/shared';
 import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
 import { parseAuthDeepLink } from './src/lib/social-auth';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
@@ -138,6 +140,12 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabName>('home');
   const [stack, setStack] = useState<Route[]>([]);
+  /**
+   * 디몰비전에서 링크로 넘어온 분석 결과. 로그인 전에 도착할 수 있어서(대부분 그렇다)
+   * 바로 화면을 열지 않고 들고 있다가, 회원 세션이 잡히면 그때 요청 폼으로 넘긴다.
+   * 안 그러면 로그인 화면이 뜨는 사이에 프리필이 사라진다.
+   */
+  const [pendingPrefill, setPendingPrefill] = useState<RequestPrefillPayload | null>(null);
 
   const handleDevRoleSelect = useCallback((roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
     setSession(DEV_USERS[roleKey]);
@@ -200,6 +208,26 @@ export default function App() {
     return () => sub.remove();
   }, [handleAuthenticated]);
 
+  /**
+   * 디몰비전 분석 결과 링크(?prefill=...) 수신.
+   *
+   * 앱은 딥링크로, 웹앱은 주소창으로 들어온다. 값은 URL 에서 오므로 신뢰할 수 없고,
+   * 검증은 전부 공유 코덱([[request-prefill]])이 한다 — 깨진 링크면 null 이라 무시된다.
+   */
+  useEffect(() => {
+    function receive(url: string | null) {
+      const prefill = parsePrefillFromUrl(url);
+      if (prefill) setPendingPrefill(prefill);
+    }
+    const sub = Linking.addEventListener('url', (e) => receive(e.url));
+    void Linking.getInitialURL().then(receive);
+    // 웹앱은 Linking 이 초기 주소를 못 주는 경우가 있어 주소창을 직접 본다.
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      receive(window.location.href);
+    }
+    return () => sub.remove();
+  }, []);
+
   const navigation = useMemo<Navigation>(
     () => ({
       push: (route) => setStack((prev) => [...prev, route]),
@@ -229,6 +257,32 @@ export default function App() {
   );
 
   const isMember = session !== null && session !== 'guest';
+
+  // 프리필이 있고 회원 세션이 잡히면 철거 요청 폼을 채워서 연다.
+  // 링크를 한 번만 쓰도록 즉시 비운다 — 안 그러면 뒤로 갈 때마다 폼이 다시 열린다.
+  useEffect(() => {
+    if (!pendingPrefill || !isMember) return;
+    const { wasteItems, siteAddress, buildingType, floorAreaM2, floorCount } = pendingPrefill;
+    setPendingPrefill(null);
+    setStack([
+      {
+        name: 'requestForm',
+        kind: 'DEMOLITION',
+        prefill: {
+          wasteItems,
+          siteAddress,
+          buildingType,
+          spaceSize: floorAreaM2 !== undefined ? String(floorAreaM2) : undefined,
+          floorCount: floorCount !== undefined ? String(floorCount) : undefined,
+        },
+      },
+    ]);
+    // 주소창에 남은 프리필을 지운다 — 새로고침하면 또 열리고, 링크 공유 시 남의 현장
+    // 정보가 따라간다.
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [pendingPrefill, isMember]);
 
   // 세션 만료(401) 시 자동 로그아웃 — 게이트로 복귀.
   useEffect(() => {

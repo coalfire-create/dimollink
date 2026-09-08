@@ -10,6 +10,7 @@ export * from './site-photo.js';
 export * from './site-capture-guide.js';
 export * from './site-coverage.js';
 export * from './request.js';
+export * from './request-prefill.js';
 export * from './user.js';
 export * from './auth.js';
 export * from './review.js';

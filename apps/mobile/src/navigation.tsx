@@ -16,6 +16,8 @@ export interface RequestFormPrefill {
   location?: GeoPoint;
   loadAddress?: string;
   unloadAddress?: string;
+  /** 철거 현장 주소 — 디몰비전에서 지도로 찝은 주소를 그대로 넘겨받는다. */
+  siteAddress?: string;
   /** 철거 상세 폼 용 프리필 */
   spaceSize?: string;
   floorCount?: string;

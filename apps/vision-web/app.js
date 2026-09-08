@@ -142,6 +142,8 @@
 
   // 건축물대장(공공데이터) 조회 결과. 디몰링크 본체가 조회해 준 "확정 사실" 문구다.
   var ledgerFacts = null;
+  // 마지막 분석 리포트 — 디몰링크로 넘길 때 쓴다.
+  var lastReport = null;
 
   function collectMeta() {
     return {
@@ -179,6 +181,7 @@
         DV.report.renderProgress(el("progress-steps"), stage);
       },
       onDone: function (report) {
+        lastReport = report;
         DV.report.renderReport(el("report-body"), report);
         setupFeedback(report);
         show("report");
@@ -405,8 +408,25 @@
     setMode("scan");
   });
 
+  /**
+   * 분석 결과를 디몰링크 매칭 신청으로 넘긴다.
+   *
+   * 리포트에서 끝나면 사용자가 자재별 톤수를 손으로 다시 옮겨 적어야 한다 —
+   * 분석의 값어치가 거기서 증발한다. 링크로 넘겨 폼이 채워진 채로 열리게 한다.
+   */
   el("prefill-btn").addEventListener("click", function () {
-    // TODO(V4): waste_plan → 디몰링크 매칭 신청 프리필 연동(본체 로드맵 도달 후).
-    alert("매칭 신청 프리필 연동은 준비 중입니다 (Phase V4).");
+    if (!lastReport) return;
+    var url = DV.buildPrefillUrl(lastReport, {
+      siteAddress: el("site-address").value || undefined,
+      buildingType: el("building-use").value || undefined,
+      floorAreaM2: el("floor-area").value || undefined,
+      floorCount: el("floors").value || undefined,
+    });
+    if (!url) {
+      alert("넘길 자재 항목이 없습니다. 사진을 더 올려 다시 분석해 주세요.");
+      return;
+    }
+    // 새 탭으로 연다 — 이 리포트를 닫지 않아야 값을 대조해볼 수 있다.
+    window.open(url, "_blank", "noopener");
   });
 })();

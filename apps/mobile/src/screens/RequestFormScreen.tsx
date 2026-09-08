@@ -113,7 +113,7 @@ export function RequestFormScreen({
   // 공통 정보
   const [region, setRegion] = useState(prefill?.region ?? user.region ?? '');
   const [location, setLocation] = useState<GeoPoint | undefined>(prefill?.location);
-  const [siteAddress, setSiteAddress] = useState('');
+  const [siteAddress, setSiteAddress] = useState(prefill?.siteAddress ?? '');
   const [loadAddress, setLoadAddress] = useState(prefill?.loadAddress ?? '');
   const [unloadAddress, setUnloadAddress] = useState(prefill?.unloadAddress ?? '');
   const [visitAt, setVisitAt] = useState('');
@@ -138,6 +138,15 @@ export function RequestFormScreen({
   React.useEffect(() => {
     setDesiredDate(Object.keys(selectedDates).sort().join(', '));
   }, [selectedDates]);
+
+  // 프리필로 주소가 들어온 경우(디몰비전에서 넘어온 링크) 건축물대장을 한 번 조회한다.
+  // 주소 선택기를 거치지 않아 조회가 안 걸리는데, 대장 없이 폼만 채우면
+  // 디몰비전에서 이미 확인한 건물 정보가 여기서 도로 비어 보인다.
+  const prefilledAddress = prefill?.siteAddress;
+  React.useEffect(() => {
+    // 최초 1회만 — 이후에는 주소 선택기가 직접 부른다.
+    if (prefilledAddress) void fetchBuildingLedger(prefilledAddress);
+  }, [prefilledAddress]);
   const [description, setDescription] = useState(
     prefill?.wasteTons ? `[물량 계산기 추정치: 약 ${prefill.wasteTons}톤]\n` : '',
   );
