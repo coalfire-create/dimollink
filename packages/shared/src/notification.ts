@@ -6,6 +6,18 @@ import type { MatchStatus } from './types.js';
  * 실제 발송 채널(푸시/문자)은 서버의 NotificationProvider 어댑터가 담당한다.
  */
 
+/**
+ * 알림 종류. **어떤 채널로 내보낼지를 이 값이 정한다.**
+ *
+ * 문자는 건당 비용이 들고, 잘못 보내면 사용자가 수신거부를 눌러 정작 중요한
+ * 알림까지 못 받게 된다. 그래서 채널 판단을 문구 파싱 같은 추측에 맡기지 않고
+ * 만드는 쪽이 명시한다.
+ * - STATUS: 매칭·결제·작업·정산 단계 전이. 놓치면 거래가 멈춘다 → 문자 발송.
+ * - CALL: 운반업체 신규 콜. 놓치면 매칭이 안 된다 → 문자 발송.
+ * - CHAT: 대화 메시지. 자주 오고 앱에서 바로 보인다 → 인앱만.
+ */
+export type NotificationKind = 'STATUS' | 'CALL' | 'CHAT';
+
 export interface AppNotification {
   id: string;
   /** 수신자 (배출자 또는 매칭 업체). */
@@ -15,5 +27,12 @@ export interface AppNotification {
   status: MatchStatus;
   /** UI에 그대로 노출 가능한 한글 메시지. */
   message: string;
+  /** 알림 종류. 없으면 STATUS 로 본다(이 필드가 생기기 전 기록과의 호환). */
+  kind?: NotificationKind;
   createdAt: string;
+}
+
+/** 이 알림을 문자로도 보내야 하는가. 채널 판단의 단일 원천. */
+export function shouldSendSms(notification: Pick<AppNotification, 'kind'>): boolean {
+  return (notification.kind ?? 'STATUS') !== 'CHAT';
 }

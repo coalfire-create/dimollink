@@ -12,6 +12,7 @@ import {
   type SocialIdentity,
   type SocialProvider,
   type UserApprovalStatus,
+  type UserRole,
   type UserProfile,
   type UserType,
 } from '@dimol/shared';
@@ -231,6 +232,14 @@ export class UserStore {
   async setApprovalStatus(id: string, status: UserApprovalStatus): Promise<UserProfile> {
     const user = await this.requireUser(id);
     const updated: UserProfile = { ...user, approvalStatus: status, updatedAt: new Date().toISOString() };
+    await this.saveInner(updated);
+    return updated;
+  }
+
+  /** 계정 권한 변경(백오피스 전용). 누가 바꿨는지는 호출부가 로그로 남긴다. */
+  async setRole(id: string, role: UserRole): Promise<UserProfile> {
+    const user = await this.requireUser(id);
+    const updated: UserProfile = { ...user, role, updatedAt: new Date().toISOString() };
     await this.saveInner(updated);
     return updated;
   }

@@ -5,9 +5,9 @@ import {
   type UserApprovalStatus,
   type VisionMaterialCode,
 } from '@dimol/shared';
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import type { AnomalyDetector } from '../anomaly/detect.js';
-import { createAdminAuth } from '../middleware/admin-auth.js';
+import { adminActor, createAdminAuth } from '../middleware/admin-auth.js';
 import type { OfferStore } from '../offers/store.js';
 import type { PricingStore } from '../pricing/store.js';
 import type { QuoteStore } from '../quotes/store.js';
@@ -31,9 +31,16 @@ export interface AdminStores {
   pricingStore: PricingStore;
 }
 
-export function createAdminRouter(stores: AdminStores, adminToken: string | undefined): Router {
+/**
+ * @param guard 관리자 가드. 앱은 계정(role=ADMIN)+공유 토큰 양쪽을 받는 가드를 넘긴다.
+ *   문자열을 넘기면 공유 토큰만 검사한다(테스트·구버전 호출부 호환).
+ */
+export function createAdminRouter(
+  stores: AdminStores,
+  guard: RequestHandler | string | undefined,
+): Router {
   const router = Router();
-  router.use('/admin', createAdminAuth(adminToken));
+  router.use('/admin', typeof guard === 'function' ? guard : createAdminAuth(guard));
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
     if (err instanceof UserValidationError || err instanceof ReviewValidationError) {
@@ -67,6 +74,34 @@ export function createAdminRouter(stores: AdminStores, adminToken: string | unde
     }
     try {
       res.json(await stores.userStore.setApprovalStatus(req.params.id, status));
+    } catch (err) {
+      handleError(err, res);
+    }
+  });
+
+  // PATCH /api/admin/users/:id/role  { role: ADMIN | MEMBER }
+  // 첫 관리자는 공유 운영 토큰으로 이 엔드포인트를 불러 지정한다(부트스트랩).
+  // 그 뒤로는 관리자 계정 로그인만으로 백오피스를 쓸 수 있어, 행위가 사람에게 남는다.
+  router.patch('/admin/users/:id/role', async (req, res) => {
+    const role = (req.body ?? {}).role;
+    if (role !== 'ADMIN' && role !== 'MEMBER') {
+      res.status(400).json({ error: 'role 은 ADMIN | MEMBER 이어야 합니다.' });
+      return;
+    }
+    // 자기 권한을 스스로 떼면 백오피스에서 잠긴다. 공유 토큰이 있으면 복구되지만,
+    // 실수로 그 상황에 들어가는 것 자체를 막는다.
+    const actor = adminActor(req);
+    if (actor && actor.id === req.params.id && role === 'MEMBER') {
+      res.status(400).json({ error: '자신의 관리자 권한은 스스로 해제할 수 없습니다.' });
+      return;
+    }
+    try {
+      const updated = await stores.userStore.setRole(req.params.id, role);
+      // 누가 누구의 권한을 바꿨는지 남긴다. 공유 토큰 경로면 행위자가 없다는 사실까지 남긴다.
+      console.info(
+        `[admin] role 변경 ${req.params.id} → ${role} (by ${actor?.id ?? 'SHARED_TOKEN'})`,
+      );
+      res.json(updated);
     } catch (err) {
       handleError(err, res);
     }

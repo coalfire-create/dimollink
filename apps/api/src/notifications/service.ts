@@ -89,6 +89,7 @@ export class NotificationService {
       requestId: request.id,
       status: request.status,
       message,
+      kind: 'STATUS',
       createdAt: new Date().toISOString(),
     }));
 
@@ -119,6 +120,7 @@ export class NotificationService {
       requestId: request.id,
       status: request.status,
       message: TRANSPORT_CALL_MESSAGE,
+      kind: 'CALL',
       createdAt: new Date().toISOString(),
     }));
 
@@ -163,6 +165,8 @@ export class NotificationService {
       requestId: request.id,
       status: request.status,
       message: `[새 메시지] ${content.length > 20 ? content.slice(0, 20) + '...' : content}`,
+      // 대화는 인앱만. 한 줄마다 문자가 가면 비용도, 사용자도 못 견딘다.
+      kind: 'CHAT',
       createdAt: new Date().toISOString(),
     };
     

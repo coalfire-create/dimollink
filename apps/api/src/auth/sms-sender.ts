@@ -34,7 +34,11 @@ export class HttpSmsSender implements SmsSender {
     private readonly fetchFn: typeof fetch = fetch,
   ) {}
 
-  async send(phone: string, code: string): Promise<void> {
+  send(phone: string, code: string): Promise<void> {
+    return this.sendText(phone, formatOtpText(code));
+  }
+
+  async sendText(phone: string, text: string): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
@@ -47,7 +51,7 @@ export class HttpSmsSender implements SmsSender {
         body: JSON.stringify({
           to: phone.replace(/\D/g, ''),
           from: this.config.sender,
-          text: formatOtpText(code),
+          text,
         }),
         signal: controller.signal,
       });
@@ -107,7 +111,11 @@ export class SolapiSmsSender implements SmsSender {
     return `HMAC-SHA256 apiKey=${this.config.apiKey}, date=${date}, salt=${salt}, signature=${signature}`;
   }
 
-  async send(phone: string, code: string): Promise<void> {
+  send(phone: string, code: string): Promise<void> {
+    return this.sendText(phone, formatOtpText(code));
+  }
+
+  async sendText(phone: string, text: string): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
     try {
@@ -121,7 +129,7 @@ export class SolapiSmsSender implements SmsSender {
           message: {
             to: phone.replace(/\D/g, ''),
             from: this.config.sender.replace(/\D/g, ''),
-            text: formatOtpText(code),
+            text,
           },
         }),
         signal: controller.signal,

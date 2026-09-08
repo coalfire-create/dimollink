@@ -25,9 +25,16 @@ export class OtpError extends Error {
   }
 }
 
-/** 인증코드 발송 채널. 테스트/운영에서 교체 가능. */
+/**
+ * 인증코드 발송 채널. 테스트/운영에서 교체 가능.
+ *
+ * `sendText` 는 임의 문구 발송(매칭 알림 등)에 쓴다. 인증코드와 알림이 같은 발송기를
+ * 공유해야 발신번호·공급자 설정이 한 곳에 남는다 — 두 벌로 나뉘면 한쪽만 운영 전환되는
+ * 사고가 난다. 구현체가 없으면 인증코드 전용으로만 쓰인다(선택 메서드).
+ */
 export interface SmsSender {
   send(phone: string, code: string): void | Promise<void>;
+  sendText?(phone: string, text: string): void | Promise<void>;
 }
 
 function normalizePhone(input: string): string {
@@ -45,6 +52,11 @@ function maskPhone(input: string): string {
 export class ConsoleSmsSender implements SmsSender {
   send(phone: string, code: string): void {
     console.info(`[otp] 인증코드 발송(sandbox) ${maskPhone(phone)} → ${code}`);
+  }
+
+  sendText(phone: string, text: string): void {
+    // 문구 자체는 남겨도 되지만(PII 아님) 번호는 마스킹한다.
+    console.info(`[sms] 발송(sandbox) ${maskPhone(phone)} → ${text}`);
   }
 }
 

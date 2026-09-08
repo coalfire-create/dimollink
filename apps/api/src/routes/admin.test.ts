@@ -19,12 +19,13 @@ let base: string;
 let requestStore: RequestStore;
 let quoteStore: QuoteStore;
 let pricingStore: PricingStore;
+let userStore: UserStore;
 
 beforeEach(async () => {
   requestStore = new RequestStore();
   quoteStore = new QuoteStore(requestStore);
   pricingStore = new PricingStore();
-  const userStore = new UserStore();
+  userStore = new UserStore();
   const reviewStore = new ReviewStore(requestStore);
   const offerStore = new OfferStore(requestStore);
   const app = express();
@@ -108,5 +109,41 @@ describe('백오피스 확장 현황', () => {
   it('토큰 불일치는 401', async () => {
     const { status } = await get('/api/admin/pricing', 'wrong');
     expect(status).toBe(401);
+  });
+});
+
+describe('PATCH /api/admin/users/:id/role — 관리자 지정(부트스트랩)', () => {
+  it('공유 토큰으로 첫 관리자를 만들 수 있다', async () => {
+    const target = await userStore.create({
+      userType: 'CONSUMER',
+      name: '운영자',
+      region: '양평',
+      phone: '01099998888',
+    });
+    const res = await fetch(`${base}/api/admin/users/${target.id}/role`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'x-admin-token': ADMIN },
+      body: JSON.stringify({ role: 'ADMIN' }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).role).toBe('ADMIN');
+  });
+
+  it('role 값이 이상하면 400', async () => {
+    const res = await fetch(`${base}/api/admin/users/whatever/role`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', 'x-admin-token': ADMIN },
+      body: JSON.stringify({ role: 'SUPERUSER' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('토큰 없이는 막는다', async () => {
+    const res = await fetch(`${base}/api/admin/users/x/role`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'ADMIN' }),
+    });
+    expect(res.status).toBe(401);
   });
 });

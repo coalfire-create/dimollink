@@ -33,6 +33,15 @@ export interface EnqueueOptions {
   reason?: string;
 }
 
+/**
+ * 재시도 큐 저장소. `CollectionPersistence<RetryQueueItem>` 이 그대로 들어맞는다 —
+ * 여기서 좁혀 받는 이유는 이 모듈이 저장소 구현(JSON/PostgreSQL)을 몰라도 되게 하려는 것.
+ */
+export interface RetryQueuePersistence {
+  list(): Promise<RetryQueueItem[]>;
+  save(item: RetryQueueItem): Promise<void>;
+}
+
 export interface RetryQueue {
   enqueue(request: ManifestIssueRequest, opts?: EnqueueOptions): RetryQueueItem;
   /** now 시점에 재시도 가능한 PENDING 항목. */
@@ -87,4 +96,76 @@ export class InMemoryRetryQueue implements RetryQueue {
 /** 지수 백오프(ms): 60s * 2^(attempts-1). 기본값이며 주입으로 교체 가능. */
 export function defaultBackoffMs(attempts: number): number {
   return 60_000 * 2 ** Math.max(0, attempts - 1);
+}
+
+/**
+ * 내구성 있는 재시도 큐 — 프로세스가 재시작해도 살아남는다.
+ *
+ * 왜 필요한가: 인메모리 큐는 배포할 때마다 통째로 사라진다. Railway 는 푸시마다
+ * 재시작하므로, 올바로 장애로 발행에 실패한 전자인계서가 **아무도 모르게 유실된다.**
+ * 법정 신고 의무가 걸린 건이라 유실이 곧 미신고다.
+ *
+ * 왜 인메모리 맵을 그대로 들고 있는가: RetryQueue 인터페이스가 동기라 호출부(처리 루프,
+ * 관리자 화면)를 전부 async 로 바꾸지 않으려면 읽기는 메모리에서 해야 한다.
+ * 쓰기는 저장소로 흘려보낸다(write-through). 알림 서비스가 쓰는 것과 같은 구조다.
+ *
+ * ⚠️ 부팅 직후 `ready` 가 끝나기 전 짧은 구간에는 큐가 비어 보인다. 처리 루프가
+ * 그때 도는 것은 무해하다 — 다음 주기에 잡힌다. 관리자 화면은 `ready` 를 기다린다.
+ */
+export class PersistentRetryQueue implements RetryQueue {
+  private readonly items = new Map<string, RetryQueueItem>();
+  /** 저장소에서 기존 항목을 다 읽어올 때까지의 약속. */
+  readonly ready: Promise<void>;
+
+  constructor(private readonly persistence: RetryQueuePersistence) {
+    this.ready = (async () => {
+      try {
+        for (const item of await persistence.list()) this.items.set(item.id, item);
+      } catch {
+        // 저장소를 못 읽어도 서버는 떠야 한다 — 새 항목은 계속 쌓인다.
+      }
+    })();
+  }
+
+  enqueue(request: ManifestIssueRequest, opts: EnqueueOptions = {}): RetryQueueItem {
+    const now = opts.now ?? Date.now();
+    const item: RetryQueueItem = {
+      id: nextId(),
+      request,
+      attempts: 0,
+      maxAttempts: opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
+      nextAttemptAt: now + (opts.firstDelayMs ?? 0),
+      status: 'PENDING',
+      lastError: opts.reason,
+    };
+    this.items.set(item.id, item);
+    this.persist(item);
+    return item;
+  }
+
+  due(now: number): RetryQueueItem[] {
+    return [...this.items.values()].filter(
+      (it) => it.status === 'PENDING' && it.nextAttemptAt <= now,
+    );
+  }
+
+  save(item: RetryQueueItem): void {
+    this.items.set(item.id, item);
+    this.persist(item);
+  }
+
+  all(): RetryQueueItem[] {
+    return [...this.items.values()];
+  }
+
+  /**
+   * 저장 실패를 삼킨다. 여기서 던지면 발행 흐름이 멈추는데, 그건 저장 실패보다 나쁘다
+   * (메모리에는 남아 있어 이번 프로세스 동안은 재시도가 계속된다).
+   * ⚠️ 항목에 사업자번호(PII)가 있으므로 실패 로그에 내용을 찍지 않는다.
+   */
+  private persist(item: RetryQueueItem): void {
+    void this.persistence.save(item).catch(() => {
+      console.warn(`[allbaro] 재시도 큐 저장 실패 (id=${item.id})`);
+    });
+  }
 }

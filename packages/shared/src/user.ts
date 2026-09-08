@@ -70,6 +70,26 @@ export function offersTransportLabel(offers: boolean | undefined): string {
 /** 업체 승인 상태. 소비자는 가입 즉시 APPROVED, 업체는 관리자 승인(Phase 5) 대상. */
 export type UserApprovalStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED';
 
+/**
+ * 계정 권한. 백오피스(업체 승인·분쟁 조정·정산 실행) 접근을 가른다.
+ *
+ * 공유 토큰 하나로 백오피스를 열면 **누가 무엇을 했는지 남지 않고**, 토큰을 바꾸는
+ * 순간 모든 운영자가 동시에 잠긴다. 사람 계정에 권한을 붙여야 행위를 사람에게
+ * 귀속시킬 수 있다.
+ */
+export type UserRole = 'MEMBER' | 'ADMIN';
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  MEMBER: '일반 회원',
+  ADMIN: '관리자',
+};
+
+/** 이 계정이 백오피스를 쓸 수 있는가. 판단의 단일 원천. */
+export function isAdminUser(user: { role?: UserRole; approvalStatus?: UserApprovalStatus }): boolean {
+  // 정지된 계정은 권한이 남아 있어도 막는다 — 정지의 의미가 없어진다.
+  return user.role === 'ADMIN' && user.approvalStatus !== 'SUSPENDED';
+}
+
 export const USER_APPROVAL_LABELS: Record<UserApprovalStatus, string> = {
   PENDING: '승인 대기',
   APPROVED: '승인됨',
@@ -129,6 +149,8 @@ export interface UserProfile {
   /** 사업자등록번호, 정규화 10자리 (PII — 로그 평문 금지). 업체 필수. */
   businessNumber?: string;
   approvalStatus: UserApprovalStatus;
+  /** 계정 권한. 없으면 일반 회원(이 필드가 생기기 전 계정과의 호환). */
+  role?: UserRole;
   /**
    * 운반업체 콜대기 상태(온라인/오프라인). 운반업체(TRANSPORT_COMPANY)만 값을 가지며,
    * 가입 시 OFFLINE 로 시작한다. 다른 유형은 undefined.

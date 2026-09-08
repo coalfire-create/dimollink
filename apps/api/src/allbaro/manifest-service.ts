@@ -2,6 +2,8 @@ import type { ManifestIssueRequest, ManifestResult } from '@dimol/shared';
 import { AllbaroClient, AllbaroError, isTransientAllbaroError } from './client.js';
 import {
   InMemoryRetryQueue,
+  PersistentRetryQueue,
+  type RetryQueuePersistence,
   defaultBackoffMs,
   type RetryQueue,
   type RetryQueueItem,
@@ -171,11 +173,24 @@ export function requeueForManualRetry(
   return requeued;
 }
 
-/** 앱 전역에서 공유하는 기본 서비스/큐 싱글턴(인메모리 큐). */
+/** 앱 전역에서 공유하는 기본 서비스/큐 싱글턴. */
 let defaultQueue: RetryQueue | undefined;
 let defaultService: ManifestService | undefined;
 
+/**
+ * 기본 큐를 내구성 있는 구현으로 교체한다. 앱 기동 시 **라우터를 만들기 전에** 부른다.
+ *
+ * 인메모리 큐는 재시작마다 통째로 사라지는데, 여기 쌓이는 건 발행에 실패한 전자인계서라
+ * 유실이 곧 법정 미신고다. 저장소 구현(JSON/PostgreSQL)은 app.ts 가 정한다.
+ */
+export function configureDefaultRetryQueue(persistence: RetryQueuePersistence): RetryQueue {
+  defaultQueue = new PersistentRetryQueue(persistence);
+  defaultService = undefined; // 새 큐를 쓰도록 서비스도 다시 만든다.
+  return defaultQueue;
+}
+
 export function getDefaultRetryQueue(): RetryQueue {
+  // 설정 전(테스트 등)에는 인메모리로 동작한다 — 저장소 없이도 로직을 볼 수 있어야 한다.
   defaultQueue ??= new InMemoryRetryQueue();
   return defaultQueue;
 }

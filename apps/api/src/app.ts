@@ -37,6 +37,9 @@ import { Scan3DQueue } from './scan3d/queue.js';
 import { HttpReconstructor, MockReconstructor } from './scan3d/reconstructor.js';
 import { LocationStore } from './locations/store.js';
 import { ConsoleNotificationProvider } from './notifications/provider.js';
+import { SmsNotificationProvider } from './notifications/sms-provider.js';
+import { configureDefaultRetryQueue } from './allbaro/manifest-service.js';
+import type { RetryQueueItem } from './allbaro/retry-queue.js';
 import { NotificationService } from './notifications/service.js';
 import { OfferStore } from './offers/store.js';
 import { InteriorStore } from './interior/store.js';
@@ -64,7 +67,7 @@ import {
 } from './middleware/security.js';
 import { Metrics, metricsMiddleware } from './observability/metrics.js';
 import { createAllbaroRouter } from './routes/allbaro.js';
-import { createAuthRouter } from './routes/auth.js';
+import { bearerToken, createAuthRouter } from './routes/auth.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { OAuthService } from './auth/oauth/oauth-service.js';
 import { healthRouter } from './routes/health.js';
@@ -214,8 +217,25 @@ export function createApp(
     ),
   );
 
+  // 올바로 재시도 큐를 내구성 저장소에 붙인다. 인메모리면 재배포마다 통째로 사라지는데,
+  // 여기 쌓이는 건 발행에 실패한 전자인계서라 유실이 곧 법정 미신고다.
+  // 라우터가 getDefaultRetryQueue() 로 이 큐를 집어가므로 라우터 생성 전에 설정한다.
+  configureDefaultRetryQueue(persistence<RetryQueueItem>('allbaro-retry-queue'));
+
+  // 문자 발송기 하나를 인증코드와 매칭 알림이 함께 쓴다.
+  const smsSender = createSmsSender();
+
+  // 매칭 알림은 인앱 기록 + 문자 발송을 함께 한다.
+  // 인앱만으로는 앱을 열어야 알 수 있어서, 배출자는 차가 언제 오는지 모르고
+  // 운반업체는 콜을 놓친다. 문자 발송기는 인증코드용으로 이미 있는 것을 그대로 쓴다
+  // — 두 벌로 나누면 발신번호·공급자 설정이 갈라진다.
+  // 전화번호 조회는 발송 시점에 일어난다(userStore 는 아래에서 만들어진다).
   const notificationService = new NotificationService(
-    new ConsoleNotificationProvider(),
+    new SmsNotificationProvider(
+      smsSender,
+      async (userId) => (await userStore.get(userId))?.phone,
+      new ConsoleNotificationProvider(),
+    ),
     persistence<AppNotification>('notifications'),
   );
   const requestStore = new RequestStore(
@@ -245,7 +265,7 @@ export function createApp(
   // 휴대폰 OTP + 세션 토큰(자동 로그인) — 파일럿은 메모리 보관, 서버 재시작 시 초기화.
   // devMasterCode 는 비운영 환경에서만 주입된다(운영에서는 undefined → 마스터코드 없음).
   const otpService = new OtpService({
-    sender: createSmsSender(),
+    sender: smsSender,
     kv: shared.otpKv, // Redis(다중 인스턴스) 주입 시 공유, 없으면 인메모리.
     ttlMs: env.otp.ttlSec * 1000,
     resendCooldownMs: env.otp.resendCooldownSec * 1000,
@@ -317,7 +337,16 @@ export function createApp(
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
 
   // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
-  const requireAdmin = createAdminAuth(env.adminToken);
+  // 관리자 계정(role=ADMIN) 로그인 또는 공유 운영 토큰. 계정 경로가 있어야
+  // 백오피스 행위가 사람에게 귀속된다 — 공유 토큰만으로는 누가 했는지 남지 않는다.
+  const requireAdmin = createAdminAuth({
+    token: env.adminToken,
+    lookupUser: async (req) => {
+      const token = bearerToken(req);
+      const userId = token ? await sessionStore.resolve(token) : undefined;
+      return userId ? await userStore.get(userId) : undefined;
+    },
+  });
   // 메트릭 노출 — 관리자 토큰(스크레이퍼)만. Prometheus 텍스트 형식.
   app.get('/api/metrics', requireAdmin, (_req, res) => {
     res.type('text/plain').send(metrics.render());
@@ -451,7 +480,7 @@ export function createApp(
         quoteStore,
         pricingStore,
       },
-      env.adminToken,
+      requireAdmin,
     ),
   );
 
