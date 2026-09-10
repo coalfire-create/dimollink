@@ -64,13 +64,17 @@ export function createQuotesRouter(
     const viewerId = authUserId(req);
     const viewerIsConsumer = (await userStore.get(viewerId))?.userType === 'CONSUMER';
 
-    // 요청 미지정 전체 조회는 경쟁사 금액을 노출한다 → 본인 제출 견적만 반환(소비자는 빈 목록).
     if (typeof requestId !== 'string' || requestId === '') {
-      res.json(
-        viewerIsConsumer
-          ? []
-          : await store.listQuotes({ providerId: viewerId, party: parseParty(party) }),
-      );
+      if (viewerIsConsumer) {
+        res.json([]);
+        return;
+      }
+      const myQuotes = await store.listQuotes({ providerId: viewerId, party: parseParty(party) });
+      const myQuotesWithNames = await Promise.all(myQuotes.map(async (q) => {
+        const provider = await userStore.get(q.providerId);
+        return { ...q, providerName: provider?.name };
+      }));
+      res.json(myQuotesWithNames);
       return;
     }
 
@@ -84,7 +88,11 @@ export function createQuotesRouter(
       providerId: typeof providerId === 'string' ? providerId : undefined,
       party: parseParty(party),
     });
-    res.json(visibleQuotes(all, viewerId, viewerIsConsumer, request.requesterId));
+    const allWithNames = await Promise.all(all.map(async (q) => {
+      const provider = await userStore.get(q.providerId);
+      return { ...q, providerName: provider?.name };
+    }));
+    res.json(visibleQuotes(allWithNames, viewerId, viewerIsConsumer, request.requesterId));
   });
 
   // GET /api/quotes/market-rate?party=TRANSPORT|DISPOSAL — 평균 시세

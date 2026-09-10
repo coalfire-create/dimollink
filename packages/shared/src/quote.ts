@@ -11,6 +11,8 @@ export interface Quote {
   requestId: string;
   /** 견적 제시 업체. */
   providerId: string;
+  /** 업체 이름/대표자 이름 (프론트엔드 표시용) */
+  providerName?: string;
   /** 운반 견적인지 처리 견적인지. */
   party: ProviderRole;
   /** 견적가(원, 양의 정수). */

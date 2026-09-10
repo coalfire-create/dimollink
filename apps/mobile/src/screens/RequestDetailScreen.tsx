@@ -387,14 +387,25 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               .sort((a, b) => a.amount - b.amount)
               .map((q, i) => (
                 <Card key={q.id} style={i === 0 ? styles.bestQuoteCard : undefined}>
-                  <View style={styles.quoteRow}>
-                    <Text style={styles.quoteAmount}>{q.amount.toLocaleString('ko-KR')}원</Text>
+                  <View style={styles.quoteHeader}>
+                    <Text style={styles.quoteProviderName}>{q.providerName || '철거업체'}</Text>
                     {i === 0 ? (
                       <View style={styles.bestBadge}>
                         <Text style={styles.bestBadgeText}>최저가</Text>
                       </View>
                     ) : null}
                   </View>
+                  <View style={styles.quoteRow}>
+                    <Text style={styles.quoteAmount}>{q.amount.toLocaleString('ko-KR')}원</Text>
+                  </View>
+                  <Text style={styles.quoteTime}>
+                    {new Date(q.createdAt).toLocaleString('ko-KR', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: 'numeric',
+                    })}
+                  </Text>
                   {q.memo ? <Text style={styles.quoteMemo}>{q.memo}</Text> : null}
                   <AppButton
                     label="이 견적 선택"
@@ -651,6 +662,17 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     fontWeight: '800',
   },
+  quoteHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  quoteProviderName: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
+  },
   quoteRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -660,6 +682,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.title,
     fontWeight: '800',
+  },
+  quoteTime: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: 4,
+    marginBottom: spacing.xs,
   },
   quoteMemo: {
     color: colors.textMuted,

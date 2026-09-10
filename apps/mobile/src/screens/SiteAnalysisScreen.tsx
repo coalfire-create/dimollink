@@ -228,24 +228,24 @@ export function SiteAnalysisScreen() {
             <View style={styles.heroBadgeRow}>
               <View style={styles.heroCardBadge}>
                 <View style={styles.pulseDot} />
-                <Text style={styles.heroCardBadgeText}>Vision AI v2.0</Text>
+                <Text style={styles.heroCardBadgeText}>스마트 현장 분석</Text>
               </View>
-              <Text style={styles.heroEngineTag}>딥러닝 공정 엔진</Text>
+              <Text style={styles.heroEngineTag}>자동화 리포트</Text>
             </View>
             <Text style={styles.heroCardTitle}>
-              현장 사진 한 장으로{'\n'}소재와 철거 공정을 분석해 드려요
+              현장 사진 한 장으로{'\n'}소재와 철거 공정을 확인하세요
             </Text>
             <View style={styles.heroChipsRow}>
               <View style={styles.heroChip}>
-                <AppIcon name="alert" size={13} color="#93C5FD" />
+                <AppIcon name="alert" size={13} color="#3B82F6" />
                 <Text style={styles.heroChipText}>석면·위험물 식별</Text>
               </View>
               <View style={styles.heroChip}>
-                <AppIcon name="recycle" size={13} color="#93C5FD" />
+                <AppIcon name="recycle" size={13} color="#3B82F6" />
                 <Text style={styles.heroChipText}>부피·폐기물 분류</Text>
               </View>
               <View style={styles.heroChip}>
-                <AppIcon name="document" size={13} color="#93C5FD" />
+                <AppIcon name="document" size={13} color="#3B82F6" />
                 <Text style={styles.heroChipText}>공정 주의사항 리포트</Text>
               </View>
             </View>
@@ -277,8 +277,8 @@ export function SiteAnalysisScreen() {
                 style={[styles.samplePillBtn, captureLocked && styles.actionCardLocked]}
                 onPress={() => guardCapture(loadSampleAndAnalyze)}
               >
-                <AppIcon name="sparkles" size={18} color="#FFFFFF" />
-                <Text style={styles.samplePillBtnText}>샘플 사진으로 AI 즉시 분석 시연</Text>
+                <AppIcon name="image" size={18} color="#FFFFFF" />
+                <Text style={styles.samplePillBtnText}>샘플 사진으로 기능 체험하기</Text>
               </PressableScale>
             </View>
           </FadeInUp>
@@ -499,12 +499,12 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
         <View style={styles.summaryCard}>
           <View style={styles.summaryTop}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <AppIcon name="sparkles" size={20} color={theme.colors.primary} />
+              <AppIcon name="document" size={20} color={theme.colors.primary} />
               <Text style={styles.summaryLabel}>현장 분석 진단서</Text>
             </View>
             <View style={styles.methodChip}>
               <Text style={styles.methodChipText}>
-                {result.method === 'AI_VISION' ? 'AI 실시간 분석' : '시연용 샘플'}
+                {result.method === 'AI_VISION' ? '자동 분석' : '시연용 샘플'}
               </Text>
             </View>
           </View>
@@ -588,17 +588,12 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
   
-  /* 히어로 AI 카드 */
+  /* 히어로 카드 (라이트 테마로 변경) */
   heroCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#EFF6FF',
     borderRadius: radius.card,
     padding: spacing.md,
     marginBottom: spacing.md,
-    shadowColor: '#1E293B',
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
   },
   heroBadgeRow: {
     flexDirection: 'row',
@@ -607,9 +602,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   heroCardBadge: {
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+    backgroundColor: '#DBEAFE',
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: '#BFDBFE',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
@@ -620,11 +615,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#60A5FA',
+    backgroundColor: '#3B82F6',
     marginRight: 6,
   },
   heroCardBadgeText: {
-    color: '#93C5FD',
+    color: '#1E40AF',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -634,7 +629,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   heroCardTitle: {
-    color: '#F8FAFC',
+    color: '#1E293B',
     fontSize: font.title - 2,
     fontWeight: '800',
     lineHeight: font.title + 4,
@@ -647,7 +642,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   heroChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
@@ -656,7 +653,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   heroChipText: {
-    color: '#94A3B8',
+    color: '#475569',
     fontSize: 12,
     fontWeight: '600',
   },
