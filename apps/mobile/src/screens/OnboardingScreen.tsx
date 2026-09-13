@@ -4,6 +4,7 @@ import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp, WEB_BASE_URL } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
+import { AppIcon, type IconName } from '../components/AppIcon';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
@@ -23,43 +24,55 @@ const TYPE_OPTIONS: Array<{
   type: UserType;
   title: string;
   description: string;
-  icon: string;
+  iconName: IconName;
   badge?: string;
+  iconBg: string;
+  iconColor: string;
 }> = [
   {
     type: 'CONSUMER',
     title: '소비자',
     description: '철거·폐기물 처리를 맡기고 싶어요',
-    icon: '🏠',
+    iconName: 'home',
     badge: '개인/기업',
+    iconBg: '#EBF2FF',
+    iconColor: '#2563EB',
   },
   {
     type: 'DEMOLITION_COMPANY',
     title: '철거업체',
     description: '철거 작업을 수주하고 싶어요',
-    icon: '🏗️',
+    iconName: 'hammer',
     badge: '파트너',
+    iconBg: '#FFF3E0',
+    iconColor: '#D97706',
   },
   {
     type: 'TRANSPORT_COMPANY',
     title: '운반업체',
     description: '폐기물 운반 콜을 받고 싶어요',
-    icon: '🚚',
+    iconName: 'truck',
     badge: '파트너',
+    iconBg: '#E8F5E9',
+    iconColor: '#059669',
   },
   {
     type: 'WASTE_TREATMENT_PLANT',
     title: '처리장',
     description: '폐기물 반입 예약을 받고 싶어요',
-    icon: '🏭',
+    iconName: 'building',
     badge: '파트너',
+    iconBg: '#F3E8FF',
+    iconColor: '#7C3AED',
   },
   {
     type: 'INTERIOR_COMPANY',
     title: '인테리어 업체',
     description: '인테리어 시공 견적을 넣고 싶어요',
-    icon: '🎨',
+    iconName: 'palette',
     badge: '파트너',
+    iconBg: '#FCE7F3',
+    iconColor: '#DB2777',
   },
 ];
 
@@ -215,8 +228,18 @@ export function OnboardingScreen({
               onPress={() => setUserType(option.type)}
               style={[styles.roleCard, selected && styles.roleCardSelected]}
             >
-              <View style={[styles.iconCircle, selected && styles.iconCircleSelected]}>
-                <Text style={styles.iconText}>{option.icon}</Text>
+              <View
+                style={[
+                  styles.iconCircle,
+                  { backgroundColor: selected ? colors.primarySoft : option.iconBg },
+                ]}
+              >
+                <AppIcon
+                  name={option.iconName}
+                  size={24}
+                  color={selected ? colors.primary : option.iconColor}
+                  filled={selected}
+                />
               </View>
               <View style={styles.roleInfo}>
                 <View style={styles.roleHeaderRow}>
@@ -293,9 +316,15 @@ export function OnboardingScreen({
           ) : null}
 
           <View style={styles.pwSection}>
-            <Text style={styles.pwSectionLabel}>🔒 로그인 비밀번호</Text>
+            <View style={styles.pwHeaderRow}>
+              <View style={styles.lockBadge}>
+                <AppIcon name="lock" size={16} color={colors.primary} filled />
+              </View>
+              <Text style={styles.pwSectionLabel}>로그인 비밀번호</Text>
+            </View>
             <Field
               label="비밀번호 *"
+              leftIcon="lock"
               value={password}
               onChangeText={setPassword}
               placeholder="6자 이상"
@@ -304,6 +333,7 @@ export function OnboardingScreen({
             />
             <Field
               label="비밀번호 확인 *"
+              leftIcon="lock"
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
               placeholder="비밀번호를 한 번 더 입력"
@@ -568,11 +598,23 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.md,
   },
+  pwHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  lockBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pwSectionLabel: {
     color: colors.text,
     fontSize: font.body,
     fontWeight: '800',
-    marginBottom: spacing.sm,
   },
   // 이용약관 동의
   termsRow: {

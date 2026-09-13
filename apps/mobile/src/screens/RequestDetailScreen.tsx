@@ -39,7 +39,9 @@ import { theme } from '../theme';
 import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
 
 /**
- * 요청 상세 — 상태 타임라인 + 취소 + 채팅 진입.
+ * 요청 상세 — 상단 요약(핵심 액션 포함) + 상태 타임라인 + 취소 + 채팅 진입.
+ * 화면 순서는 상태 전이 로직을 그대로 따른다: 요약/결제 → 진행 상황 → 지금 해야 할 일
+ * (견적 선택·환불·작업 진행) → 상세 정보 → 부가 액션(채팅) → 취소(가장 아래, 파괴적 동작).
  * 취소 버튼 노출은 shared 의 isRequestCancellable 로 서버 전이 규칙과 일치시킨다
  * (진행중부터는 취소 불가 — 취소 정책).
  */
@@ -182,17 +184,60 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
       ? request.matchedProviderId
       : request.requesterId
     : null;
+  const awaitingPayment = isRequester && request.status === 'MATCHED' && request.agreedFee !== undefined;
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.statusHeader}>
-          <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
-        </View>
+        {/* 요약 카드 — 종류·지역·상태·합의 금액을 한눈에. 결제할 차례면 여기서 바로 결제한다. */}
+        <FadeInUp delay={0}>
+          <Card style={awaitingPayment ? styles.heroCardHighlight : styles.heroCard}>
+            <View style={styles.heroTopRow}>
+              <Text style={styles.heroKind}>{KIND_LABELS[request.kind]}</Text>
+              <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
+            </View>
+            <Text style={styles.heroRegion}>{request.region}</Text>
 
-        {!cancelled ? (
+            {request.agreedFee !== undefined ? (
+              <>
+                <View style={styles.heroDivider} />
+                <View style={styles.heroFeeRow}>
+                  <Text style={styles.heroFeeLabel}>
+                    {request.status === 'MATCHED' ? '결제 예정 금액' : '합의 금액'}
+                  </Text>
+                  <Text style={styles.heroFeeValue}>
+                    {request.agreedFee.toLocaleString('ko-KR')}원
+                  </Text>
+                </View>
+              </>
+            ) : null}
+
+            {awaitingPayment ? (
+              <>
+                <Text style={styles.heroActionHint}>결제하면 바로 작업이 시작돼요.</Text>
+                <AppButton
+                  label="결제하기"
+                  style={styles.heroButton}
+                  onPress={() => nav.push({ name: 'payment', requestId: request.id })}
+                />
+              </>
+            ) : null}
+          </Card>
+        </FadeInUp>
+
+        {cancelled ? (
           <FadeInUp delay={40}>
+            <Card>
+              <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
+              {request.cancelReason ? (
+                <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
+              ) : null}
+            </Card>
+          </FadeInUp>
+        ) : (
+          <FadeInUp delay={40}>
+            <SectionTitle>진행 상황</SectionTitle>
             <Card>
               {TIMELINE.map((step, index) => {
                 const reached = index <= activeIndex;
@@ -226,15 +271,6 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                   </View>
                 );
               })}
-            </Card>
-          </FadeInUp>
-        ) : (
-          <FadeInUp delay={40}>
-            <Card>
-              <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
-              {request.cancelReason ? (
-                <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
-              ) : null}
             </Card>
           </FadeInUp>
         )}
@@ -417,28 +453,9 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           </>
         ) : null}
 
-        {isRequester && request.agreedFee !== undefined && request.status === 'MATCHED' ? (
-          <>
-            <SectionTitle>결제</SectionTitle>
-            <Card>
-              <Text style={styles.payAmount}>{request.agreedFee.toLocaleString('ko-KR')}원</Text>
-              <Text style={styles.quoteHint}>합의 금액 · 결제하면 작업이 시작돼요.</Text>
-              <AppButton
-                label="결제하기"
-                onPress={() => nav.push({ name: 'payment', requestId: request.id })}
-              />
-            </Card>
-          </>
-        ) : null}
-
         {isRequester && request.status === 'PAID' ? (
           <Card>
-            <Text style={styles.paidBadge}>✓ 결제 완료</Text>
-            {request.agreedFee !== undefined ? (
-              <Text style={styles.quoteHint}>
-                {request.agreedFee.toLocaleString('ko-KR')}원 결제됨
-              </Text>
-            ) : null}
+            <Text style={styles.paidBadge}>✓ 결제가 완료됐어요</Text>
             {request.paymentId ? (
               refundMode ? (
                 <View style={{ marginTop: spacing.sm }}>
@@ -496,6 +513,87 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             </Card>
           </>
         ) : null}
+
+        <SectionTitle>요청 정보</SectionTitle>
+        <Card>
+          {request.kind !== 'DEMOLITION' ? (
+            <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
+          ) : null}
+          <InfoRow
+            label="올바로 신고"
+            value={request.allbaroRequested ? '신청함' : '간이 확인서'}
+          />
+          {request.kind === 'DEMOLITION' ? (
+            <>
+              <InfoRow label="현장 주소" value={request.siteAddress} />
+              {request.demolitionDetails?.buildingType ? (
+                <InfoRow
+                  label="건물 종류"
+                  value={
+                    BUILDING_TYPE_LABELS[request.demolitionDetails.buildingType] ??
+                    request.demolitionDetails.buildingType
+                  }
+                />
+              ) : null}
+              {request.demolitionDetails?.demolitionType ? (
+                <InfoRow
+                  label="철거 종류"
+                  value={
+                    DEMOLITION_TYPE_LABELS[request.demolitionDetails.demolitionType] ??
+                    request.demolitionDetails.demolitionType
+                  }
+                />
+              ) : null}
+              {request.demolitionDetails?.spaceSize ? (
+                <InfoRow label="평수 / 면적" value={request.demolitionDetails.spaceSize} />
+              ) : null}
+              {request.demolitionDetails?.floorCount ? (
+                <InfoRow label="층수" value={request.demolitionDetails.floorCount} />
+              ) : null}
+              {request.demolitionDetails?.hasElevator !== undefined ? (
+                <InfoRow
+                  label="엘리베이터"
+                  value={request.demolitionDetails.hasElevator ? '있음' : '없음'}
+                />
+              ) : null}
+              {request.demolitionDetails?.hasVehicleAccess !== undefined ? (
+                <InfoRow
+                  label="차량/사다리 진입"
+                  value={request.demolitionDetails.hasVehicleAccess ? '가능' : '불가'}
+                />
+              ) : null}
+              {request.demolitionDetails?.desiredDate ? (
+                <InfoRow label="희망 철거일" value={request.demolitionDetails.desiredDate} />
+              ) : null}
+              {request.demolitionDetails?.description ? (
+                <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
+              ) : null}
+              {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
+                <InfoRow
+                  label="디몰비전 분석"
+                  value={request.demolitionDetails.dimolVisionAnalysis.summary}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {request.kind === 'TRANSPORT' ? (
+            <>
+              <InfoRow label="상차지" value={request.loadAddress} />
+              <InfoRow label="하차지" value={request.unloadAddress} />
+            </>
+          ) : null}
+          {request.kind === 'DISPOSAL_RESERVATION' ? (
+            <InfoRow
+              label="방문 일시"
+              value={new Date(request.visitAt).toLocaleString('ko-KR', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            />
+          ) : null}
+          <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
+          <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
+        </Card>
 
         {counterpartyId && !cancelled ? (
           <>
@@ -577,9 +675,55 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     paddingBottom: spacing.lg,
   },
-  statusHeader: {
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+  heroCard: {
+    backgroundColor: colors.background,
+  },
+  heroCardHighlight: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  heroTopRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heroKind: {
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+  },
+  heroRegion: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: spacing.xs,
+  },
+  heroDivider: {
+    backgroundColor: colors.border,
+    height: 1,
+    marginVertical: spacing.sm,
+  },
+  heroFeeRow: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heroFeeLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
+  },
+  heroFeeValue: {
+    color: colors.text,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+  },
+  heroActionHint: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: spacing.sm,
+  },
+  heroButton: {
+    marginTop: spacing.xs,
   },
   timelineRow: {
     flexDirection: 'row',
@@ -694,11 +838,6 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginBottom: spacing.xs,
     marginTop: spacing.xs / 2,
-  },
-  payAmount: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
   },
   paidBadge: {
     color: colors.primary,

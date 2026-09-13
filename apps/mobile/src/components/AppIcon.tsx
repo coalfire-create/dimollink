@@ -22,7 +22,9 @@ export type IconName =
   | 'chat'
   | 'alert'
   | 'recycle'
-  | 'hammer';
+  | 'hammer'
+  | 'palette'
+  | 'user';
 
 const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; filled: keyof typeof Ionicons.glyphMap }> = {
   home: { outline: 'home-outline', filled: 'home' },
@@ -45,6 +47,8 @@ const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; fill
   alert: { outline: 'alert-circle-outline', filled: 'alert-circle' },
   recycle: { outline: 'refresh-circle-outline', filled: 'refresh-circle' },
   hammer: { outline: 'hammer-outline', filled: 'hammer' },
+  palette: { outline: 'color-palette-outline', filled: 'color-palette' },
+  user: { outline: 'person-outline', filled: 'person' },
 };
 
 export function AppIcon({
@@ -52,13 +56,15 @@ export function AppIcon({
   size = 22,
   color = theme.colors.text,
   filled = false,
+  style,
 }: {
   name: IconName;
   size?: number;
   color?: string;
   filled?: boolean;
+  style?: any;
 }) {
   const iconConfig = ICON_MAP[name] || ICON_MAP.home;
   const iconName = filled ? iconConfig.filled : iconConfig.outline;
-  return <Ionicons name={iconName} size={size} color={color} />;
+  return <Ionicons name={iconName} size={size} color={color} style={style} />;
 }
