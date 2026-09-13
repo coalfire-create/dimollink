@@ -125,67 +125,15 @@ export function ConsumerHomeScreen() {
           </View>
         </FadeInUp>
 
-        <FadeInUp delay={60}>
-          <Pressable
-            style={styles.guideBanner}
-            onPress={() => setShowGuide(true)}
-            accessibilityRole="button"
-            accessibilityLabel="비움 이용 가이드 보기"
-          >
-            <View style={styles.guideBannerLeft}>
-              <View style={styles.guideBannerIcon}>
-                <AppIcon name="lightbulb" size={16} color={theme.colors.primary} />
-              </View>
-              <Text style={styles.guideBannerText}>처음이신가요? 1분 만에 끝내는 비움 이용 가이드</Text>
-            </View>
-            <Text style={styles.guideBannerArrow}>보기 ›</Text>
-          </Pressable>
-        </FadeInUp>
-
         <FadeInUp delay={100}>
           <Pressable
-            style={styles.cardSquare}
+            style={styles.cardBox}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
           >
-            <View style={styles.cardSquareHeader}>
-              <View style={styles.cardSquareBadge}>
-                <Text style={styles.cardSquareBadgeText}>AI 원스톱 견적</Text>
-              </View>
-              <Text style={styles.cardSquareTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-              <Text style={styles.cardSquareSubtitle}>
-                현장 사진 한 장으로{'\n'}건축물 분석부터 맞춤 견적까지
-              </Text>
+            <Text style={styles.cardBoxTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+            <View style={styles.cardBoxIconWrap}>
+              <AppIcon name="hammer" size={56} color={theme.colors.primary} />
             </View>
-
-            <View style={styles.cardSquareCenter}>
-              <View style={styles.cardSquareIconCircle}>
-                <AppIcon name="hammer" size={54} color={theme.colors.primary} />
-              </View>
-            </View>
-
-            <View style={styles.cardSquareFooter}>
-              <Text style={styles.cardSquareCta}>견적 신청하기</Text>
-              <Text style={styles.cardSquareArrow}>➔</Text>
-            </View>
-          </Pressable>
-        </FadeInUp>
-
-        {/* 소비자가 직접 운반 차량을 부른다(사진으로 소재·무게 자동 채움 가능). */}
-        <FadeInUp delay={240}>
-          <Pressable
-            style={styles.interiorCard}
-            onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
-          >
-            <View style={{ marginRight: 12 }}>
-              <AppIcon name="truck" size={26} color={theme.colors.primary} />
-            </View>
-            <View style={styles.interiorTextBox}>
-              <Text style={styles.interiorTitle}>운반 차량 직접 부르기</Text>
-              <Text style={styles.interiorSubtitle} numberOfLines={2}>
-                사진 한 장이면 소재·무게를 자동으로 채워 드려요
-              </Text>
-            </View>
-            <Text style={styles.interiorChevron}>›</Text>
           </Pressable>
         </FadeInUp>
 
@@ -254,7 +202,8 @@ const styles = StyleSheet.create({
   bannerContainer: {
     backgroundColor: colors.primary,
     borderRadius: 20,
-    margin: spacing.sm,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -286,121 +235,32 @@ const styles = StyleSheet.create({
     top: 22,
     zIndex: 1,
   },
-  guideBanner: {
-    backgroundColor: colors.surface,
-    borderColor: '#D7E3FC',
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 10,
-  },
-  guideBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  guideBannerIcon: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  guideBannerText: {
-    color: colors.text,
-    fontSize: font.body,
-    fontWeight: '700',
-    flex: 1,
-  },
-  guideBannerArrow: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '800',
-  },
-  cardSquare: {
+  cardBox: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 24,
+    borderRadius: 20,
     borderWidth: 1.5,
-    aspectRatio: 1,
-    maxWidth: 380,
-    width: '100%',
-    alignSelf: 'center',
+    height: 200,
     justifyContent: 'space-between',
     marginHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     padding: spacing.md,
     shadowColor: '#0B1B3A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    elevation: 2,
   },
-  cardSquareHeader: {
-    alignItems: 'flex-start',
-  },
-  cardSquareBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 8,
-  },
-  cardSquareBadgeText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
-  },
-  cardSquareTitle: {
+  cardBoxTitle: {
     color: colors.text,
-    fontSize: font.titleLarge,
+    fontSize: font.title,
     fontWeight: '800',
-    lineHeight: font.titleLarge + 4,
+    lineHeight: font.title + 6,
   },
-  cardSquareSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  cardSquareCenter: {
+  cardBoxIconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xs,
-  },
-  cardSquareIconCircle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primarySoft,
-  },
-  cardSquareFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
-  },
-  cardSquareCta: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  cardSquareArrow: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
+    marginBottom: spacing.xs,
   },
   interiorCard: {
     alignItems: 'center',
