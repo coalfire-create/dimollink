@@ -11,8 +11,10 @@ import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge } from '../components/ui';
 import { FadeInUp } from '../components/motion';
+import { UserGuideModal } from '../components/UserGuideModal';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
+import { hasSeenGuide, setSeenGuide } from '../lib/session-storage';
 import { theme } from '../theme';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
@@ -30,6 +32,20 @@ export function ConsumerHomeScreen() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [rate, setRate] = useState<MarketRate | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const seen = await hasSeenGuide(user.id);
+      if (!seen && active) {
+        setShowGuide(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user.id]);
 
   const load = useCallback(async () => {
     const [reqsRes, rateRes] = await Promise.allSettled([
@@ -109,14 +125,47 @@ export function ConsumerHomeScreen() {
           </View>
         </FadeInUp>
 
+        <FadeInUp delay={60}>
+          <Pressable
+            style={styles.guideBanner}
+            onPress={() => setShowGuide(true)}
+            accessibilityRole="button"
+            accessibilityLabel="비움 이용 가이드 보기"
+          >
+            <View style={styles.guideBannerLeft}>
+              <View style={styles.guideBannerIcon}>
+                <AppIcon name="lightbulb" size={16} color={theme.colors.primary} />
+              </View>
+              <Text style={styles.guideBannerText}>처음이신가요? 1분 만에 끝내는 비움 이용 가이드</Text>
+            </View>
+            <Text style={styles.guideBannerArrow}>보기 ›</Text>
+          </Pressable>
+        </FadeInUp>
+
         <FadeInUp delay={100}>
           <Pressable
-            style={styles.cardLarge}
+            style={styles.cardSquare}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
           >
-            <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-            <View style={styles.cardLargeIconWrap}>
-              <AppIcon name="hammer" size={48} color={theme.colors.primary} />
+            <View style={styles.cardSquareHeader}>
+              <View style={styles.cardSquareBadge}>
+                <Text style={styles.cardSquareBadgeText}>AI 원스톱 견적</Text>
+              </View>
+              <Text style={styles.cardSquareTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+              <Text style={styles.cardSquareSubtitle}>
+                현장 사진 한 장으로{'\n'}건축물 분석부터 맞춤 견적까지
+              </Text>
+            </View>
+
+            <View style={styles.cardSquareCenter}>
+              <View style={styles.cardSquareIconCircle}>
+                <AppIcon name="hammer" size={54} color={theme.colors.primary} />
+              </View>
+            </View>
+
+            <View style={styles.cardSquareFooter}>
+              <Text style={styles.cardSquareCta}>견적 신청하기</Text>
+              <Text style={styles.cardSquareArrow}>➔</Text>
             </View>
           </Pressable>
         </FadeInUp>
@@ -174,6 +223,16 @@ export function ConsumerHomeScreen() {
         </View>
       </ScrollView>
       <TabBar active="home" />
+
+      <UserGuideModal
+        visible={showGuide}
+        onClose={() => setShowGuide(false)}
+        onNeverShowAgain={async () => {
+          await setSeenGuide(user.id);
+          setShowGuide(false);
+        }}
+        isNewUser={requests.length === 0}
+      />
     </View>
   );
 }
@@ -227,32 +286,121 @@ const styles = StyleSheet.create({
     top: 22,
     zIndex: 1,
   },
-  cardLarge: {
+  guideBanner: {
+    backgroundColor: colors.surface,
+    borderColor: '#D7E3FC',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 10,
+  },
+  guideBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  guideBannerIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  guideBannerText: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+    flex: 1,
+  },
+  guideBannerArrow: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '800',
+  },
+  cardSquare: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1.5,
-    height: 190,
+    aspectRatio: 1,
+    maxWidth: 380,
+    width: '100%',
+    alignSelf: 'center',
     justifyContent: 'space-between',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     padding: spacing.md,
     shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    elevation: 3,
   },
-  cardLargeTitle: {
+  cardSquareHeader: {
+    alignItems: 'flex-start',
+  },
+  cardSquareBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  cardSquareBadgeText: {
+    color: colors.primary,
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  cardSquareTitle: {
     color: colors.text,
-    fontSize: font.title,
+    fontSize: font.titleLarge,
     fontWeight: '800',
-    lineHeight: font.title + 6,
+    lineHeight: font.titleLarge + 4,
   },
-  cardLargeIconWrap: {
+  cardSquareSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  cardSquareCenter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  cardSquareIconCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primarySoft,
+  },
+  cardSquareFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 10,
+  },
+  cardSquareCta: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  cardSquareArrow: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
   },
   interiorCard: {
     alignItems: 'center',

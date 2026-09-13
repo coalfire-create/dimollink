@@ -25,7 +25,10 @@ export type IconName =
   | 'hammer'
   | 'palette'
   | 'user'
-  | 'image';
+  | 'image'
+  | 'lightbulb'
+  | 'shield'
+  | 'card';
 
 const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; filled: keyof typeof Ionicons.glyphMap }> = {
   home: { outline: 'home-outline', filled: 'home' },
@@ -51,6 +54,9 @@ const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; fill
   hammer: { outline: 'hammer-outline', filled: 'hammer' },
   palette: { outline: 'color-palette-outline', filled: 'color-palette' },
   user: { outline: 'person-outline', filled: 'person' },
+  lightbulb: { outline: 'bulb-outline', filled: 'bulb' },
+  shield: { outline: 'shield-checkmark-outline', filled: 'shield-checkmark' },
+  card: { outline: 'card-outline', filled: 'card' },
 };
 
 export function AppIcon({

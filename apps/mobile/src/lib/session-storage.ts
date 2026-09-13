@@ -37,3 +37,27 @@ export async function clearToken(): Promise<void> {
     // 무시 — 메모리 값은 이미 정리됨.
   }
 }
+
+const GUIDE_SEEN_KEY = 'dimol.guide.seen';
+let memoryGuideSeen = false;
+
+export async function hasSeenGuide(userId?: string): Promise<boolean> {
+  const key = userId ? `${GUIDE_SEEN_KEY}.${userId}` : GUIDE_SEEN_KEY;
+  try {
+    const val = await AsyncStorage.getItem(key);
+    return val === 'true';
+  } catch {
+    return memoryGuideSeen;
+  }
+}
+
+export async function setSeenGuide(userId?: string): Promise<void> {
+  memoryGuideSeen = true;
+  const key = userId ? `${GUIDE_SEEN_KEY}.${userId}` : GUIDE_SEEN_KEY;
+  try {
+    await AsyncStorage.setItem(key, 'true');
+  } catch {
+    // 무시
+  }
+}
+

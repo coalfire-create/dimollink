@@ -91,12 +91,28 @@ export function DemolitionHomeScreen() {
 
         <FadeInUp delay={100}>
           <Pressable
-            style={styles.cardLarge}
+            style={styles.cardSquare}
             onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
           >
-            <Text style={styles.cardLargeTitle}>운반 차량{'\n'}부르기</Text>
-            <View style={styles.cardLargeIconWrap}>
-              <AppIcon name="truck" size={48} color={theme.colors.primary} />
+            <View style={styles.cardSquareHeader}>
+              <View style={styles.cardSquareBadge}>
+                <Text style={styles.cardSquareBadgeText}>신속 배차</Text>
+              </View>
+              <Text style={styles.cardSquareTitle}>운반 차량{'\n'}부르기</Text>
+              <Text style={styles.cardSquareSubtitle}>
+                현장 폐기물 적재 후{'\n'}신속한 운반 배차 요청
+              </Text>
+            </View>
+
+            <View style={styles.cardSquareCenter}>
+              <View style={styles.cardSquareIconCircle}>
+                <AppIcon name="truck" size={54} color={theme.colors.primary} />
+              </View>
+            </View>
+
+            <View style={styles.cardSquareFooter}>
+              <Text style={styles.cardSquareCta}>차량 호출하기</Text>
+              <Text style={styles.cardSquareArrow}>➔</Text>
             </View>
           </Pressable>
         </FadeInUp>
@@ -205,32 +221,82 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
   },
-  cardLarge: {
+  cardSquare: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1.5,
-    height: 190,
+    aspectRatio: 1,
+    maxWidth: 380,
+    width: '100%',
+    alignSelf: 'center',
     justifyContent: 'space-between',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     padding: spacing.md,
     shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    elevation: 3,
   },
-  cardLargeTitle: {
+  cardSquareHeader: {
+    alignItems: 'flex-start',
+  },
+  cardSquareBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 8,
+  },
+  cardSquareBadgeText: {
+    color: colors.primary,
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
+  cardSquareTitle: {
     color: colors.text,
-    fontSize: font.title,
+    fontSize: font.titleLarge,
     fontWeight: '800',
-    lineHeight: font.title + 6,
+    lineHeight: font.titleLarge + 4,
   },
-  cardLargeIconWrap: {
+  cardSquareSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  cardSquareCenter: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  cardSquareIconCircle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primarySoft,
+  },
+  cardSquareFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: 10,
+  },
+  cardSquareCta: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  cardSquareArrow: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
   },
   interiorCard: {
     alignItems: 'center',
