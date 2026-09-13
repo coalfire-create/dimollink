@@ -26,8 +26,6 @@ const TYPE_OPTIONS: Array<{
   description: string;
   iconName: IconName;
   badge?: string;
-  iconBg: string;
-  iconColor: string;
 }> = [
   {
     type: 'CONSUMER',
@@ -35,8 +33,6 @@ const TYPE_OPTIONS: Array<{
     description: '철거·폐기물 처리를 맡기고 싶어요',
     iconName: 'home',
     badge: '개인/기업',
-    iconBg: '#EBF2FF',
-    iconColor: '#2563EB',
   },
   {
     type: 'DEMOLITION_COMPANY',
@@ -44,8 +40,6 @@ const TYPE_OPTIONS: Array<{
     description: '철거 작업을 수주하고 싶어요',
     iconName: 'hammer',
     badge: '파트너',
-    iconBg: '#FFF3E0',
-    iconColor: '#D97706',
   },
   {
     type: 'TRANSPORT_COMPANY',
@@ -53,8 +47,6 @@ const TYPE_OPTIONS: Array<{
     description: '폐기물 운반 콜을 받고 싶어요',
     iconName: 'truck',
     badge: '파트너',
-    iconBg: '#E8F5E9',
-    iconColor: '#059669',
   },
   {
     type: 'WASTE_TREATMENT_PLANT',
@@ -62,8 +54,6 @@ const TYPE_OPTIONS: Array<{
     description: '폐기물 반입 예약을 받고 싶어요',
     iconName: 'building',
     badge: '파트너',
-    iconBg: '#F3E8FF',
-    iconColor: '#7C3AED',
   },
   {
     type: 'INTERIOR_COMPANY',
@@ -71,8 +61,6 @@ const TYPE_OPTIONS: Array<{
     description: '인테리어 시공 견적을 넣고 싶어요',
     iconName: 'palette',
     badge: '파트너',
-    iconBg: '#FCE7F3',
-    iconColor: '#DB2777',
   },
 ];
 
@@ -231,13 +219,13 @@ export function OnboardingScreen({
               <View
                 style={[
                   styles.iconCircle,
-                  { backgroundColor: selected ? colors.primarySoft : option.iconBg },
+                  selected && styles.iconCircleSelected,
                 ]}
               >
                 <AppIcon
                   name={option.iconName}
-                  size={24}
-                  color={selected ? colors.primary : option.iconColor}
+                  size={22}
+                  color={selected ? colors.primary : colors.text}
                   filled={selected}
                 />
               </View>
@@ -317,14 +305,11 @@ export function OnboardingScreen({
 
           <View style={styles.pwSection}>
             <View style={styles.pwHeaderRow}>
-              <View style={styles.lockBadge}>
-                <AppIcon name="lock" size={16} color={colors.primary} filled />
-              </View>
+              <AppIcon name="lock" size={17} color={colors.primary} filled />
               <Text style={styles.pwSectionLabel}>로그인 비밀번호</Text>
             </View>
             <Field
               label="비밀번호 *"
-              leftIcon="lock"
               value={password}
               onChangeText={setPassword}
               placeholder="6자 이상"
@@ -333,7 +318,6 @@ export function OnboardingScreen({
             />
             <Field
               label="비밀번호 확인 *"
-              leftIcon="lock"
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
               placeholder="비밀번호를 한 번 더 입력"
@@ -502,16 +486,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.sm,
   },
   iconCircleSelected: {
     backgroundColor: '#FFFFFF',
+    borderColor: colors.primary,
   },
   iconText: {
     fontSize: 24,
@@ -601,15 +588,8 @@ const styles = StyleSheet.create({
   pwHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  lockBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    padding: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: spacing.xs,
+    gap: 6,
   },
   pwSectionLabel: {
     color: colors.text,

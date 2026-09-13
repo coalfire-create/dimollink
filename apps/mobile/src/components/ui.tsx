@@ -165,14 +165,7 @@ export function Field({ label, hint, leftIcon, style, onFocus, onBlur, ...inputP
   const [focused, setFocused] = React.useState(false);
   return (
     <View style={{ marginBottom: spacing.md }}>
-      <View style={styles.fieldLabelRow}>
-        {leftIcon ? (
-          <View style={styles.fieldIconBadge}>
-            <AppIcon name={leftIcon} size={15} color={colors.primary} filled />
-          </View>
-        ) : null}
-        <Text style={styles.fieldLabel}>{label}</Text>
-      </View>
+      <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         placeholderTextColor={colors.textMuted}
         onFocus={(e) => {
@@ -346,23 +339,11 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
   },
-  fieldLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    gap: 6,
-  },
-  fieldIconBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 6,
-    padding: 3,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   fieldLabel: {
     color: colors.text,
     fontSize: font.body,
     fontWeight: '700',
+    marginBottom: spacing.xs,
   },
   fieldInput: {
     backgroundColor: colors.background,
