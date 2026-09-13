@@ -90,3 +90,11 @@ export const setOffersTransport = (userId: string, offersTransport: boolean) =>
   });
 
 export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId}/rating`);
+
+export const listUsers = (params?: { userType?: string; approvalStatus?: string }) => {
+  const query = new URLSearchParams();
+  if (params?.userType) query.set('userType', params.userType);
+  if (params?.approvalStatus) query.set('approvalStatus', params.approvalStatus);
+  const qStr = query.toString();
+  return api<UserProfile[]>(`/users${qStr ? `?${qStr}` : ''}`);
+};
