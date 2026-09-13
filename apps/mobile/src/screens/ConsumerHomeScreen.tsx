@@ -130,22 +130,9 @@ export function ConsumerHomeScreen() {
             style={styles.cardBox}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
           >
-            <View style={styles.cardBoxHeader}>
-              <Text style={styles.cardBoxTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-              <Text style={styles.cardBoxSubtitle}>
-                견적 비교부터 시공 완료까지 원스톱으로
-              </Text>
-            </View>
-
+            <Text style={styles.cardBoxTitle}>철거 · 원상복구{'\n'}신청하기</Text>
             <View style={styles.cardBoxIconWrap}>
-              <View style={styles.cardBoxIconCircle}>
-                <AppIcon name="hammer" size={68} color={theme.colors.primary} />
-              </View>
-            </View>
-
-            <View style={styles.cardBoxFooter}>
-              <Text style={styles.cardBoxFooterText}>간편 신청하기</Text>
-              <Text style={styles.cardBoxFooterArrow}>➔</Text>
+              <AppIcon name="hammer" size={56} color={theme.colors.primary} />
             </View>
           </Pressable>
         </FadeInUp>
@@ -206,7 +193,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.md,
+    padding: spacing.sm,
     paddingBottom: spacing.lg,
   },
   contentPadding: {
@@ -215,7 +202,8 @@ const styles = StyleSheet.create({
   bannerContainer: {
     backgroundColor: colors.primary,
     borderRadius: 20,
-    marginBottom: spacing.md,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
@@ -252,60 +240,27 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1.5,
-    height: 280,
+    height: 200,
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
     padding: spacing.md,
     shadowColor: '#0B1B3A',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  cardBoxHeader: {
-    alignItems: 'flex-start',
+    elevation: 2,
   },
   cardBoxTitle: {
     color: colors.text,
-    fontSize: font.titleLarge,
+    fontSize: font.title,
     fontWeight: '800',
-    lineHeight: font.titleLarge + 6,
-  },
-  cardBoxSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 4,
+    lineHeight: font.title + 6,
   },
   cardBoxIconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xs,
-  },
-  cardBoxIconCircle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primarySoft,
-  },
-  cardBoxFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
-  },
-  cardBoxFooterText: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  cardBoxFooterArrow: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
+    marginBottom: spacing.xs,
   },
   interiorCard: {
     alignItems: 'center',
