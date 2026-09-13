@@ -111,19 +111,13 @@ export function ConsumerHomeScreen() {
 
         <FadeInUp delay={100}>
           <Pressable
-            style={styles.mainActionCard}
+            style={styles.cardLarge}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
           >
-            <View style={styles.mainActionIconBox}>
-              <AppIcon name="hammer" size={26} color={theme.colors.primary} />
+            <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+            <View style={styles.cardLargeIconWrap}>
+              <AppIcon name="hammer" size={48} color={theme.colors.primary} />
             </View>
-            <View style={styles.mainActionTextBox}>
-              <Text style={styles.mainActionTitle}>철거 · 원상복구 신청하기</Text>
-              <Text style={styles.mainActionSubtitle} numberOfLines={2}>
-                현장 사진 분석으로 건축물 정보와 예상 견적을 한 번에
-              </Text>
-            </View>
-            <Text style={styles.mainActionChevron}>›</Text>
           </Pressable>
         </FadeInUp>
 
@@ -233,13 +227,13 @@ const styles = StyleSheet.create({
     top: 22,
     zIndex: 1,
   },
-  mainActionCard: {
-    alignItems: 'center',
+  cardLarge: {
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1.5,
-    flexDirection: 'row',
+    height: 190,
+    justifyContent: 'space-between',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
     padding: spacing.md,
@@ -249,32 +243,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  mainActionIconBox: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 14,
-    height: 48,
-    justifyContent: 'center',
-    marginRight: 12,
-    width: 48,
-  },
-  mainActionTextBox: {
-    flex: 1,
-  },
-  mainActionTitle: {
+  cardLargeTitle: {
     color: colors.text,
-    fontSize: font.bodyLarge,
+    fontSize: font.title,
     fontWeight: '800',
+    lineHeight: font.title + 6,
   },
-  mainActionSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: 2,
-  },
-  mainActionChevron: {
-    color: colors.primary,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
+  cardLargeIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
   interiorCard: {
     alignItems: 'center',
