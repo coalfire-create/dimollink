@@ -83,10 +83,10 @@ export function LoginScreen({
             accessibilityLabel="비움 로고"
           />
           <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
-            반가워요! 👋{'\n'}비움에 로그인하세요
+            비움 파트너스 통합 로그인
           </Text>
           <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
-            휴대폰 번호로 안전하게 로그인하세요
+            안전하고 투명한 철거·폐기물 매칭 플랫폼, 비움입니다.
           </Text>
         </View>
       </FadeInUp>
@@ -99,7 +99,7 @@ export function LoginScreen({
             onChangeText={setPhone}
             placeholder="010-0000-0000"
             keyboardType="phone-pad"
-            hint="가입하신 휴대폰번호를 입력해 주세요."
+            hint="서비스 이용을 위해 등록된 휴대폰 번호로 로그인해 주십시오."
           />
           <Field
             label="비밀번호"
@@ -117,10 +117,10 @@ export function LoginScreen({
       <FadeInUp delay={300}>
         <View style={s.signupCard}>
           <Text style={[s.signupCardTitle, { color: colors.text, fontSize: font.bodyLarge }]}>
-            아직 계정이 없으신가요?
+            아직 비움 파트너가 아니신가요?
           </Text>
           <Text style={[s.signupCardDesc, { color: colors.textMuted, fontSize: font.body }]}>
-            10초만에 빠르게 가입하고 바로 서비스를 이용해 보세요.
+            기업·개인 회원가입을 통해 비움의 원스톱 서비스를 경험해 보세요.
           </Text>
           <View style={{ height: spacing.xs }} />
           <PressableScale
