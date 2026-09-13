@@ -103,6 +103,7 @@ export function LoginScreen({
           />
           <Field
             label="비밀번호"
+            leftIcon="lock"
             value={password}
             onChangeText={setPassword}
             placeholder="비밀번호"
