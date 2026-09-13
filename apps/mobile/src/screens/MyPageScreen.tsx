@@ -155,16 +155,6 @@ export function MyPageScreen() {
             <Text style={styles.arrowIcon}>›</Text>
           </Pressable>
           <View style={styles.menuDivider} />
-          <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'siteAnalysis' })}>
-            <View style={styles.menuLeft}>
-              <View style={styles.menuIconCircle}>
-                <AppIcon name="camera" size={18} color={theme.colors.primary} />
-              </View>
-              <Text style={styles.menuLabel}>현장 사진 분석</Text>
-            </View>
-            <Text style={styles.arrowIcon}>›</Text>
-          </Pressable>
-          <View style={styles.menuDivider} />
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'estimate' })}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>

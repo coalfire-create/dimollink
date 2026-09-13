@@ -651,10 +651,10 @@ export function RequestFormScreen({
                 />
               </View>
 
-              {/* 디몰비전 현장 분석 — 주소 확정 이후에만 열린다 */}
+              {/* 디몰비전 현장 사진 분석 — 주소 확정 이후에만 열린다 */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
-                <Feather name="search" size={18} color={theme.colors.text} style={{ marginRight: 6 }} />
-                <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>현장 분석</Text>
+                <Feather name="camera" size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>현장 사진 분석</Text>
               </View>
               <View style={styles.visionStepsRow}>
                 <VisionStep index={1} label="현장 주소 지정" done={addressReady} />

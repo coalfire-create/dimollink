@@ -110,37 +110,29 @@ export function ConsumerHomeScreen() {
         </FadeInUp>
 
         <View style={styles.gridContainer}>
-          <View style={styles.gridLeft}>
+          <View style={styles.gridHalf}>
             <FadeInUp delay={100}>
               <Pressable
-                style={styles.cardLarge}
+                style={styles.cardAction}
                 onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
               >
-                <Text style={styles.cardLargeTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <View style={{ alignItems: 'center', marginTop: 20 }}>
-                  <AppIcon name="hammer" size={44} color={theme.colors.primary} />
+                <Text style={styles.cardActionTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+                <View style={styles.cardActionIconWrap}>
+                  <AppIcon name="hammer" size={40} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
           </View>
 
-          <View style={styles.gridRight}>
+          <View style={styles.gridHalf}>
             <FadeInUp delay={160}>
               <Pressable
-                style={styles.cardSmall}
-                onPress={() => nav.push({ name: 'siteAnalysis' })}
+                style={styles.cardAction}
+                onPress={() => nav.push({ name: 'estimate' })}
               >
-                <View style={styles.cardSmallContent}>
-                  <Text style={styles.cardSmallTitle}>현장 사진{'\n'}분석</Text>
-                  <AppIcon name="camera" size={32} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-            <FadeInUp delay={220}>
-              <Pressable style={styles.cardSmall} onPress={() => nav.push({ name: 'estimate' })}>
-                <View style={styles.cardSmallContent}>
-                  <Text style={styles.cardSmallTitle}>폐기물 양{'\n'}계산</Text>
-                  <AppIcon name="document" size={32} color={theme.colors.primary} />
+                <Text style={styles.cardActionTitle}>폐기물 양{'\n'}계산하기</Text>
+                <View style={styles.cardActionIconWrap}>
+                  <AppIcon name="document" size={40} color={theme.colors.primary} />
                 </View>
               </Pressable>
             </FadeInUp>
@@ -257,19 +249,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.sm,
     marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
-  gridLeft: {
-    flex: 1.1,
-    marginRight: spacing.xs,
-  },
-  gridRight: {
+  gridHalf: {
     flex: 1,
   },
-  cardLarge: {
+  cardAction: {
     backgroundColor: colors.background,
     borderRadius: 20,
-    padding: spacing.sm,
-    height: 240,
+    padding: spacing.md,
+    height: 156,
     justifyContent: 'space-between',
     shadowColor: '#0B1B3A',
     shadowOpacity: 0.05,
@@ -277,38 +266,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  cardLargeTitle: {
-    fontSize: font.title,
+  cardActionTitle: {
+    fontSize: font.title - 2,
     fontWeight: '800',
     color: colors.text,
-    lineHeight: font.title + 4,
+    lineHeight: font.title + 2,
   },
-  cardSmall: {
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: spacing.sm,
-    height: 116,
-    marginBottom: spacing.xs,
-    justifyContent: 'space-between',
-    position: 'relative',
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardSmallContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardSmallTitle: {
-    fontSize: font.bodyLarge - 2,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: font.bodyLarge + 2,
-    flex: 1,
+  cardActionIconWrap: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.xs,
   },
   interiorCard: {
     alignItems: 'center',

@@ -288,15 +288,6 @@ export function EstimateScreen() {
                     }
                   })}
                 />
-                <Pressable
-                  accessibilityRole="button"
-                  style={styles.secondaryLink}
-                  onPress={() => nav.push({ name: 'siteAnalysis' })}
-                >
-                  <Text style={styles.secondaryLinkText}>
-                    사진으로 더 정확히 분석하기 ›
-                  </Text>
-                </Pressable>
               </View>
             </View>
           </FadeInUp>
