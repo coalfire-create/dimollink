@@ -24,7 +24,8 @@ export type IconName =
   | 'recycle'
   | 'hammer'
   | 'palette'
-  | 'user';
+  | 'user'
+  | 'image';
 
 const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; filled: keyof typeof Ionicons.glyphMap }> = {
   home: { outline: 'home-outline', filled: 'home' },
@@ -32,6 +33,7 @@ const ICON_MAP: Record<IconName, { outline: keyof typeof Ionicons.glyphMap; fill
   notifications: { outline: 'notifications-outline', filled: 'notifications' },
   mypage: { outline: 'person-outline', filled: 'person' },
   camera: { outline: 'camera-outline', filled: 'camera' },
+  image: { outline: 'image-outline', filled: 'image' },
   document: { outline: 'clipboard-outline', filled: 'clipboard' },
   truck: { outline: 'bus-outline', filled: 'bus' },
   tools: { outline: 'construct-outline', filled: 'construct' },
