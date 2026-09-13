@@ -109,35 +109,23 @@ export function ConsumerHomeScreen() {
           </View>
         </FadeInUp>
 
-        <View style={styles.gridContainer}>
-          <View style={styles.gridHalf}>
-            <FadeInUp delay={100}>
-              <Pressable
-                style={styles.cardAction}
-                onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
-              >
-                <Text style={styles.cardActionTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-                <View style={styles.cardActionIconWrap}>
-                  <AppIcon name="hammer" size={40} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-
-          <View style={styles.gridHalf}>
-            <FadeInUp delay={160}>
-              <Pressable
-                style={styles.cardAction}
-                onPress={() => nav.push({ name: 'estimate' })}
-              >
-                <Text style={styles.cardActionTitle}>폐기물 양{'\n'}계산하기</Text>
-                <View style={styles.cardActionIconWrap}>
-                  <AppIcon name="document" size={40} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-        </View>
+        <FadeInUp delay={100}>
+          <Pressable
+            style={styles.mainActionCard}
+            onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+          >
+            <View style={styles.mainActionIconBox}>
+              <AppIcon name="hammer" size={26} color={theme.colors.primary} />
+            </View>
+            <View style={styles.mainActionTextBox}>
+              <Text style={styles.mainActionTitle}>철거 · 원상복구 신청하기</Text>
+              <Text style={styles.mainActionSubtitle} numberOfLines={2}>
+                현장 사진 분석으로 건축물 정보와 예상 견적을 한 번에
+              </Text>
+            </View>
+            <Text style={styles.mainActionChevron}>›</Text>
+          </Pressable>
+        </FadeInUp>
 
         {/* 소비자가 직접 운반 차량을 부른다(사진으로 소재·무게 자동 채움 가능). */}
         <FadeInUp delay={240}>
@@ -245,41 +233,55 @@ const styles = StyleSheet.create({
     top: 22,
     zIndex: 1,
   },
-  gridContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  gridHalf: {
-    flex: 1,
-  },
-  cardAction: {
+  mainActionCard: {
+    alignItems: 'center',
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: 20,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
     padding: spacing.md,
-    height: 156,
-    justifyContent: 'space-between',
     shadowColor: '#0B1B3A',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  cardActionTitle: {
-    fontSize: font.title - 2,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: font.title + 2,
+  mainActionIconBox: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 14,
+    height: 48,
+    justifyContent: 'center',
+    marginRight: 12,
+    width: 48,
   },
-  cardActionIconWrap: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.xs,
+  mainActionTextBox: {
+    flex: 1,
+  },
+  mainActionTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  mainActionSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: 2,
+  },
+  mainActionChevron: {
+    color: colors.primary,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
   },
   interiorCard: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
+    borderColor: '#C5D6FA',
     borderRadius: 20,
+    borderWidth: 1,
     flexDirection: 'row',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,

@@ -89,35 +89,23 @@ export function DemolitionHomeScreen() {
           </View>
         </FadeInUp>
 
-        <View style={styles.gridContainer}>
-          <View style={styles.gridHalf}>
-            <FadeInUp delay={100}>
-              <Pressable
-                style={styles.cardAction}
-                onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
-              >
-                <Text style={styles.cardActionTitle}>운반 차량{'\n'}부르기</Text>
-                <View style={styles.cardActionIconWrap}>
-                  <AppIcon name="truck" size={40} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-
-          <View style={styles.gridHalf}>
-            <FadeInUp delay={160}>
-              <Pressable
-                style={styles.cardAction}
-                onPress={() => nav.push({ name: 'estimate' })}
-              >
-                <Text style={styles.cardActionTitle}>폐기물 양{'\n'}계산하기</Text>
-                <View style={styles.cardActionIconWrap}>
-                  <AppIcon name="document" size={40} color={theme.colors.primary} />
-                </View>
-              </Pressable>
-            </FadeInUp>
-          </View>
-        </View>
+        <FadeInUp delay={100}>
+          <Pressable
+            style={styles.mainActionCard}
+            onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
+          >
+            <View style={styles.mainActionIconBox}>
+              <AppIcon name="truck" size={26} color={theme.colors.primary} />
+            </View>
+            <View style={styles.mainActionTextBox}>
+              <Text style={styles.mainActionTitle}>운반 차량 부르기</Text>
+              <Text style={styles.mainActionSubtitle} numberOfLines={2}>
+                폐기물 운반이 필요할 때 신속하게 차량을 배차해요
+              </Text>
+            </View>
+            <Text style={styles.mainActionChevron}>›</Text>
+          </Pressable>
+        </FadeInUp>
 
         <FadeInUp delay={260}>
           <Pressable
@@ -223,41 +211,55 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 4,
   },
-  gridContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    gap: spacing.xs,
-  },
-  gridHalf: {
-    flex: 1,
-  },
-  cardAction: {
+  mainActionCard: {
+    alignItems: 'center',
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: 20,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
     padding: spacing.md,
-    height: 156,
-    justifyContent: 'space-between',
     shadowColor: '#0B1B3A',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  cardActionTitle: {
-    fontSize: font.title - 2,
-    fontWeight: '800',
-    color: colors.text,
-    lineHeight: font.title + 2,
+  mainActionIconBox: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 14,
+    height: 48,
+    justifyContent: 'center',
+    marginRight: 12,
+    width: 48,
   },
-  cardActionIconWrap: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.xs,
+  mainActionTextBox: {
+    flex: 1,
+  },
+  mainActionTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+  },
+  mainActionSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: 2,
+  },
+  mainActionChevron: {
+    color: colors.primary,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
   },
   interiorCard: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
+    borderColor: '#C5D6FA',
     borderRadius: 20,
+    borderWidth: 1,
     flexDirection: 'row',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
