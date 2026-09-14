@@ -248,3 +248,30 @@ export function canTransitionRequestStatus(from: MatchStatus, to: MatchStatus): 
 export function isRequestCancellable(status: MatchStatus): boolean {
   return canTransitionRequestStatus(status, 'CANCELLED');
 }
+
+/**
+ * 이 요청의 내용을 볼 수 있는 사람인지.
+ *
+ * 세 갈래다.
+ *  1. **요청자** — 자기가 올린 요청.
+ *  2. **매칭된 업체** — 수주해서 진행 중인 요청.
+ *  3. **아직 아무도 수주하지 않은(REQUESTED) 요청을 받아볼 자격이 있는 업체.**
+ *
+ * 3번이 필요한 이유: 업체는 견적을 내기 전에 현장 사진·건축물대장·진입 조건을 봐야
+ * 하는데, 그 정보가 이미 일감 피드(`GET /api/jobs`)로 같은 업체에게 통째로 나간다.
+ * 그런데 상세 조회(`GET /api/requests/:id`)만 막혀 있어서, **같은 데이터를 한쪽 문으로는
+ * 주고 다른 문으로는 막는** 상태였다. 새로 열어 주는 정보는 없고 문만 맞춘다.
+ *
+ * 수주가 확정되면 status 가 REQUESTED 를 벗어나므로, 떨어진 업체는 그 시점부터
+ * 더 이상 못 본다.
+ */
+export function canViewRequest(
+  request: ServiceRequest,
+  viewer: { id: string; userType: UserType },
+): boolean {
+  if (request.requesterId === viewer.id) return true;
+  if (request.matchedProviderId === viewer.id) return true;
+  if (request.status !== 'REQUESTED') return false;
+  // 자기가 올린 요청을 업체 자격으로 다시 보는 경로는 위에서 이미 처리됐다.
+  return requestKindForProvider(viewer.userType) === request.kind;
+}

@@ -433,7 +433,7 @@ export function createApp(
     createMatchingRouter(async (providerId) => (await reviewStore.ratingSummary(providerId)).average),
   );
   app.use('/api', createUploadsRouter());
-  app.use('/api', createRequestsRouter(requestStore, geocoder));
+  app.use('/api', createRequestsRouter(requestStore, userStore, geocoder));
   app.use('/api', createJobsRouter(requestStore, userStore));
   app.use('/api', createAuthRouter(userStore, otpService, sessionStore, credentialStore));
   // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.

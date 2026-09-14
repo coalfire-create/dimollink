@@ -43,6 +43,8 @@ export type Route =
   | { name: 'chat'; requestId: string; counterpartyId: string }
   | { name: 'payment'; requestId: string; source?: 'waste' | 'interior' }
   | { name: 'estimate' }
+  // 철거업체가 요청 하나를 놓고 견적을 산정하는 화면(현장 브리핑 + 금액 입력).
+  | { name: 'estimateWorksheet'; requestId: string }
   | { name: 'siteAnalysis' }
   // 인테리어 밀봉 역경매 (파일럿 밖 · FEATURE_INTERIOR)
   | { name: 'interiorForm' }

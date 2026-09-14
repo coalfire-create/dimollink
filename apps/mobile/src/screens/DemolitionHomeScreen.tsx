@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
+  ASBESTOS_RISK_LABELS,
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
+  asbestosRisk,
+  resolveFloorArea,
   type MarketRate,
   type ProviderJobs,
+  type RankedJob,
   type ServiceRequest,
 } from '@dimol/shared';
 import { getMarketRate, listJobs } from '../api/client';
@@ -12,13 +16,69 @@ import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge,
   InlineEmpty,
 } from '../components/ui';
-import { FadeInUp } from '../components/motion';
+import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
-import { ProviderEstimatePanel } from '../components/demolition/ProviderEstimatePanel';
 import { theme } from '../theme';
 
 const MARKET_RATE_MIN_SAMPLE = 5;
+
+/**
+ * 새 철거 요청 카드 — 견적을 낼지 말지 **목록에서 바로 판단할 수 있게** 하는 요약.
+ *
+ * 거리·톤수만 보고는 들어갈 만한 일인지 알 수 없다. 금액을 크게 흔드는 세 가지
+ * (연면적 · 석면 · 사진 유무)를 카드에 미리 얹어, 열어 볼 요청을 고르게 한다.
+ */
+function OpenJobCard({ job, onPress }: { job: RankedJob; onPress: () => void }) {
+  const details = job.kind === 'DEMOLITION' ? job.demolitionDetails : undefined;
+  const area = resolveFloorArea(details);
+  const risk = asbestosRisk(details?.buildingLedger);
+  const riskIsReal = risk === 'HIGH' || risk === 'POSSIBLE';
+
+  return (
+    <Card onPress={onPress}>
+      <View style={styles.requestRow}>
+        <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
+        {job.distanceKm != null ? (
+          <Text style={styles.distance}>{job.distanceKm}km</Text>
+        ) : null}
+      </View>
+      <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
+
+      <View style={styles.signalRow}>
+        {area ? (
+          <View style={styles.signal}>
+            <Text style={styles.signalText}>연면적 {area.m2.toLocaleString('ko-KR')}㎡</Text>
+          </View>
+        ) : null}
+        <View style={styles.signal}>
+          <Text style={styles.signalText}>{job.wasteTons}톤</Text>
+        </View>
+        <View style={styles.signal}>
+          <Text style={styles.signalText}>
+            사진 {job.sitePhotoKeys.length}장
+          </Text>
+        </View>
+        {riskIsReal ? (
+          <View style={[styles.signal, styles.signalWarn]}>
+            <Text style={[styles.signalText, styles.signalWarnText]}>
+              {ASBESTOS_RISK_LABELS[risk]}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+
+      {/* CTA 를 왼쪽에 둔다 — 오른쪽 아래는 고객센터 플로팅 버튼이 지나가는 자리라
+          거기에 두면 목록을 스크롤할 때 버튼에 가린다. */}
+      <View style={styles.jobFooter}>
+        <Text style={styles.jobCta}>견적 산정하기</Text>
+        <Text style={styles.jobDate}>
+          {new Date(job.createdAt).toLocaleDateString('ko-KR')} 접수
+        </Text>
+      </View>
+    </Card>
+  );
+}
 
 function requestSubtitle(r: ServiceRequest): string {
   if (r.kind === 'DEMOLITION') return r.siteAddress;
@@ -92,15 +152,20 @@ export function DemolitionHomeScreen() {
         </FadeInUp>
 
         <FadeInUp delay={100}>
-          <Pressable
+          <PressableScale
+            accessibilityLabel="운반 차량 부르기"
+            accessibilityHint="상·하차 주소와 폐기물을 입력해 운반을 요청합니다"
             style={styles.cardBox}
             onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
           >
-            <Text style={styles.cardBoxTitle}>운반 차량{'\n'}부르기</Text>
-            <View style={styles.cardBoxIconWrap}>
-              <AppIcon name="truck" size={56} color={theme.colors.primary} />
+            <View style={styles.cardBoxText}>
+              <Text style={styles.cardBoxTitle}>운반 차량{'\n'}부르기</Text>
+              <Text style={styles.cardBoxSubtitle}>철거 후 반출까지 이어서 맡겨요</Text>
             </View>
-          </Pressable>
+            <View style={styles.cardBoxIconWrap}>
+              <AppIcon name="truck" size={40} color={theme.colors.primary} />
+            </View>
+          </PressableScale>
         </FadeInUp>
 
         <FadeInUp delay={260}>
@@ -119,26 +184,19 @@ export function DemolitionHomeScreen() {
 
         {renderMarketRate()}
 
+        {/* 선착순 수주를 없앴다. 철거 금액은 현장을 봐야 정해지는데, 사진만 보고
+            던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
+            개산(범위) → 실사 → 확정 순서로 간다([[demolition-estimate]]).
+            금액 입력은 카드 안이 아니라 견적 산정 화면에서 받는다 — 여기 세 칸만 있으면
+            사진·대장·진입 조건을 하나도 못 보고 금액을 부르게 된다. */}
         <SectionTitle>새 철거 요청</SectionTitle>
         {jobs && jobs.open.length > 0 ? (
           jobs.open.map((job) => (
-            <Card key={job.id}>
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-                {job.distanceKm != null ? (
-                  <Text style={styles.distance}>{job.distanceKm}km</Text>
-                ) : null}
-              </View>
-              <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
-              <Text style={styles.requestMeta}>
-                {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
-              </Text>
-              <View style={{ height: theme.spacing.xs }} />
-              {/* 선착순 수주를 없앴다. 철거 금액은 현장을 봐야 정해지는데, 사진만 보고
-                  던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
-                  개산(범위) → 실사 → 확정 순서로 간다([[demolition-estimate]]). */}
-              <ProviderEstimatePanel requestId={job.id} />
-            </Card>
+            <OpenJobCard
+              key={job.id}
+              job={job}
+              onPress={() => nav.push({ name: 'estimateWorksheet', requestId: job.id })}
+            />
           ))
         ) : (
           <InlineEmpty>지금 들어온 철거 요청이 없어요.</InlineEmpty>
@@ -172,6 +230,47 @@ export function DemolitionHomeScreen() {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
+  signalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+  },
+  signal: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.badge,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs / 2,
+  },
+  signalWarn: {
+    backgroundColor: theme.colors.warningSoft,
+  },
+  signalText: {
+    color: theme.colors.textMuted,
+    fontSize: theme.font.caption,
+    fontWeight: '700',
+  },
+  signalWarnText: {
+    color: theme.colors.warning,
+  },
+  jobFooter: {
+    alignItems: 'center',
+    borderTopColor: theme.colors.border,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: theme.spacing.sm,
+    paddingTop: theme.spacing.sm,
+  },
+  jobDate: {
+    color: theme.colors.textMuted,
+    fontSize: theme.font.caption,
+  },
+  jobCta: {
+    color: theme.colors.primary,
+    fontSize: theme.font.body,
+    fontWeight: '800',
+  },
   screen: {
     backgroundColor: colors.background,
     flex: 1,
@@ -210,11 +309,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs / 2,
   },
   cardBox: {
+    alignItems: 'center',
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1.5,
-    height: 200,
+    // 높이를 200 으로 고정해 두면 내용이 위아래로 벌어져 가운데가 텅 빈다.
+    flexDirection: 'row',
     justifyContent: 'space-between',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.sm,
@@ -231,10 +332,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: font.title + 6,
   },
+  cardBoxText: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  cardBoxSubtitle: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    marginTop: spacing.xs,
+  },
   cardBoxIconWrap: {
     alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: theme.radius.badge,
+    height: 72,
     justifyContent: 'center',
-    marginBottom: spacing.xs,
+    width: 72,
   },
   interiorCard: {
     alignItems: 'center',

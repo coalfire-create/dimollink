@@ -1,5 +1,6 @@
 import {
   REQUEST_KINDS,
+  canViewRequest,
   isValidGeoPoint,
   type BuildingLedgerInfo,
   type BuildingType,
@@ -16,6 +17,7 @@ import type { Geocoder } from '../geo/geocoder.js';
 import { NoopGeocoder } from '../geo/geocoder.js';
 import { authUserId } from '../middleware/auth.js';
 import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
+import type { UserStore } from '../users/store.js';
 
 function isParticipant(request: ServiceRequest, userId: string): boolean {
   return request.requesterId === userId || request.matchedProviderId === userId;
@@ -42,6 +44,7 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
 
 export function createRequestsRouter(
   store: RequestStore,
+  userStore: UserStore,
   geocoder: Geocoder = new NoopGeocoder(),
 ): Router {
   const router = Router();
@@ -198,7 +201,11 @@ export function createRequestsRouter(
         res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
         return;
       }
-      if (!isParticipant(request, authUserId(req))) {
+      // 읽기는 쓰기보다 넓다 — 아직 아무도 수주하지 않은 요청은 그 일감을 받아볼
+      // 자격이 있는 업체도 볼 수 있다(견적을 내려면 사진·대장을 봐야 한다).
+      // 상태 변경(PATCH)은 아래처럼 계속 isParticipant 만 허용한다.
+      const viewer = await userStore.get(authUserId(req));
+      if (!viewer || !canViewRequest(request, viewer)) {
         res.status(403).json({ error: '이 요청을 볼 권한이 없어요.' });
         return;
       }
