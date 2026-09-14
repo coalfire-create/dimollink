@@ -95,13 +95,7 @@ export function UserGuideModal({
 
           {/* 환영 헤더 영역 */}
           <FadeInUp delay={100} style={styles.header}>
-            <View style={styles.badgeWrap}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {isNewUser ? '🎉 환영합니다!' : '💡 비움 이용 가이드'}
-                </Text>
-              </View>
-            </View>
+
             <Text style={styles.mainTitle}>
               {isNewUser ? '비움과 함께 시작해볼까요?' : '철거 · 원상복구 이용 방법'}
             </Text>
@@ -205,13 +199,13 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F9FAFB',
     flex: 1,
   },
   modalCard: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F9FAFB',
     flex: 1,
-    paddingTop: 60, // Safe area padding
+    paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: spacing.lg,
   },
@@ -234,7 +228,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.lg,
-    marginTop: 40,
+    marginTop: 50,
   },
   badgeWrap: {
     flexDirection: 'row',
@@ -254,10 +248,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   mainTitle: {
-    color: colors.text,
-    fontSize: 26,
+    color: '#111827',
+    fontSize: 28,
     fontWeight: '900',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   mainSubtitle: {
@@ -295,13 +289,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
     marginBottom: spacing.md,
   },
   stepIconWrapper: {
@@ -319,8 +311,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.primarySoft,
+    shadowColor: 'rgba(59,130,246,0.3)',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   stepTitle: {
     color: colors.text,
@@ -342,9 +337,9 @@ const styles = StyleSheet.create({
   detailsList: {
     width: '100%',
     marginBottom: spacing.lg,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
     borderRadius: 20,
-    padding: spacing.md,
+    padding: spacing.lg,
   },
   detailRow: {
     flexDirection: 'row',
@@ -423,7 +418,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: '#F9FAFB',
   },
   actionButton: {
     borderRadius: radius.pill,
