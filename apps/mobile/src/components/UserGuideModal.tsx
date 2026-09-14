@@ -78,21 +78,23 @@ export function UserGuideModal({
   const current = CONSUMER_STEPS.find((s) => s.step === activeStep) ?? CONSUMER_STEPS[0];
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
           {/* 상단 닫기 버튼 */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="가이드 닫기"
-            onPress={onClose}
-            style={styles.closeBtn}
-          >
-            <Text style={styles.closeBtnText}>✕</Text>
-          </Pressable>
+          <FadeInUp delay={20}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="가이드 닫기"
+              onPress={onClose}
+              style={styles.closeBtn}
+            >
+              <Text style={styles.closeBtnText}>✕</Text>
+            </Pressable>
+          </FadeInUp>
 
           {/* 환영 헤더 영역 */}
-          <View style={styles.header}>
+          <FadeInUp delay={100} style={styles.header}>
             <View style={styles.badgeWrap}>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -106,10 +108,10 @@ export function UserGuideModal({
             <Text style={styles.mainSubtitle}>
               복잡하고 어려운 철거와 폐기물, 3단계로 안전하고 간편하게 끝내세요.
             </Text>
-          </View>
+          </FadeInUp>
 
           {/* 스텝 인디케이터 (Dots) */}
-          <View style={styles.dotIndicatorContainer}>
+          <FadeInUp delay={200} style={styles.dotIndicatorContainer}>
             {CONSUMER_STEPS.map((s) => {
               const isSelected = s.step === activeStep;
               return (
@@ -120,14 +122,14 @@ export function UserGuideModal({
                 />
               );
             })}
-          </View>
+          </FadeInUp>
 
           {/* 스텝 상세 컨텐츠 */}
-          <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.bodyContent}>
+          <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.bodyContent} showsVerticalScrollIndicator={false}>
             <FadeInUp key={current.step} delay={30} style={styles.stepCard}>
               <View style={styles.stepIconWrapper}>
                 <View style={styles.stepIconCircle}>
-                  <AppIcon name={current.icon} size={42} color={theme.colors.primary} filled />
+                  <AppIcon name={current.icon} size={48} color={theme.colors.primary} filled />
                 </View>
               </View>
               
@@ -157,7 +159,7 @@ export function UserGuideModal({
               </View>
             </FadeInUp>
 
-            {/* 하단 안심 뱃지 목록 (마지막 스텝에서만 강조하거나 항상 유지) */}
+            {/* 하단 안심 뱃지 목록 */}
             <FadeInUp delay={100} style={styles.guaranteeRow}>
               <View style={styles.guaranteeItem}>
                 <AppIcon name="shield" size={16} color={theme.colors.primary} filled />
@@ -171,7 +173,7 @@ export function UserGuideModal({
           </ScrollView>
 
           {/* 하단 버튼 영역 */}
-          <View style={styles.footer}>
+          <FadeInUp delay={300} style={styles.footer}>
             <AppButton
               label={activeStep < 3 ? '다음으로 ➔' : '비움 시작하기 ➔'}
               onPress={() => {
@@ -192,7 +194,7 @@ export function UserGuideModal({
                 <Text style={styles.neverBtnText}>다시 보지 않기</Text>
               </PressableScale>
             ) : null}
-          </View>
+          </FadeInUp>
         </View>
       </View>
     </Modal>
@@ -203,36 +205,26 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: 'rgba(11, 27, 58, 0.65)',
+    backgroundColor: colors.background,
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.md,
   },
   modalCard: {
     backgroundColor: colors.background,
-    borderRadius: 28,
-    width: '100%',
-    maxWidth: 420,
-    maxHeight: '90%',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.md,
+    flex: 1,
+    paddingTop: 60, // Safe area padding
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.lg,
   },
   closeBtn: {
     position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
+    top: 50, // Adjusted for full screen
+    right: spacing.lg,
     padding: 8,
     zIndex: 10,
     backgroundColor: colors.surface,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   closeBtnText: {
     color: colors.textMuted,
@@ -241,8 +233,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
+    marginTop: spacing.xl,
   },
   badgeWrap: {
     flexDirection: 'row',
@@ -251,161 +243,161 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: colors.primarySoft,
     borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: 'rgba(59,130,246,0.2)',
   },
   badgeText: {
     color: colors.primary,
-    fontSize: font.body,
+    fontSize: font.bodyLarge,
     fontWeight: '800',
   },
   mainTitle: {
     color: colors.text,
-    fontSize: font.titleLarge,
+    fontSize: 26,
     fontWeight: '900',
-    marginBottom: 6,
+    marginBottom: 8,
     textAlign: 'center',
   },
   mainSubtitle: {
     color: colors.textMuted,
-    fontSize: font.body,
-    lineHeight: 20,
+    fontSize: font.bodyLarge,
+    lineHeight: 24,
     textAlign: 'center',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   dotIndicatorContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.border,
   },
   dotSelected: {
-    width: 24,
+    width: 32,
     backgroundColor: colors.primary,
   },
   bodyScroll: {
-    maxHeight: 400,
+    flex: 1,
   },
   bodyContent: {
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.xxl,
   },
   stepCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.md,
-    paddingTop: spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: 'rgba(0,0,0,0.05)',
     shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+    marginBottom: spacing.md,
   },
   stepIconWrapper: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
   },
   stepIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: colors.primarySoft,
   },
   stepTitle: {
     color: colors.text,
-    fontSize: font.title,
+    fontSize: 22,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   stepNumberText: {
     color: colors.primary,
   },
   stepSummary: {
     color: colors.textMuted,
-    fontSize: font.body,
+    fontSize: font.bodyLarge,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
     paddingHorizontal: spacing.sm,
   },
   detailsList: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: spacing.sm,
+    borderRadius: 20,
+    padding: spacing.md,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   detailBullet: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 12,
     marginTop: 2,
   },
   detailBulletText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '900',
   },
   detailText: {
     flex: 1,
     color: colors.text,
-    fontSize: font.body,
-    lineHeight: 22,
-    fontWeight: '500',
+    fontSize: font.bodyLarge,
+    lineHeight: 24,
+    fontWeight: '600',
   },
   tipBox: {
     backgroundColor: colors.primarySoft,
-    borderRadius: 16,
-    padding: spacing.md,
+    borderRadius: 20,
+    padding: spacing.lg,
     width: '100%',
   },
   tipTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   tipEmoji: {
-    fontSize: 16,
-    marginRight: 4,
+    fontSize: 18,
+    marginRight: 6,
   },
   tipTitle: {
     color: colors.primary,
-    fontSize: font.body,
+    fontSize: font.bodyLarge,
     fontWeight: '800',
   },
   tipText: {
     color: '#1E3A8A',
-    fontSize: font.body,
-    lineHeight: 20,
-    fontWeight: '600',
+    fontSize: font.bodyLarge,
+    lineHeight: 24,
+    fontWeight: '700',
   },
   guaranteeRow: {
     flexDirection: 'row',
@@ -417,35 +409,37 @@ const styles = StyleSheet.create({
   guaranteeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: radius.pill,
   },
   guaranteeText: {
     color: colors.text,
-    fontSize: font.caption,
-    fontWeight: '700',
+    fontSize: font.body,
+    fontWeight: '800',
   },
   footer: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.xs,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.background,
   },
   actionButton: {
     borderRadius: radius.pill,
-    height: 56,
+    height: 64,
   },
   neverBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    paddingVertical: 6,
+    marginTop: 16,
+    paddingVertical: 8,
   },
   neverBtnText: {
     color: colors.textMuted,
-    fontSize: font.body,
+    fontSize: font.bodyLarge,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
 });
+
