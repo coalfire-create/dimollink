@@ -477,7 +477,7 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F2F4F6',
     flex: 1,
   },
   content: {
@@ -524,20 +524,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   cardBox: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     height: 200,
     justifyContent: 'space-between',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 24,
   },
   cardBoxTitle: {
     color: colors.text,
@@ -552,14 +545,12 @@ const styles = StyleSheet.create({
   },
   interiorCard: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderColor: '#C5D6FA',
-    borderRadius: 20,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
     flexDirection: 'row',
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-    padding: spacing.md,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 24,
   },
   interiorTextBox: {
     flex: 1,
@@ -654,9 +645,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   partnerSectionTitle: {
-    color: '#111827',
-    fontSize: 20,
-    fontWeight: '900',
+    color: '#191F28',
+    fontSize: 22,
+    fontWeight: 'bold',
   },
   partnerSectionSubtitle: {
     color: colors.textMuted,
@@ -667,14 +658,9 @@ const styles = StyleSheet.create({
   
   partnerCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 16,
   },
   partnerTopRow: {
     flexDirection: 'row',
@@ -704,9 +690,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   partnerName: {
-    color: '#111827',
-    fontSize: font.title,
-    fontWeight: '800',
+    color: '#191F28',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   
   
@@ -745,14 +731,14 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
   },
   partnerTag: {
-    backgroundColor: colors.surface,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: '#F2F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   partnerTagText: {
-    color: colors.textMuted,
-    fontSize: font.caption,
+    color: '#4E5968',
+    fontSize: 13,
     fontWeight: '600',
   },
   partnerFooterRow: {
@@ -786,9 +772,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   reviewSectionTitle: {
-    color: '#111827',
-    fontSize: 20,
-    fontWeight: "900",
+    color: '#191F28',
+    fontSize: 22,
+    fontWeight: 'bold',
   },
   reviewSectionSubtitle: {
     color: colors.textMuted,
@@ -818,11 +804,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   reviewTrustItem: {
     flexDirection: "row",
@@ -841,14 +827,9 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 16,
   },
   reviewCardHeader: {
     flexDirection: "row",

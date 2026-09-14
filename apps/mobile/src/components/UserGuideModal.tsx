@@ -318,9 +318,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   stepTitle: {
-    color: colors.text,
+    color: '#191F28',
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 8,
   },
