@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flex: 1,
     paddingTop: 60, // Safe area padding
-    paddingBottom: spacing.xl,
+    paddingBottom: 40,
     paddingHorizontal: spacing.lg,
   },
   closeBtn: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: 40,
   },
   badgeWrap: {
     flexDirection: 'row',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: spacing.xl,
+    marginBottom: 40,
   },
   dot: {
     width: 10,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingBottom: spacing.xxl,
+    paddingBottom: 64,
   },
   stepCard: {
     backgroundColor: '#FFFFFF',
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.bodyLarge,
     textAlign: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: 40,
     paddingHorizontal: spacing.sm,
   },
   detailsList: {
