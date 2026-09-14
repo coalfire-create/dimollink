@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { ApiError } from '../../api/client';
+import { confirmDialog } from '../../lib/dialog';
 import { theme } from '../../theme';
 
 /**
@@ -46,12 +47,17 @@ export function useAdminList<T>(
   return { items, setItems, reload, loading };
 }
 
-/** 되돌릴 수 없는 동작은 한 번 되묻는다. */
+/**
+ * 되돌릴 수 없는 동작은 한 번 되묻는다.
+ *
+ * 예전에는 `Alert.alert` 을 직접 썼는데, 관리자 백오피스는 사실상 웹에서 쓰이고
+ * react-native-web 의 Alert 은 빈 함수라 **정산 실행·요청 취소가 눌러도 아무 일도
+ * 안 일어났다**. 플랫폼을 가려 주는 [[dialog]] 를 쓴다.
+ */
 export function confirmThen(title: string, body: string, run: () => void): void {
-  Alert.alert(title, body, [
-    { text: '취소', style: 'cancel' },
-    { text: '실행', style: 'destructive', onPress: run },
-  ]);
+  void confirmDialog(title, body).then((ok) => {
+    if (ok) run();
+  });
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {

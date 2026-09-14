@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Text } from 'react-native';
+import { Text } from 'react-native';
 import {
   adminAllbaroFailures,
   adminAllbaroQueue,
@@ -7,6 +7,7 @@ import {
   adminAllbaroRetryOne,
   type AdminRetryItem,
 } from '../../api/client';
+import { alertDialog } from '../../lib/dialog';
 import { AppButton, Card, SectionTitle } from '../../components/ui';
 import { Empty, Hint, adminStyles as s, errorMessage, useAdminList } from './shared';
 import type { AdminTabProps } from './shared';
@@ -35,7 +36,7 @@ export function AllbaroTab({ token, onError }: AdminTabProps) {
     try {
       const summary = await adminAllbaroRetryNow(token);
       refresh();
-      Alert.alert(
+      alertDialog(
         '재시도 완료',
         `성공 ${summary.succeeded} · 재적재 ${summary.requeued} · 소진 ${summary.exhausted}`,
       );

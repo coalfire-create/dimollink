@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
@@ -7,6 +7,7 @@ import {
   type ServiceRequest,
 } from '@dimol/shared';
 import { adminExecutePayout, adminForceStatus, adminListRequests } from '../../api/client';
+import { alertDialog } from '../../lib/dialog';
 import { AppButton, Card, Field, SectionTitle } from '../../components/ui';
 import { Empty, Hint, adminStyles as s, confirmThen, errorMessage, useAdminList } from './shared';
 import type { AdminTabProps } from './shared';
@@ -77,7 +78,7 @@ export function RequestsTab({ token, onError }: AdminTabProps) {
     requests.setItems((prev) => prev.map((r) => (r.id === request.id ? updated : r)));
     setReasons((prev) => ({ ...prev, [request.id]: '' }));
     if (updated.refundRequired) {
-      Alert.alert(
+      alertDialog(
         '환불이 남았습니다',
         '요청은 취소했지만 결제 금액은 아직 그대로입니다. 결제 내역에서 환불을 따로 실행해 주세요.',
       );
