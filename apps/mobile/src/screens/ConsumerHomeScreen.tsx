@@ -10,7 +10,7 @@ import { getMarketRate, listRequests, listUsers } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppIcon } from '../components/AppIcon';
 import { Card, SectionTitle, StatusBadge } from '../components/ui';
-import { FadeInUp } from '../components/motion';
+import { FadeInUp, PressableScale } from '../components/motion';
 import { UserGuideModal } from '../components/UserGuideModal';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
@@ -272,7 +272,7 @@ export function ConsumerHomeScreen() {
         </FadeInUp>
 
         <FadeInUp delay={100}>
-          <Pressable
+          <PressableScale
             style={styles.cardBox}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
           >
@@ -280,7 +280,7 @@ export function ConsumerHomeScreen() {
             <View style={styles.cardBoxIconWrap}>
               <AppIcon name="hammer" size={56} color={theme.colors.primary} />
             </View>
-          </Pressable>
+          </PressableScale>
         </FadeInUp>
 
         {/* 입점해있는 협력 철거업체 목록 */}
@@ -428,7 +428,7 @@ export function ConsumerHomeScreen() {
         {/* 인테리어(밀봉 역경매)는 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출한다. */}
         {FEATURE_INTERIOR ? (
           <FadeInUp delay={260}>
-            <Pressable
+            <PressableScale
               style={styles.interiorCard}
               onPress={() => nav.push({ name: 'interiorForm' })}
             >
@@ -442,7 +442,7 @@ export function ConsumerHomeScreen() {
                 </Text>
               </View>
               <Text style={styles.interiorChevron}>›</Text>
-            </Pressable>
+            </PressableScale>
             <Pressable
               accessibilityRole="button"
               style={styles.interiorMyLink}
@@ -533,10 +533,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   cardBoxTitle: {
-    color: colors.text,
-    fontSize: font.title,
-    fontWeight: '800',
-    lineHeight: font.title + 6,
+    color: '#191F28',
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 32,
   },
   cardBoxIconWrap: {
     alignItems: 'center',
@@ -650,9 +650,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   partnerSectionSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginTop: 2,
+    color: '#8B95A1',
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
   },
   
   
@@ -777,9 +778,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   reviewSectionSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginTop: 2,
+    color: '#8B95A1',
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
   },
   reviewScoreBadge: {
     flexDirection: "row",
@@ -902,10 +904,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   reviewContent: {
-    color: colors.text,
-    fontSize: font.body,
-    lineHeight: 20,
-    marginBottom: 8,
+    color: '#333D4B',
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 12,
   },
   reviewLocationText: {
     color: colors.textMuted,
@@ -921,16 +923,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   reviewTag: {
-    backgroundColor: "#F8FAFC",
-    borderColor: "#E2E8F0",
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    backgroundColor: "#F2F4F6",
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   reviewTagText: {
-    color: "#475569",
-    fontSize: 11,
+    color: "#4E5968",
+    fontSize: 12,
     fontWeight: "600",
   },
 });
