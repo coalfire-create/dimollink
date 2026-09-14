@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CALL_AVAILABILITY_LABELS, REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, suggestedQuoteAmount, type CallAvailability, type MarketRate, type ProviderJobs, type ProviderPricing, type ServiceRequest } from '@dimol/shared';
 import { acceptJob, getMarketRate, getPricing, listJobs, setAvailability } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
+import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge,
+  InlineEmpty,
+} from '../components/ui';
 import { FadeInUp } from '../components/motion';
+import { AppIcon } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -134,24 +137,30 @@ export function TransportHomeScreen() {
               <Text style={styles.bannerTitle}>안전하고 신속한 운반</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
-            <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🚚</Text>
+            <AppIcon name="truck" size={48} color={theme.colors.background} />
           </View>
         </FadeInUp>
         <FadeInUp delay={60}>
           <Card style={[styles.availCard, online && styles.availCardOn]}>
-            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20}}>
-              <View>
-                <Text style={styles.availStatus}>
-                  {online ? '🟢 ' : '⚪ '}
-                  {CALL_AVAILABILITY_LABELS[availability]}
-                </Text>
+            <View style={styles.availHeaderRow}>
+              <View style={styles.availTextBox}>
+                <View style={styles.availStatusRow}>
+                  {/* 이모지(🟢/⚪)는 기기마다 크기·모양이 달라 글자와 줄이 안 맞았다. */}
+                  <View style={[styles.statusDot, online && styles.statusDotOn]} />
+                  <Text style={styles.availStatus}>{CALL_AVAILABILITY_LABELS[availability]}</Text>
+                </View>
                 <Text style={styles.availDescription}>
                   {online 
                     ? `운반 콜을 대기하고 있어요 (반경 ${radiusKm}km)`
                     : '콜대기를 켜면 운반 콜을 받을 수 있어요'}
                 </Text>
               </View>
-              <Text style={{fontSize: 48}}>{online ? '📡' : '💤'}</Text>
+              <AppIcon
+                name={online ? 'notifications' : 'lock'}
+                size={32}
+                color={online ? theme.colors.primary : theme.colors.textMuted}
+                filled={online}
+              />
             </View>
 
             {!online ? (
@@ -190,7 +199,10 @@ export function TransportHomeScreen() {
               <View style={styles.requestRow}>
                 <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
                 {job.distanceKm != null ? (
-                  <Text style={styles.distance}>📍 {job.distanceKm}km</Text>
+                  <View style={styles.distanceRow}>
+                    <AppIcon name="location" size={18} color={theme.colors.primary} />
+                    <Text style={styles.distance}>{job.distanceKm}km</Text>
+                  </View>
                 ) : null}
               </View>
               <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
@@ -213,7 +225,7 @@ export function TransportHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>아직 들어온 콜이 없어요. 콜대기를 켜두면 요청이 들어와요.</Text>
+          <InlineEmpty>아직 들어온 콜이 없어요. 콜대기를 켜두면 요청이 들어와요.</InlineEmpty>
         )}
 
         <SectionTitle>수락한 콜</SectionTitle>
@@ -233,7 +245,7 @@ export function TransportHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>수락한 콜이 없어요.</Text>
+          <InlineEmpty>수락한 콜이 없어요.</InlineEmpty>
         )}
       </ScrollView>
       <TabBar active="home" />
@@ -244,6 +256,41 @@ export function TransportHomeScreen() {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
+  bannerEmoji: {
+    bottom: theme.spacing.md,
+    fontSize: 70,
+    position: 'absolute',
+    right: theme.spacing.md,
+  },
+  availHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  availTextBox: {
+    flex: 1,
+    paddingRight: theme.spacing.sm,
+  },
+  availStatusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  statusDot: {
+    backgroundColor: theme.colors.border,
+    borderRadius: 999,
+    height: 12,
+    marginRight: theme.spacing.xs,
+    width: 12,
+  },
+  statusDotOn: {
+    backgroundColor: theme.colors.success,
+  },
+  distanceRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.xs / 2,
+  },
   // 매칭 수신 반경 선택 — 스타일이 정의돼 있지 않아 undefined 로 적용되고 있었다
   // (RN 은 undefined 스타일을 조용히 무시해 여백 없이 붙어 나왔다).
   radiusSelector: {
@@ -273,7 +320,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.sm,
-    paddingBottom: spacing.lg,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   bannerContainer: {
     backgroundColor: colors.primary,
@@ -297,10 +345,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerSubtitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   availCard: {
     borderColor: colors.border,
@@ -311,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   availCardOn: {
-    backgroundColor: '#E7EFFC',
+    backgroundColor: theme.colors.primarySoft,
     borderColor: colors.primary,
   },
   availStatus: {
@@ -322,7 +370,7 @@ const styles = StyleSheet.create({
   availDescription: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   rateCard: {
     backgroundColor: colors.surface,
@@ -362,10 +410,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    paddingVertical: spacing.sm,
   },
 });

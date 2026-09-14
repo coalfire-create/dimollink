@@ -56,7 +56,13 @@ import {
   GuidedSiteCaptureModal,
   type GuidedCaptureResult,
 } from '../components/GuidedSiteCaptureModal';
-import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
+import {
+  AppButton,
+  ErrorBanner,
+  Field,
+  KeyboardAwareScreen,
+  StickyFooter,
+} from '../components/ui';
 import {
   WasteItemsInput,
   draftsToWasteItems,
@@ -481,7 +487,7 @@ export function RequestFormScreen({
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAwareScreen style={styles.screen}>
       <ScreenHeader title={KIND_TITLES[kind]} canGoBack />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.pilotChip}>
@@ -632,6 +638,8 @@ export function RequestFormScreen({
               <Text style={styles.sectionLabel}>희망 일정 (다중 선택 가능)</Text>
               <View style={{ marginBottom: theme.spacing.md }}>
                 <Calendar
+                  // 기본 형식('MMMM yyyy')이면 "9월 2026" 으로 나온다.
+                  monthFormat="yyyy년 M월"
                   onDayPress={(day: { dateString: string }) => {
                     const dateString = day.dateString;
                     const newSelectedDates = { ...selectedDates };
@@ -653,7 +661,7 @@ export function RequestFormScreen({
 
               {/* 디몰비전 현장 사진 분석 — 주소 확정 이후에만 열린다 */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
-                <Feather name="camera" size={18} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                <Feather name="camera" size={18} color={theme.colors.primary} style={{ marginRight: theme.spacing.xs }} />
                 <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>현장 사진 분석</Text>
               </View>
               <View style={styles.visionStepsRow}>
@@ -689,7 +697,7 @@ export function RequestFormScreen({
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
                   {!photoBusy && ledgerState !== 'loading' && (
-                    <Feather name="camera" size={16} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                    <Feather name="camera" size={16} color={theme.colors.primary} style={{ marginRight: theme.spacing.xs }} />
                   )}
                   <Text style={styles.photoFillText}>
                     {photoBusy
@@ -870,10 +878,12 @@ export function RequestFormScreen({
           </>
         ) : null}
 
-        <ErrorBanner message={error} />
       </ScrollView>
       <StickyFooter>
-        <AppButton label="접수하기" onPress={submit} loading={submitting} />
+        {/* 오류를 스크롤 안쪽에 두면, 화면 위쪽에서 고정 CTA 를 눌렀을 때
+            메시지가 화면 밖에 떠서 "눌러도 아무 일이 없다"로 보인다. */}
+        <ErrorBanner message={error} />
+        <AppButton label="접수하기" onPress={submit} loading={submitting} disabled={submitting} />
       </StickyFooter>
 
       <CameraCaptureModal
@@ -908,7 +918,7 @@ export function RequestFormScreen({
           }}
         />
       )}
-    </View>
+    </KeyboardAwareScreen>
   );
 }
 
@@ -1030,7 +1040,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ledgerCard: {
-    backgroundColor: '#E8F0FE',
+    backgroundColor: colors.primarySoft,
     borderRadius: radius.card,
     padding: spacing.md,
     marginTop: -spacing.xs,
@@ -1044,15 +1054,15 @@ const styles = StyleSheet.create({
   },
   ledgerBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1967D2',
+    backgroundColor: colors.primary,
     borderRadius: 999,
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
     marginBottom: spacing.xs,
     overflow: 'hidden',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs / 2,
   },
   ledgerTitle: {
     color: colors.text,
@@ -1068,7 +1078,7 @@ const styles = StyleSheet.create({
   ledgerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
   },
   ledgerRowLabel: {
     color: colors.textMuted,
@@ -1083,21 +1093,21 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   ledgerWarn: {
-    backgroundColor: '#FFF4E5',
+    backgroundColor: colors.warningSoft,
     borderRadius: radius.card,
     marginTop: spacing.sm,
     padding: spacing.sm,
   },
   ledgerWarnTitle: {
-    color: '#B54708',
+    color: colors.warning,
     fontSize: font.caption,
     fontWeight: '700',
   },
   ledgerWarnBody: {
-    color: '#B54708',
+    color: colors.warning,
     fontSize: font.caption,
     lineHeight: 24,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   ledgerFoot: {
     color: colors.textMuted,
@@ -1136,12 +1146,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   visionStepNumActive: {
-    color: '#FFFFFF',
+    color: colors.background,
   },
   visionStepLabel: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
     textAlign: 'center',
   },
   visionStepLabelActive: {
@@ -1254,12 +1264,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   mandatoryTitle: {
-    color: '#1E5FBF',
+    color: colors.primary,
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
   mandatoryBody: {
-    color: '#1E5FBF',
+    color: colors.primary,
     fontSize: font.body,
     marginTop: spacing.xs,
   },
@@ -1324,7 +1334,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     flexDirection: 'row',
     marginBottom: spacing.sm,
-    padding: 4,
+    padding: spacing.xs / 2,
   },
   unitOption: {
     alignItems: 'center',
@@ -1386,7 +1396,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   yesNoTextActive: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontWeight: '700',
   },
   visionCard: {
@@ -1405,11 +1415,11 @@ const styles = StyleSheet.create({
   },
   visionCardBadge: {
     backgroundColor: colors.primary,
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '800',
     paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 2,
+    paddingVertical: spacing.xs / 2,
     borderRadius: 4,
   },
   visionConfidence: {
@@ -1423,7 +1433,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
   },
   visionHazardBox: {
-    backgroundColor: '#FFF4F4',
+    backgroundColor: colors.errorSoft,
     borderRadius: radius.button,
     padding: spacing.sm,
     marginTop: spacing.xs,
@@ -1432,7 +1442,7 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: font.caption,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: spacing.xs / 2,
   },
   visionHazardItem: {
     color: colors.error,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import brandmark from '../../assets/brandmark.png';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
@@ -23,18 +24,21 @@ export function WelcomeScreen({
   onAdmin?: () => void;
   onDevRoleSelect?: (role: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => void;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.container}>
-      {/* 상단: 파란색 배경 + 로고 + 타이포 */}
-      <View style={styles.heroSection}>
-        <View style={styles.logoWrap}>
-          <Image
-            source={brandmark}
-            style={styles.logoImage}
-            resizeMode="contain"
-            accessibilityLabel="비움 로고"
-          />
-        </View>
+      {/* 상단: 파란색 배경 + 로고 + 타이포.
+          파란 배경은 상태바까지 꽉 채우고, 내용만 노치 아래로 내린다. */}
+      <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg }]}>
+        <Pressable
+          accessibilityRole="image"
+          accessibilityLabel="비움 로고"
+          delayLongPress={1200}
+          onLongPress={onAdmin}
+          style={[styles.logoWrap, { top: insets.top + spacing.sm }]}
+        >
+          <Image source={brandmark} style={styles.logoImage} resizeMode="contain" />
+        </Pressable>
         <FadeInUp delay={40}>
           <Text style={styles.heroTitle}>
             {'철거부터\n처리까지\n비움'}
@@ -66,8 +70,8 @@ export function WelcomeScreen({
 
       </View>
 
-      {/* 하단: 흰색 라운드 시트 */}
-      <View style={styles.bottomSheet}>
+      {/* 하단: 흰색 라운드 시트 — 홈 인디케이터 위로 버튼을 띄운다. */}
+      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
         {/* 말풍선 */}
         <FadeInUp delay={360}>
           <View style={styles.speechBubble}>
@@ -87,14 +91,9 @@ export function WelcomeScreen({
             <Pressable onPress={onGuest}>
               <Text style={styles.linkText}>로그인 없이 둘러보기</Text>
             </Pressable>
-            {onAdmin ? (
-              <>
-                <Text style={styles.linkDivider}>|</Text>
-                <Pressable onPress={onAdmin}>
-                  <Text style={styles.linkText}>관리자</Text>
-                </Pressable>
-              </>
-            ) : null}
+            {/* 관리자 백오피스(공유 운영 토큰 경로)는 일반 사용자에게 보일 이유가 없다.
+                링크를 지우는 대신 로고를 길게 눌러 들어가게 남겨 뒀다 — 운영자는 알고
+                쓰고, 일반 사용자 눈에는 안 띈다. */}
           </View>
         </FadeInUp>
 
@@ -138,13 +137,13 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg + spacing.md,
     justifyContent: 'flex-start',
+    paddingHorizontal: spacing.md,
+    // paddingTop 은 안전영역에 맞춰 런타임에 정한다.
     position: 'relative',
   },
   heroTitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: 38,
     fontWeight: '900',
     lineHeight: 50,
@@ -163,20 +162,20 @@ const styles = StyleSheet.create({
   featureRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    marginBottom: spacing.sm + 2,
+    marginBottom: spacing.sm,
   },
   featureCheck: {
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 999,
-    height: 26,
+    height: 32,
     justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 26,
+    width: 32,
   },
   featureCheckText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.background,
+    fontSize: font.caption,
     fontWeight: '900',
   },
   featureText: {
@@ -187,7 +186,7 @@ const styles = StyleSheet.create({
   logoWrap: {
     position: 'absolute',
     right: spacing.md,
-    top: spacing.lg,
+    // top 은 안전영역에 맞춰 런타임에 정한다.
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 24,
     padding: spacing.xs,
@@ -201,7 +200,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg + spacing.sm,
+    // paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
     paddingTop: spacing.lg,
     position: 'relative',
   },
@@ -215,7 +214,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -268,7 +267,7 @@ const styles = StyleSheet.create({
   },
   devSectionTitle: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: font.caption,
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -276,20 +275,20 @@ const styles = StyleSheet.create({
   devGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: spacing.xs,
     justifyContent: 'center',
-    gap: 6,
   },
   devChip: {
     backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(37, 99, 235, 0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   devChipText: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: font.caption,
     fontWeight: '700',
   },
 });

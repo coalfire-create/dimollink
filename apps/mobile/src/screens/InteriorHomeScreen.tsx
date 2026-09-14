@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FadeInUp } from '../components/motion';
+import { AppIcon } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -40,7 +41,7 @@ export function InteriorHomeScreen() {
               <Text style={styles.bannerTitle}>인테리어 시공 파트너스</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
-            <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🔨</Text>
+            <AppIcon name="tools" size={48} color={theme.colors.background} />
           </View>
         </FadeInUp>
 
@@ -49,7 +50,9 @@ export function InteriorHomeScreen() {
             style={styles.interiorCard}
             onPress={() => nav.push({ name: 'interiorList', scope: 'open' })}
           >
-            <Text style={styles.interiorEmoji}>🛠️</Text>
+            <View style={styles.interiorIconWrap}>
+              <AppIcon name="tools" size={24} color={theme.colors.primary} />
+            </View>
             <View style={styles.interiorTextBox}>
               <Text style={styles.interiorTitle}>들어온 시공 요청 보기</Text>
               <Text style={styles.interiorSubtitle}>요청을 보고 비밀 견적을 넣어요</Text>
@@ -73,7 +76,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.sm,
-    paddingBottom: spacing.lg,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   bannerContainer: {
     backgroundColor: colors.primary,
@@ -97,10 +101,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerSubtitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   interiorCard: {
     alignItems: 'center',
@@ -111,9 +115,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     padding: spacing.md,
   },
-  interiorEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
+  interiorIconWrap: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.primarySoft,
+    borderRadius: 999,
+    height: 48,
+    justifyContent: 'center',
+    marginRight: theme.spacing.sm,
+    width: 48,
   },
   interiorTextBox: {
     flex: 1,
@@ -126,7 +135,7 @@ const styles = StyleSheet.create({
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   interiorChevron: {
     color: colors.primary,

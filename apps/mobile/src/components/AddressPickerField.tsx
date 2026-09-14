@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
   modalScreen: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: 40,
+    paddingTop: spacing.lg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -653,11 +653,11 @@ const styles = StyleSheet.create({
   mapViewport: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#EBF3FE',
+    backgroundColor: theme.colors.primarySoft,
   },
   webviewMap: {
     flex: 1,
-    backgroundColor: '#e5e3df',
+    backgroundColor: theme.colors.surface,
   },
   floatingSearchWrap: {
     position: 'absolute',
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   floatingSearchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: radius.button,
     paddingHorizontal: spacing.xs + 4,
     minHeight: theme.touch.minButtonHeight + 8,
@@ -702,12 +702,12 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     color: colors.textMuted,
-    fontSize: font.caption - 2,
+    fontSize: font.caption,
     fontWeight: '700',
     lineHeight: font.caption,
   },
   dropdownContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: radius.button,
     marginTop: spacing.xs,
     maxHeight: 264,
@@ -752,14 +752,14 @@ const styles = StyleSheet.create({
     fontSize: font.body,
   },
   bottomConfirmCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: radius.card + 4,
     borderTopRightRadius: radius.card + 4,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.md,
     // 지도 위로 떠 있는 시트라 위쪽으로 그림자를 준다(테두리보다 자연스럽다).
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOpacity: 0.1,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: -6 },
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   CALL_AVAILABILITY_LABELS,
+  COMPANY_INFO,
+  formatPhoneForDisplay,
   SUPPORT_PHONE,
   SUPPORT_PHONE_TEL_URL,
   USER_APPROVAL_LABELS,
@@ -16,9 +18,18 @@ import {
 } from '@dimol/shared';
 import { getPricing, getRating, setOffersTransport, setPricing, WEB_BASE_URL } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { AppButton, Card, ErrorBanner, Field, InfoRow, SectionTitle } from '../components/ui';
+import {
+  AppButton,
+  Card,
+  ErrorBanner,
+  Field,
+  InfoRow,
+  KeyboardAwareScreen,
+  SectionTitle,
+} from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
+import { confirmDialog } from '../lib/dialog';
 import { theme } from '../theme';
 
 /** 내 정보 — 프로필·승인 상태·올바로 인증 배지·평점 (Phase 1~2). */
@@ -92,9 +103,16 @@ export function MyPageScreen() {
     }
   }
 
+  // 로그아웃은 되돌릴 수 없고(자동 로그인 토큰이 지워진다) 바로 옆에 다른 링크가 있어
+  // 잘못 누르기 쉽다 — 한 번 확인한다.
+  async function confirmLogout() {
+    const ok = await confirmDialog('로그아웃할까요?', '다시 이용하려면 휴대폰번호로 로그인해야 해요.');
+    if (ok) logout();
+  }
+
   return (
-    <View style={styles.screen}>
-      <ScreenHeader title="마이페이지" />
+    <KeyboardAwareScreen style={styles.screen}>
+      <ScreenHeader title="내 정보" />
 
       {/* Hero profile section — sits above ScrollView for sticky feel */}
       <FadeInUp delay={40}>
@@ -132,7 +150,7 @@ export function MyPageScreen() {
         </View>
       </FadeInUp>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <SectionTitle>내 활동</SectionTitle>
         <Card style={styles.menuGroupCard}>
           <Pressable style={styles.menuItem} onPress={() => nav.switchTab('requests')}>
@@ -158,7 +176,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'estimate' })}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <AppIcon name="sparkles" size={18} color={theme.colors.primary} />
+                <AppIcon name="tools" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>폐기물 양 계산</Text>
             </View>
@@ -175,7 +193,7 @@ export function MyPageScreen() {
               >
                 <View style={styles.menuLeft}>
                   <View style={styles.menuIconCircle}>
-                    <AppIcon name="document" size={18} color={theme.colors.primary} />
+                    <AppIcon name="card" size={18} color={theme.colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>정산 계좌</Text>
                 </View>
@@ -187,7 +205,7 @@ export function MyPageScreen() {
           <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'store' })}>
             <View style={styles.menuLeft}>
               <View style={styles.menuIconCircle}>
-                <AppIcon name="sparkles" size={18} color={theme.colors.primary} />
+                <AppIcon name="star" size={18} color={theme.colors.primary} />
               </View>
               <Text style={styles.menuLabel}>스토어 · 멤버십</Text>
             </View>
@@ -201,7 +219,7 @@ export function MyPageScreen() {
               <Pressable style={styles.menuItem} onPress={() => nav.push({ name: 'admin' })}>
                 <View style={styles.menuLeft}>
                   <View style={styles.menuIconCircle}>
-                    <AppIcon name="sparkles" size={18} color={theme.colors.primary} />
+                    <AppIcon name="settings" size={18} color={theme.colors.primary} />
                   </View>
                   <Text style={styles.menuLabel}>관리자 백오피스</Text>
                 </View>
@@ -217,7 +235,9 @@ export function MyPageScreen() {
           {user.availability ? (
             <InfoRow label="콜대기" value={CALL_AVAILABILITY_LABELS[user.availability]} />
           ) : null}
-          {user.phone ? <InfoRow label="연락처" value={user.phone} /> : null}
+          {user.phone ? (
+            <InfoRow label="연락처" value={formatPhoneForDisplay(user.phone)} />
+          ) : null}
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 
@@ -339,13 +359,52 @@ export function MyPageScreen() {
         </Card>
 
         <View style={{ height: theme.spacing.lg }} />
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="로그아웃"
+          onPress={() => void confirmLogout()}
+          style={styles.logoutButton}
+        >
           <Text style={styles.logoutText}>로그아웃</Text>
         </Pressable>
 
-        <Text style={styles.footer}>비움 v1.0.0 · 디몰링크 · 전국 건설폐기물</Text>
+        <CompanyInfoFooter />
       </ScrollView>
       <TabBar active="mypage" />
+    </KeyboardAwareScreen>
+  );
+}
+
+/**
+ * 사업자 정보 푸터 — 전자상거래법 제10조 표시사항.
+ *
+ * 통신판매중개 서비스는 상호·대표자·주소·사업자등록번호·통신판매업신고번호를
+ * 소비자가 볼 수 있는 곳에 띄워야 한다. 값이 아직 안 채워진 항목은 **비워 두고 숨긴다** —
+ * 없는 번호를 만들어 띄우는 것이 표시 누락보다 나쁘다([[constants]] COMPANY_INFO).
+ */
+function CompanyInfoFooter() {
+  const rows: { label: string; value: string }[] = [
+    { label: '상호', value: COMPANY_INFO.name },
+    { label: '대표자', value: COMPANY_INFO.representative },
+    { label: '주소', value: COMPANY_INFO.address },
+    { label: '사업자등록번호', value: COMPANY_INFO.businessNumber },
+    { label: '통신판매업신고', value: COMPANY_INFO.mailOrderNumber },
+    { label: '개인정보 보호책임자', value: COMPANY_INFO.privacyOfficer },
+  ].filter((r) => r.value.length > 0);
+
+  return (
+    <View style={styles.companyFooter}>
+      {rows.map((r) => (
+        <Text key={r.label} style={styles.companyLine}>
+          {r.label} {r.value}
+        </Text>
+      ))}
+      <Text style={styles.companyLine}>고객센터 {SUPPORT_PHONE}</Text>
+      <Text style={styles.companyNotice}>
+        {COMPANY_INFO.serviceName}은 통신판매중개자로서 거래의 당사자가 아니며, 업체가 등록한
+        상품·용역 정보와 시공 결과에 대한 책임은 해당 업체에 있습니다.
+      </Text>
+      <Text style={styles.companyVersion}>{COMPANY_INFO.serviceName} v1.0.0</Text>
     </View>
   );
 }
@@ -419,13 +478,14 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: spacing.lg,
+    // 마지막 줄이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   menuGroupCard: {
     backgroundColor: colors.background,
     borderRadius: 20,
     paddingVertical: spacing.xs,
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -462,7 +522,7 @@ const styles = StyleSheet.create({
   menuSubLabel: {
     fontSize: font.caption,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   menuDivider: {
     height: 1,
@@ -484,7 +544,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     flex: 1,
     paddingVertical: spacing.md,
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -498,7 +558,7 @@ const styles = StyleSheet.create({
   ratingLabel: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -525,7 +585,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 999,
     backgroundColor: colors.border,
-    padding: 3,
+    padding: spacing.xs / 2,
     justifyContent: 'center',
   },
   switchTrackOn: {
@@ -555,10 +615,26 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '600',
   },
-  footer: {
+  companyFooter: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+  },
+  companyLine: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 26,
+  },
+  companyNotice: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    lineHeight: 26,
+    marginTop: spacing.sm,
+  },
+  companyVersion: {
     color: colors.textMuted,
     fontSize: font.caption,
     marginTop: spacing.sm,
-    textAlign: 'center',
   },
 });

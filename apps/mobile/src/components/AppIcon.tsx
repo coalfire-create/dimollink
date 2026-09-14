@@ -1,4 +1,5 @@
 import React from 'react';
+import type { StyleProp, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme';
 
@@ -70,7 +71,7 @@ export function AppIcon({
   size?: number;
   color?: string;
   filled?: boolean;
-  style?: any;
+  style?: StyleProp<TextStyle>;
 }) {
   const iconConfig = ICON_MAP[name] || ICON_MAP.home;
   const iconName = filled ? iconConfig.filled : iconConfig.outline;

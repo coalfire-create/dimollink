@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from './ui';
 import { AppIcon, type IconName } from './AppIcon';
 import { FadeInUp, PressableScale } from './motion';
@@ -44,19 +45,22 @@ const CONSUMER_STEPS: StepItem[] = [
       '업체별 견적 금액, 시공 후기, 평점을 꼼꼼히 비교해 보세요.',
       '채팅을 통해 현장 일정이나 특이사항을 사전에 자유롭게 조율할 수 있습니다.',
     ],
-    tip: '비움의 모든 파트너는 사업자등록증 및 법적 인허가를 전수 검증받은 전문 업체입니다.',
+    tip: '비움에 등록된 업체는 사업자등록번호 확인과 관리자 승인을 거친 뒤에만 견적을 보낼 수 있습니다.',
   },
   {
+    // 결제는 **에스크로가 아니라 선결제**다([[CLAUDE.md]] 핵심 비즈니스 규칙).
+    // 예전 문구가 "공사 완료까지 대금 보호"라고 설명하고 있었는데, 실제 동작과 반대라
+    // 분쟁이 나면 그대로 문제가 된다. 사용자가 실제로 겪는 순서대로 다시 썼다.
     step: 3,
-    title: '에스크로 안심 결제 & 원스톱 시공',
+    title: '결제 후 원스톱 시공',
     icon: 'card',
-    summary: '공사가 완료될 때까지 결제 대금을 안전하게 보호해요',
+    summary: '매칭이 확정되면 총 금액을 먼저 결제하고 작업이 시작돼요',
     details: [
-      '원하는 업체를 선택하고 비움 안심 에스크로 결제를 진행합니다.',
-      '시공이 끝나고 고객님이 최종 승인하기 전까지 공사 대금이 안전하게 보호됩니다.',
-      '작업 완료 후 법적 폐기물 처리 인계서(올바로)까지 전자적으로 원스톱 처리됩니다.',
+      '업체를 선택하면 운반비·처리비·수수료를 합한 총 금액을 결제합니다.',
+      '배차 전에 취소하면 전액 환불되고, 배차 후 작업 시작 전에는 위약금을 뺀 금액이 환불됩니다.',
+      '작업이 끝나면 올바로 전자인계서까지 앱에서 한 번에 처리됩니다.',
     ],
-    tip: '부실공사나 먹튀 걱정 없는 100% 안심 결제 시스템이 적용됩니다.',
+    tip: '결제수단은 계좌이체(가상계좌)와 카드 모두 쓸 수 있고, 세금계산서는 정산 확정 시점에 자동 발행됩니다.',
   },
 ];
 
@@ -72,6 +76,7 @@ export function UserGuideModal({
   isNewUser?: boolean;
 }) {
   const [activeStep, setActiveStep] = useState(1);
+  const insets = useSafeAreaInsets();
 
   if (!visible) return null;
 
@@ -80,14 +85,21 @@ export function UserGuideModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.modalCard}>
+        {/* 전체 화면 모달이라 노치·홈 인디케이터를 직접 피해야 한다
+            (예전엔 상단 여백을 60 으로 박아 둬서 기기마다 여백이 틀어졌다). */}
+        <View
+          style={[
+            styles.modalCard,
+            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.lg },
+          ]}
+        >
           {/* 상단 닫기 버튼 */}
           <FadeInUp delay={20}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="가이드 닫기"
               onPress={onClose}
-              style={styles.closeBtn}
+              style={[styles.closeBtn, { top: insets.top + spacing.sm }]}
             >
               <Text style={styles.closeBtnText}>✕</Text>
             </Pressable>
@@ -156,12 +168,12 @@ export function UserGuideModal({
             {/* 하단 안심 뱃지 목록 */}
             <FadeInUp delay={100} style={styles.guaranteeRow}>
               <View style={styles.guaranteeItem}>
-                <AppIcon name="shield" size={16} color={theme.colors.primary} filled />
-                <Text style={styles.guaranteeText}>100% 검증 파트너</Text>
+                <AppIcon name="shield" size={20} color={theme.colors.primary} filled />
+                <Text style={styles.guaranteeText}>사업자 검증 완료 업체</Text>
               </View>
               <View style={styles.guaranteeItem}>
-                <AppIcon name="lock" size={16} color={theme.colors.primary} filled />
-                <Text style={styles.guaranteeText}>에스크로 안심 결제</Text>
+                <AppIcon name="document" size={20} color={theme.colors.primary} filled />
+                <Text style={styles.guaranteeText}>올바로 전자인계서 자동</Text>
               </View>
             </FadeInUp>
           </ScrollView>
@@ -195,30 +207,33 @@ export function UserGuideModal({
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing, radius, touch } = theme;
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surface,
     flex: 1,
   },
   modalCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surface,
     flex: 1,
-    paddingTop: 60,
-    paddingBottom: 40,
+    // paddingTop / paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
     paddingHorizontal: spacing.lg,
   },
   closeBtn: {
-    position: 'absolute',
-    top: 50, // Adjusted for full screen
-    right: spacing.lg,
-    padding: 8,
-    zIndex: 10,
+    alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
     borderColor: colors.border,
+    borderRadius: radius.badge,
+    borderWidth: 1,
+    // 손가락으로 정확히 누를 수 있게 48px 터치 영역을 확보한다.
+    height: touch.minButtonHeight,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: spacing.lg,
+    // top 은 안전영역에 맞춰 런타임에 정한다.
+    width: touch.minButtonHeight,
+    zIndex: 10,
   },
   closeBtnText: {
     color: colors.textMuted,
@@ -228,7 +243,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: spacing.lg,
-    marginTop: 50,
+    marginTop: spacing.lg,
   },
   badgeWrap: {
     flexDirection: 'row',
@@ -248,10 +263,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   mainTitle: {
-    color: '#111827',
+    color: colors.text,
     fontSize: 28,
     fontWeight: '900',
-    marginBottom: 12,
+    marginBottom: spacing.sm,
     textAlign: 'center',
   },
   mainSubtitle: {
@@ -266,7 +281,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 40,
+    marginBottom: spacing.lg,
   },
   dot: {
     width: 10,
@@ -285,11 +300,11 @@ const styles = StyleSheet.create({
     paddingBottom: 64,
   },
   stepCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 24,
     padding: spacing.lg,
     alignItems: 'center',
-    shadowColor: '#000000',
+    shadowColor: theme.colors.cameraBackground,
     shadowOpacity: 0.04,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 10 },
@@ -308,7 +323,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: 'rgba(59,130,246,0.3)',
@@ -318,7 +333,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   stepTitle: {
-    color: '#191F28',
+    color: colors.text,
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -331,20 +346,20 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.bodyLarge,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: spacing.lg,
     paddingHorizontal: spacing.sm,
   },
   detailsList: {
     width: '100%',
     marginBottom: spacing.lg,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: spacing.lg,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 14,
+    marginBottom: spacing.sm,
   },
   detailBullet: {
     width: 24,
@@ -353,12 +368,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: spacing.sm,
+    marginTop: spacing.xs / 2,
   },
   detailBulletText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.background,
+    fontSize: theme.glyph.inline,
     fontWeight: '900',
   },
   detailText: {
@@ -381,7 +396,7 @@ const styles = StyleSheet.create({
   },
   tipEmoji: {
     fontSize: 18,
-    marginRight: 6,
+    marginRight: spacing.xs,
   },
   tipTitle: {
     color: colors.primary,
@@ -389,7 +404,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   tipText: {
-    color: '#1E3A8A',
+    color: colors.primaryDark,
     fontSize: font.bodyLarge,
     lineHeight: 24,
     fontWeight: '700',
@@ -407,7 +422,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.surface,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
   guaranteeText: {
@@ -418,7 +433,7 @@ const styles = StyleSheet.create({
   footer: {
     marginTop: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surface,
   },
   actionButton: {
     borderRadius: radius.pill,
@@ -427,8 +442,10 @@ const styles = StyleSheet.create({
   neverBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 8,
+    marginTop: spacing.sm,
+    // "다시 보지 않기"도 버튼이다 — 터치 영역을 48px 로 맞춘다.
+    minHeight: touch.minButtonHeight,
+    paddingVertical: spacing.xs,
   },
   neverBtnText: {
     color: colors.textMuted,

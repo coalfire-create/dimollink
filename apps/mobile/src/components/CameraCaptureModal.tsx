@@ -130,11 +130,11 @@ export function CameraCaptureModal({
       <View style={styles.screen}>
         {permissionPending ? (
           <View style={styles.centerFill}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
+            <ActivityIndicator size="large" color={colors.background} />
           </View>
         ) : permissionDenied ? (
           <View style={styles.centerFill}>
-            <AppIcon name="camera" size={40} color="#FFFFFF" />
+            <AppIcon name="camera" size={40} color={colors.background} />
             <Text style={styles.permTitle}>카메라 권한이 필요해요</Text>
             <Text style={styles.permSub}>현장 사진을 촬영하려면 카메라 사용을 허용해 주세요.</Text>
             <Pressable style={styles.permBtn} onPress={requestPermission} accessibilityRole="button">
@@ -220,7 +220,7 @@ export function CameraCaptureModal({
                     accessibilityRole="button"
                     accessibilityLabel="카메라 전환"
                   >
-                    <AppIcon name="recycle" size={24} color="#FFFFFF" />
+                    <AppIcon name="recycle" size={24} color={colors.background} />
                   </Pressable>
 
                   <Pressable
@@ -266,24 +266,24 @@ const { colors, font, spacing, radius } = theme;
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.cameraBackground,
   },
   centerFill: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.text,
   },
   permTitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title - 4,
     fontWeight: '800',
     marginTop: spacing.md,
     textAlign: 'center',
   },
   permSub: {
-    color: '#CBD5E1',
+    color: colors.border,
     fontSize: font.body,
     marginTop: spacing.xs,
     textAlign: 'center',
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   permBtnText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   permCloseText: {
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
   },
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   topTitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.bodyLarge,
     fontWeight: '800',
     textShadowColor: 'rgba(0,0,0,0.6)',
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeBtnText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -356,22 +356,22 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   nextGuideLabel: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
   nextGuideHint: {
-    color: '#DBEAFE',
+    color: colors.primarySoft,
     fontSize: font.body,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   tipCard: {
     backgroundColor: 'rgba(15,23,42,0.62)',
     borderRadius: radius.card,
     padding: spacing.sm,
     marginTop: spacing.sm,
-    gap: 6,
+    gap: spacing.xs,
   },
   tipRow: {
     flexDirection: 'row',
@@ -379,14 +379,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tipCheck: {
-    color: '#4ADE80',
+    color: colors.successOnDark,
     fontSize: font.body,
     fontWeight: '900',
     width: 16,
     textAlign: 'center',
   },
   tipText: {
-    color: '#F1F5F9',
+    color: colors.surface,
     fontSize: font.body,
     fontWeight: '600',
     flex: 1,
@@ -409,19 +409,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 34,
     height: 34,
-    borderColor: '#FFFFFF',
+    borderColor: colors.background,
   },
   cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
   cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
   cornerBL: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
   cornerBR: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
   frameHint: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '700',
     backgroundColor: 'rgba(0,0,0,0.5)',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs / 2,
     borderRadius: 999,
     marginBottom: -14,
     overflow: 'hidden',
@@ -461,8 +461,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   thumbRemoveText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: colors.background,
+    fontSize: theme.glyph.small,
     fontWeight: '800',
   },
   bottomBar: {
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 5,
-    borderColor: '#FFFFFF',
+    borderColor: colors.background,
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   doneBtn: {
     minWidth: 56,
@@ -512,17 +512,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   doneBtnText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '800',
   },
   doneBtnCount: {
-    color: '#DBEAFE',
+    color: colors.primarySoft,
     fontSize: font.caption,
     fontWeight: '700',
   },
   maxHint: {
-    color: '#FCA5A5',
+    color: colors.errorOnDark,
     fontSize: font.caption,
     textAlign: 'center',
     marginTop: spacing.xs,

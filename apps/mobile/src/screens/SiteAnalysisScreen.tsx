@@ -237,15 +237,15 @@ export function SiteAnalysisScreen() {
             </Text>
             <View style={styles.heroChipsRow}>
               <View style={styles.heroChip}>
-                <AppIcon name="alert" size={13} color="#3B82F6" />
+                <AppIcon name="alert" size={13} color={colors.primary} />
                 <Text style={styles.heroChipText}>석면·위험물 식별</Text>
               </View>
               <View style={styles.heroChip}>
-                <AppIcon name="recycle" size={13} color="#3B82F6" />
+                <AppIcon name="recycle" size={13} color={colors.primary} />
                 <Text style={styles.heroChipText}>부피·폐기물 분류</Text>
               </View>
               <View style={styles.heroChip}>
-                <AppIcon name="document" size={13} color="#3B82F6" />
+                <AppIcon name="document" size={13} color={colors.primary} />
                 <Text style={styles.heroChipText}>공정 주의사항 리포트</Text>
               </View>
             </View>
@@ -257,7 +257,7 @@ export function SiteAnalysisScreen() {
             <View style={styles.previewContainer}>
               <Image source={{ uri: image.uri }} style={styles.preview} resizeMode="cover" />
               <PressableScale style={styles.repickChip} onPress={() => setImage(null)}>
-                <AppIcon name="recycle" size={16} color="#FFFFFF" />
+                <AppIcon name="recycle" size={16} color={colors.background} />
                 <Text style={styles.repickChipText}>다시 선택</Text>
               </PressableScale>
             </View>
@@ -277,7 +277,7 @@ export function SiteAnalysisScreen() {
                 style={[styles.samplePillBtn, captureLocked && styles.actionCardLocked]}
                 onPress={() => guardCapture(loadSampleAndAnalyze)}
               >
-                <AppIcon name="image" size={18} color="#FFFFFF" />
+                <AppIcon name="image" size={18} color={colors.background} />
                 <Text style={styles.samplePillBtnText}>샘플 사진으로 기능 체험하기</Text>
               </PressableScale>
             </View>
@@ -471,7 +471,7 @@ function MaterialRow({ m }: { m: DetectedMaterial }) {
   return (
     <View style={[styles.materialRow, m.hazardous && styles.materialRowHazard]}>
       <View style={styles.materialTop}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flex: 1 }}>
           {m.hazardous ? <AppIcon name="alert" size={16} color={theme.colors.error} /> : null}
           <Text style={styles.materialName}>{m.name}</Text>
         </View>
@@ -498,7 +498,7 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
       <FadeInUp delay={40}>
         <View style={styles.summaryCard}>
           <View style={styles.summaryTop}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing.xs }}>
               <AppIcon name="document" size={20} color={theme.colors.primary} />
               <Text style={styles.summaryLabel}>현장 분석 진단서</Text>
             </View>
@@ -550,7 +550,7 @@ function AnalysisResult({ result }: { result: SiteAnalysis }) {
       {result.hazards.length > 0 ? (
         <FadeInUp>
           <View style={styles.hazardCard}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xs }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
               <AppIcon name="alert" size={20} color={colors.error} />
               <Text style={styles.hazardTitle}>현장 안전 위험 요소 경고</Text>
             </View>
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   
   /* 히어로 카드 (라이트 테마로 변경) */
   heroCard: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.primarySoft,
     borderRadius: radius.card,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -602,34 +602,34 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   heroCardBadge: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.primarySoft,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs / 2,
     borderRadius: 999,
   },
   pulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#3B82F6',
-    marginRight: 6,
+    backgroundColor: colors.primary,
+    marginRight: spacing.xs,
   },
   heroCardBadgeText: {
-    color: '#1E40AF',
-    fontSize: 12,
+    color: colors.primaryDark,
+    fontSize: font.caption,
     fontWeight: '800',
   },
   heroEngineTag: {
-    color: '#64748B',
-    fontSize: 12,
+    color: colors.textMuted,
+    fontSize: font.caption,
     fontWeight: '600',
   },
   heroCardTitle: {
-    color: '#1E293B',
+    color: colors.text,
     fontSize: font.title - 2,
     fontWeight: '800',
     lineHeight: font.title + 4,
@@ -638,33 +638,33 @@ const styles = StyleSheet.create({
   heroChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
     marginTop: spacing.xs,
   },
   heroChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing.xs / 2,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs / 2,
   },
   heroChipText: {
-    color: '#475569',
-    fontSize: 12,
+    color: colors.textMuted,
+    fontSize: font.caption,
     fontWeight: '600',
   },
 
   /* 업로드 드롭존 */
   dropzone: {
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
     borderRadius: radius.card,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderStyle: 'dashed',
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -673,12 +673,12 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: colors.primarySoft,
   },
   dropzoneLogo: {
     width: 44,
@@ -689,11 +689,11 @@ const styles = StyleSheet.create({
     fontSize: font.bodyLarge,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs / 2,
   },
   dropzoneSub: {
     color: colors.textMuted,
-    fontSize: font.body - 2,
+    fontSize: font.caption,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing.md,
@@ -704,8 +704,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 999,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    gap: 6,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
     shadowColor: colors.primary,
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   samplePillBtnText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '800',
   },
@@ -736,13 +736,13 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs / 2,
   },
   repickChipText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: colors.background,
+    fontSize: font.caption,
     fontWeight: '700',
   },
 
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   ledgerCard: {
-    backgroundColor: '#E8F0FE',
+    backgroundColor: colors.primarySoft,
     borderRadius: radius.card,
     marginTop: spacing.sm,
     padding: spacing.md,
@@ -781,15 +781,15 @@ const styles = StyleSheet.create({
   },
   ledgerBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1967D2',
+    backgroundColor: colors.primary,
     borderRadius: 999,
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
     marginBottom: spacing.xs,
     overflow: 'hidden',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs / 2,
   },
   ledgerTitle: {
     color: colors.text,
@@ -805,7 +805,7 @@ const styles = StyleSheet.create({
   ledgerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
   },
   ledgerRowLabel: {
     color: colors.textMuted,
@@ -820,21 +820,21 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   ledgerWarn: {
-    backgroundColor: '#FFF4E5',
+    backgroundColor: colors.warningSoft,
     borderRadius: radius.card,
     marginTop: spacing.sm,
     padding: spacing.sm,
   },
   ledgerWarnTitle: {
-    color: '#B54708',
+    color: colors.warning,
     fontSize: font.caption,
     fontWeight: '700',
   },
   ledgerWarnBody: {
-    color: '#B54708',
+    color: colors.warning,
     fontSize: font.caption,
     lineHeight: 24,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   actionCardLocked: {
     opacity: 0.45,
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -870,8 +870,8 @@ const styles = StyleSheet.create({
   },
   actionCardSub: {
     color: colors.textMuted,
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: font.caption,
+    marginTop: spacing.xs / 2,
   },
 
   /* 분석 결과 리포트 UI */
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.primarySoft,
   },
   summaryTop: {
     flexDirection: 'row',
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
   },
   methodChipText: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: font.caption,
     fontWeight: '700',
   },
   summaryText: {
@@ -947,10 +947,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   tagHazard: {
-    backgroundColor: '#FBEAEA',
+    backgroundColor: colors.errorSoft,
   },
   tagText: {
-    fontSize: 13,
+    fontSize: font.caption,
     fontWeight: '700',
   },
   tagTextOk: {
@@ -996,25 +996,25 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   cautionBox: {
-    backgroundColor: '#FFF5F5',
+    backgroundColor: colors.errorSoft,
     borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing.xs,
     padding: spacing.xs,
     marginTop: spacing.xs,
     borderWidth: 1,
-    borderColor: '#FED7D7',
+    borderColor: colors.errorSoft,
   },
   stepCaution: {
     color: colors.error,
-    fontSize: 14,
+    fontSize: font.caption,
     fontWeight: '600',
   },
   hazardCard: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.errorSoft,
     borderRadius: radius.card,
-    borderColor: '#FECACA',
+    borderColor: colors.errorSoft,
     borderWidth: 1.5,
     marginTop: spacing.md,
     padding: spacing.md,
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: font.caption,
     marginTop: spacing.md,
     textAlign: 'center',
   },

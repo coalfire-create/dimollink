@@ -7,7 +7,9 @@ import {
   listBanks,
   savePayoutAccount,
 } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../components/ui';
+import { AppButton, Card, ErrorBanner, Field, SectionTitle,
+  KeyboardAwareScreen,
+} from '../components/ui';
 import { ScreenHeader, useSession } from '../navigation';
 import { theme } from '../theme';
 
@@ -83,9 +85,9 @@ export function PayoutAccountScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAwareScreen style={styles.screen}>
       <ScreenHeader title="정산 계좌" canGoBack />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ErrorBanner message={error} />
         {saved ? <Text style={styles.saved}>정산 계좌가 저장되었습니다.</Text> : null}
 
@@ -140,26 +142,30 @@ export function PayoutAccountScreen() {
 
             <Field
               label="계좌번호"
+              required
               value={accountNumber}
-              onChangeText={setAccountNumber}
+              onChangeText={(v) => setAccountNumber(v.replace(/[^0-9]/g, ''))}
               placeholder="- 없이 숫자만"
               keyboardType="number-pad"
+              maxLength={20}
             />
             <Field
               label="예금주"
+              required
               value={holderName}
               onChangeText={setHolderName}
               placeholder="사업자등록증 상호와 동일하게"
+              autoComplete="name"
             />
 
-            <AppButton label="저장" onPress={save} loading={busy} />
+            <AppButton label="저장" onPress={save} loading={busy} disabled={busy} />
             {account ? (
               <AppButton label="취소" variant="outline" onPress={() => setEditing(false)} />
             ) : null}
           </Card>
         ) : null}
       </ScrollView>
-    </View>
+    </KeyboardAwareScreen>
   );
 }
 
@@ -203,5 +209,5 @@ const styles = StyleSheet.create({
   },
   bankSelected: { backgroundColor: colors.primary },
   bankLabel: { color: colors.text, fontSize: font.body, fontWeight: '700' },
-  bankLabelSelected: { color: '#ffffff' },
+  bankLabelSelected: { color: colors.background },
 });

@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { ScreenHeader, useSession } from '../navigation';
+import { AppIcon } from '../components/AppIcon';
 import { theme } from '../theme';
 import { API_BASE_URL } from '../api/client';
 import type { GeoPoint } from '@dimol/shared';
@@ -120,7 +121,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
             description={isProvider ? '내 차량 위치' : '운반 트럭 위치'}
           >
             <View style={styles.markerBadge}>
-              <Text style={styles.markerText}>🚚</Text>
+              <AppIcon name="truck" size={20} color={theme.colors.background} />
             </View>
           </Marker>
         </MapView>
@@ -153,18 +154,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.error,
   },
   errorText: {
-    color: '#fff',
+    color: theme.colors.background,
     fontWeight: 'bold',
   },
   markerBadge: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.background,
     borderRadius: 20,
-    padding: 5,
+    padding: theme.spacing.xs,
     borderWidth: 2,
     borderColor: theme.colors.primary,
-  },
-  markerText: {
-    fontSize: 24,
   },
   infoBox: {
     padding: theme.spacing.md,

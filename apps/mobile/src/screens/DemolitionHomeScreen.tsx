@@ -9,7 +9,9 @@ import {
 } from '@dimol/shared';
 import { getMarketRate, listJobs } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { Card, SectionTitle, StatusBadge } from '../components/ui';
+import { Card, SectionTitle, StatusBadge,
+  InlineEmpty,
+} from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
@@ -84,7 +86,7 @@ export function DemolitionHomeScreen() {
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
             <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
-              <AppIcon name="building" size={48} color="#FFFFFF" />
+              <AppIcon name="building" size={48} color={colors.background} />
             </View>
           </View>
         </FadeInUp>
@@ -139,7 +141,7 @@ export function DemolitionHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>지금 들어온 철거 요청이 없어요.</Text>
+          <InlineEmpty>지금 들어온 철거 요청이 없어요.</InlineEmpty>
         )}
 
         <SectionTitle>수주한 철거</SectionTitle>
@@ -159,7 +161,7 @@ export function DemolitionHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>수주한 철거가 없어요.</Text>
+          <InlineEmpty>수주한 철거가 없어요.</InlineEmpty>
         )}
       </ScrollView>
       <TabBar active="home" />
@@ -176,7 +178,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.sm,
-    paddingBottom: spacing.lg,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   bannerContainer: {
     backgroundColor: colors.primary,
@@ -201,10 +204,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerSubtitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   cardBox: {
     backgroundColor: colors.background,
@@ -216,7 +219,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
     marginBottom: spacing.sm,
     padding: spacing.md,
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
   interiorCard: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
-    borderColor: '#C5D6FA',
+    borderColor: colors.border,
     borderRadius: 20,
     borderWidth: 1,
     flexDirection: 'row',
@@ -259,7 +262,7 @@ const styles = StyleSheet.create({
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   interiorChevron: {
     color: colors.primary,
@@ -304,10 +307,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    paddingVertical: spacing.sm,
   },
 });

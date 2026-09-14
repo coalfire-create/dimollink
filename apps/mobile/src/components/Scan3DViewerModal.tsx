@@ -73,7 +73,7 @@ export function Scan3DViewerModal({
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#101418', flex: 1 },
+  screen: { backgroundColor: theme.colors.viewerBackground, flex: 1 },
   web: { flex: 1 },
   close: {
     alignItems: 'center',
@@ -83,5 +83,5 @@ const styles = StyleSheet.create({
     margin: spacing.md,
     minHeight: 48,
   },
-  closeLabel: { color: '#FFFFFF', fontSize: font.body, fontWeight: '800' },
+  closeLabel: { color: colors.background, fontSize: font.body, fontWeight: '800' },
 });

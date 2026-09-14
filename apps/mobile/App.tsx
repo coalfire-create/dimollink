@@ -4,12 +4,12 @@ import {
   Linking,
   Platform,
   Pressable,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { AuthSession, RequestPrefillPayload, UserProfile } from '@dimol/shared';
 import { parsePrefillFromUrl } from '@dimol/shared';
 import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
@@ -132,7 +132,20 @@ const DEV_USERS: Record<string, UserProfile> = {
   },
 };
 
+/**
+ * 루트 — 안전영역 컨텍스트만 얹는다.
+ * 노치·홈 인디케이터 여백은 화면 헤더/탭바/하단 시트가 각각 insets 로 처리하므로
+ * 여기서 한 번만 Provider 를 깔아 준다(안 깔면 insets 가 전부 0 으로 나온다).
+ */
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppRoot />
+    </SafeAreaProvider>
+  );
+}
+
+function AppRoot() {
   const [session, setSession] = useState<Session>(null);
   const [token, setToken] = useState<string | null>(null);
   const [authRoute, setAuthRoute] = useState<AuthRoute>('welcome');
@@ -363,8 +376,13 @@ export default function App() {
           <AuthActionsContext.Provider value={authActions}>
             <NavigationContext.Provider value={navigation}>
               {renderScreen()}
-              {/* 우하단 고객센터 플로팅 버튼 — 로그인 화면 위에 상시 노출(탭바 위). */}
-              <FloatingSupportButton />
+              {/*
+                우하단 고객센터 버튼은 **탭 루트 화면에서만** 띄운다.
+                푸시된 화면(요청 폼·결제·채팅 등)에는 하단에 고정 CTA가 있어서
+                버튼이 그 위에 겹쳐 앉고, 입력칸까지 가렸다. 정작 그 화면들에는
+                각자 문의 경로가 있다.
+              */}
+              {stack.length === 0 ? <FloatingSupportButton /> : null}
             </NavigationContext.Provider>
           </AuthActionsContext.Provider>
         </SessionContext.Provider>
@@ -429,11 +447,16 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
-      {__DEV__ ? (
-        <View style={styles.devHeaderBar}>
+    <View style={styles.root}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={theme.colors.background}
+        translucent={false}
+      />
+      <View style={styles.viewport}>
+        {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
+        {__DEV__ ? (
+          <View style={styles.devHeaderBar}>
           <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
           <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('CONSUMER')}>
             <Text style={styles.devHeaderBtnText}>👤소비자</Text>
@@ -461,18 +484,32 @@ export default function App() {
           </Pressable>
           <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
             <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {booting ? <LoadingView /> : renderBody()}
-    </SafeAreaView>
+            </Pressable>
+          </View>
+        ) : null}
+        {booting ? <LoadingView /> : renderBody()}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
+    // 웹에서 데스크톱 폭으로 열면 좌우 남는 자리가 생긴다 — 앱 바깥은 바닥색으로 둔다.
+    alignItems: 'center',
+    backgroundColor: theme.colors.appBackground,
+    flex: 1,
+  },
+  /**
+   * 실제 화면이 그려지는 영역. 네이티브에서는 항상 화면 전체이고,
+   * 웹(데스크톱 브라우저)에서만 모바일 폭으로 잡혀 가운데 정렬된다.
+   * 안전영역(노치·홈 인디케이터)은 각 화면의 헤더/탭바/시트가 직접 처리한다.
+   */
+  viewport: {
     backgroundColor: theme.colors.background,
     flex: 1,
+    maxWidth: theme.maxContentWidth,
+    width: '100%',
   },
   devHeaderBar: {
     backgroundColor: '#1E293B',

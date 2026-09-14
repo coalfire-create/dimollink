@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { ApiError, listRequests } from '../api/client';
 import { EmptyState, ErrorBanner, LoadingView, StatusBadge } from '../components/ui';
+import { AppIcon, type IconName } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -11,11 +12,17 @@ import { theme } from '../theme';
 
 type RequestKindKey = 'DEMOLITION' | 'TRANSPORT' | 'INTERIOR' | 'DISPOSAL';
 
-const KIND_ICON: Record<string, string> = {
-  DEMOLITION: '🏗️',
-  TRANSPORT: '🚚',
-  INTERIOR: '🛠️',
-  DISPOSAL: '♻️',
+/**
+ * 요청 종류 → 아이콘.
+ *
+ * 예전에는 이모지(🏗️🚚🛠️♻️)를 썼는데, 같은 이모지도 안드로이드·iOS·폰트 버전마다
+ * 모양과 크기가 달라 목록이 기기별로 다르게 보였다. 앱 전체가 쓰는 아이콘 세트로 맞춘다.
+ */
+const KIND_ICON: Record<string, IconName> = {
+  DEMOLITION: 'hammer',
+  TRANSPORT: 'truck',
+  INTERIOR: 'tools',
+  DISPOSAL: 'recycle',
 };
 
 export function RequestListScreen() {
@@ -43,7 +50,7 @@ export function RequestListScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader title={config.listTitle} />
-      <ErrorBanner message={error} />
+      <ErrorBanner message={error} onRetry={() => void load()} />
       {requests === null ? (
         <LoadingView />
       ) : (
@@ -62,7 +69,20 @@ export function RequestListScreen() {
               <Text style={styles.totalCount}>총 {requests.length}건</Text>
             ) : null
           }
-          ListEmptyComponent={<EmptyState title="아직 없어요" description={config.listEmpty} />}
+          ListEmptyComponent={
+            // 빈 화면에서 "홈으로 가세요"라고 글로만 안내하면 사용자가 직접 탭을 찾아야 한다.
+            <EmptyState
+              icon="requests"
+              title="아직 요청이 없어요"
+              description={config.listEmpty}
+              actionLabel={user.userType === 'CONSUMER' ? '철거 요청하기' : undefined}
+              onAction={
+                user.userType === 'CONSUMER'
+                  ? () => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })
+                  : undefined
+              }
+            />
+          }
           renderItem={({ item }) => (
             <Pressable
               onPress={() => nav.push({ name: 'requestDetail', requestId: item.id })}
@@ -71,7 +91,11 @@ export function RequestListScreen() {
               <View style={styles.accentBar} />
               <View style={styles.cardInner}>
                 <View style={styles.kindBadge}>
-                  <Text style={styles.kindIcon}>{KIND_ICON[item.kind as RequestKindKey] ?? '📦'}</Text>
+                  <AppIcon
+                    name={KIND_ICON[item.kind as RequestKindKey] ?? 'document'}
+                    size={24}
+                    color={theme.colors.primary}
+                  />
                 </View>
                 <View style={styles.cardBody}>
                   <View style={styles.topRow}>
@@ -106,6 +130,8 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     padding: spacing.sm,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
     paddingTop: spacing.xs,
   },
   totalCount: {
@@ -121,7 +147,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: spacing.sm,
     overflow: 'hidden',
-    shadowColor: '#0B1B3A',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -149,9 +175,6 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
     width: 48,
   },
-  kindIcon: {
-    fontSize: font.bodyLarge,
-  },
   cardBody: {
     flex: 1,
   },
@@ -178,11 +201,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   meta: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
 });

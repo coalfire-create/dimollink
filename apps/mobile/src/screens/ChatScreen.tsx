@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CHAT_MESSAGE_MAX_LENGTH, type ChatMessage } from '@dimol/shared';
 import { ApiError, listMessages, markMessagesAsRead, sendMessage } from '../api/client';
 import { EmptyState, ErrorBanner } from '../components/ui';
@@ -21,6 +22,7 @@ const POLL_INTERVAL_MS = 5_000;
 
 export function ChatScreen({ requestId }: { requestId: string }) {
   const user = useSession();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -92,11 +94,9 @@ export function ChatScreen({ requestId }: { requestId: string }) {
                 <Text style={[styles.bubbleText, mine && { color: colors.background }]}>
                   {item.content}
                 </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 }}>
-                  {mine && item.readAt && (
-                    <Text style={{ fontSize: 10, color: '#C7D9F5', marginRight: 4 }}>읽음</Text>
-                  )}
-                  <Text style={[styles.bubbleTime, mine && { color: '#C7D9F5' }]}>
+                <View style={styles.bubbleMetaRow}>
+                  {mine && item.readAt ? <Text style={styles.readMark}>읽음</Text> : null}
+                  <Text style={[styles.bubbleTime, mine && { color: colors.primarySoft }]}>
                     {new Date(item.createdAt).toLocaleTimeString('ko-KR', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -108,7 +108,7 @@ export function ChatScreen({ requestId }: { requestId: string }) {
           );
         }}
       />
-      <View style={styles.inputBar}>
+      <View style={[styles.inputBar, { paddingBottom: insets.bottom + spacing.xs }]}>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -168,6 +168,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.body,
   },
+  bubbleMetaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.xs / 2,
+  },
+  readMark: {
+    color: colors.primarySoft,
+    fontSize: font.caption,
+    marginRight: spacing.xs / 2,
+  },
   bubbleTime: {
     color: colors.textMuted,
     fontSize: font.caption,
@@ -179,7 +190,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    // paddingBottom 은 안전영역에 맞춰 런타임에 정한다(홈 인디케이터에 입력칸이 깔린다).
   },
   input: {
     backgroundColor: colors.surface,

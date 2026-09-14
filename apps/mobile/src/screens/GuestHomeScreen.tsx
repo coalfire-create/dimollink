@@ -1,5 +1,7 @@
 import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppIcon, type IconName } from '../components/AppIcon';
 import { AppButton } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { theme } from '../theme';
@@ -9,10 +11,10 @@ import brandmark from '../../assets/brandmark.png';
  * 게스트(로그인 없이 둘러보기) 화면.
  * 서비스 소개만 제공하고, 요청 등록·내 정보 등 실제 기능은 로그인/회원가입으로 유도한다.
  */
-const STEPS: Array<{ icon: string; title: string; description: string }> = [
-  { icon: '📝', title: '요청 등록', description: '철거·운반·처리 요청을 한 번에 올려요' },
-  { icon: '🤝', title: '업체 매칭', description: '가까운 업체가 견적을 보내드려요' },
-  { icon: '♻️', title: '올바로 자동 처리', description: '전자인계서 신고까지 알아서 처리해요' },
+const STEPS: Array<{ icon: IconName; title: string; description: string }> = [
+  { icon: 'document', title: '요청 등록', description: '철거·운반·처리 요청을 한 번에 올려요' },
+  { icon: 'tools', title: '업체 매칭', description: '가까운 업체가 견적을 보내드려요' },
+  { icon: 'recycle', title: '올바로 자동 처리', description: '전자인계서 신고까지 알아서 처리해요' },
 ];
 
 export function GuestHomeScreen({
@@ -22,9 +24,17 @@ export function GuestHomeScreen({
   onLogin: () => void;
   onSignup: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      {/* 헤더가 없는 화면이라 콘텐츠가 그대로 상태바·홈 인디케이터에 붙는다. */}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + theme.spacing.md, paddingBottom: insets.bottom + theme.spacing.lg },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <FadeInUp delay={40}>
           <View style={styles.heroSection}>
             <Image
@@ -53,7 +63,7 @@ export function GuestHomeScreen({
                   <Text style={styles.stepDescription}>{step.description}</Text>
                 </View>
                 <View style={styles.stepIconWrap}>
-                  <Text style={styles.stepIcon}>{step.icon}</Text>
+                  <AppIcon name={step.icon} size={24} color={theme.colors.primary} />
                 </View>
               </View>
             </FadeInUp>
@@ -76,13 +86,12 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
     flex: 1,
   },
   content: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
+    // 세로 여백은 안전영역에 맞춰 런타임에 정한다.
   },
   heroSection: {
     alignItems: 'center',
@@ -114,17 +123,17 @@ const styles = StyleSheet.create({
   pilotChip: {
     alignSelf: 'center',
     backgroundColor: colors.primarySoft,
-    borderColor: '#D4E2FA',
+    borderColor: colors.border,
     borderRadius: radius.pill,
     borderWidth: 1,
     marginBottom: spacing.xs,
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
   },
   pilotChipText: {
     color: colors.primary,
-    fontSize: font.body - 2,
+    fontSize: font.caption,
     fontWeight: '700',
   },
   stepsContainer: {
@@ -133,14 +142,14 @@ const styles = StyleSheet.create({
   },
   stepCard: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: 18,
     borderWidth: 1,
     elevation: 2,
     flexDirection: 'row',
     padding: spacing.md - 4,
-    shadowColor: '#0F172A',
+    shadowColor: colors.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -155,7 +164,7 @@ const styles = StyleSheet.create({
     width: 34,
   },
   stepNumber: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '800',
   },
@@ -166,31 +175,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: spacing.xs / 2,
   },
   stepDescription: {
     color: colors.textMuted,
-    fontSize: font.body - 1,
+    fontSize: font.caption,
     lineHeight: 22,
   },
   stepIconWrap: {
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     height: 44,
     justifyContent: 'center',
     marginLeft: spacing.xs,
     width: 44,
   },
-  stepIcon: {
-    fontSize: 22,
-  },
   actions: {
-    backgroundColor: '#FFFFFF',
-    borderTopColor: '#E2E8F0',
+    backgroundColor: colors.background,
+    borderTopColor: colors.border,
     borderTopWidth: 1,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.04,
     shadowRadius: 8,

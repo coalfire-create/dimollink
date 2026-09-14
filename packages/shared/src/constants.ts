@@ -51,3 +51,27 @@ export const PILOT = {
   region: '양평',
   wasteCategory: 'CONSTRUCTION',
 } as const;
+
+/**
+ * 사업자 정보(전자상거래법 제10조 표시사항).
+ *
+ * 통신판매중개 사업자는 상호·대표자·주소·사업자등록번호·통신판매업신고번호를
+ * 소비자가 쉽게 볼 수 있는 곳에 표시해야 한다. 마이페이지 하단 푸터에 노출한다.
+ *
+ * TODO(운영 전): 실제 등록 정보로 채운다. 값이 비어 있으면 푸터가 해당 줄을 숨기므로,
+ * 지금은 허위 정보를 띄우지 않고 비워 둔다.
+ */
+export const COMPANY_INFO = {
+  name: '디몰링크',
+  serviceName: '비움',
+  /** 대표자 성명. */
+  representative: '',
+  /** 사업장 주소. */
+  address: '',
+  /** 사업자등록번호. */
+  businessNumber: '',
+  /** 통신판매업 신고번호. */
+  mailOrderNumber: '',
+  /** 개인정보 보호책임자. */
+  privacyOfficer: '',
+} as const;

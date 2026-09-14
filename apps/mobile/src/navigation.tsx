@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeoPoint, RequestKind, UserProfile, WasteItem } from '@dimol/shared';
 import { AppIcon } from './components/AppIcon';
 import { ROLE_CONFIG } from './roleConfig';
@@ -99,9 +100,12 @@ export function useAuthActions(): AuthActions {
 export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
   const user = useSession();
+  const insets = useSafeAreaInsets();
   const tabs = ROLE_CONFIG[user.userType]?.tabs ?? ROLE_CONFIG.CONSUMER.tabs;
   return (
-    <View style={styles.tabBar}>
+    // 홈 인디케이터(아이폰) / 제스처 바(안드로이드) 위로 탭을 띄운다.
+    // 고정값으로 두면 기기에 따라 탭 라벨이 인디케이터에 깔린다.
+    <View style={[styles.tabBar, { paddingBottom: insets.bottom + spacing.xs }]}>
       {tabs.map(({ tab, label, icon }) => {
         const isActive = tab === active;
         return (
@@ -117,7 +121,9 @@ export function TabBar({ active }: { active: TabName }) {
             <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
               <AppIcon name={icon} size={22} color={isActive ? colors.primary : colors.textMuted} filled={isActive} />
             </View>
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{label}</Text>
+            <Text numberOfLines={1} style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+              {label}
+            </Text>
           </Pressable>
         );
       })}
@@ -128,8 +134,10 @@ export function TabBar({ active }: { active: TabName }) {
 // ── 화면 헤더 (푸시 화면은 뒤로가기 노출)
 export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: boolean }) {
   const nav = useNavigation();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.header}>
+    // 노치·상태바 아래로 제목을 내린다(고정 8px 이면 상태바에 제목이 깔린다).
+    <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
       {canGoBack ? (
         <Pressable
           accessibilityRole="button"
@@ -140,7 +148,12 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
           <Text style={styles.backLabel}>← 뒤로</Text>
         </Pressable>
       ) : null}
-      <Text style={[styles.headerTitle, !canGoBack && styles.headerTitleCentered]}>{title}</Text>
+      <Text
+        numberOfLines={1}
+        style={[styles.headerTitle, !canGoBack && styles.headerTitleCentered]}
+      >
+        {title}
+      </Text>
     </View>
   );
 }
@@ -153,9 +166,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    paddingBottom: Platform.OS === 'ios' ? 12 : spacing.xs,
+    // paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
     // Subtle upward shadow
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.06,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: -2 },
@@ -172,33 +185,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 999,
     height: 3,
-    marginBottom: 4,
     width: 24,
   },
   tabIndicatorPlaceholder: {
     height: 3,
-    marginBottom: 4,
     width: 24,
   },
   tabIconWrap: {
     alignItems: 'center',
     borderRadius: 12,
     justifyContent: 'center',
-    marginBottom: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs / 2,
   },
   tabIconWrapActive: {
     backgroundColor: colors.primarySoft,
   },
-  tabIcon: {
-    fontSize: font.bodyLarge,
-  },
   tabLabel: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: font.tabLabel,
     fontWeight: '600',
-    marginTop: 2,
   },
   tabLabelActive: {
     color: colors.primary,
@@ -211,10 +217,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     minHeight: touch.primaryButtonHeight + spacing.xs,
+    paddingBottom: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
+    // paddingTop 은 안전영역에 맞춰 런타임에 정한다.
     // Subtle downward shadow
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOpacity: 0.04,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },

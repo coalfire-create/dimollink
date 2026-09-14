@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderRadius: 16,
     padding: theme.spacing.md,
-    shadowColor: '#000',
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   starBtn: {
-    padding: 4,
+    padding: theme.spacing.xs / 2,
   },
   ratingText: {
     fontSize: theme.font.bodyLarge,

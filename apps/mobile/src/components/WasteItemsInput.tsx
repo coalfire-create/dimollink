@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   },
   caret: {
     color: colors.textMuted,
-    fontSize: 14,
+    fontSize: theme.glyph.inline,
     marginLeft: spacing.xs,
   },
   kgInput: {
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   option: {
-    paddingVertical: 14,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderBottomColor: colors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,

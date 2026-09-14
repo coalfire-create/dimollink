@@ -83,7 +83,7 @@ export function InteriorListScreen({ scope }: { scope: 'mine' | 'open' }) {
           ))
         ) : items ? (
           <EmptyState
-            icon="🛠️"
+            icon="tools"
             title={scope === 'mine' ? '아직 요청이 없어요' : '들어온 요청이 없어요'}
             description={
               scope === 'mine'

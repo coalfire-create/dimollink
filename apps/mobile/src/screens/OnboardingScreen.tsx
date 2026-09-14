@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isCompanyType, type AuthSession, type UserType } from '@dimol/shared';
 import { ApiError, createUser, requestOtp, verifyOtp, WEB_BASE_URL } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
@@ -76,6 +87,7 @@ export function OnboardingScreen({
   /** 소셜 로그인으로 진입한 가입 — 티켓으로 계정에 소셜 신원을 연결하고 이름을 프리필한다. */
   social?: { ticket: string; prefillName?: string };
 }) {
+  const insets = useSafeAreaInsets();
   const [userType, setUserType] = useState<UserType>('CONSUMER');
   const [name, setName] = useState(social?.prefillName ?? '');
   const [password, setPassword] = useState('');
@@ -162,7 +174,18 @@ export function OnboardingScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView
+      // 입력칸이 많아 아래쪽 칸(비밀번호·사업자번호)이 키보드에 가린다.
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.keyboardWrap}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* 상단 뒤로가기 내비 */}
       {onBack ? (
         <FadeInUp delay={20}>
@@ -263,18 +286,26 @@ export function OnboardingScreen({
 
         <View style={styles.formCard}>
           <Field
-            label={isCompany ? '업체명 *' : '이름 *'}
+            label={isCompany ? '업체명' : '이름'}
+            required
             value={name}
             onChangeText={setName}
             placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
+            autoComplete={isCompany ? 'organization' : 'name'}
+            textContentType={isCompany ? 'organizationName' : 'name'}
+            returnKeyType="next"
             hint={isCompany ? '사업자등록증 상의 정확한 상호를 입력하세요.' : '실명을 입력하세요.'}
           />
           <Field
-            label="휴대폰번호 *"
+            label="휴대폰번호"
+            required
             value={phone}
             onChangeText={setPhone}
             placeholder="010-0000-0000"
             keyboardType="phone-pad"
+            autoComplete="tel"
+            textContentType="telephoneNumber"
+            maxLength={13}
             editable={!codeSent}
             hint="로그인 및 매칭 알림 수신에 활용됩니다."
           />
@@ -293,11 +324,15 @@ export function OnboardingScreen({
                 </Text>
               </View>
               <Field
-                label="인증코드 6자리 *"
+                label="인증코드 6자리"
+                required
                 value={code}
                 onChangeText={setCode}
                 placeholder="000000"
                 keyboardType="number-pad"
+                // 문자로 온 인증번호를 키보드 위에서 바로 채울 수 있게 한다.
+                autoComplete="sms-otp"
+                textContentType="oneTimeCode"
                 maxLength={6}
               />
             </View>
@@ -309,30 +344,44 @@ export function OnboardingScreen({
               <Text style={styles.pwSectionLabel}>로그인 비밀번호</Text>
             </View>
             <Field
-              label="비밀번호 *"
+              label="비밀번호"
+              required
               value={password}
               onChangeText={setPassword}
               placeholder="6자 이상"
               secureTextEntry
+              autoComplete="new-password"
+              textContentType="newPassword"
+              returnKeyType="next"
               hint="다음 로그인부터 이 비밀번호로 로그인해요."
             />
             <Field
-              label="비밀번호 확인 *"
+              label="비밀번호 확인"
+              required
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
               placeholder="비밀번호를 한 번 더 입력"
               secureTextEntry
+              autoComplete="new-password"
+              textContentType="newPassword"
+              error={
+                passwordConfirm.length > 0 && password !== passwordConfirm
+                  ? '비밀번호가 서로 달라요.'
+                  : null
+              }
             />
           </View>
 
           {isCompany ? (
             <View style={{ marginTop: spacing.sm }}>
               <Field
-                label="사업자등록번호 *"
+                label="사업자등록번호"
+                required
                 value={businessNumber}
                 onChangeText={setBusinessNumber}
                 placeholder="000-00-00000"
                 keyboardType="number-pad"
+                maxLength={12}
                 hint="가입 후 관리자 승인이 완료되면 매칭 수주가 활성화됩니다."
               />
             </View>
@@ -399,13 +448,18 @@ export function OnboardingScreen({
           </View>
         </FadeInUp>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
+  keyboardWrap: {
+    backgroundColor: colors.background,
+    flex: 1,
+  },
   container: {
     backgroundColor: colors.background,
     flexGrow: 1,
@@ -456,11 +510,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs / 2,
   },
   stepBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+    color: colors.background,
+    fontSize: font.caption,
     fontWeight: '800',
   },
   stepTitle: {
@@ -497,7 +551,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   iconCircleSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderColor: colors.primary,
   },
   iconText: {
@@ -520,20 +574,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.pill,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: spacing.xs / 2,
   },
   tagBadgeSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   tagBadgeText: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: font.caption,
     fontWeight: '700',
   },
   roleDescription: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   radioCheck: {
     width: 24,
@@ -550,8 +604,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   radioCheckMark: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.background,
+    fontSize: theme.glyph.inline,
     fontWeight: '900',
   },
   // 폼 카드
@@ -570,7 +624,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#C5D6FA',
+    borderColor: colors.border,
   },
   noticeBoxText: {
     color: colors.primary,
@@ -589,7 +643,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.xs,
-    gap: 6,
+    gap: spacing.xs,
   },
   pwSectionLabel: {
     color: colors.text,
@@ -619,8 +673,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkboxMark: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: colors.background,
+    fontSize: theme.glyph.inline,
     fontWeight: '900',
   },
   termsText: {

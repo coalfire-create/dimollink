@@ -16,6 +16,7 @@ import { PORTONE } from '../config';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
+import { AppIcon } from '../components/AppIcon';
 import { theme } from '../theme';
 
 /** 결제 건 고유 식별자(앱에서 채번, PortOne·서버가 이 값으로 결제를 추적). */
@@ -205,8 +206,14 @@ export function PaymentScreen({
         })}
 
         <View style={styles.trustBox}>
-          <Text style={styles.trustLine}>🔒 안전한 결제는 포트원(PortOne)이 처리해요</Text>
-          <Text style={styles.trustLine}>↩️ 배차 전 취소 시 전액 환불돼요</Text>
+          <View style={styles.trustRow}>
+            <AppIcon name="lock" size={18} color={theme.colors.textMuted} />
+            <Text style={styles.trustLine}>안전한 결제는 포트원(PortOne)이 처리해요</Text>
+          </View>
+          <View style={styles.trustRow}>
+            <AppIcon name="check" size={18} color={theme.colors.textMuted} />
+            <Text style={styles.trustLine}>배차 전 취소 시 전액 환불돼요</Text>
+          </View>
         </View>
 
         <ErrorBanner message={error} />
@@ -257,6 +264,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     padding: spacing.md,
   },
+  trustRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs / 2 },
   trustLine: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
   doneBox: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.lg },
   doneCheck: {

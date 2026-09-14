@@ -368,8 +368,8 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 </>
               ) : null}
               {request.wasteItems && request.wasteItems.length > 0 ? (
-                <View style={{ marginTop: 12 }}>
-                  <Text style={{ fontWeight: '600', marginBottom: 4 }}>폐기물 상세 내역</Text>
+                <View style={{ marginTop: theme.spacing.sm }}>
+                  <Text style={{ fontWeight: '600', marginBottom: theme.spacing.xs }}>폐기물 상세 내역</Text>
                   {request.wasteItems.map((item, idx) => (
                     <InfoRow key={idx} label={visionMaterialLabel(item.material)} value={`${item.kg} kg`} />
                   ))}
@@ -400,7 +400,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 <Image
                   key={idx}
                   source={{ uri: url }}
-                  style={{ width: 120, height: 120, borderRadius: 8, marginRight: 8, backgroundColor: '#f0f0f0' }}
+                  style={{ width: 120, height: 120, borderRadius: 8, marginRight: 8, backgroundColor: theme.colors.surface }}
                   resizeMode="cover"
                 />
               ))}
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     borderRadius: 999,
     height: 12,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
     width: 12,
   },
   timelineDotReached: {
@@ -747,13 +747,13 @@ const styles = StyleSheet.create({
     borderColor: colors.primarySoft,
     borderWidth: 4,
     height: 18,
-    marginTop: 1,
+    marginTop: spacing.xs / 2,
     width: 18,
   },
   timelineLine: {
     backgroundColor: colors.border,
     flex: 1,
-    marginVertical: 2,
+    marginVertical: spacing.xs / 2,
     minHeight: 20,
     width: 2,
   },
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
   quoteTime: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
     marginBottom: spacing.xs,
   },
   quoteMemo: {

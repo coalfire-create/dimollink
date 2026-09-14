@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adminListUsers } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field } from '../components/ui';
+import { AppButton, Card, ErrorBanner, Field, KeyboardAwareScreen } from '../components/ui';
 import { theme } from '../theme';
 import { AllbaroTab } from './admin/AllbaroTab';
 import { ApprovalTab } from './admin/ApprovalTab';
@@ -34,6 +35,7 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
 ];
 
 export function AdminScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
   const [token, setToken] = useState('');
   /** 인증에 쓸 확정 토큰. 입력칸을 그대로 넘기면 한 글자 칠 때마다 탭이 다시 조회한다. */
   const [activeToken, setActiveToken] = useState('');
@@ -68,8 +70,9 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
   const tabProps = { token: activeToken, onError: setError };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
+    <KeyboardAwareScreen style={styles.screen}>
+      {/* 자체 헤더라 ScreenHeader 의 안전영역 처리를 못 받는다 — 여기서 직접 내린다. */}
+      <View style={[styles.header, { paddingTop: insets.top + theme.spacing.xs }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="뒤로 가기"
@@ -101,7 +104,10 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + theme.spacing.lg }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {!authed ? (
           <Card>
             <Text style={styles.name}>관리자 인증</Text>
@@ -129,7 +135,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
         {authed && tab === 'allbaro' ? <AllbaroTab {...tabProps} /> : null}
         {authed && tab === 'stats' ? <StatsTab {...tabProps} /> : null}
       </ScrollView>
-    </View>
+    </KeyboardAwareScreen>
   );
 }
 
@@ -173,7 +179,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.primary },
   tabLabel: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
-  tabLabelActive: { color: '#ffffff' },
+  tabLabelActive: { color: colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
   name: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   meta: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },

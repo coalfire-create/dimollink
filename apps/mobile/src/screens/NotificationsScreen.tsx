@@ -17,7 +17,7 @@ function statusDotColor(status: string): string {
       return theme.colors.primary;
     case 'COMPLETED':
     case 'SETTLED':
-      return '#16A34A';
+      return theme.colors.success;
     case 'CANCELLED':
       return theme.colors.error;
     default:
@@ -64,7 +64,7 @@ export function NotificationsScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader title="알림" />
-      <ErrorBanner message={error} />
+      <ErrorBanner message={error} onRetry={() => void load()} />
       {notifications === null ? (
         <LoadingView />
       ) : (
@@ -123,9 +123,11 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     padding: spacing.sm,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   cardUnread: {
-    backgroundColor: '#FAFBFF',
+    backgroundColor: theme.colors.surface,
   },
   itemRow: {
     alignItems: 'flex-start',
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 8,
     marginRight: spacing.sm,
-    marginTop: 6,
+    marginTop: spacing.xs,
     width: 8,
   },
   itemContent: {
@@ -150,6 +152,6 @@ const styles = StyleSheet.create({
   time: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
 });

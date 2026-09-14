@@ -144,7 +144,7 @@ export function GuidedSiteCaptureModal({
       <View style={styles.screen}>
         {permissionPending ? (
           <View style={styles.centerFill}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
+            <ActivityIndicator size="large" color={colors.background} />
           </View>
         ) : permissionDenied ? (
           <CameraPermissionGate onAllow={requestCameraPermission} onClose={handleClose} />
@@ -221,7 +221,7 @@ export function GuidedSiteCaptureModal({
               <View style={styles.bottomArea} pointerEvents="box-none">
                 {qualityError ? (
                   <View style={styles.qualityBanner}>
-                    <AppIcon name="alert" size={18} color="#FFFFFF" />
+                    <AppIcon name="alert" size={18} color={colors.background} />
                     <Text style={styles.qualityBannerText}>{qualityError}</Text>
                   </View>
                 ) : gateActive ? (
@@ -338,7 +338,7 @@ function SensorPermissionBanner({
   if (!platformWeb || permission !== 'prompt') return null;
   return (
     <Pressable style={styles.sensorBanner} onPress={onRequest} accessibilityRole="button">
-      <AppIcon name="alert" size={16} color="#FFFFFF" />
+      <AppIcon name="alert" size={16} color={colors.background} />
       <Text style={styles.sensorBannerText}>
         방향 안내를 켜려면 눌러서 센서 사용을 허용해주세요
       </Text>
@@ -349,7 +349,7 @@ function SensorPermissionBanner({
 function CameraPermissionGate({ onAllow, onClose }: { onAllow: () => void; onClose: () => void }) {
   return (
     <View style={styles.centerFill}>
-      <AppIcon name="camera" size={40} color="#FFFFFF" />
+      <AppIcon name="camera" size={40} color={colors.background} />
       <Text style={styles.permTitle}>카메라 권한이 필요해요</Text>
       <Text style={styles.permSub}>현장 사진을 촬영하려면 카메라 사용을 허용해 주세요.</Text>
       <Pressable style={styles.permBtn} onPress={onAllow} accessibilityRole="button">
@@ -366,7 +366,7 @@ function CaptureCompleteView({ count, onNext }: { count: number; onNext: () => v
   return (
     <View style={styles.centerFill}>
       <View style={styles.completeCircle}>
-        <AppIcon name="sparkles" size={40} color="#FFFFFF" />
+        <AppIcon name="sparkles" size={40} color={colors.background} />
       </View>
       <Text style={styles.completeTitle}>{SITE_CAPTURE_COPY.complete}</Text>
       <Text style={styles.completeSub}>현장 사진 {count}장을 정리했어요.</Text>
@@ -380,25 +380,25 @@ function CaptureCompleteView({ count, onNext }: { count: number; onNext: () => v
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#000000' },
+  screen: { flex: 1, backgroundColor: theme.colors.cameraBackground },
   centerFill: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.text,
   },
 
   /* 권한 */
   permTitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title - 4,
     fontWeight: '800',
     marginTop: spacing.md,
     textAlign: 'center',
   },
   permSub: {
-    color: '#CBD5E1',
+    color: colors.border,
     fontSize: font.body,
     marginTop: spacing.xs,
     textAlign: 'center',
@@ -413,9 +413,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
   },
-  permBtnText: { color: '#FFFFFF', fontSize: font.bodyLarge, fontWeight: '800' },
+  permBtnText: { color: colors.background, fontSize: font.bodyLarge, fontWeight: '800' },
   permClose: { marginTop: spacing.md, padding: spacing.sm },
-  permCloseText: { color: '#94A3B8', fontSize: font.body, fontWeight: '600' },
+  permCloseText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
 
   /* 완료 */
   completeCircle: {
@@ -428,13 +428,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   completeTitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title - 2,
     fontWeight: '800',
     textAlign: 'center',
   },
   completeSub: {
-    color: '#CBD5E1',
+    color: colors.border,
     fontSize: font.body,
     marginTop: spacing.xs,
     textAlign: 'center',
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   progressText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '800',
     flex: 1,
@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
-  dotsRow: { flexDirection: 'row', gap: 6, marginTop: spacing.xs },
+  closeBtnText: { color: colors.background, fontSize: 20, fontWeight: '700' },
+  dotsRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
   dot: { flex: 1, height: 5, borderRadius: 999 },
   dotDone: { backgroundColor: colors.primary },
   dotPending: { backgroundColor: 'rgba(255,255,255,0.3)' },
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   instructionText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.bodyLarge,
     fontWeight: '700',
     lineHeight: 28,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     marginTop: spacing.sm,
   },
-  sensorBannerText: { color: '#FFFFFF', fontSize: font.body, fontWeight: '700', flex: 1 },
+  sensorBannerText: { color: colors.background, fontSize: font.body, fontWeight: '700', flex: 1 },
 
   /* 중앙 프레이밍 */
   frameWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -507,8 +507,8 @@ const styles = StyleSheet.create({
   frameBoxOk: {},
   frameBoxWarn: {},
   corner: { position: 'absolute', width: 36, height: 36 },
-  cornerOk: { borderColor: '#4ADE80' },
-  cornerWarn: { borderColor: '#FBBF24' },
+  cornerOk: { borderColor: colors.successOnDark },
+  cornerWarn: { borderColor: colors.warningOnDark },
   cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
   cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
   cornerBL: {
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
-  qualityBannerText: { color: '#FFFFFF', fontSize: font.body, fontWeight: '700', flex: 1 },
+  qualityBannerText: { color: colors.background, fontSize: font.body, fontWeight: '700', flex: 1 },
   statusPill: {
     alignSelf: 'center',
     flexDirection: 'column',
@@ -550,8 +550,8 @@ const styles = StyleSheet.create({
   },
   statusOk: { backgroundColor: 'rgba(22,163,74,0.92)' },
   statusWarn: { backgroundColor: 'rgba(202,138,4,0.92)' },
-  statusText: { color: '#FFFFFF', fontSize: font.body, fontWeight: '800' },
-  turnHint: { color: '#FEF3C7', fontSize: font.caption - 2, fontWeight: '700', marginTop: 2 },
+  statusText: { color: colors.background, fontSize: font.body, fontWeight: '800' },
+  turnHint: { color: colors.warningSoft, fontSize: font.caption, fontWeight: '700', marginTop: spacing.xs / 2 },
 
   bottomBar: {
     flexDirection: 'row',
@@ -567,19 +567,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  textBtnLabel: { color: '#FFFFFF', fontSize: font.body, fontWeight: '700' },
+  textBtnLabel: { color: colors.background, fontSize: font.body, fontWeight: '700' },
   shutterOuter: {
     width: 76,
     height: 76,
     borderRadius: 38,
     borderWidth: 5,
-    borderColor: '#FFFFFF',
+    borderColor: colors.background,
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   shutterDisabled: { opacity: 0.4 },
-  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF' },
+  shutterInner: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.background },
   doneBtn: {
     minWidth: 64,
     height: 56,
@@ -590,6 +590,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneBtnGhost: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  doneBtnText: { color: '#FFFFFF', fontSize: font.body, fontWeight: '800' },
-  doneBtnCount: { color: '#DBEAFE', fontSize: font.caption - 4, fontWeight: '700' },
+  doneBtnText: { color: colors.background, fontSize: font.body, fontWeight: '800' },
+  doneBtnCount: { color: colors.primarySoft, fontSize: font.caption, fontWeight: '700' },
 });

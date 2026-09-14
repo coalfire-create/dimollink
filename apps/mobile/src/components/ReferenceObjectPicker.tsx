@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   itemLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
-  itemHint: { color: colors.textMuted, fontSize: font.body, marginTop: 2 },
+  itemHint: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
   cancel: {
     alignItems: 'center',
     justifyContent: 'center',

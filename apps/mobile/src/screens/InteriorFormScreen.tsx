@@ -3,7 +3,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { INTERIOR_CATEGORY_LABELS, type InteriorCategory } from '@dimol/shared';
 import { ApiError, createInteriorRequest } from '../api/client';
 import { AddressPickerField } from '../components/AddressPickerField';
-import { AppButton, ErrorBanner, Field, StickyFooter } from '../components/ui';
+import { AppButton, ErrorBanner, Field, StickyFooter,
+  KeyboardAwareScreen,
+} from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
 import { theme } from '../theme';
@@ -62,7 +64,7 @@ export function InteriorFormScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAwareScreen style={styles.screen}>
       <ScreenHeader title="인테리어 시공 요청" canGoBack />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.infoBox}>
@@ -138,7 +140,7 @@ export function InteriorFormScreen() {
       <StickyFooter>
         <AppButton label="견적 요청하기" onPress={submit} loading={submitting} />
       </StickyFooter>
-    </View>
+    </KeyboardAwareScreen>
   );
 }
 
@@ -162,7 +164,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   infoText: {
-    color: '#1E5FBF',
+    color: colors.primary,
     fontSize: font.body,
     lineHeight: font.body + 6,
   },

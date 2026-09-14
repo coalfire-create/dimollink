@@ -209,7 +209,7 @@ export function EstimateScreen() {
                     <Text style={styles.structureHint}>{BUILDING_STRUCTURE_HINTS[value]}</Text>
                   </View>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
-                    {selected ? <AppIcon name="check" size={14} color="#FFFFFF" /> : null}
+                    {selected ? <AppIcon name="check" size={14} color={colors.background} /> : null}
                   </View>
                 </PressableScale>
               );
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     width: 26,
   },
   stepBadgeText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '800',
   },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.button,
     flexDirection: 'row',
     marginBottom: spacing.sm,
-    padding: 4,
+    padding: spacing.xs / 2,
   },
   unitOption: {
     alignItems: 'center',
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
   structureHint: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: 2,
+    marginTop: spacing.xs / 2,
   },
   radio: {
     alignItems: 'center',
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: spacing.xs / 2,
   },
   basisText: {
     color: colors.text,

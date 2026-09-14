@@ -83,6 +83,9 @@ export function PressableScale({
   const { scale, onPressIn, onPressOut } = usePressScale(scaleTo);
   return (
     <AnimatedPressable
+      // 누를 수 있는 카드는 스크린리더에도 버튼으로 읽혀야 한다.
+      // (호출부가 role 을 따로 주면 그쪽이 이긴다 — rest 가 뒤에 펼쳐진다.)
+      accessibilityRole="button"
       {...rest}
       onPressIn={(e) => {
         onPressIn();

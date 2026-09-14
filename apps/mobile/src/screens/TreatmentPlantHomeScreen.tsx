@@ -2,8 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, offersTransportLabel, suggestedQuoteAmount, type MarketRate, type ProviderJobs, type ProviderPricing, type ServiceRequest } from '@dimol/shared';
 import { getMarketRate, getPricing, listJobs, submitQuote } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge } from '../components/ui';
+import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge,
+  InlineEmpty,
+} from '../components/ui';
 import { FadeInUp } from '../components/motion';
+import { AppIcon } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { theme } from '../theme';
@@ -115,12 +118,13 @@ export function TreatmentPlantHomeScreen() {
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
               {/* 운반요청 제공 여부 배지 — 마이페이지에서 켜고 끌 수 있어요. */}
               <View style={styles.transportBadge}>
+                <AppIcon name="truck" size={18} color={theme.colors.background} />
                 <Text style={styles.transportBadgeText}>
-                  🚚 {offersTransportLabel(user.offersTransport)}
+                  {offersTransportLabel(user.offersTransport)}
                 </Text>
               </View>
             </View>
-            <Text style={{fontSize: 70, position: 'absolute', right: 20, bottom: 20}}>🏭</Text>
+            <AppIcon name="recycle" size={48} color={theme.colors.background} />
           </View>
         </FadeInUp>
 
@@ -134,7 +138,10 @@ export function TreatmentPlantHomeScreen() {
               <View style={styles.requestRow}>
                 <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
                 {job.distanceKm != null ? (
-                  <Text style={styles.distance}>📍 {job.distanceKm}km</Text>
+                  <View style={styles.distanceRow}>
+                    <AppIcon name="location" size={18} color={theme.colors.primary} />
+                    <Text style={styles.distance}>{job.distanceKm}km</Text>
+                  </View>
                 ) : null}
               </View>
               <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
@@ -163,7 +170,7 @@ export function TreatmentPlantHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>아직 들어온 반입 예약이 없어요.</Text>
+          <InlineEmpty>아직 들어온 반입 예약이 없어요.</InlineEmpty>
         )}
 
         <SectionTitle>확정된 반입</SectionTitle>
@@ -183,7 +190,7 @@ export function TreatmentPlantHomeScreen() {
             </Card>
           ))
         ) : (
-          <Text style={styles.emptyText}>확정된 반입이 없어요.</Text>
+          <InlineEmpty>확정된 반입이 없어요.</InlineEmpty>
         )}
       </ScrollView>
       <TabBar active="home" />
@@ -200,7 +207,8 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.sm,
-    paddingBottom: spacing.lg,
+    // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
+    paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
   bannerContainer: {
     backgroundColor: colors.primary,
@@ -224,21 +232,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerSubtitle: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: spacing.xs / 2,
   },
   transportBadge: {
+    alignItems: 'center',
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 999,
+    flexDirection: 'row',
+    gap: spacing.xs / 2,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
   transportBadgeText: {
-    color: '#FFFFFF',
+    color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
   },
@@ -276,6 +287,11 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     marginTop: spacing.xs,
   },
+  distanceRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.xs / 2,
+  },
   distance: {
     color: colors.primary,
     fontSize: font.body,
@@ -286,10 +302,5 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     fontWeight: '700',
     paddingVertical: spacing.xs,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    paddingVertical: spacing.sm,
   },
 });

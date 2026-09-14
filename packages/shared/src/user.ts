@@ -182,3 +182,21 @@ export interface UserProfile {
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * 휴대폰·전화번호를 화면에 보여줄 때 하이픈을 넣는다.
+ *
+ * 저장은 숫자만(01011110001)으로 하는데 그대로 보여주면 읽기 어렵다 —
+ * 특히 고령 사용자는 11자리 숫자열을 한 번에 못 읽는다.
+ * 아는 자릿수만 끊고, 모르는 형태면 원본을 그대로 돌려준다.
+ */
+export function formatPhoneForDisplay(phone: string | undefined): string {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  if (digits.length === 10 && digits.startsWith('02')) {
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  return phone;
+}
