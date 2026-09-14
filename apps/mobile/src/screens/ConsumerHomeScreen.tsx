@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
@@ -34,6 +34,7 @@ interface DemolitionPartner {
   allbaroCertified: boolean;
   insuranceRegistered: boolean;
   specialties: string[];
+  imageUrl?: string;
 }
 
 const DEFAULT_PARTNERS: DemolitionPartner[] = [
@@ -47,6 +48,7 @@ const DEFAULT_PARTNERS: DemolitionPartner[] = [
     allbaroCertified: true,
     insuranceRegistered: true,
     specialties: ['상가 · 사무실 원상복구', '완파 철거', '폐기물 일괄'],
+    imageUrl: 'https://images.unsplash.com/photo-1541888086925-ebc66113b2e9?w=200&q=80',
   },
   {
     id: 'partner-2',
@@ -58,6 +60,7 @@ const DEFAULT_PARTNERS: DemolitionPartner[] = [
     allbaroCertified: true,
     insuranceRegistered: true,
     specialties: ['인테리어 내부 철거', '구조물 해체', '안심 에스크로'],
+    imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200&q=80',
   },
   {
     id: 'partner-3',
@@ -69,6 +72,7 @@ const DEFAULT_PARTNERS: DemolitionPartner[] = [
     allbaroCertified: true,
     insuranceRegistered: true,
     specialties: ['프랜차이즈 퇴거 원복', '야간 시공 가능', '올바로 연동'],
+    imageUrl: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=200&q=80',
   },
   {
     id: 'partner-4',
@@ -80,6 +84,7 @@ const DEFAULT_PARTNERS: DemolitionPartner[] = [
     allbaroCertified: true,
     insuranceRegistered: true,
     specialties: ['공장 · 창고 철거', '건설폐기물 수집운반', '정밀 실사'],
+    imageUrl: 'https://images.unsplash.com/photo-1531834685032-c34bf0d84c77?w=200&q=80',
   },
 ];
 
@@ -186,6 +191,7 @@ export function ConsumerHomeScreen() {
         allbaroCertified: u.allbaroCertified ?? true,
         insuranceRegistered: u.insuranceRegistered ?? true,
         specialties: i % 2 === 0 ? ['상가·사무실 원상복구', '완파 철거'] : ['인테리어 내부 철거', '폐기물 일괄'],
+        imageUrl: (u as any).imageUrl,
       }));
       const existingNames = new Set(apiPartners.map((p) => p.name));
       const merged = [
@@ -287,9 +293,7 @@ export function ConsumerHomeScreen() {
                   올바로 인계서 연동 및 사업자 검증을 완료한 파트너스
                 </Text>
               </View>
-              <View style={styles.partnerBadge}>
-                <Text style={styles.partnerBadgeText}>100% 검증</Text>
-              </View>
+              
             </View>
 
             {partners.map((partner) => (
@@ -299,15 +303,16 @@ export function ConsumerHomeScreen() {
               >
                 <View style={styles.partnerTopRow}>
                   <View style={styles.partnerLogoWrap}>
-                    <AppIcon name="hammer" size={20} color={theme.colors.primary} />
+                    {partner.imageUrl ? (
+                      <Image source={{ uri: partner.imageUrl }} style={styles.partnerLogoImage} />
+                    ) : (
+                      <AppIcon name="hammer" size={20} color={theme.colors.primary} />
+                    )}
                   </View>
                   <View style={styles.partnerMainInfo}>
                     <View style={styles.partnerNameRow}>
                       <Text style={styles.partnerName}>{partner.name}</Text>
-                      <View style={styles.certifiedChip}>
-                        <AppIcon name="check" size={11} color={theme.colors.primary} />
-                        <Text style={styles.certifiedChipText}>인증</Text>
-                      </View>
+                      
                     </View>
                     <Text style={styles.partnerRegion}>
                       📍 {partner.region} · 시공 {partner.completedCount}건
@@ -337,9 +342,7 @@ export function ConsumerHomeScreen() {
                       <Text style={styles.verifyItem}>✓ 배상책임보험 가입</Text>
                     )}
                   </View>
-                  <View style={styles.partnerStatusTag}>
-                    <Text style={styles.partnerStatusTagText}>비움 검증 파트너</Text>
-                  </View>
+                  
                 </View>
               </View>
             ))}
@@ -660,17 +663,8 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     marginTop: 2,
   },
-  partnerBadge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  partnerBadgeText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
-  },
+  
+  
   partnerCard: {
     backgroundColor: colors.background,
     borderColor: colors.border,
@@ -690,13 +684,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   partnerLogoWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    overflow: 'hidden',
+  },
+  partnerLogoImage: {
+    width: '100%',
+    height: '100%',
   },
   partnerMainInfo: {
     flex: 1,
@@ -711,22 +710,8 @@ const styles = StyleSheet.create({
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
-  certifiedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    gap: 2,
-  },
-  certifiedChipText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '700',
-  },
+  
+  
   partnerRegion: {
     color: colors.textMuted,
     fontSize: font.caption,
@@ -791,17 +776,8 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     fontWeight: '600',
   },
-  partnerStatusTag: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  partnerStatusTagText: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: "700",
-  },
+  
+  
   reviewSection: {
     marginBottom: spacing.lg,
   },
