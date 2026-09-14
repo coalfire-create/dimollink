@@ -81,97 +81,91 @@ export function UserGuideModal({
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
-          {/* 모달 상단 헤더 */}
+          {/* 상단 닫기 버튼 */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="가이드 닫기"
+            onPress={onClose}
+            style={styles.closeBtn}
+          >
+            <Text style={styles.closeBtnText}>✕</Text>
+          </Pressable>
+
+          {/* 환영 헤더 영역 */}
           <View style={styles.header}>
             <View style={styles.badgeWrap}>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {isNewUser ? '🎉 회원가입 환영 가이드' : '💡 비움 이용 가이드'}
+                  {isNewUser ? '🎉 환영합니다!' : '💡 비움 이용 가이드'}
                 </Text>
               </View>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="가이드 닫기"
-              onPress={onClose}
-              style={styles.closeBtn}
-            >
-              <Text style={styles.closeBtnText}>✕</Text>
-            </Pressable>
+            <Text style={styles.mainTitle}>
+              {isNewUser ? '비움과 함께 시작해볼까요?' : '철거 · 원상복구 이용 방법'}
+            </Text>
+            <Text style={styles.mainSubtitle}>
+              복잡하고 어려운 철거와 폐기물, 3단계로 안전하고 간편하게 끝내세요.
+            </Text>
           </View>
 
-          <Text style={styles.mainTitle}>철거 · 원상복구 이용 방법</Text>
-          <Text style={styles.mainSubtitle}>
-            복잡하고 어려운 철거와 폐기물, 3단계로 안전하고 간편하게 끝내세요.
-          </Text>
-
-          {/* 스텝 탭 셀렉터 */}
-          <View style={styles.stepTabs}>
+          {/* 스텝 인디케이터 (Dots) */}
+          <View style={styles.dotIndicatorContainer}>
             {CONSUMER_STEPS.map((s) => {
               const isSelected = s.step === activeStep;
               return (
                 <Pressable
                   key={s.step}
                   onPress={() => setActiveStep(s.step)}
-                  style={[styles.stepTab, isSelected && styles.stepTabSelected]}
-                >
-                  <Text style={[styles.stepTabNumber, isSelected && styles.stepTabNumberSelected]}>
-                    {s.step}단계
-                  </Text>
-                  <Text
-                    style={[styles.stepTabLabel, isSelected && styles.stepTabLabelSelected]}
-                    numberOfLines={1}
-                  >
-                    {s.step === 1 ? '사진 신청' : s.step === 2 ? '견적 비교' : '안심 결제'}
-                  </Text>
-                </Pressable>
+                  style={[styles.dot, isSelected && styles.dotSelected]}
+                />
               );
             })}
           </View>
 
           {/* 스텝 상세 컨텐츠 */}
           <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.bodyContent}>
-            <FadeInUp key={current.step} delay={30}>
-              <View style={styles.stepCard}>
+            <FadeInUp key={current.step} delay={30} style={styles.stepCard}>
+              <View style={styles.stepIconWrapper}>
                 <View style={styles.stepIconCircle}>
-                  <AppIcon name={current.icon} size={36} color={theme.colors.primary} />
-                </View>
-                <Text style={styles.stepTitle}>
-                  {current.step}단계: {current.title}
-                </Text>
-                <Text style={styles.stepSummary}>{current.summary}</Text>
-
-                <View style={styles.detailsList}>
-                  {current.details.map((detail, idx) => (
-                    <View key={idx} style={styles.detailRow}>
-                      <View style={styles.detailBullet}>
-                        <Text style={styles.detailBulletText}>✓</Text>
-                      </View>
-                      <Text style={styles.detailText}>{detail}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                <View style={styles.tipBox}>
-                  <Text style={styles.tipTitle}>💡 알아두면 유용한 팁</Text>
-                  <Text style={styles.tipText}>{current.tip}</Text>
+                  <AppIcon name={current.icon} size={42} color={theme.colors.primary} filled />
                 </View>
               </View>
+              
+              <Text style={styles.stepTitle}>
+                <Text style={styles.stepNumberText}>{current.step}단계. </Text>
+                {current.title}
+              </Text>
+              <Text style={styles.stepSummary}>{current.summary}</Text>
 
-              {/* 하단 안심 뱃지 목록 */}
-              <View style={styles.guaranteeRow}>
-                <View style={styles.guaranteeItem}>
-                  <AppIcon name="shield" size={16} color={theme.colors.primary} />
-                  <Text style={styles.guaranteeText}>100% 검증 파트너</Text>
+              <View style={styles.detailsList}>
+                {current.details.map((detail, idx) => (
+                  <View key={idx} style={styles.detailRow}>
+                    <View style={styles.detailBullet}>
+                      <Text style={styles.detailBulletText}>✓</Text>
+                    </View>
+                    <Text style={styles.detailText}>{detail}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.tipBox}>
+                <View style={styles.tipTitleRow}>
+                  <Text style={styles.tipEmoji}>💡</Text>
+                  <Text style={styles.tipTitle}>알아두면 유용한 팁</Text>
                 </View>
-                <View style={styles.guaranteeItem}>
-                  <AppIcon name="lock" size={16} color={theme.colors.primary} />
-                  <Text style={styles.guaranteeText}>에스크로 안심 결제</Text>
-                </View>
-                <View style={styles.guaranteeItem}>
-                  <AppIcon name="document" size={16} color={theme.colors.primary} />
-                  <Text style={styles.guaranteeText}>올바로 인계서 연동</Text>
-                </View>
+                <Text style={styles.tipText}>{current.tip}</Text>
+              </View>
+            </FadeInUp>
+
+            {/* 하단 안심 뱃지 목록 (마지막 스텝에서만 강조하거나 항상 유지) */}
+            <FadeInUp delay={100} style={styles.guaranteeRow}>
+              <View style={styles.guaranteeItem}>
+                <AppIcon name="shield" size={16} color={theme.colors.primary} filled />
+                <Text style={styles.guaranteeText}>100% 검증 파트너</Text>
+              </View>
+              <View style={styles.guaranteeItem}>
+                <AppIcon name="lock" size={16} color={theme.colors.primary} filled />
+                <Text style={styles.guaranteeText}>에스크로 안심 결제</Text>
               </View>
             </FadeInUp>
           </ScrollView>
@@ -179,7 +173,7 @@ export function UserGuideModal({
           {/* 하단 버튼 영역 */}
           <View style={styles.footer}>
             <AppButton
-              label={activeStep < 3 ? '다음 단계 보기 ➔' : '비움 시작하기 ➔'}
+              label={activeStep < 3 ? '다음으로 ➔' : '비움 시작하기 ➔'}
               onPress={() => {
                 if (activeStep < 3) {
                   setActiveStep((prev) => prev + 1);
@@ -187,6 +181,7 @@ export function UserGuideModal({
                   onClose();
                 }
               }}
+              style={styles.actionButton}
             />
             {onNeverShowAgain ? (
               <PressableScale
@@ -208,7 +203,7 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: 'rgba(11, 27, 58, 0.55)',
+    backgroundColor: 'rgba(11, 27, 58, 0.65)',
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -216,210 +211,240 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.background,
-    borderRadius: 24,
-    maxWidth: 420,
+    borderRadius: 28,
     width: '100%',
-    maxHeight: '88%',
-    padding: spacing.md,
+    maxWidth: 420,
+    maxHeight: '90%',
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  badgeWrap: {
-    flexDirection: 'row',
-  },
-  badge: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   closeBtn: {
-    padding: 6,
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    padding: 8,
+    zIndex: 10,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
   },
   closeBtnText: {
     color: colors.textMuted,
     fontSize: font.bodyLarge,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  badgeWrap: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  badge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.2)',
+  },
+  badgeText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '800',
   },
   mainTitle: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginBottom: 4,
+    fontWeight: '900',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   mainSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    lineHeight: 18,
-    marginBottom: spacing.sm,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
   },
-  stepTabs: {
+  dotIndicatorContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: spacing.sm,
-  },
-  stepTab: {
-    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
+    gap: 8,
+    marginBottom: spacing.md,
   },
-  stepTabSelected: {
-    backgroundColor: colors.background,
-    shadowColor: '#0B1B3A',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.border,
   },
-  stepTabNumber: {
-    fontSize: font.caption - 1,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  stepTabNumberSelected: {
-    color: colors.primary,
-  },
-  stepTabLabel: {
-    fontSize: font.body,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  stepTabLabelSelected: {
-    color: colors.text,
-    fontWeight: '800',
+  dotSelected: {
+    width: 24,
+    backgroundColor: colors.primary,
   },
   bodyScroll: {
-    maxHeight: 330,
+    maxHeight: 400,
   },
   bodyContent: {
-    paddingVertical: 4,
+    paddingBottom: spacing.md,
   },
   stepCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 20,
     padding: spacing.md,
+    paddingTop: spacing.lg,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  stepIconWrapper: {
+    marginBottom: spacing.md,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
   },
   stepIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: colors.primarySoft,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.primarySoft,
   },
   stepTitle: {
     color: colors.text,
-    fontSize: font.bodyLarge,
+    fontSize: font.title,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  stepNumberText: {
+    color: colors.primary,
   },
   stepSummary: {
     color: colors.textMuted,
     fontSize: font.body,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
   detailsList: {
     width: '100%',
-    marginVertical: spacing.xs,
+    marginBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   detailBullet: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.primarySoft,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 10,
     marginTop: 2,
   },
   detailBulletText: {
-    color: colors.primary,
-    fontSize: 10,
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
   },
   detailText: {
     flex: 1,
     color: colors.text,
     fontSize: font.body,
-    lineHeight: 18,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   tipBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    padding: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 16,
+    padding: spacing.md,
     width: '100%',
-    marginTop: spacing.xs,
+  },
+  tipTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tipEmoji: {
+    fontSize: 16,
+    marginRight: 4,
   },
   tipTitle: {
     color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: font.body,
+    fontWeight: '800',
   },
   tipText: {
     color: '#1E3A8A',
-    fontSize: font.caption,
-    lineHeight: 16,
+    fontSize: font.body,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   guaranteeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
   },
   guaranteeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
   },
   guaranteeText: {
-    color: colors.textMuted,
+    color: colors.text,
     fontSize: font.caption,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   footer: {
     marginTop: spacing.sm,
     paddingTop: spacing.xs,
   },
+  actionButton: {
+    borderRadius: radius.pill,
+    height: 56,
+  },
   neverBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 12,
     paddingVertical: 6,
   },
   neverBtnText: {
     color: colors.textMuted,
-    fontSize: font.caption,
+    fontSize: font.body,
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
