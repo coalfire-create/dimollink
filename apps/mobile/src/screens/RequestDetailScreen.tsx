@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isRequestCancellable, type ServiceRequest } from '@dimol/shared';
-import { Card, ErrorBanner, SectionTitle } from '../components/ui';
+import { AppButton, Card, ErrorBanner, SectionTitle } from '../components/ui';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { RequestDetailSkeleton } from '../components/Skeleton';
 import { StatusTimeline } from '../components/StatusTimeline';
