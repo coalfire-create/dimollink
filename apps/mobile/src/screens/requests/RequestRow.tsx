@@ -4,6 +4,7 @@ import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from 
 import { StatusBadge } from '../../components/ui';
 import { AppIcon, type IconName } from '../../components/AppIcon';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
+import { requestSubtitle, requestTons } from '../../lib/request-summary';
 import { theme } from '../../theme';
 
 /**
@@ -30,6 +31,7 @@ const KIND_ICON: Record<string, IconName> = {
 };
 
 export function RequestRow({ request, onPress }: { request: ServiceRequest; onPress: () => void }) {
+  const tons = requestTons(request);
   const stepIndex = REQUEST_TIMELINE.indexOf(request.status);
   const cancelled = request.status === 'CANCELLED';
   const progress = cancelled || stepIndex < 0 ? 0 : (stepIndex + 1) / REQUEST_TIMELINE.length;
@@ -37,7 +39,14 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${REQUEST_KIND_LABELS[request.kind]}, ${REQUEST_STATUS_LABELS[request.status]}, ${request.wasteTons}톤`}
+      accessibilityLabel={[
+        REQUEST_KIND_LABELS[request.kind],
+        REQUEST_STATUS_LABELS[request.status],
+        requestSubtitle(request),
+        tons,
+      ]
+        .filter(Boolean)
+        .join(', ')}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
@@ -54,9 +63,12 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
               <Text style={styles.chevron}>›</Text>
             </View>
           </View>
-          <Text style={styles.tons}>{request.wasteTons}톤</Text>
+          <Text style={styles.headline} numberOfLines={1}>
+            {requestSubtitle(request)}
+          </Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {new Date(request.createdAt).toLocaleDateString('ko-KR')} 접수 · {request.region}
+            {new Date(request.createdAt).toLocaleDateString('ko-KR')} 접수
+            {tons ? ` · ${tons}` : ''}
           </Text>
           {!cancelled ? (
             <View style={styles.progressTrack}>
@@ -128,7 +140,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.title,
   },
-  tons: {
+  headline: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '800',

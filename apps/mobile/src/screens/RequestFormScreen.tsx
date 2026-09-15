@@ -15,7 +15,8 @@ import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { GuidedSiteCaptureModal } from '../components/GuidedSiteCaptureModal';
 import { WasteItemsInput } from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation, type RequestFormPrefill } from '../navigation';
+import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
+import { ROLE_CONFIG } from '../roleConfig';
 import { AllbaroConsent } from './request-form/AllbaroConsent';
 import { DemolitionSection } from './request-form/DemolitionSection';
 import { DisposalSection } from './request-form/DisposalSection';
@@ -49,6 +50,7 @@ export function RequestFormScreen({
   prefill?: RequestFormPrefill;
 }) {
   const nav = useNavigation();
+  const user = useSession();
   const form = useRequestForm(kind, prefill);
 
   if (form.reservationDone) return <ReservationDone form={form} />;
@@ -59,7 +61,7 @@ export function RequestFormScreen({
       <Breadcrumbs
         items={[
           { label: '홈', onPress: () => nav.switchTab('home') },
-          { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+          { label: ROLE_CONFIG[user.userType].listTitle, onPress: () => nav.switchTab('requests') },
           { label: KIND_TITLES[kind] },
         ]}
       />

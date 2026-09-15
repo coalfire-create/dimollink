@@ -10,7 +10,7 @@ import { AppIcon } from '../../components/AppIcon';
 import { Card, InlineEmpty, SectionTitle, StatusBadge } from '../../components/ui';
 import { useNavigation } from '../../navigation';
 import { theme } from '../../theme';
-import { requestSubtitle } from './requestSubtitle';
+import { requestSubtitle, requestTons } from '../../lib/request-summary';
 
 /**
  * 업체 홈의 일감 카드 — 아직 안 잡힌 일감(open)과 이미 수주한 일감(assigned).
@@ -35,7 +35,8 @@ export function OpenJobCard({ job, children }: { job: RankedJob; children: React
       </View>
       <Text style={styles.meta}>{requestSubtitle(job)}</Text>
       <Text style={styles.meta}>
-        {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
+        {new Date(job.createdAt).toLocaleDateString('ko-KR')}
+        {requestTons(job) ? ` · ${requestTons(job)}` : ''}
       </Text>
       <View style={styles.gap} />
       {children}
@@ -67,8 +68,9 @@ export function AssignedJobList({
               <Text style={styles.title}>{REQUEST_KIND_LABELS[job.kind]}</Text>
               <StatusBadge status={job.status} label={REQUEST_STATUS_LABELS[job.status]} />
             </View>
-            <Text style={styles.meta}>
-              {job.wasteTons}톤 · {requestSubtitle(job)}
+            <Text style={styles.meta} numberOfLines={1}>
+              {requestSubtitle(job)}
+              {requestTons(job) ? ` · ${requestTons(job)}` : ''}
             </Text>
           </Card>
         ))

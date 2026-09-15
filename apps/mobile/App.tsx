@@ -30,7 +30,6 @@ import { FEATURE_INTERIOR } from './src/featureFlags';
 import { FloatingSupportButton, LoadingView } from './src/components/ui';
 import { ToastProvider } from './src/components/Toast';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
-import { NewRequestFab } from './src/components/NewRequestFab';
 import { clearQueryCache } from './src/lib/query';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
@@ -428,7 +427,6 @@ function AppRoot() {
                 버튼이 그 위에 겹쳐 앉고, 입력칸까지 가렸다. 정작 그 화면들에는
                 각자 문의 경로가 있다.
               */}
-              {stack.length === 0 ? <NewRequestFab /> : null}
               {stack.length === 0 ? <FloatingSupportButton /> : null}
             </NavigationContext.Provider>
           </AuthActionsContext.Provider>

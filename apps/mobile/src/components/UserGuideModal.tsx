@@ -134,7 +134,8 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    // 카드 배경(surface)과 같은 색이면 테두리 1px 말고는 구분되지 않아 거의 안 보였다.
+    backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: radius.badge,
     borderWidth: 1,
@@ -158,6 +159,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   mainTitle: {
+    // 닫기 버튼(우상단 48px)이 절대 배치라, 가운데 정렬된 제목이 그 밑으로 들어갔다.
+    // 좌우로 버튼 폭만큼 비워 두면 어느 길이의 제목이든 겹치지 않는다.
+    paddingHorizontal: touch.minButtonHeight,
     color: colors.text,
     fontSize: 28,
     fontWeight: '900',

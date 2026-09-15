@@ -103,15 +103,7 @@ export function RequestListScreen() {
             <EmptyState
               icon="requests"
               title={status === 'ALL' ? '아직 요청이 없어요' : '조건에 맞는 건이 없어요'}
-              description={
-                status === 'ALL' ? config.listEmpty : '탭이나 기간을 바꿔서 찾아보세요.'
-              }
-              actionLabel={status === 'ALL' && primaryAction ? primaryAction.label : undefined}
-              onAction={
-                status === 'ALL' && primaryAction
-                  ? () => nav.push({ name: 'requestForm', kind: primaryAction.kind })
-                  : undefined
-              }
+              description={status === 'ALL' ? config.listEmpty : '탭이나 기간을 바꿔서 찾아보세요.'}
             />
           }
           ListFooterComponent={

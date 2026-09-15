@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   PERIOD_FILTERS,
   SORT_OPTIONS,
@@ -57,11 +57,9 @@ export function RequestFilterBar({
         })}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
+      {/* 한 줄에 가로 스크롤로 밀어 넣었더니 뒤쪽(정렬)이 화면 밖으로 잘렸다.
+          손가락은 밀 수 있어도 마우스는 못 민다 — 두 줄로 나눠 항상 다 보이게 한다. */}
+      <View style={styles.chipRow}>
         <Text style={styles.chipGroupLabel}>기간</Text>
         {PERIOD_FILTERS.map(({ value, label }) => (
           <Chip
@@ -71,7 +69,8 @@ export function RequestFilterBar({
             onPress={() => onChangePeriod(value)}
           />
         ))}
-        <View style={styles.divider} />
+      </View>
+      <View style={[styles.chipRow, styles.chipRowLast]}>
         <Text style={styles.chipGroupLabel}>정렬</Text>
         {SORT_OPTIONS.map(({ value, label }) => (
           <Chip
@@ -81,7 +80,7 @@ export function RequestFilterBar({
             onPress={() => onChangeSort(value)}
           />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -151,9 +150,14 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 4,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingTop: spacing.xs,
+  },
+  chipRowLast: {
+    paddingBottom: spacing.xs,
   },
   chipGroupLabel: {
     color: colors.textMuted,
@@ -183,11 +187,5 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: colors.primary,
     fontWeight: '800',
-  },
-  divider: {
-    backgroundColor: colors.border,
-    height: 24,
-    marginHorizontal: spacing.xs,
-    width: 1,
   },
 });

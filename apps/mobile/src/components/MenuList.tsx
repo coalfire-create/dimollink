@@ -63,6 +63,9 @@ const styles = StyleSheet.create({
   group: {
     backgroundColor: colors.background,
     borderRadius: 20,
+    // Card 가 좌우로도 16 을 주는데 줄(item)이 자기 16 을 또 주고, 구분선이 거기서 다시
+    // 16 을 들어가 내용이 세 겹으로 밀려 있었다. 좌우 여백은 줄이 정한다.
+    paddingHorizontal: 0,
     paddingVertical: spacing.xs,
     shadowColor: theme.colors.shadow,
     shadowOpacity: 0.05,

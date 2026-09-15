@@ -83,7 +83,10 @@ describe('errorSummary', () => {
     expect(errorSummary({})).toBeNull();
   });
 
-  it('하나면 그 문구를 그대로 쓴다', () => {
-    expect(errorSummary({ region: '지역을 입력해 주세요.' })).toBe('지역을 입력해 주세요.');
+  it('하나여도 개수로 말한다 — 문구는 그 칸 아래에 이미 있다', () => {
+    const summary = errorSummary({ region: '지역을 입력해 주세요.' });
+    expect(summary).toContain('1개');
+    // 같은 문장을 배너에서 반복하지 않는다.
+    expect(summary).not.toContain('지역을 입력해 주세요.');
   });
 });
