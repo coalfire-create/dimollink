@@ -12,7 +12,8 @@
     "build:android": "eas build --platform android --profile production",
     "build:android:preview": "eas build --platform android --profile preview",
     "submit:android": "eas submit --platform android --profile production",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run --dir src/lib"
   },
   "dependencies": {
     "@dimol/shared": "*",

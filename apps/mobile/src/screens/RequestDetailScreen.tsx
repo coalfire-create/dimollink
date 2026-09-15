@@ -8,7 +8,6 @@ import {
   asbestosRisk,
   isRequestCancellable,
   ledgerDisplayRows,
-  type MatchStatus,
   type Quote,
   type ServiceRequest,
 } from '@dimol/shared';
@@ -28,11 +27,16 @@ import {
   ErrorBanner,
   Field,
   InfoRow,
-  LoadingView,
   SectionTitle,
   StatusBadge,
 } from '../components/ui';
 import { FadeInUp } from '../components/motion';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { RequestDetailSkeleton } from '../components/Skeleton';
+import { StatusTimeline } from '../components/StatusTimeline';
+import { useToast } from '../components/Toast';
+import { requestsKey } from '../api/queryKeys';
+import { invalidateQueries, setQueryData, useQuery } from '../lib/query';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { EstimateComparison } from '../components/demolition/EstimateComparison';
 import { theme } from '../theme';
@@ -46,15 +50,6 @@ import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
  * (진행중부터는 취소 불가 — 취소 정책).
  */
 
-const TIMELINE: MatchStatus[] = [
-  'REQUESTED',
-  'MATCHED',
-  'PAID',
-  'IN_PROGRESS',
-  'COMPLETED',
-  'SETTLED',
-];
-
 const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
   DEMOLITION: '철거 요청',
   TRANSPORT: '운반 요청',
@@ -64,8 +59,7 @@ const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
 export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const nav = useNavigation();
   const user = useSession();
-  const [request, setRequest] = useState<ServiceRequest | null>(null);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const toast = useToast();
   const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelMode, setCancelMode] = useState(false);
@@ -76,35 +70,64 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const [advancing, setAdvancing] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
+  const detailKey = requestsKey.detail(requestId);
+  const {
+    data: request,
+    error: loadError,
+    isLoading,
+    refetch,
+  } = useQuery<ServiceRequest>(detailKey, () => getRequest(requestId));
+
+  /**
+   * 서버가 돌려준 최신 요청을 캐시에 바로 써 넣는다 — 다시 조회하지 않고도 화면이 바뀐다.
+   * 목록 캐시는 무효화만 해 둔다(대시보드로 돌아갈 때 갱신된 상태로 보이게).
+   */
+  const setRequest = useCallback(
+    (next: ServiceRequest) => {
+      setQueryData(detailKey, next);
+      invalidateQueries('requests:list');
+    },
+    [detailKey],
+  );
+
   const load = useCallback(async () => {
-    try {
-      const r = await getRequest(requestId);
-      setRequest(r);
-      // 내 요청이고 아직 매칭 대기중이면 받은 견적을 불러온다(가격 비교·선택).
-      if (r.requesterId === user.id && r.status === 'REQUESTED') {
-        setQuotes(await listQuotes(requestId).catch(() => []));
-      } else {
-        setQuotes([]);
-      }
-      
-      // Load photos
-      if (r.sitePhotoKeys && r.sitePhotoKeys.length > 0) {
-        const urls = await Promise.all(
-          r.sitePhotoKeys.map(async (key) => {
-            try {
-              const res = await getSitePhotoViewUrl(key);
-              return res.viewUrl;
-            } catch {
-              return '';
-            }
-          })
-        );
-        setPhotoUrls(urls.filter((u) => u !== ''));
-      }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
+    invalidateQueries(`requests:quotes:${requestId}`);
+    await refetch();
+  }, [refetch, requestId]);
+
+  // 견적은 "내 요청이고 아직 매칭 대기중"일 때만 의미가 있다 — 그 외에는 아예 부르지 않는다.
+  const shouldLoadQuotes =
+    request !== undefined && request.requesterId === user.id && request.status === 'REQUESTED';
+  const { data: quotesData } = useQuery<Quote[]>(
+    shouldLoadQuotes ? requestsKey.quotes(requestId) : null,
+    () => listQuotes(requestId).catch(() => []),
+  );
+  const quotes: Quote[] = shouldLoadQuotes ? (quotesData ?? []) : [];
+
+  // 현장 사진은 키만 저장돼 있어 볼 때마다 서명 URL 을 받아야 한다.
+  useEffect(() => {
+    const keys = request?.sitePhotoKeys;
+    if (!keys || keys.length === 0) {
+      setPhotoUrls([]);
+      return;
     }
-  }, [requestId, user.id]);
+    let active = true;
+    void (async () => {
+      const urls = await Promise.all(
+        keys.map(async (key) => {
+          try {
+            return (await getSitePhotoViewUrl(key)).viewUrl;
+          } catch {
+            return '';
+          }
+        }),
+      );
+      if (active) setPhotoUrls(urls.filter((url) => url !== ''));
+    })();
+    return () => {
+      active = false;
+    };
+  }, [request?.sitePhotoKeys]);
 
   async function acceptQuoteAndMatch(quoteId: string) {
     setError(null);
@@ -112,6 +135,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     try {
       await acceptQuote(quoteId);
       await load(); // 요청이 MATCHED 로 바뀌고 견적 섹션은 사라진다.
+      toast.success('견적을 수락했어요.', '결제하면 작업 일정이 확정돼요.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '견적 수락에 실패했습니다.');
     } finally {
@@ -119,16 +143,13 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     }
   }
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   // 업체(매칭 확정 업체)가 작업 상태를 진행한다.
   async function advance(status: 'IN_PROGRESS' | 'COMPLETED') {
     setError(null);
     setAdvancing(true);
     try {
       setRequest(await updateRequestStatus(requestId, status));
+      toast.success(status === 'IN_PROGRESS' ? '작업을 시작했어요.' : '작업 완료로 표시했어요.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '상태 변경에 실패했습니다.');
     } finally {
@@ -144,6 +165,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
       // 결제완료(배차 전) 취소 = 전액 환불. 서버가 결제자·금액을 검증한다.
       await cancelPayment({ paymentId: request.paymentId, stage: 'BEFORE_DISPATCH' });
       setRefundMode(false);
+      toast.success('환불 요청이 접수됐어요.');
       await load(); // 요청이 CANCELLED 로 전이된다.
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '환불 처리에 실패했습니다.');
@@ -157,6 +179,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     setCancelling(true);
     try {
       setRequest(await cancelRequest(requestId, cancelReason.trim() || '사용자 취소'));
+      toast.success('요청을 취소했어요.');
       setCancelMode(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '취소에 실패했습니다.');
@@ -165,12 +188,23 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     }
   }
 
+  const errorMessage = error ?? (loadError ? loadError.message : null);
+
+  // 아직 보여줄 데이터가 없는 동안에는 스피너 대신 들어올 화면의 뼈대를 그린다.
+  // 데이터가 도착해도 레이아웃이 통째로 바뀌지 않아 화면이 튀지 않는다.
   if (!request) {
     return (
       <View style={styles.screen}>
         <ScreenHeader title="요청 상세" canGoBack />
-        <ErrorBanner message={error} />
-        {error ? null : <LoadingView />}
+        <Breadcrumbs
+          items={[
+            { label: '홈', onPress: () => nav.switchTab('home') },
+            { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+            { label: '진행 상태 상세' },
+          ]}
+        />
+        <ErrorBanner message={errorMessage} onRetry={() => void refetch()} />
+        {isLoading ? <RequestDetailSkeleton /> : null}
       </View>
     );
   }
@@ -178,17 +212,24 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const cancelled = request.status === 'CANCELLED';
   const isRequester = user.id === request.requesterId;
   const isProvider = user.id === request.matchedProviderId;
-  const activeIndex = TIMELINE.indexOf(request.status);
   const counterpartyId = request.matchedProviderId
     ? user.id === request.requesterId
       ? request.matchedProviderId
       : request.requesterId
     : null;
-  const awaitingPayment = isRequester && request.status === 'MATCHED' && request.agreedFee !== undefined;
+  const awaitingPayment =
+    isRequester && request.status === 'MATCHED' && request.agreedFee !== undefined;
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
+      <Breadcrumbs
+        items={[
+          { label: '홈', onPress: () => nav.switchTab('home') },
+          { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+          { label: '진행 상태 상세' },
+        ]}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         {/* 요약 카드 — 종류·지역·상태·합의 금액을 한눈에. 결제할 차례면 여기서 바로 결제한다. */}
         <FadeInUp delay={0}>
@@ -239,38 +280,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           <FadeInUp delay={40}>
             <SectionTitle>진행 상황</SectionTitle>
             <Card>
-              {TIMELINE.map((step, index) => {
-                const reached = index <= activeIndex;
-                const isCurrent = index === activeIndex;
-                const isLast = index === TIMELINE.length - 1;
-                return (
-                  <View key={step} style={styles.timelineRow}>
-                    <View style={styles.timelineMarker}>
-                      <View
-                        style={[
-                          styles.timelineDot,
-                          reached && styles.timelineDotReached,
-                          isCurrent && styles.timelineDotCurrent,
-                        ]}
-                      />
-                      {!isLast ? (
-                        <View
-                          style={[styles.timelineLine, reached && styles.timelineLineReached]}
-                        />
-                      ) : null}
-                    </View>
-                    <Text
-                      style={[
-                        styles.timelineLabel,
-                        reached && { color: colors.text },
-                        isCurrent && { fontWeight: '800', color: colors.primary },
-                      ]}
-                    >
-                      {REQUEST_STATUS_LABELS[step]}
-                    </Text>
-                  </View>
-                );
-              })}
+              <StatusTimeline status={request.status} />
             </Card>
           </FadeInUp>
         )}
@@ -331,7 +341,11 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                 <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
               ) : null}
               {ledgerDisplayRows(request.demolitionDetails?.buildingLedger).map((row) => (
-                <InfoRow key={`ledger-${row.label}`} label={`대장 ${row.label}`} value={row.value} />
+                <InfoRow
+                  key={`ledger-${row.label}`}
+                  label={`대장 ${row.label}`}
+                  value={row.value}
+                />
               ))}
               {request.demolitionDetails?.buildingLedger &&
               (asbestosRisk(request.demolitionDetails.buildingLedger) === 'HIGH' ||
@@ -347,16 +361,20 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
                     label="✨ AI 분석 요약"
                     value={request.demolitionDetails.dimolVisionAnalysis.summary}
                   />
-                  {request.demolitionDetails.dimolVisionAnalysis.hazards && request.demolitionDetails.dimolVisionAnalysis.hazards.length > 0 ? (
+                  {request.demolitionDetails.dimolVisionAnalysis.hazards &&
+                  request.demolitionDetails.dimolVisionAnalysis.hazards.length > 0 ? (
                     <InfoRow
                       label="⚠️ 위험요소"
                       value={request.demolitionDetails.dimolVisionAnalysis.hazards.join(', ')}
                     />
                   ) : null}
-                  {request.demolitionDetails.dimolVisionAnalysis.materials && request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
+                  {request.demolitionDetails.dimolVisionAnalysis.materials &&
+                  request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
                     <InfoRow
                       label="🧱 감지된 소재"
-                      value={request.demolitionDetails.dimolVisionAnalysis.materials.map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m)).join(', ')}
+                      value={request.demolitionDetails.dimolVisionAnalysis.materials
+                        .map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m))
+                        .join(', ')}
                     />
                   ) : null}
                   {request.demolitionDetails.dimolVisionAnalysis.confidence ? (
@@ -369,9 +387,15 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               ) : null}
               {request.wasteItems && request.wasteItems.length > 0 ? (
                 <View style={{ marginTop: theme.spacing.sm }}>
-                  <Text style={{ fontWeight: '600', marginBottom: theme.spacing.xs }}>폐기물 상세 내역</Text>
+                  <Text style={{ fontWeight: '600', marginBottom: theme.spacing.xs }}>
+                    폐기물 상세 내역
+                  </Text>
                   {request.wasteItems.map((item, idx) => (
-                    <InfoRow key={idx} label={visionMaterialLabel(item.material)} value={`${item.kg} kg`} />
+                    <InfoRow
+                      key={idx}
+                      label={visionMaterialLabel(item.material)}
+                      value={`${item.kg} kg`}
+                    />
                   ))}
                   <InfoRow label="총 예상 무게" value={`${request.wasteTons} 톤`} />
                 </View>
@@ -395,12 +419,22 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           ) : null}
           <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
           {photoUrls.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 8 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginVertical: 8 }}
+            >
               {photoUrls.map((url, idx) => (
                 <Image
                   key={idx}
                   source={{ uri: url }}
-                  style={{ width: 120, height: 120, borderRadius: 8, marginRight: 8, backgroundColor: theme.colors.surface }}
+                  style={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: 8,
+                    marginRight: 8,
+                    backgroundColor: theme.colors.surface,
+                  }}
                   resizeMode="cover"
                 />
               ))}
@@ -603,8 +637,9 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
               variant="outline"
               onPress={() => nav.push({ name: 'chat', requestId: request.id, counterpartyId })}
             />
-            
-            {request.kind === 'TRANSPORT' && (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
+
+            {request.kind === 'TRANSPORT' &&
+            (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
               <AppButton
                 label="실시간 트럭 위치 확인"
                 variant="primary"
@@ -626,7 +661,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           </>
         ) : null}
 
-        <ErrorBanner message={error} />
+        <ErrorBanner message={errorMessage} />
 
         {isRequestCancellable(request.status) ? (
           cancelMode ? (
@@ -724,46 +759,6 @@ const styles = StyleSheet.create({
   },
   heroButton: {
     marginTop: spacing.xs,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-  },
-  timelineMarker: {
-    alignItems: 'center',
-    marginRight: spacing.sm,
-    width: spacing.md,
-  },
-  timelineDot: {
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    height: 12,
-    marginTop: spacing.xs / 2,
-    width: 12,
-  },
-  timelineDotReached: {
-    backgroundColor: colors.primary,
-  },
-  timelineDotCurrent: {
-    borderColor: colors.primarySoft,
-    borderWidth: 4,
-    height: 18,
-    marginTop: spacing.xs / 2,
-    width: 18,
-  },
-  timelineLine: {
-    backgroundColor: colors.border,
-    flex: 1,
-    marginVertical: spacing.xs / 2,
-    minHeight: 20,
-    width: 2,
-  },
-  timelineLineReached: {
-    backgroundColor: colors.primary,
-  },
-  timelineLabel: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    paddingBottom: spacing.sm,
   },
   cancelledTitle: {
     color: colors.error,

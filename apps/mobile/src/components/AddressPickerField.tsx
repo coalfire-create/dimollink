@@ -19,6 +19,7 @@ import {
   type AddressSearchResult,
 } from '../api/client';
 import { AppIcon } from './AppIcon';
+import { FieldError } from './ui';
 import { theme } from '../theme';
 
 // 지도 초기 중심 좌표(분당 정자동). 지도 HTML은 이 값으로 한 번만 생성되며,
@@ -31,6 +32,8 @@ interface AddressPickerFieldProps {
   onChangeAddress: (selectedAddress: string, region: string, location?: GeoPoint) => void;
   placeholder?: string;
   hint?: string;
+  /** 검증 오류 문구 — 있으면 입력 테두리가 오류색이 되고 아래에 문구가 붙는다. */
+  error?: string | null;
 }
 
 interface MapFrameProps {
@@ -82,6 +85,7 @@ export function AddressPickerField({
   onChangeAddress,
   placeholder = '지도에서 현장 위치를 선택하세요',
   hint,
+  error,
 }: AddressPickerFieldProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [query, setQuery] = useState('');
@@ -130,8 +134,7 @@ export function AddressPickerField({
     // (모달을 열자마자 주소를 입력하면 첫 요청이 로딩 중인 지도에 닿지 않는다)
     const target = panTargetRef.current;
     if (target) {
-      const reached =
-        Math.abs(lat - target.lat) < 1e-4 && Math.abs(lng - target.lng) < 1e-4;
+      const reached = Math.abs(lat - target.lat) < 1e-4 && Math.abs(lng - target.lng) < 1e-4;
       if (reached) {
         panTargetRef.current = null;
       } else if (target.tries < 3) {
@@ -349,12 +352,22 @@ export function AddressPickerField({
         </Pressable>
       </View>
 
-      <Pressable accessibilityRole="button" style={styles.fieldInput} onPress={handleOpenModal}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint={error ?? hint}
+        style={[styles.fieldInput, error ? styles.fieldInputError : null]}
+        onPress={handleOpenModal}
+      >
         <Text style={value ? styles.inputText : styles.placeholderText} numberOfLines={2}>
           {value || placeholder}
         </Text>
       </Pressable>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {error ? (
+        <FieldError message={error} />
+      ) : hint ? (
+        <Text style={styles.hint}>{hint}</Text>
+      ) : null}
 
       <Modal
         visible={modalVisible}
@@ -499,8 +512,7 @@ export function AddressPickerField({
                       <Text style={styles.pinBuilding}> · {pinResult.buildingName}</Text>
                     ) : null}
                   </Text>
-                  {pinResult.addressName &&
-                  pinResult.addressName !== pinResult.roadAddressName ? (
+                  {pinResult.addressName && pinResult.addressName !== pinResult.roadAddressName ? (
                     <Text
                       style={[styles.pinJibun, pinMoving && styles.pinAddressPending]}
                       numberOfLines={1}
@@ -602,6 +614,9 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: colors.textMuted,
     fontSize: font.body,
+  },
+  fieldInputError: {
+    borderColor: theme.colors.error,
   },
   hint: {
     color: colors.textMuted,

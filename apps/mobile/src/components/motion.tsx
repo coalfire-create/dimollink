@@ -14,7 +14,7 @@ import {
  * 과한 효과 대신 짧은 페이드/이동/스케일로 "부드럽다"는 느낌만 준다.
  * useNativeDriver 는 웹(react-native-web)에서 미지원이라 플랫폼으로 분기한다.
  */
-const useNativeDriver = Platform.OS !== 'web';
+export const useNativeDriver = Platform.OS !== 'web';
 
 /** 마운트 시 아래에서 살짝 올라오며 페이드 인. delay 로 순차 등장(stagger). */
 export function FadeInUp({
