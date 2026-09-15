@@ -95,8 +95,8 @@ export function EstimateComparison({
         <SectionTitle>철거 견적</SectionTitle>
         <Card>
           <Text style={styles.hint}>
-            아직 받은 개산 견적이 없습니다. 업체가 사진과 건축물대장을 보고 예상 범위를
-            보내오면 여기에 표시됩니다.
+            아직 받은 개산 견적이 없습니다. 업체가 사진과 건축물대장을 보고 예상 범위를 보내오면
+            여기에 표시됩니다.
           </Text>
         </Card>
         <ErrorBanner message={error} />
@@ -113,8 +113,8 @@ export function EstimateComparison({
       <Text style={styles.hint}>
         <Text style={styles.strong}>아래 금액은 아직 확정이 아닙니다.</Text> 사진만으로는 지하
         구조물·석면 범위를 알 수 없어, 현장 실사 후에 금액이 정해집니다. 마음에 드는 곳
-        <Text style={styles.strong}> 최대 {MAX_SITE_VISITS_PER_REQUEST}곳</Text>까지 실사를 부를
-        수 있습니다. (남은 횟수 {visitsLeft}회)
+        <Text style={styles.strong}> 최대 {MAX_SITE_VISITS_PER_REQUEST}곳</Text>까지 실사를 부를 수
+        있습니다. (남은 횟수 {visitsLeft}회)
       </Text>
       <ErrorBanner message={error} />
 
@@ -122,8 +122,7 @@ export function EstimateComparison({
         .sort((a, b) => a.preliminary.minAmount - b.preliminary.minAmount)
         .map((e) => {
           const label = accuracyLabel(accuracy[e.providerId]);
-          const overrun =
-            e.final !== undefined && e.final.amount > e.preliminary.maxAmount;
+          const overrun = e.final !== undefined && e.final.amount > e.preliminary.maxAmount;
           return (
             <Card key={e.id}>
               <Text style={styles.provider}>{e.providerName ?? '철거업체'}</Text>
@@ -172,7 +171,9 @@ export function EstimateComparison({
                     label="실사 예약 취소"
                     variant="outline"
                     loading={busyId === e.id}
-                    onPress={() => void run(e.id, () => cancelSiteVisit(e.id), '취소에 실패했습니다.')}
+                    onPress={() =>
+                      void run(e.id, () => cancelSiteVisit(e.id), '취소에 실패했습니다.')
+                    }
                   />
                 </>
               ) : (
@@ -184,7 +185,11 @@ export function EstimateComparison({
                     placeholder="예: 2026-09-20 14:00"
                   />
                   <AppButton
-                    label={visitsLeft > 0 ? '현장 실사 요청' : `실사는 ${MAX_SITE_VISITS_PER_REQUEST}곳까지`}
+                    label={
+                      visitsLeft > 0
+                        ? '현장 실사 요청'
+                        : `실사는 ${MAX_SITE_VISITS_PER_REQUEST}곳까지`
+                    }
                     disabled={visitsLeft <= 0}
                     loading={busyId === e.id}
                     onPress={() => {
@@ -194,7 +199,11 @@ export function EstimateComparison({
                         setError('실사 희망 일시를 "2026-09-20 14:00" 형식으로 입력해 주세요.');
                         return;
                       }
-                      void run(e.id, () => scheduleSiteVisit(e.id, parsed.toISOString()), '예약에 실패했습니다.');
+                      void run(
+                        e.id,
+                        () => scheduleSiteVisit(e.id, parsed.toISOString()),
+                        '예약에 실패했습니다.',
+                      );
                     }}
                   />
                 </>
@@ -212,7 +221,12 @@ const styles = StyleSheet.create({
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: font.body * 1.5 },
   strong: { color: colors.text, fontWeight: '800' },
   provider: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
-  accuracy: { color: colors.primary, fontSize: font.body, fontWeight: '700', marginTop: spacing.xs / 2 },
+  accuracy: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginTop: spacing.xs / 2,
+  },
   rangeLabel: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.sm },
   range: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   finalLabel: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.sm },

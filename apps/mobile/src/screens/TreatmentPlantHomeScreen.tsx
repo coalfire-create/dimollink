@@ -1,190 +1,58 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
-  REQUEST_KIND_LABELS,
-  REQUEST_STATUS_LABELS,
-  offersTransportLabel,
-  suggestedQuoteAmount,
-  type ProviderJobs,
-  type ProviderPricing,
-  type ServiceRequest,
-} from '@dimol/shared';
-import { getPricing, listJobs, submitQuote } from '../api/client';
-import {
-  AppButton,
-  Card,
-  ErrorBanner,
-  Field,
-  SectionTitle,
-  StatusBadge,
-  InlineEmpty,
-} from '../components/ui';
-import { FadeInUp } from '../components/motion';
+import { offersTransportLabel } from '@dimol/shared';
 import { AppIcon } from '../components/AppIcon';
-import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
-import { ROLE_CONFIG } from '../roleConfig';
 import { MarketRateCard } from '../components/MarketRateCard';
+import { FadeInUp } from '../components/motion';
+import { ScreenHeader, TabBar, useSession } from '../navigation';
+import { ROLE_CONFIG } from '../roleConfig';
+import { AssignedJobList } from './home/JobCard';
+import { IntakeQuoteList } from './home/IntakeQuoteList';
 import { useMarketRate } from './home/useMarketRate';
+import { useProviderJobs } from './home/useProviderJobs';
 import { theme } from '../theme';
 
-function requestSubtitle(r: ServiceRequest): string {
-  if (r.kind === 'DEMOLITION') return r.siteAddress;
-  if (r.kind === 'TRANSPORT') return `${r.loadAddress} → ${r.unloadAddress}`;
-  return new Date(r.visitAt).toLocaleString('ko-KR');
-}
-
+/**
+ * 처리장 홈 — 들어온 반입 예약에 견적을 내고, 확정된 반입을 확인한다.
+ *
+ * 배너에 운반요청 제공 여부를 배지로 띄운다. 이 값이 켜져 있어야 배출자 쪽 목록에서
+ * "운반까지 맡길 수 있는 처리장"으로 보이는데, 마이페이지 깊숙이에서만 켜고 끄다 보니
+ * 지금 켜져 있는지를 잊는다.
+ */
 export function TreatmentPlantHomeScreen() {
-  const nav = useNavigation();
   const user = useSession();
   const config = ROLE_CONFIG.WASTE_TREATMENT_PLANT;
 
-  const [jobs, setJobs] = useState<ProviderJobs | null>(null);
+  const { open, assigned, isFetching, refetch } = useProviderJobs(user.id);
   const rate = useMarketRate(config.marketRateParty);
-  const [refreshing, setRefreshing] = useState(false);
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
-  const [submittedIds, setSubmittedIds] = useState<string[]>([]);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [pricing, setPricing] = useState<ProviderPricing | null>(null);
-
-  const load = useCallback(async () => {
-    const [jobsRes, priceRes] = await Promise.allSettled([listJobs(user.id), getPricing(user.id)]);
-    if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
-    if (priceRes.status === 'fulfilled' && priceRes.value) setPricing(priceRes.value);
-  }, [user.id, config.marketRateParty]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // 저장된 단가가 있으면 미입력 견적칸에 예상 금액(단가 × 톤)을 기본값으로 채운다.
-  useEffect(() => {
-    if (!pricing || !jobs) return;
-    setQuoteAmounts((prev) => {
-      const next = { ...prev };
-      for (const job of jobs.open) {
-        if (!next[job.id]) {
-          next[job.id] = String(
-            suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons),
-          );
-        }
-      }
-      return next;
-    });
-  }, [pricing, jobs, user.userType]);
-
-  async function refresh() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
-
-  async function submitQuoteFor(requestId: string) {
-    setQuoteError(null);
-    const amount = Number((quoteAmounts[requestId] ?? '').replace(/\D/g, ''));
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setQuoteError('견적 금액(원)을 정확히 입력해 주세요.');
-      return;
-    }
-    setAcceptingId(requestId);
-    try {
-      await submitQuote({ requestId, party: 'DISPOSAL', amount });
-      setSubmittedIds((prev) => [...prev, requestId]);
-    } catch {
-      setQuoteError('견적 제출에 실패했어요. 잠시 후 다시 시도해 주세요.');
-    } finally {
-      setAcceptingId(null);
-    }
-  }
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={() => void refetch()} />}
       >
         <FadeInUp delay={20}>
           <View style={styles.bannerContainer}>
             <View style={styles.bannerLeft}>
               <Text style={styles.bannerTitle}>정확하고 빠른 반입 처리</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
-              {/* 운반요청 제공 여부 배지 — 마이페이지에서 켜고 끌 수 있어요. */}
               <View style={styles.transportBadge}>
-                <AppIcon name="truck" size={18} color={theme.colors.background} />
                 <Text style={styles.transportBadgeText}>
                   {offersTransportLabel(user.offersTransport)}
                 </Text>
               </View>
             </View>
-            <AppIcon name="recycle" size={48} color={theme.colors.background} />
+            <AppIcon name="building" size={48} color={colors.background} />
           </View>
         </FadeInUp>
 
         <MarketRateCard rate={rate} party={config.marketRateParty} />
 
-        <SectionTitle>새 반입 예약</SectionTitle>
-        <ErrorBanner message={quoteError} />
-        {jobs && jobs.open.length > 0 ? (
-          jobs.open.map((job) => (
-            <Card key={job.id}>
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-                {job.distanceKm != null ? (
-                  <View style={styles.distanceRow}>
-                    <AppIcon name="location" size={18} color={theme.colors.primary} />
-                    <Text style={styles.distance}>{job.distanceKm}km</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
-              <Text style={styles.requestMeta}>
-                {job.wasteTons}톤 · {new Date(job.createdAt).toLocaleDateString('ko-KR')}
-              </Text>
-              <View style={{ height: theme.spacing.xs }} />
-              {submittedIds.includes(job.id) ? (
-                <Text style={styles.quoteDone}>✓ 견적 제출됨 · 요청자 선택 대기</Text>
-              ) : (
-                <>
-                  <Field
-                    label="견적 금액(원)"
-                    value={quoteAmounts[job.id] ?? ''}
-                    onChangeText={(v) => setQuoteAmounts((p) => ({ ...p, [job.id]: v }))}
-                    placeholder="예) 80000"
-                    keyboardType="number-pad"
-                  />
-                  <AppButton
-                    label="견적 제출"
-                    onPress={() => submitQuoteFor(job.id)}
-                    loading={acceptingId === job.id}
-                  />
-                </>
-              )}
-            </Card>
-          ))
-        ) : (
-          <InlineEmpty>아직 들어온 반입 예약이 없어요.</InlineEmpty>
-        )}
+        <IntakeQuoteList jobs={open} />
 
-        <SectionTitle>확정된 반입</SectionTitle>
-        {jobs && jobs.assigned.length > 0 ? (
-          jobs.assigned.map((job) => (
-            <Card
-              key={job.id}
-              onPress={() => nav.push({ name: 'requestDetail', requestId: job.id })}
-            >
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-                <StatusBadge status={job.status} label={REQUEST_STATUS_LABELS[job.status]} />
-              </View>
-              <Text style={styles.requestMeta}>
-                {job.wasteTons}톤 · {requestSubtitle(job)}
-              </Text>
-            </Card>
-          ))
-        ) : (
-          <InlineEmpty>확정된 반입이 없어요.</InlineEmpty>
-        )}
+        <AssignedJobList title="확정된 반입" jobs={assigned} emptyText="확정된 반입이 없어요." />
       </ScrollView>
       <TabBar active="home" />
     </View>
@@ -245,36 +113,5 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
-  },
-  requestRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  requestTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
-  },
-  requestMeta: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.xs,
-  },
-  distanceRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.xs / 2,
-  },
-  distance: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
-  },
-  quoteDone: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
-    paddingVertical: spacing.xs,
   },
 });

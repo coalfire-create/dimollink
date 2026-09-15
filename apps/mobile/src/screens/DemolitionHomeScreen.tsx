@@ -1,114 +1,39 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import {
-  ASBESTOS_RISK_LABELS,
-  REQUEST_KIND_LABELS,
-  REQUEST_STATUS_LABELS,
-  asbestosRisk,
-  resolveFloorArea,
-  type ProviderJobs,
-  type RankedJob,
-  type ServiceRequest,
-} from '@dimol/shared';
-import { listJobs } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { Card, SectionTitle, StatusBadge, InlineEmpty } from '../components/ui';
+import { SectionTitle, InlineEmpty } from '../components/ui';
+import { MarketRateCard } from '../components/MarketRateCard';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
-import { MarketRateCard } from '../components/MarketRateCard';
+import { AssignedJobList } from './home/JobCard';
+import { DemolitionJobCard } from './home/DemolitionJobCard';
 import { useMarketRate } from './home/useMarketRate';
+import { useProviderJobs } from './home/useProviderJobs';
 import { theme } from '../theme';
 
 /**
- * 새 철거 요청 카드 — 견적을 낼지 말지 **목록에서 바로 판단할 수 있게** 하는 요약.
+ * 철거업체 홈 — 시작 버튼(운반·처리장) + 새로 들어온 철거 요청 + 수주한 철거.
  *
- * 거리·톤수만 보고는 들어갈 만한 일인지 알 수 없다. 금액을 크게 흔드는 세 가지
- * (연면적 · 석면 · 사진 유무)를 카드에 미리 얹어, 열어 볼 요청을 고르게 한다.
+ * 새 요청 카드에 "바로 수락" 버튼이 없는 건 의도다. 철거 금액은 현장을 봐야 정해지는데
+ * 사진만 보고 던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
+ * 개산(범위) → 실사 → 확정 순서로 가고, 금액은 견적 산정 화면에서 받는다
+ * ([[demolition-estimate]]).
  */
-function OpenJobCard({ job, onPress }: { job: RankedJob; onPress: () => void }) {
-  const details = job.kind === 'DEMOLITION' ? job.demolitionDetails : undefined;
-  const area = resolveFloorArea(details);
-  const risk = asbestosRisk(details?.buildingLedger);
-  const riskIsReal = risk === 'HIGH' || risk === 'POSSIBLE';
-
-  return (
-    <Card onPress={onPress}>
-      <View style={styles.requestRow}>
-        <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-        {job.distanceKm != null ? <Text style={styles.distance}>{job.distanceKm}km</Text> : null}
-      </View>
-      <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
-
-      <View style={styles.signalRow}>
-        {area ? (
-          <View style={styles.signal}>
-            <Text style={styles.signalText}>연면적 {area.m2.toLocaleString('ko-KR')}㎡</Text>
-          </View>
-        ) : null}
-        <View style={styles.signal}>
-          <Text style={styles.signalText}>{job.wasteTons}톤</Text>
-        </View>
-        <View style={styles.signal}>
-          <Text style={styles.signalText}>사진 {job.sitePhotoKeys.length}장</Text>
-        </View>
-        {riskIsReal ? (
-          <View style={[styles.signal, styles.signalWarn]}>
-            <Text style={[styles.signalText, styles.signalWarnText]}>
-              {ASBESTOS_RISK_LABELS[risk]}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* CTA 를 왼쪽에 둔다 — 오른쪽 아래는 고객센터 플로팅 버튼이 지나가는 자리라
-          거기에 두면 목록을 스크롤할 때 버튼에 가린다. */}
-      <View style={styles.jobFooter}>
-        <Text style={styles.jobCta}>견적 산정하기</Text>
-        <Text style={styles.jobDate}>
-          {new Date(job.createdAt).toLocaleDateString('ko-KR')} 접수
-        </Text>
-      </View>
-    </Card>
-  );
-}
-
-function requestSubtitle(r: ServiceRequest): string {
-  if (r.kind === 'DEMOLITION') return r.siteAddress;
-  if (r.kind === 'TRANSPORT') return `${r.loadAddress} → ${r.unloadAddress}`;
-  return new Date(r.visitAt).toLocaleString('ko-KR');
-}
-
 export function DemolitionHomeScreen() {
   const nav = useNavigation();
   const user = useSession();
   const config = ROLE_CONFIG.DEMOLITION_COMPANY;
 
-  const [jobs, setJobs] = useState<ProviderJobs | null>(null);
+  const { open, assigned, isFetching, refetch } = useProviderJobs(user.id);
   const rate = useMarketRate(config.marketRateParty);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
-    const [jobsRes] = await Promise.allSettled([listJobs(user.id)]);
-    if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
-  }, [user.id, config.marketRateParty]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function refresh() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={() => void refetch()} />}
       >
         <FadeInUp delay={40}>
           <View style={styles.bannerContainer}>
@@ -116,7 +41,7 @@ export function DemolitionHomeScreen() {
               <Text style={styles.bannerTitle}>철거 후 처리도 완벽하게</Text>
               <Text style={styles.bannerSubtitle}>비움 파트너스</Text>
             </View>
-            <View style={{ position: 'absolute', right: 20, bottom: 20 }}>
+            <View style={styles.bannerIcon}>
               <AppIcon name="building" size={48} color={colors.background} />
             </View>
           </View>
@@ -134,17 +59,19 @@ export function DemolitionHomeScreen() {
               <Text style={styles.cardBoxSubtitle}>철거 후 반출까지 이어서 맡겨요</Text>
             </View>
             <View style={styles.cardBoxIconWrap}>
-              <AppIcon name="truck" size={40} color={theme.colors.primary} />
+              <AppIcon name="truck" size={40} color={colors.primary} />
             </View>
           </PressableScale>
         </FadeInUp>
 
         <FadeInUp delay={260}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="처리장 예약하기"
             style={styles.interiorCard}
             onPress={() => nav.push({ name: 'requestForm', kind: 'DISPOSAL_RESERVATION' })}
           >
-            <AppIcon name="recycle" size={26} color={theme.colors.primary} />
+            <AppIcon name="recycle" size={26} color={colors.primary} />
             <View style={styles.interiorTextBox}>
               <Text style={styles.interiorTitle}>처리장 예약하기</Text>
               <Text style={styles.interiorSubtitle}>폐기물 반입 일정을 미리 잡아요</Text>
@@ -155,15 +82,10 @@ export function DemolitionHomeScreen() {
 
         <MarketRateCard rate={rate} party={config.marketRateParty} />
 
-        {/* 선착순 수주를 없앴다. 철거 금액은 현장을 봐야 정해지는데, 사진만 보고
-            던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
-            개산(범위) → 실사 → 확정 순서로 간다([[demolition-estimate]]).
-            금액 입력은 카드 안이 아니라 견적 산정 화면에서 받는다 — 여기 세 칸만 있으면
-            사진·대장·진입 조건을 하나도 못 보고 금액을 부르게 된다. */}
         <SectionTitle>새 철거 요청</SectionTitle>
-        {jobs && jobs.open.length > 0 ? (
-          jobs.open.map((job) => (
-            <OpenJobCard
+        {open.length > 0 ? (
+          open.map((job) => (
+            <DemolitionJobCard
               key={job.id}
               job={job}
               onPress={() => nav.push({ name: 'estimateWorksheet', requestId: job.id })}
@@ -173,25 +95,7 @@ export function DemolitionHomeScreen() {
           <InlineEmpty>지금 들어온 철거 요청이 없어요.</InlineEmpty>
         )}
 
-        <SectionTitle>수주한 철거</SectionTitle>
-        {jobs && jobs.assigned.length > 0 ? (
-          jobs.assigned.map((job) => (
-            <Card
-              key={job.id}
-              onPress={() => nav.push({ name: 'requestDetail', requestId: job.id })}
-            >
-              <View style={styles.requestRow}>
-                <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-                <StatusBadge status={job.status} label={REQUEST_STATUS_LABELS[job.status]} />
-              </View>
-              <Text style={styles.requestMeta}>
-                {job.wasteTons}톤 · {requestSubtitle(job)}
-              </Text>
-            </Card>
-          ))
-        ) : (
-          <InlineEmpty>수주한 철거가 없어요.</InlineEmpty>
-        )}
+        <AssignedJobList title="수주한 철거" jobs={assigned} emptyText="수주한 철거가 없어요." />
       </ScrollView>
       <TabBar active="home" />
     </View>
@@ -201,46 +105,10 @@ export function DemolitionHomeScreen() {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  signalRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.xs,
-    marginTop: theme.spacing.xs,
-  },
-  signal: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.badge,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs / 2,
-  },
-  signalWarn: {
-    backgroundColor: theme.colors.warningSoft,
-  },
-  signalText: {
-    color: theme.colors.textMuted,
-    fontSize: theme.font.caption,
-    fontWeight: '700',
-  },
-  signalWarnText: {
-    color: theme.colors.warning,
-  },
-  jobFooter: {
-    alignItems: 'center',
-    borderTopColor: theme.colors.border,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: theme.spacing.sm,
-    paddingTop: theme.spacing.sm,
-  },
-  jobDate: {
-    color: theme.colors.textMuted,
-    fontSize: theme.font.caption,
-  },
-  jobCta: {
-    color: theme.colors.primary,
-    fontSize: theme.font.body,
-    fontWeight: '800',
+  bannerIcon: {
+    bottom: 24,
+    position: 'absolute',
+    right: 24,
   },
   screen: {
     backgroundColor: colors.background,
@@ -297,15 +165,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  cardBoxText: {
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
   cardBoxTitle: {
     color: colors.text,
     fontSize: font.title,
     fontWeight: '800',
     lineHeight: font.title + 6,
-  },
-  cardBoxText: {
-    flex: 1,
-    paddingRight: spacing.sm,
   },
   cardBoxSubtitle: {
     color: colors.textMuted,
@@ -331,10 +199,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     padding: spacing.md,
   },
-  interiorEmoji: {
-    fontSize: font.titleLarge,
-    marginRight: spacing.sm,
-  },
   interiorTextBox: {
     flex: 1,
   },
@@ -352,25 +216,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.titleLarge,
     fontWeight: '800',
-  },
-  requestRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  requestTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
-  },
-  requestMeta: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.xs,
-  },
-  distance: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
   },
 });
