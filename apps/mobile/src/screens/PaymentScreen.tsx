@@ -14,6 +14,8 @@ type PaymentResponse = Parameters<NonNullable<PortOnePaymentProps['onComplete']>
 import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
 import { PORTONE } from '../config';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
+import { TaxInvoiceModal } from '../components/TaxInvoiceModal';
+import { useToast } from '../components/Toast';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation } from '../navigation';
 import { AppIcon } from '../components/AppIcon';
@@ -53,6 +55,8 @@ export function PaymentScreen({
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
+  const [showTaxModal, setShowTaxModal] = useState(false);
+  const toast = useToast();
   // PortOne 결제창(WebView)을 띄울 요청. null 이면 결제창 미표시.
   const [payRequest, setPayRequest] = useState<Omit<PaymentRequest, 'requestUrl'> | null>(null);
 
@@ -67,7 +71,11 @@ export function PaymentScreen({
   function pay() {
     setError(null);
     if (!request) return;
-    const total = request.agreedFee ?? 0;
+    let total = request.agreedFee ?? 0;
+    if (request.kind === 'DEMOLITION') {
+      if (request.status === 'MATCHED') total = total * 0.1;
+      else if (request.status === 'COMPLETED') total = total * 0.9;
+    }
     if (total <= 0) {
       setError('결제 금액을 확인할 수 없습니다.');
       return;
@@ -101,6 +109,7 @@ export function PaymentScreen({
     try {
       await prepay({ matchRequestId: requestId, paymentId: res.paymentId, completedDate: todayKST(), payMethod });
       setDone(true);
+      setShowTaxModal(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '결제 검증에 실패했습니다.');
     } finally {
@@ -123,7 +132,11 @@ export function PaymentScreen({
     );
   }
 
-  const amount = request.agreedFee ?? 0;
+  let amount = request.agreedFee ?? 0;
+  if (request.kind === 'DEMOLITION') {
+    if (request.status === 'MATCHED') amount = amount * 0.1;
+    else if (request.status === 'COMPLETED') amount = amount * 0.9;
+  }
   // 수수료 계산은 서버 정산과 같은 공유 함수를 쓴다 — 여기서 따로 계산하면
   // 반올림 규칙이 갈라져 화면 금액과 실제 정산액이 어긋난다([[marketplace]]).
   const deal = calculateDeal(amount);
@@ -149,8 +162,17 @@ export function PaymentScreen({
           </FadeInUp>
         </View>
         <StickyFooter>
+          <AppButton label="세금계산서/현금영수증 발행" variant="outline" style={{marginBottom: 8}} onPress={() => setShowTaxModal(true)} />
           <AppButton label="확인" onPress={() => nav.pop()} />
         </StickyFooter>
+        <TaxInvoiceModal
+          visible={showTaxModal}
+          onClose={() => setShowTaxModal(false)}
+          amount={amount}
+          onSubmit={() => {
+             toast.success('발행 요청이 접수되었습니다.');
+          }}
+        />
       </View>
     );
   }
@@ -219,12 +241,19 @@ export function PaymentScreen({
         <ErrorBanner message={error} />
       </ScrollView>
       <StickyFooter>
-        <AppButton
-          label={`${amount.toLocaleString('ko-KR')}원 결제하기`}
-          onPress={pay}
-          loading={paying}
-          disabled={amount <= 0}
-        />
+        <View style={{ position: 'relative' }}>
+          {paying && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }]}>
+              <Text style={{fontWeight: '700', color: theme.colors.primary}}>처리중...</Text>
+            </View>
+          )}
+          <AppButton
+            label={`${amount.toLocaleString('ko-KR')}원 결제하기`}
+            onPress={pay}
+            loading={paying}
+            disabled={amount <= 0 || paying}
+          />
+        </View>
       </StickyFooter>
     </View>
   );

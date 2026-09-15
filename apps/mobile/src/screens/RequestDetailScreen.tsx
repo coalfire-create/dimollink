@@ -76,11 +76,34 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const awaitingPayment =
     isRequester && request.status === 'MATCHED' && request.agreedFee !== undefined;
 
+  const [activeTab, setActiveTab] = React.useState<'STATUS' | 'PAYMENT'>('STATUS');
+
   return (
     <View style={styles.screen}>
       <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
       {crumbs}
+      <View style={styles.tabContainer}>
+        <Text 
+          style={[styles.tab, activeTab === 'STATUS' && styles.activeTab]} 
+          onPress={() => setActiveTab('STATUS')}>
+          진행 상태
+        </Text>
+        <Text 
+          style={[styles.tab, activeTab === 'PAYMENT' && styles.activeTab]} 
+          onPress={() => setActiveTab('PAYMENT')}>
+          결제 내역
+        </Text>
+      </View>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.newRequestContainer}>
+          <AppButton
+            label="+ 다른 철거 추가 요청하기"
+            variant="outline"
+            onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+          />
+        </View>
+        {activeTab === 'STATUS' ? (
+          <>
         <FadeInUp delay={0}>
           <RequestHeroCard
             request={request}
@@ -144,6 +167,28 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         {isRequestCancellable(request.status) ? (
           <CancelPanel cancelling={detail.cancelling} onCancel={detail.confirmCancel} />
         ) : null}
+          </>
+        ) : (
+          <View style={{ padding: 16 }}>
+            <SectionTitle>결제 및 정산 내역</SectionTitle>
+            <Card>
+              <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>
+                {request.agreedFee ? `총 견적 금액: ${(request.agreedFee).toLocaleString()}원` : '결제 금액 미정'}
+              </Text>
+              <Text style={{ marginBottom: 4, color: '#666' }}>
+                {`계약금 (예치완료): ${request.agreedFee ? (request.agreedFee * 0.1).toLocaleString() : 0}원`}
+              </Text>
+              <Text style={{ marginBottom: 16, color: '#666' }}>
+                {`잔금 (미납): ${request.agreedFee ? (request.agreedFee * 0.9).toLocaleString() : 0}원`}
+              </Text>
+              <AppButton 
+                label="영수증 다운로드" 
+                variant="outline" 
+                onPress={() => {}} 
+              />
+            </Card>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -159,6 +204,28 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.sm,
     paddingBottom: spacing.lg,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tab: {
+    flex: 1,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    fontSize: font.body,
+    color: colors.textMuted,
+    fontWeight: '600',
+  },
+  activeTab: {
+    color: colors.primary,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+  },
+  newRequestContainer: {
+    marginBottom: spacing.sm,
   },
   cancelledTitle: {
     color: colors.error,

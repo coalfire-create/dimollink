@@ -59,6 +59,11 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
           <View style={styles.topRow}>
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
             <View style={styles.topRowRight}>
+              {(request.status === 'MATCHED' || request.status === 'COMPLETED') && (
+                <View style={{ backgroundColor: theme.colors.error, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4 }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>결제 대기</Text>
+                </View>
+              )}
               <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               <Text style={styles.chevron}>›</Text>
             </View>

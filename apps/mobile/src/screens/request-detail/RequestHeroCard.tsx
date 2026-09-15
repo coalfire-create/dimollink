@@ -37,18 +37,40 @@ export function RequestHeroCard({
           <View style={styles.divider} />
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>
-              {request.status === 'MATCHED' ? '결제 예정 금액' : '합의 금액'}
+              {request.status === 'MATCHED' ? '총 견적 금액' : '합의 금액'}
             </Text>
             <Text style={styles.feeValue}>{won(request.agreedFee)}</Text>
           </View>
+          {request.status === 'MATCHED' && (
+             <View style={styles.feeRow}>
+               <Text style={styles.feeLabel}>계약금 (10%)</Text>
+               <Text style={{...styles.feeValue, color: colors.primary}}>{won(request.agreedFee * 0.1)}</Text>
+             </View>
+          )}
+          {request.status === 'COMPLETED' && (
+             <View style={styles.feeRow}>
+               <Text style={styles.feeLabel}>잔금 (90%)</Text>
+               <Text style={{...styles.feeValue, color: colors.primary}}>{won(request.agreedFee * 0.9)}</Text>
+             </View>
+          )}
         </>
       ) : null}
 
       {awaitingPayment ? (
         <>
-          <Text style={styles.actionHint}>결제하면 바로 작업이 시작돼요.</Text>
+          <Text style={styles.actionHint}>계약금을 안전하게 에스크로에 예치합니다.</Text>
           <AppButton
-            label="결제하기"
+            label="계약금 결제하기"
+            style={styles.button}
+            onPress={() => nav.push({ name: 'payment', requestId: request.id })}
+          />
+        </>
+      ) : null}
+      {request.status === 'COMPLETED' ? (
+        <>
+          <Text style={styles.actionHint}>공사가 완료되었습니다. 잔금을 결제해주세요.</Text>
+          <AppButton
+            label="잔금 결제 및 구매 확정"
             style={styles.button}
             onPress={() => nav.push({ name: 'payment', requestId: request.id })}
           />
