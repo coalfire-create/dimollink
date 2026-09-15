@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BackHandler,
   Linking,
@@ -20,6 +20,7 @@ import {
   NavigationContext,
   SessionContext,
   type AuthActions,
+  type LeaveGuard,
   type Navigation,
   type Route,
   type TabName,
@@ -27,6 +28,10 @@ import {
 import { theme } from './src/theme';
 import { FEATURE_INTERIOR } from './src/featureFlags';
 import { FloatingSupportButton, LoadingView } from './src/components/ui';
+import { ToastProvider } from './src/components/Toast';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { NewRequestFab } from './src/components/NewRequestFab';
+import { clearQueryCache } from './src/lib/query';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
 import { EstimateWorksheetScreen } from './src/screens/demolition/EstimateWorksheetScreen';
@@ -150,9 +155,10 @@ function AppRoot() {
   const [session, setSession] = useState<Session>(null);
   const [token, setToken] = useState<string | null>(null);
   const [authRoute, setAuthRoute] = useState<AuthRoute>('welcome');
-  const [pendingSocial, setPendingSocial] = useState<{ ticket: string; prefillName?: string } | null>(
-    null,
-  );
+  const [pendingSocial, setPendingSocial] = useState<{
+    ticket: string;
+    prefillName?: string;
+  } | null>(null);
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabName>('home');
   const [stack, setStack] = useState<Route[]>([]);
@@ -163,11 +169,14 @@ function AppRoot() {
    */
   const [pendingPrefill, setPendingPrefill] = useState<RequestPrefillPayload | null>(null);
 
-  const handleDevRoleSelect = useCallback((roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
-    setSession(DEV_USERS[roleKey]);
-    setStack([]);
-    setTab('home');
-  }, []);
+  const handleDevRoleSelect = useCallback(
+    (roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
+      setSession(DEV_USERS[roleKey]);
+      setStack([]);
+      setTab('home');
+    },
+    [],
+  );
 
   // 자동 로그인 — 저장된 토큰으로 세션 복원. 실패/만료 시 게이트로.
   useEffect(() => {
@@ -244,13 +253,35 @@ function AppRoot() {
     return () => sub.remove();
   }, []);
 
+  /**
+   * 화면 이탈 가드 — 작성 중인 폼 등이 등록한다(navigation.setLeaveGuard).
+   * true 를 돌려주면 이동을 취소한다. ref 로 두는 이유: 가드가 바뀔 때마다 navigation
+   * 객체가 새로 만들어지면 이걸 의존성으로 쓰는 화면들이 통째로 다시 그려진다.
+   */
+  const leaveGuard = useRef<LeaveGuard | null>(null);
+
   const navigation = useMemo<Navigation>(
     () => ({
-      push: (route) => setStack((prev) => [...prev, route]),
-      pop: () => setStack((prev) => prev.slice(0, -1)),
+      push: (route) => {
+        const proceed = () => setStack((prev) => [...prev, route]);
+        if (leaveGuard.current?.(proceed)) return;
+        proceed();
+      },
+      pop: () => {
+        const proceed = () => setStack((prev) => prev.slice(0, -1));
+        if (leaveGuard.current?.(proceed)) return;
+        proceed();
+      },
       switchTab: (next) => {
-        setStack([]);
-        setTab(next);
+        const proceed = () => {
+          setStack([]);
+          setTab(next);
+        };
+        if (leaveGuard.current?.(proceed)) return;
+        proceed();
+      },
+      setLeaveGuard: (guard) => {
+        leaveGuard.current = guard;
       },
     }),
     [],
@@ -262,6 +293,8 @@ function AppRoot() {
         if (token) void logoutServer(token).catch(() => undefined);
         void clearToken();
         setAuthToken(null);
+        // 다음 사용자의 화면에 이전 사용자의 요청 목록이 남지 않게 캐시를 비운다.
+        clearQueryCache();
         setToken(null);
         setStack([]);
         setTab('home');
@@ -374,17 +407,28 @@ function AppRoot() {
   function renderBody() {
     // 로그인 회원 — 전체 서비스 접근.
     if (isMember) {
+      const route: Route = stack[stack.length - 1] ?? { name: tab };
       return (
         <SessionContext.Provider value={session}>
           <AuthActionsContext.Provider value={authActions}>
             <NavigationContext.Provider value={navigation}>
-              {renderScreen()}
+              {/*
+                화면 렌더 중 예외가 나도 흰 화면 대신 복구 UI 를 보여준다.
+                resetKey 를 라우트로 두어 다른 화면으로 이동하면 오류 상태가 풀린다.
+              */}
+              <ErrorBoundary
+                resetKey={`${route.name}:${stack.length}`}
+                onGoHome={() => navigation.switchTab('home')}
+              >
+                {renderScreen()}
+              </ErrorBoundary>
               {/*
                 우하단 고객센터 버튼은 **탭 루트 화면에서만** 띄운다.
                 푸시된 화면(요청 폼·결제·채팅 등)에는 하단에 고정 CTA가 있어서
                 버튼이 그 위에 겹쳐 앉고, 입력칸까지 가렸다. 정작 그 화면들에는
                 각자 문의 경로가 있다.
               */}
+              {stack.length === 0 ? <NewRequestFab /> : null}
               {stack.length === 0 ? <FloatingSupportButton /> : null}
             </NavigationContext.Provider>
           </AuthActionsContext.Provider>
@@ -450,49 +494,72 @@ function AppRoot() {
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={theme.colors.background}
-        translucent={false}
-      />
-      <View style={styles.viewport}>
-        {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
-        {__DEV__ ? (
-          <View style={styles.devHeaderBar}>
-          <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
-          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('CONSUMER')}>
-            <Text style={styles.devHeaderBtnText}>👤소비자</Text>
-          </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('DEMOLITION')}>
-            <Text style={styles.devHeaderBtnText}>🏗철거</Text>
-          </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TRANSPORT')}>
-            <Text style={styles.devHeaderBtnText}>🚚운반</Text>
-          </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('TREATMENT')}>
-            <Text style={styles.devHeaderBtnText}>🏭처리장</Text>
-          </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => handleDevRoleSelect('INTERIOR')}>
-            <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
-          </Pressable>
-          <Pressable
-            style={styles.devHeaderBtn}
-            onPress={() =>
-              // 로그인 상태면 세션으로(감사 로그에 사람이 남는다), 아니면 공유 토큰 경로로.
-              isMember ? setStack([{ name: 'admin' }]) : setAuthRoute('admin')
-            }
-          >
-            <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
-          </Pressable>
-          <Pressable style={styles.devHeaderBtn} onPress={() => { setSession(null); setAuthRoute('welcome'); }}>
-            <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {booting ? <LoadingView /> : renderBody()}
+    <ToastProvider>
+      <View style={styles.root}>
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={theme.colors.background}
+          translucent={false}
+        />
+        <View style={styles.viewport}>
+          {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
+          {__DEV__ ? (
+            <View style={styles.devHeaderBar}>
+              <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => handleDevRoleSelect('CONSUMER')}
+              >
+                <Text style={styles.devHeaderBtnText}>👤소비자</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => handleDevRoleSelect('DEMOLITION')}
+              >
+                <Text style={styles.devHeaderBtnText}>🏗철거</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => handleDevRoleSelect('TRANSPORT')}
+              >
+                <Text style={styles.devHeaderBtnText}>🚚운반</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => handleDevRoleSelect('TREATMENT')}
+              >
+                <Text style={styles.devHeaderBtnText}>🏭처리장</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => handleDevRoleSelect('INTERIOR')}
+              >
+                <Text style={styles.devHeaderBtnText}>🛠인테리어</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() =>
+                  // 로그인 상태면 세션으로(감사 로그에 사람이 남는다), 아니면 공유 토큰 경로로.
+                  isMember ? setStack([{ name: 'admin' }]) : setAuthRoute('admin')
+                }
+              >
+                <Text style={styles.devHeaderBtnText}>⚙️관리자</Text>
+              </Pressable>
+              <Pressable
+                style={styles.devHeaderBtn}
+                onPress={() => {
+                  setSession(null);
+                  setAuthRoute('welcome');
+                }}
+              >
+                <Text style={styles.devHeaderBtnText}>🚪웰컴</Text>
+              </Pressable>
+            </View>
+          ) : null}
+          {booting ? <LoadingView /> : renderBody()}
+        </View>
       </View>
-    </View>
+    </ToastProvider>
   );
 }
 

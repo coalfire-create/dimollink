@@ -6,22 +6,19 @@ import {
   REQUEST_STATUS_LABELS,
   asbestosRisk,
   resolveFloorArea,
-  type MarketRate,
   type ProviderJobs,
   type RankedJob,
   type ServiceRequest,
 } from '@dimol/shared';
-import { getMarketRate, listJobs } from '../api/client';
+import { listJobs } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { Card, SectionTitle, StatusBadge,
-  InlineEmpty,
-} from '../components/ui';
+import { Card, SectionTitle, StatusBadge, InlineEmpty } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
+import { MarketRateCard } from '../components/MarketRateCard';
+import { useMarketRate } from './home/useMarketRate';
 import { theme } from '../theme';
-
-const MARKET_RATE_MIN_SAMPLE = 5;
 
 /**
  * 새 철거 요청 카드 — 견적을 낼지 말지 **목록에서 바로 판단할 수 있게** 하는 요약.
@@ -39,9 +36,7 @@ function OpenJobCard({ job, onPress }: { job: RankedJob; onPress: () => void }) 
     <Card onPress={onPress}>
       <View style={styles.requestRow}>
         <Text style={styles.requestTitle}>{REQUEST_KIND_LABELS[job.kind]}</Text>
-        {job.distanceKm != null ? (
-          <Text style={styles.distance}>{job.distanceKm}km</Text>
-        ) : null}
+        {job.distanceKm != null ? <Text style={styles.distance}>{job.distanceKm}km</Text> : null}
       </View>
       <Text style={styles.requestMeta}>{requestSubtitle(job)}</Text>
 
@@ -55,9 +50,7 @@ function OpenJobCard({ job, onPress }: { job: RankedJob; onPress: () => void }) 
           <Text style={styles.signalText}>{job.wasteTons}톤</Text>
         </View>
         <View style={styles.signal}>
-          <Text style={styles.signalText}>
-            사진 {job.sitePhotoKeys.length}장
-          </Text>
+          <Text style={styles.signalText}>사진 {job.sitePhotoKeys.length}장</Text>
         </View>
         {riskIsReal ? (
           <View style={[styles.signal, styles.signalWarn]}>
@@ -92,16 +85,12 @@ export function DemolitionHomeScreen() {
   const config = ROLE_CONFIG.DEMOLITION_COMPANY;
 
   const [jobs, setJobs] = useState<ProviderJobs | null>(null);
-  const [rate, setRate] = useState<MarketRate | null>(null);
+  const rate = useMarketRate(config.marketRateParty);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    const [jobsRes, rateRes] = await Promise.allSettled([
-      listJobs(user.id),
-      config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
-    ]);
+    const [jobsRes] = await Promise.allSettled([listJobs(user.id)]);
     if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
-    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
   }, [user.id, config.marketRateParty]);
 
   useEffect(() => {
@@ -113,24 +102,6 @@ export function DemolitionHomeScreen() {
     await load();
     setRefreshing(false);
   }
-
-  const renderMarketRate = () => {
-    if (
-      config.marketRateParty &&
-      rate &&
-      rate.quoteCount >= MARKET_RATE_MIN_SAMPLE &&
-      rate.averageAmount !== null
-    ) {
-      return (
-        <Card style={styles.rateCard}>
-          <Text style={styles.rateTitle}>요즘 처리 평균 시세</Text>
-          <Text style={styles.rateAmount}>{rate.averageAmount.toLocaleString('ko-KR')}원</Text>
-          <Text style={styles.rateNote}>최근 견적 {rate.quoteCount}건 기준 참고용이에요</Text>
-        </Card>
-      );
-    }
-    return null;
-  };
 
   return (
     <View style={styles.screen}>
@@ -182,7 +153,7 @@ export function DemolitionHomeScreen() {
           </Pressable>
         </FadeInUp>
 
-        {renderMarketRate()}
+        <MarketRateCard rate={rate} party={config.marketRateParty} />
 
         {/* 선착순 수주를 없앴다. 철거 금액은 현장을 봐야 정해지는데, 사진만 보고
             던진 금액을 계약금액으로 굳히면 실사 후 추가금 분쟁이 된다.
@@ -381,25 +352,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.titleLarge,
     fontWeight: '800',
-  },
-  rateCard: {
-    backgroundColor: colors.surface,
-    marginTop: spacing.sm,
-  },
-  rateTitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '600',
-  },
-  rateAmount: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginVertical: spacing.xs / 2,
-  },
-  rateNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
   },
   requestRow: {
     alignItems: 'center',

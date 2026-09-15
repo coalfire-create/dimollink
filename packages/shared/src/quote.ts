@@ -42,6 +42,15 @@ export function visibleQuotes(
   return quotes.filter((q) => q.providerId === viewerId);
 }
 
+/**
+ * 시세를 화면에 띄우기 위한 최소 표본 수.
+ *
+ * 견적 두세 건의 평균을 "요즘 시세"라고 보여주면, 우연히 비싼 한 건이 기준값이 되어
+ * 배출자는 과한 값을 정상으로 받아들이고 업체는 그 값에 맞춰 부른다. 표본이 이보다
+ * 적으면 시세 카드 자체를 띄우지 않는다.
+ */
+export const MARKET_RATE_MIN_SAMPLE = 5;
+
 /** 평균 시세 요약 — 요청 화면에서 "이 정도가 적정가" 안내에 사용. */
 export interface MarketRate {
   party: ProviderRole;

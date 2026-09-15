@@ -17,13 +17,9 @@ import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppButton, ErrorBanner, Field } from '../components/ui';
 import { AppIcon, type IconName } from '../components/AppIcon';
 import { FadeInUp, PressableScale } from '../components/motion';
+import { isPhoneLike, validateSignup } from '../lib/signup-validation';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
-
-/** 숫자만 10자리 이상이면 휴대폰번호로 간주(서버가 최종 검증). */
-function isPhoneLike(value: string): boolean {
-  return value.replace(/\D/g, '').length >= 10;
-}
 
 /**
  * 온보딩 — 가입 유형 선택 후 가입 (Phase 1 /users).
@@ -123,31 +119,20 @@ export function OnboardingScreen({
   }
 
   async function submit() {
-    setError(null);
-    if (!termsAccepted) {
-      setError('이용약관 및 개인정보처리방침에 동의해 주세요.');
-      return;
-    }
-    if (name.trim().length === 0) {
-      setError(isCompany ? '업체명을 입력해 주세요.' : '이름을 입력해 주세요.');
-      return;
-    }
-    if (!isPhoneLike(phone)) {
-      setError('휴대폰번호를 정확히 입력해 주세요.');
-      return;
-    }
-    if (!codeSent || code.trim().length === 0) {
-      setError('휴대폰 인증코드를 받아 입력해 주세요.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('비밀번호를 6자 이상으로 설정해 주세요.');
-      return;
-    }
-    if (password !== passwordConfirm) {
-      setError('비밀번호가 일치하지 않습니다.');
-      return;
-    }
+    // 규칙은 화면 밖(테스트가 붙은 순수 함수)에 있다 — [[signup-validation]].
+    const problem = validateSignup({
+      userType,
+      name,
+      phone,
+      code,
+      codeSent,
+      password,
+      passwordConfirm,
+      termsAccepted,
+    });
+    setError(problem);
+    if (problem) return;
+
     setBusy(true);
     try {
       // 번호 인증 → 이미 가입된 번호면 곧바로 로그인 처리.
@@ -186,268 +171,267 @@ export function OnboardingScreen({
         ]}
         keyboardShouldPersistTaps="handled"
       >
-      {/* 상단 뒤로가기 내비 */}
-      {onBack ? (
-        <FadeInUp delay={20}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="뒤로 가기"
-            onPress={onBack}
-            style={styles.back}
-          >
-            <Text style={styles.backLabel}>‹ 뒤로</Text>
-          </Pressable>
-        </FadeInUp>
-      ) : null}
-
-      {/* 브랜드 타이틀 헤더 */}
-      <FadeInUp delay={60}>
-        <View style={styles.headerWrap}>
-          <Image
-            source={brandmark}
-            style={styles.brandmark}
-            resizeMode="contain"
-            accessibilityLabel="비움 로고"
-          />
-          <Text style={styles.appName}>비움 회원가입</Text>
-          <Text style={styles.appSubtitle}>
-            {social ? '소셜 계정 인증이 완료되었습니다. 회원 정보를 입력해 주세요.' : '10초만에 가입하고 신속한 매칭 서비스를 이용하세요.'}
-          </Text>
-        </View>
-      </FadeInUp>
-
-      {/* Step 1: 가입 유형 선택 */}
-      <FadeInUp delay={100}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>1단계</Text>
-          </View>
-          <Text style={styles.stepTitle}>어떤 역할로 가입하시나요?</Text>
-        </View>
-      </FadeInUp>
-
-      {TYPE_OPTIONS.filter(
-        // 인테리어 업체 가입은 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출.
-        (option) => FEATURE_INTERIOR || option.type !== 'INTERIOR_COMPANY',
-      ).map((option, i) => {
-        const selected = userType === option.type;
-        return (
-          <FadeInUp key={option.type} delay={120 + i * 50}>
-            <PressableScale
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              onPress={() => setUserType(option.type)}
-              style={[styles.roleCard, selected && styles.roleCardSelected]}
+        {/* 상단 뒤로가기 내비 */}
+        {onBack ? (
+          <FadeInUp delay={20}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="뒤로 가기"
+              onPress={onBack}
+              style={styles.back}
             >
-              <View
-                style={[
-                  styles.iconCircle,
-                  selected && styles.iconCircleSelected,
-                ]}
-              >
-                <AppIcon
-                  name={option.iconName}
-                  size={22}
-                  color={selected ? colors.primary : colors.text}
-                  filled={selected}
-                />
-              </View>
-              <View style={styles.roleInfo}>
-                <View style={styles.roleHeaderRow}>
-                  <Text style={[styles.roleTitle, selected && { color: colors.primary }]}>
-                    {option.title}
-                  </Text>
-                  {option.badge ? (
-                    <View style={[styles.tagBadge, selected && styles.tagBadgeSelected]}>
-                      <Text style={[styles.tagBadgeText, selected && { color: colors.primary }]}>
-                        {option.badge}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.roleDescription}>{option.description}</Text>
-              </View>
-              <View style={[styles.radioCheck, selected && styles.radioCheckSelected]}>
-                {selected && <Text style={styles.radioCheckMark}>✓</Text>}
-              </View>
-            </PressableScale>
+              <Text style={styles.backLabel}>‹ 뒤로</Text>
+            </Pressable>
           </FadeInUp>
-        );
-      })}
+        ) : null}
 
-      {/* Step 2: 기본 정보 및 인증 입력 */}
-      <FadeInUp delay={380}>
-        <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>2단계</Text>
-          </View>
-          <Text style={styles.stepTitle}>가입 상세 정보를 입력해 주세요</Text>
-        </View>
-
-        <View style={styles.formCard}>
-          <Field
-            label={isCompany ? '업체명' : '이름'}
-            required
-            value={name}
-            onChangeText={setName}
-            placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
-            autoComplete={isCompany ? 'organization' : 'name'}
-            textContentType={isCompany ? 'organizationName' : 'name'}
-            returnKeyType="next"
-            hint={isCompany ? '사업자등록증 상의 정확한 상호를 입력하세요.' : '실명을 입력하세요.'}
-          />
-          <Field
-            label="휴대폰번호"
-            required
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="010-0000-0000"
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            maxLength={13}
-            editable={!codeSent}
-            hint="로그인 및 매칭 알림 수신에 활용됩니다."
-          />
-          <AppButton
-            label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
-            variant="outline"
-            onPress={sendCode}
-            loading={busy && !codeSent}
-          />
-
-          {codeSent ? (
-            <View style={{ marginTop: spacing.md }}>
-              <View style={styles.noticeBox}>
-                <Text style={styles.noticeBoxText}>
-                  ✓ 인증코드를 발송했어요. 문자로 받은 6자리를 입력하세요.
-                </Text>
-              </View>
-              <Field
-                label="인증코드 6자리"
-                required
-                value={code}
-                onChangeText={setCode}
-                placeholder="000000"
-                keyboardType="number-pad"
-                // 문자로 온 인증번호를 키보드 위에서 바로 채울 수 있게 한다.
-                autoComplete="sms-otp"
-                textContentType="oneTimeCode"
-                maxLength={6}
-              />
-            </View>
-          ) : null}
-
-          <View style={styles.pwSection}>
-            <View style={styles.pwHeaderRow}>
-              <AppIcon name="lock" size={17} color={colors.primary} filled />
-              <Text style={styles.pwSectionLabel}>로그인 비밀번호</Text>
-            </View>
-            <Field
-              label="비밀번호"
-              required
-              value={password}
-              onChangeText={setPassword}
-              placeholder="6자 이상"
-              secureTextEntry
-              autoComplete="new-password"
-              textContentType="newPassword"
-              returnKeyType="next"
-              hint="다음 로그인부터 이 비밀번호로 로그인해요."
+        {/* 브랜드 타이틀 헤더 */}
+        <FadeInUp delay={60}>
+          <View style={styles.headerWrap}>
+            <Image
+              source={brandmark}
+              style={styles.brandmark}
+              resizeMode="contain"
+              accessibilityLabel="비움 로고"
             />
+            <Text style={styles.appName}>비움 회원가입</Text>
+            <Text style={styles.appSubtitle}>
+              {social
+                ? '소셜 계정 인증이 완료되었습니다. 회원 정보를 입력해 주세요.'
+                : '10초만에 가입하고 신속한 매칭 서비스를 이용하세요.'}
+            </Text>
+          </View>
+        </FadeInUp>
+
+        {/* Step 1: 가입 유형 선택 */}
+        <FadeInUp delay={100}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>1단계</Text>
+            </View>
+            <Text style={styles.stepTitle}>어떤 역할로 가입하시나요?</Text>
+          </View>
+        </FadeInUp>
+
+        {TYPE_OPTIONS.filter(
+          // 인테리어 업체 가입은 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출.
+          (option) => FEATURE_INTERIOR || option.type !== 'INTERIOR_COMPANY',
+        ).map((option, i) => {
+          const selected = userType === option.type;
+          return (
+            <FadeInUp key={option.type} delay={120 + i * 50}>
+              <PressableScale
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                onPress={() => setUserType(option.type)}
+                style={[styles.roleCard, selected && styles.roleCardSelected]}
+              >
+                <View style={[styles.iconCircle, selected && styles.iconCircleSelected]}>
+                  <AppIcon
+                    name={option.iconName}
+                    size={22}
+                    color={selected ? colors.primary : colors.text}
+                    filled={selected}
+                  />
+                </View>
+                <View style={styles.roleInfo}>
+                  <View style={styles.roleHeaderRow}>
+                    <Text style={[styles.roleTitle, selected && { color: colors.primary }]}>
+                      {option.title}
+                    </Text>
+                    {option.badge ? (
+                      <View style={[styles.tagBadge, selected && styles.tagBadgeSelected]}>
+                        <Text style={[styles.tagBadgeText, selected && { color: colors.primary }]}>
+                          {option.badge}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.roleDescription}>{option.description}</Text>
+                </View>
+                <View style={[styles.radioCheck, selected && styles.radioCheckSelected]}>
+                  {selected && <Text style={styles.radioCheckMark}>✓</Text>}
+                </View>
+              </PressableScale>
+            </FadeInUp>
+          );
+        })}
+
+        {/* Step 2: 기본 정보 및 인증 입력 */}
+        <FadeInUp delay={380}>
+          <View style={[styles.sectionHeader, { marginTop: spacing.lg }]}>
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepBadgeText}>2단계</Text>
+            </View>
+            <Text style={styles.stepTitle}>가입 상세 정보를 입력해 주세요</Text>
+          </View>
+
+          <View style={styles.formCard}>
             <Field
-              label="비밀번호 확인"
+              label={isCompany ? '업체명' : '이름'}
               required
-              value={passwordConfirm}
-              onChangeText={setPasswordConfirm}
-              placeholder="비밀번호를 한 번 더 입력"
-              secureTextEntry
-              autoComplete="new-password"
-              textContentType="newPassword"
-              error={
-                passwordConfirm.length > 0 && password !== passwordConfirm
-                  ? '비밀번호가 서로 달라요.'
-                  : null
+              value={name}
+              onChangeText={setName}
+              placeholder={isCompany ? '예) 대한철거(주)' : '예) 홍길동'}
+              autoComplete={isCompany ? 'organization' : 'name'}
+              textContentType={isCompany ? 'organizationName' : 'name'}
+              returnKeyType="next"
+              hint={
+                isCompany ? '사업자등록증 상의 정확한 상호를 입력하세요.' : '실명을 입력하세요.'
               }
             />
-          </View>
+            <Field
+              label="휴대폰번호"
+              required
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="010-0000-0000"
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              maxLength={13}
+              editable={!codeSent}
+              hint="로그인 및 매칭 알림 수신에 활용됩니다."
+            />
+            <AppButton
+              label={codeSent ? '인증코드 다시 받기' : '인증코드 받기'}
+              variant="outline"
+              onPress={sendCode}
+              loading={busy && !codeSent}
+            />
 
-          {isCompany ? (
-            <View style={{ marginTop: spacing.sm }}>
+            {codeSent ? (
+              <View style={{ marginTop: spacing.md }}>
+                <View style={styles.noticeBox}>
+                  <Text style={styles.noticeBoxText}>
+                    ✓ 인증코드를 발송했어요. 문자로 받은 6자리를 입력하세요.
+                  </Text>
+                </View>
+                <Field
+                  label="인증코드 6자리"
+                  required
+                  value={code}
+                  onChangeText={setCode}
+                  placeholder="000000"
+                  keyboardType="number-pad"
+                  // 문자로 온 인증번호를 키보드 위에서 바로 채울 수 있게 한다.
+                  autoComplete="sms-otp"
+                  textContentType="oneTimeCode"
+                  maxLength={6}
+                />
+              </View>
+            ) : null}
+
+            <View style={styles.pwSection}>
+              <View style={styles.pwHeaderRow}>
+                <AppIcon name="lock" size={17} color={colors.primary} filled />
+                <Text style={styles.pwSectionLabel}>로그인 비밀번호</Text>
+              </View>
               <Field
-                label="사업자등록번호"
+                label="비밀번호"
                 required
-                value={businessNumber}
-                onChangeText={setBusinessNumber}
-                placeholder="000-00-00000"
-                keyboardType="number-pad"
-                maxLength={12}
-                hint="가입 후 관리자 승인이 완료되면 매칭 수주가 활성화됩니다."
+                value={password}
+                onChangeText={setPassword}
+                placeholder="6자 이상"
+                secureTextEntry
+                autoComplete="new-password"
+                textContentType="newPassword"
+                returnKeyType="next"
+                hint="다음 로그인부터 이 비밀번호로 로그인해요."
+              />
+              <Field
+                label="비밀번호 확인"
+                required
+                value={passwordConfirm}
+                onChangeText={setPasswordConfirm}
+                placeholder="비밀번호를 한 번 더 입력"
+                secureTextEntry
+                autoComplete="new-password"
+                textContentType="newPassword"
+                error={
+                  passwordConfirm.length > 0 && password !== passwordConfirm
+                    ? '비밀번호가 서로 달라요.'
+                    : null
+                }
               />
             </View>
-          ) : null}
-        </View>
-      </FadeInUp>
 
-      {notice && !codeSent ? (
-        <FadeInUp delay={420}>
-          <View style={styles.noticeBox}>
-            <Text style={styles.noticeBoxText}>{notice}</Text>
+            {isCompany ? (
+              <View style={{ marginTop: spacing.sm }}>
+                <Field
+                  label="사업자등록번호"
+                  required
+                  value={businessNumber}
+                  onChangeText={setBusinessNumber}
+                  placeholder="000-00-00000"
+                  keyboardType="number-pad"
+                  maxLength={12}
+                  hint="가입 후 관리자 승인이 완료되면 매칭 수주가 활성화됩니다."
+                />
+              </View>
+            ) : null}
           </View>
         </FadeInUp>
-      ) : null}
 
-      <ErrorBanner message={error} />
+        {notice && !codeSent ? (
+          <FadeInUp delay={420}>
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeBoxText}>{notice}</Text>
+            </View>
+          </FadeInUp>
+        ) : null}
 
-      {/* 이용약관 동의 */}
-      <FadeInUp delay={430}>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: termsAccepted }}
-          onPress={() => setTermsAccepted((v) => !v)}
-          style={styles.termsRow}
-        >
-          <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-            {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
-          </View>
-          <Text style={styles.termsText}>
-            {'(필수) '}
-            <Text
-              style={styles.termsLink}
-              onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms`)}
-            >
-              이용약관
+        <ErrorBanner message={error} />
+
+        {/* 이용약관 동의 */}
+        <FadeInUp delay={430}>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: termsAccepted }}
+            onPress={() => setTermsAccepted((v) => !v)}
+            style={styles.termsRow}
+          >
+            <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+              {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
+            </View>
+            <Text style={styles.termsText}>
+              {'(필수) '}
+              <Text
+                style={styles.termsLink}
+                onPress={() => Linking.openURL(`${WEB_BASE_URL}/terms`)}
+              >
+                이용약관
+              </Text>
+              {' 및 '}
+              <Text
+                style={styles.termsLink}
+                onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy`)}
+              >
+                개인정보처리방침
+              </Text>
+              에 동의합니다
             </Text>
-            {' 및 '}
-            <Text
-              style={styles.termsLink}
-              onPress={() => Linking.openURL(`${WEB_BASE_URL}/privacy`)}
-            >
-              개인정보처리방침
-            </Text>
-            에 동의합니다
-          </Text>
-        </Pressable>
-      </FadeInUp>
+          </Pressable>
+        </FadeInUp>
 
-      {/* 제출 CTA 버튼 */}
-      <FadeInUp delay={440}>
-        <View style={{ marginTop: spacing.md }}>
-          <AppButton label="가입 완료하고 시작하기" onPress={submit} loading={busy} />
-        </View>
-      </FadeInUp>
-
-      {/* 로그인 링크 */}
-      {onLogin ? (
-        <FadeInUp delay={480}>
-          <View style={styles.loginCard}>
-            <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
-            <PressableScale onPress={onLogin} style={styles.loginBtn}>
-              <Text style={styles.loginBtnText}>로그인 화면으로 이동 ➔</Text>
-            </PressableScale>
+        {/* 제출 CTA 버튼 */}
+        <FadeInUp delay={440}>
+          <View style={{ marginTop: spacing.md }}>
+            <AppButton label="가입 완료하고 시작하기" onPress={submit} loading={busy} />
           </View>
         </FadeInUp>
-      ) : null}
+
+        {/* 로그인 링크 */}
+        {onLogin ? (
+          <FadeInUp delay={480}>
+            <View style={styles.loginCard}>
+              <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
+              <PressableScale onPress={onLogin} style={styles.loginBtn}>
+                <Text style={styles.loginBtnText}>로그인 화면으로 이동 ➔</Text>
+              </PressableScale>
+            </View>
+          </FadeInUp>
+        ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
   );

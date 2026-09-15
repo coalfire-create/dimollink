@@ -6,11 +6,37 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 
 LocaleConfig.locales['kr'] = {
-  monthNames: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-  monthNamesShort: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-  dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'],
-  dayNamesShort: ['일','월','화','수','목','금','토'],
-  today: '오늘'
+  monthNames: [
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
+  ],
+  monthNamesShort: [
+    '1월',
+    '2월',
+    '3월',
+    '4월',
+    '5월',
+    '6월',
+    '7월',
+    '8월',
+    '9월',
+    '10월',
+    '11월',
+    '12월',
+  ],
+  dayNames: ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'],
+  dayNamesShort: ['일', '월', '화', '수', '목', '금', '토'],
+  today: '오늘',
 };
 LocaleConfig.defaultLocale = 'kr';
 
@@ -60,6 +86,7 @@ import {
   AppButton,
   ErrorBanner,
   Field,
+  FieldError,
   KeyboardAwareScreen,
   StickyFooter,
 } from '../components/ui';
@@ -71,7 +98,24 @@ import {
   type WasteItemDraft,
 } from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
+import {
+  ScreenHeader,
+  useLeaveGuard,
+  useNavigation,
+  useSession,
+  type RequestFormPrefill,
+} from '../navigation';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { useToast } from '../components/Toast';
+import { invalidateQueries } from '../lib/query';
+import { clearDraft, loadDraft, saveDraft } from '../lib/request-draft';
+import {
+  errorSummary,
+  hasErrors,
+  validateRequestForm,
+  type RequestFormErrors,
+} from '../lib/request-form-validation';
 import { theme } from '../theme';
 
 const KIND_TITLES: Record<RequestKind, string> = {
@@ -108,6 +152,7 @@ export function RequestFormScreen({
 }) {
   const nav = useNavigation();
   const user = useSession();
+  const toast = useToast();
 
   // 운반/처리장 전용 폐기물 소재별 드래프트
   const [wasteDrafts, setWasteDrafts] = useState<WasteItemDraft[]>(
@@ -126,6 +171,12 @@ export function RequestFormScreen({
   const [allbaroRequested, setAllbaroRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** 필드별 검증 오류 — 각 입력 아래에 붙는다(어느 칸이 문제인지 찾게 하지 않는다). */
+  const [fieldErrors, setFieldErrors] = useState<RequestFormErrors>({});
+  /** 작성 중 이탈 확인 모달. */
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  /** 접수에 성공했으면 초안도 이탈 경고도 필요 없다. */
+  const submittedRef = useRef(false);
   const [reservationDone, setReservationDone] = useState<ServiceRequest | null>(null);
 
   // 철거 전용 폼 정보
@@ -308,7 +359,9 @@ export function RequestFormScreen({
 
   function guardVision(open: () => void) {
     if (visionLocked) {
-      setError('먼저 현장 주소를 지정해 주세요. 주소를 알아야 건축물대장 정보를 확인하고 정확히 분석할 수 있어요.');
+      setError(
+        '먼저 현장 주소를 지정해 주세요. 주소를 알아야 건축물대장 정보를 확인하고 정확히 분석할 수 있어요.',
+      );
       return;
     }
     setError(null);
@@ -364,22 +417,116 @@ export function RequestFormScreen({
     kind !== 'DEMOLITION' && tons >= ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON;
   const canRequestAllbaro = isCompanyType(user.userType);
 
+  /**
+   * 임시 저장된 초안 복원 — 폼을 열 때 한 번만.
+   * 링크(디몰비전)로 넘어온 프리필이 있으면 그쪽이 우선한다. 프리필은 방금 본 현장의
+   * 최신 정보고, 초안은 과거에 쓰다 만 값이라 덮어쓰면 틀린 정보가 들어간다.
+   */
+  const draftRestoredRef = useRef(false);
+  React.useEffect(() => {
+    if (draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    void (async () => {
+      const draft = await loadDraft(kind);
+      if (!draft) return;
+      let restored = false;
+      const apply = (value: string, current: string, set: (v: string) => void) => {
+        if (value.trim() && !current.trim()) {
+          set(value);
+          restored = true;
+        }
+      };
+      apply(draft.region, prefill?.region ?? user.region ?? '', setRegion);
+      apply(draft.siteAddress, prefill?.siteAddress ?? '', setSiteAddress);
+      apply(draft.spaceSize, prefill?.spaceSize ?? '', setSpaceSize);
+      apply(draft.floorCount, prefill?.floorCount ?? '', setFloorCount);
+      apply(draft.desiredDate, '', setDesiredDate);
+      apply(draft.description, '', setDescription);
+      apply(draft.loadAddress, prefill?.loadAddress ?? '', setLoadAddress);
+      apply(draft.unloadAddress, prefill?.unloadAddress ?? '', setUnloadAddress);
+      apply(draft.visitAt, '', setVisitAt);
+      if (restored) toast.info('이어서 작성할 수 있어요.', '지난번에 쓰던 내용을 불러왔어요.');
+    })();
+    // 마운트 시 1회 — 값이 바뀔 때마다 다시 복원하면 사용자가 지운 칸이 되살아난다.
+  }, []);
+
+  const draftValues = {
+    region,
+    siteAddress,
+    spaceSize,
+    floorCount,
+    desiredDate,
+    description,
+    loadAddress,
+    unloadAddress,
+    visitAt,
+  };
+  const draftSignature = JSON.stringify(draftValues);
+
+  /**
+   * 초안 자동 저장 — 입력이 멈추고 0.8초 뒤에 한 번.
+   * 글자마다 저장하면 저장소를 계속 두드려 입력이 끊긴다.
+   */
+  React.useEffect(() => {
+    if (submittedRef.current) return;
+    const timer = setTimeout(() => {
+      void saveDraft(kind, JSON.parse(draftSignature) as typeof draftValues);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [kind, draftSignature]);
+
+  /** 쓰다 만 내용이 있는지 — 이탈 경고를 띄울지 판단한다. */
+  const isDirty =
+    !submittedRef.current &&
+    (Object.values(draftValues).some((v) => v.trim().length > 0) ||
+      wasteDrafts.some((d) => d.kg.trim().length > 0));
+
+  /**
+   * 가려던 목적지를 들고 있다가 "나가기"를 고르면 그대로 보낸다.
+   * (뒤로가기·브레드크럼·탭 전환 중 무엇을 눌렀든 그곳으로 간다.)
+   */
+  const pendingLeaveRef = useRef<(() => void) | null>(null);
+
+  useLeaveGuard(isDirty, (proceed) => {
+    pendingLeaveRef.current = proceed;
+    setLeaveConfirmOpen(true);
+    return true; // 이동을 멈추고 확인을 받는다.
+  });
+
+  /** 확인 모달에서 "나가기" — 가드를 풀고 원래 가려던 곳으로 간다(초안은 남겨 둔다). */
+  function leaveWithoutSaving() {
+    setLeaveConfirmOpen(false);
+    nav.setLeaveGuard(null);
+    const proceed = pendingLeaveRef.current;
+    pendingLeaveRef.current = null;
+    if (proceed) proceed();
+    else nav.pop();
+  }
+
+  /** 사용자가 그 칸을 고치기 시작하면 그 칸의 오류 문구는 즉시 치운다. */
+  function clearFieldError(field: keyof RequestFormErrors) {
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  }
+
   async function submit() {
     setError(null);
-    if (region.trim().length === 0) {
-      setError('지역을 입력해 주세요. (예: 서울, 경기 양평)');
+    // 모든 필드를 한 번에 검사한다 — 고치고 누르기를 반복하지 않도록.
+    const errors = validateRequestForm({
+      kind,
+      region,
+      siteAddress,
+      spaceSize,
+      floorCount,
+      wasteItems,
+      loadAddress,
+      unloadAddress,
+      visitAt,
+    });
+    setFieldErrors(errors);
+    if (hasErrors(errors)) {
+      setError(errorSummary(errors));
+      toast.error('입력을 확인해 주세요.', '빨간 표시가 있는 칸을 채우면 접수할 수 있어요.');
       return;
-    }
-    if (kind === 'DEMOLITION') {
-      if (siteAddress.trim().length === 0) {
-        setError('현장 주소를 입력해 주세요.');
-        return;
-      }
-    } else {
-      if (wasteItems.length === 0) {
-        setError('폐기물 소재를 1개 이상 선택하고 예상 무게(kg)를 입력해 주세요.');
-        return;
-      }
     }
 
     setSubmitting(true);
@@ -389,7 +536,9 @@ export function RequestFormScreen({
           ? {
               buildingType,
               demolitionType,
-              spaceSize: spaceSize.trim() ? `${spaceSize.trim()}${areaUnit === 'PYEONG' ? '평' : '㎡'}` : undefined,
+              spaceSize: spaceSize.trim()
+                ? `${spaceSize.trim()}${areaUnit === 'PYEONG' ? '평' : '㎡'}`
+                : undefined,
               floorCount: floorCount.trim() || undefined,
               hasElevator,
               hasVehicleAccess,
@@ -423,8 +572,16 @@ export function RequestFormScreen({
         setSubmitting(false);
         return;
       }
+      // 접수됐으니 초안과 이탈 경고를 함께 정리한다.
+      submittedRef.current = true;
+      nav.setLeaveGuard(null);
+      void clearDraft(kind);
+      // 목록 캐시를 낡은 것으로 표시 — 대시보드로 돌아가면 새 요청이 보인다.
+      invalidateQueries('requests:list');
+
       nav.pop();
       nav.push({ name: 'requestDetail', requestId: created.id });
+      toast.success('요청이 성공적으로 접수됐어요.', '업체 견적이 도착하면 알림으로 알려드릴게요.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '접수에 실패했습니다. 다시 시도해 주세요.');
     } finally {
@@ -489,13 +646,21 @@ export function RequestFormScreen({
   return (
     <KeyboardAwareScreen style={styles.screen}>
       <ScreenHeader title={KIND_TITLES[kind]} canGoBack />
+      <Breadcrumbs
+        items={[
+          { label: '홈', onPress: () => nav.switchTab('home') },
+          { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+          { label: KIND_TITLES[kind] },
+        ]}
+      />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.pilotChip}>
           <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
         </View>
+        {/* 지역은 주소에서 자동으로 따라오므로 별도 입력칸이 없다 — 오류만 여기서 알린다. */}
+        <FieldError message={fieldErrors.region} />
 
         <FadeInUp delay={40}>
-
           {kind === 'DEMOLITION' ? (
             <>
               <AddressPickerField
@@ -505,10 +670,13 @@ export function RequestFormScreen({
                   setSiteAddress(addr);
                   if (reg) setRegion(reg);
                   if (loc) setLocation(loc);
+                  clearFieldError('siteAddress');
+                  clearFieldError('region');
                   void fetchBuildingLedger(addr);
                 }}
                 placeholder="예) ○○시 ○○구 ○○동 12-3"
                 hint="주소를 검색하거나 지도를 움직여 현장 위치를 정확히 맞춰주세요."
+                error={fieldErrors.siteAddress}
               />
 
               <BuildingLedgerCard state={ledgerState} info={building} />
@@ -578,16 +746,24 @@ export function RequestFormScreen({
               <Field
                 label={areaUnit === 'PYEONG' ? '한 층 바닥면적 (평)' : '한 층 바닥면적 (㎡)'}
                 value={spaceSize}
-                onChangeText={setSpaceSize}
+                onChangeText={(v) => {
+                  setSpaceSize(v);
+                  clearFieldError('spaceSize');
+                }}
                 placeholder={areaUnit === 'PYEONG' ? '예) 30' : '예) 99'}
                 keyboardType="numeric"
+                error={fieldErrors.spaceSize}
               />
 
               <Field
                 label="현장 층수"
                 value={floorCount}
-                onChangeText={setFloorCount}
+                onChangeText={(v) => {
+                  setFloorCount(v);
+                  clearFieldError('floorCount');
+                }}
                 placeholder="예) 지상 3층 / 지하 1층"
+                error={fieldErrors.floorCount}
               />
 
               <Text style={styles.sectionLabel}>현장 진입 조건</Text>
@@ -646,7 +822,10 @@ export function RequestFormScreen({
                     if (newSelectedDates[dateString]) {
                       delete newSelectedDates[dateString];
                     } else {
-                      newSelectedDates[dateString] = { selected: true, selectedColor: theme.colors.primary };
+                      newSelectedDates[dateString] = {
+                        selected: true,
+                        selectedColor: theme.colors.primary,
+                      };
                     }
                     setSelectedDates(newSelectedDates);
                   }}
@@ -660,9 +839,23 @@ export function RequestFormScreen({
               </View>
 
               {/* 디몰비전 현장 사진 분석 — 주소 확정 이후에만 열린다 */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs }}>
-                <Feather name="camera" size={18} color={theme.colors.primary} style={{ marginRight: theme.spacing.xs }} />
-                <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>현장 사진 분석</Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: theme.spacing.sm,
+                  marginBottom: theme.spacing.xs,
+                }}
+              >
+                <Feather
+                  name="camera"
+                  size={18}
+                  color={theme.colors.primary}
+                  style={{ marginRight: theme.spacing.xs }}
+                />
+                <Text style={[styles.sectionLabel, { marginTop: 0, marginBottom: 0 }]}>
+                  현장 사진 분석
+                </Text>
               </View>
               <View style={styles.visionStepsRow}>
                 <VisionStep index={1} label="현장 주소 지정" done={addressReady} />
@@ -674,7 +867,12 @@ export function RequestFormScreen({
                   busy={ledgerState === 'loading'}
                 />
                 <View style={styles.visionStepBar} />
-                <VisionStep index={3} label="현장 촬영·분석" done={!!dimolVision} busy={photoBusy} />
+                <VisionStep
+                  index={3}
+                  label="현장 촬영·분석"
+                  done={!!dimolVision}
+                  busy={photoBusy}
+                />
               </View>
 
               {visionLocked ? (
@@ -682,8 +880,8 @@ export function RequestFormScreen({
                   <Text style={styles.visionLockTitle}>먼저 현장 주소를 지정해 주세요</Text>
                   <Text style={styles.visionLockBody}>
                     주소를 지정하면 건축물대장(공공데이터)을 통해 건물의 용도·구조·층수·사용승인일을
-                    먼저 확인한 후, 해당 정보를 바탕으로 현장 사진을 분석합니다. 이를 통해 철거 공정과 위험
-                    요소를 정확하게 파악할 수 있습니다.
+                    먼저 확인한 후, 해당 정보를 바탕으로 현장 사진을 분석합니다. 이를 통해 철거
+                    공정과 위험 요소를 정확하게 파악할 수 있습니다.
                   </Text>
                 </View>
               ) : null}
@@ -695,9 +893,16 @@ export function RequestFormScreen({
                 onPress={() => guardVision(() => setGuidedOpen(true))}
                 disabled={visionDisabled}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}
+                >
                   {!photoBusy && ledgerState !== 'loading' && (
-                    <Feather name="camera" size={16} color={theme.colors.primary} style={{ marginRight: theme.spacing.xs }} />
+                    <Feather
+                      name="camera"
+                      size={16}
+                      color={theme.colors.primary}
+                      style={{ marginRight: theme.spacing.xs }}
+                    />
                   )}
                   <Text style={styles.photoFillText}>
                     {photoBusy
@@ -781,12 +986,14 @@ export function RequestFormScreen({
                   if (loc) setLocation(loc);
                 }}
                 placeholder="예) ○○시 ○○구 ○○동 12-3"
+                error={fieldErrors.loadAddress}
               />
               <AddressPickerField
                 label="하차지 주소 (폐기물을 내리는 곳)"
                 value={unloadAddress}
                 onChangeAddress={(addr) => setUnloadAddress(addr)}
                 placeholder="예) ○○시 ○○구 처리장"
+                error={fieldErrors.unloadAddress}
               />
             </>
           ) : null}
@@ -806,6 +1013,7 @@ export function RequestFormScreen({
                     placeholder="터치하여 날짜 선택"
                     hint="날짜만 선택해 주세요. 시간은 처리장과 협의해요."
                     editable={false}
+                    error={fieldErrors.visitAt}
                   />
                 </View>
               </Pressable>
@@ -843,7 +1051,16 @@ export function RequestFormScreen({
           ) : null}
 
           {kind !== 'DEMOLITION' ? (
-            <WasteItemsInput items={wasteDrafts} onChange={setWasteDrafts} />
+            <>
+              <WasteItemsInput
+                items={wasteDrafts}
+                onChange={(items) => {
+                  setWasteDrafts(items);
+                  clearFieldError('wasteItems');
+                }}
+              />
+              <FieldError message={fieldErrors.wasteItems} />
+            </>
           ) : null}
         </FadeInUp>
 
@@ -854,8 +1071,8 @@ export function RequestFormScreen({
                 <View style={styles.mandatoryNotice}>
                   <Text style={styles.mandatoryTitle}>♻️ 올바로 신고 대상</Text>
                   <Text style={styles.mandatoryBody}>
-                    {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜
-                    두면 자동으로 처리해 드려요.
+                    {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요.
+                    켜 두면 자동으로 처리해 드려요.
                   </Text>
                 </View>
               </FadeInUp>
@@ -877,7 +1094,6 @@ export function RequestFormScreen({
             </Pressable>
           </>
         ) : null}
-
       </ScrollView>
       <StickyFooter>
         {/* 오류를 스크롤 안쪽에 두면, 화면 위쪽에서 고정 CTA 를 눌렀을 때
@@ -885,6 +1101,16 @@ export function RequestFormScreen({
         <ErrorBanner message={error} />
         <AppButton label="접수하기" onPress={submit} loading={submitting} disabled={submitting} />
       </StickyFooter>
+
+      <ConfirmModal
+        visible={leaveConfirmOpen}
+        title="작성 중인 내용이 있어요"
+        description="지금 나가면 이 화면은 닫히지만, 쓰던 내용은 임시 저장돼 있어요. 다시 들어오면 이어서 작성할 수 있어요."
+        confirmLabel="나가기"
+        cancelLabel="계속 작성"
+        onConfirm={leaveWithoutSaving}
+        onCancel={() => setLeaveConfirmOpen(false)}
+      />
 
       <CameraCaptureModal
         visible={cameraOpen}
@@ -900,11 +1126,7 @@ export function RequestFormScreen({
 
       {showDatePicker && (
         <DateTimePicker
-          value={
-            datePickerTarget === 'visitAt' && visitAt
-                ? new Date(visitAt)
-                : new Date()
-          }
+          value={datePickerTarget === 'visitAt' && visitAt ? new Date(visitAt) : new Date()}
           mode="date"
           display="default"
           onChange={(event, selectedDate) => {
@@ -939,9 +1161,7 @@ function BuildingLedgerCard({
     return (
       <View style={styles.ledgerCard}>
         <Text style={styles.ledgerTitle}>건축물대장 확인 중…</Text>
-        <Text style={styles.ledgerBody}>
-          공공데이터에서 이 주소의 건물 정보를 불러오고 있어요.
-        </Text>
+        <Text style={styles.ledgerBody}>공공데이터에서 이 주소의 건물 정보를 불러오고 있어요.</Text>
       </View>
     );
   }

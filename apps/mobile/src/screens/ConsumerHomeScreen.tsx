@@ -4,12 +4,11 @@ import {
   CANCELLATION_PENALTY_RATE,
   REQUEST_KIND_LABELS,
   REQUEST_STATUS_LABELS,
-  type MarketRate,
   type RatingSummary,
   type ServiceRequest,
   type UserProfile,
 } from '@dimol/shared';
-import { getMarketRate, getRatingSummary, listRequests, listUsers } from '../api/client';
+import { getRatingSummary, listRequests, listUsers } from '../api/client';
 import { FEATURE_INTERIOR } from '../featureFlags';
 import { AppIcon } from '../components/AppIcon';
 import { Card, ErrorBanner, SectionTitle, StatusBadge } from '../components/ui';
@@ -18,16 +17,11 @@ import { UserGuideModal } from '../components/UserGuideModal';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { hasSeenGuide, setSeenGuide } from '../lib/session-storage';
+import { MarketRateCard } from '../components/MarketRateCard';
+import { useMarketRate } from './home/useMarketRate';
 import { theme } from '../theme';
 
 /** 시세는 표본이 이만큼 쌓여야 보여준다 — 한두 건 평균은 오해를 부른다. */
-const MARKET_RATE_MIN_SAMPLE = 5;
-
-const RATE_TITLE = {
-  TRANSPORT: '요즘 운반 평균 시세',
-  DISPOSAL: '요즘 처리 평균 시세',
-} as const;
-
 /**
  * 홈에 노출하는 협력 업체.
  *
@@ -90,7 +84,7 @@ export function ConsumerHomeScreen() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [partners, setPartners] = useState<DemolitionPartner[]>([]);
   const [partnersLoaded, setPartnersLoaded] = useState(false);
-  const [rate, setRate] = useState<MarketRate | null>(null);
+  const rate = useMarketRate(config.marketRateParty);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
@@ -109,14 +103,12 @@ export function ConsumerHomeScreen() {
   }, [user.id]);
 
   const load = useCallback(async () => {
-    const [reqsRes, rateRes, usersRes] = await Promise.allSettled([
+    const [reqsRes, usersRes] = await Promise.allSettled([
       listRequests(user.id),
-      config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
       listUsers({ userType: 'DEMOLITION_COMPANY', approvalStatus: 'APPROVED' }),
     ]);
 
     if (reqsRes.status === 'fulfilled') setRequests(reqsRes.value);
-    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
 
     if (usersRes.status === 'fulfilled' && usersRes.value) {
       // 평점은 업체별로 따로 불러온다. 하나가 실패해도 목록 자체는 뜨게 한다.
@@ -212,9 +204,7 @@ export function ConsumerHomeScreen() {
         <FadeInUp delay={180}>
           <View style={styles.gutter}>
             <SectionTitle>비움 협력 철거업체</SectionTitle>
-            <Text style={styles.sectionSubtitle}>
-              사업자 검증과 승인을 마친 업체입니다
-            </Text>
+            <Text style={styles.sectionSubtitle}>사업자 검증과 승인을 마친 업체입니다</Text>
 
             {partners.length === 0 ? (
               <Card style={styles.noticeCard}>
@@ -245,12 +235,8 @@ export function ConsumerHomeScreen() {
                         accessibilityLabel={`평점 ${partner.rating.average}점, 리뷰 ${partner.rating.reviewCount}건`}
                         style={styles.ratingBox}
                       >
-                        <Text style={styles.ratingScore}>
-                          {partner.rating.average.toFixed(1)}
-                        </Text>
-                        <Text style={styles.ratingCount}>
-                          리뷰 {partner.rating.reviewCount}
-                        </Text>
+                        <Text style={styles.ratingScore}>{partner.rating.average.toFixed(1)}</Text>
+                        <Text style={styles.ratingCount}>리뷰 {partner.rating.reviewCount}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -298,22 +284,11 @@ export function ConsumerHomeScreen() {
           </View>
         </FadeInUp>
 
-        {config.marketRateParty &&
-        rate &&
-        rate.quoteCount >= MARKET_RATE_MIN_SAMPLE &&
-        rate.averageAmount !== null ? (
-          <FadeInUp delay={260}>
-            <View style={styles.gutter}>
-              <Card style={styles.rateCard}>
-                <Text style={styles.rateTitle}>{RATE_TITLE[config.marketRateParty]}</Text>
-                <Text style={styles.rateAmount}>
-                  {rate.averageAmount.toLocaleString('ko-KR')}원
-                </Text>
-                <Text style={styles.rateNote}>최근 견적 {rate.quoteCount}건 기준 참고용이에요</Text>
-              </Card>
-            </View>
-          </FadeInUp>
-        ) : null}
+        <FadeInUp delay={260}>
+          <View style={styles.gutter}>
+            <MarketRateCard rate={rate} party={config.marketRateParty} />
+          </View>
+        </FadeInUp>
 
         {/* 인테리어(밀봉 역경매)는 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출한다. */}
         {FEATURE_INTERIOR ? (
@@ -538,24 +513,6 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     lineHeight: 26,
     marginTop: spacing.xs / 2,
-  },
-  rateCard: {
-    backgroundColor: colors.surface,
-  },
-  rateTitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '600',
-  },
-  rateAmount: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginVertical: spacing.xs / 2,
-  },
-  rateNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
   },
   requestRow: {
     alignItems: 'center',

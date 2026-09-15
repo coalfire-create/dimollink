@@ -1,17 +1,32 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CALL_AVAILABILITY_LABELS, REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, suggestedQuoteAmount, type CallAvailability, type MarketRate, type ProviderJobs, type ProviderPricing, type ServiceRequest } from '@dimol/shared';
-import { acceptJob, getMarketRate, getPricing, listJobs, setAvailability } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge,
+import {
+  CALL_AVAILABILITY_LABELS,
+  REQUEST_KIND_LABELS,
+  REQUEST_STATUS_LABELS,
+  suggestedQuoteAmount,
+  type CallAvailability,
+  type ProviderJobs,
+  type ProviderPricing,
+  type ServiceRequest,
+} from '@dimol/shared';
+import { acceptJob, getPricing, listJobs, setAvailability } from '../api/client';
+import {
+  AppButton,
+  Card,
+  ErrorBanner,
+  Field,
+  SectionTitle,
+  StatusBadge,
   InlineEmpty,
 } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { AppIcon } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
+import { MarketRateCard } from '../components/MarketRateCard';
+import { useMarketRate } from './home/useMarketRate';
 import { theme } from '../theme';
-
-const MARKET_RATE_MIN_SAMPLE = 5;
 
 function requestSubtitle(r: ServiceRequest): string {
   if (r.kind === 'DEMOLITION') return r.siteAddress;
@@ -25,7 +40,7 @@ export function TransportHomeScreen() {
   const config = ROLE_CONFIG.TRANSPORT_COMPANY;
 
   const [jobs, setJobs] = useState<ProviderJobs | null>(null);
-  const [rate, setRate] = useState<MarketRate | null>(null);
+  const rate = useMarketRate(config.marketRateParty);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
@@ -38,13 +53,8 @@ export function TransportHomeScreen() {
   const [pricing, setPricing] = useState<ProviderPricing | null>(null);
 
   const load = useCallback(async () => {
-    const [jobsRes, rateRes, priceRes] = await Promise.allSettled([
-      listJobs(user.id),
-      config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
-      getPricing(user.id),
-    ]);
+    const [jobsRes, priceRes] = await Promise.allSettled([listJobs(user.id), getPricing(user.id)]);
     if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
-    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
     if (priceRes.status === 'fulfilled' && priceRes.value) setPricing(priceRes.value);
   }, [user.id, config.marketRateParty]);
 
@@ -55,7 +65,9 @@ export function TransportHomeScreen() {
       const next = { ...prev };
       for (const job of jobs.open) {
         if (!next[job.id]) {
-          next[job.id] = String(suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons));
+          next[job.id] = String(
+            suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons),
+          );
         }
       }
       return next;
@@ -106,24 +118,6 @@ export function TransportHomeScreen() {
 
   const online = availability === 'ONLINE';
 
-  const renderMarketRate = () => {
-    if (
-      config.marketRateParty &&
-      rate &&
-      rate.quoteCount >= MARKET_RATE_MIN_SAMPLE &&
-      rate.averageAmount !== null
-    ) {
-      return (
-        <Card style={styles.rateCard}>
-          <Text style={styles.rateTitle}>요즘 운반 평균 시세</Text>
-          <Text style={styles.rateAmount}>{rate.averageAmount.toLocaleString('ko-KR')}원</Text>
-          <Text style={styles.rateNote}>최근 견적 {rate.quoteCount}건 기준 참고용이에요</Text>
-        </Card>
-      );
-    }
-    return null;
-  };
-
   return (
     <View style={styles.screen}>
       <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
@@ -150,7 +144,7 @@ export function TransportHomeScreen() {
                   <Text style={styles.availStatus}>{CALL_AVAILABILITY_LABELS[availability]}</Text>
                 </View>
                 <Text style={styles.availDescription}>
-                  {online 
+                  {online
                     ? `운반 콜을 대기하고 있어요 (반경 ${radiusKm}km)`
                     : '콜대기를 켜면 운반 콜을 받을 수 있어요'}
                 </Text>
@@ -189,7 +183,7 @@ export function TransportHomeScreen() {
           </Card>
         </FadeInUp>
 
-        {renderMarketRate()}
+        <MarketRateCard rate={rate} party={config.marketRateParty} />
 
         <SectionTitle>들어온 운반 콜</SectionTitle>
         <ErrorBanner message={quoteError} />
@@ -371,25 +365,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs / 2,
-  },
-  rateCard: {
-    backgroundColor: colors.surface,
-    marginTop: spacing.sm,
-  },
-  rateTitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '600',
-  },
-  rateAmount: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginVertical: spacing.xs / 2,
-  },
-  rateNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
   },
   requestRow: {
     alignItems: 'center',

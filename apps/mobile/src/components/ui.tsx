@@ -215,6 +215,19 @@ export const Field = React.forwardRef<TextInput, FieldProps>(function Field(
   );
 });
 
+/**
+ * 입력 아래 오류 문구 — Field 를 쓰지 않는 입력(주소 선택·소재 목록 등)에도 같은 모양으로 붙인다.
+ * 색만으로 알리지 않고 문장으로 쓴다(색 구분이 어려운 사용자 고려).
+ */
+export function FieldError({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return (
+    <Text style={styles.fieldError} accessibilityRole="alert">
+      {message}
+    </Text>
+  );
+}
+
 // ── 섹션 제목 (작고 절제된 라벨 톤)
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
@@ -331,7 +344,27 @@ export function EmptyState({
 }) {
   const isIconName =
     icon &&
-    (['notifications', 'document', 'truck', 'building', 'home', 'requests', 'mypage', 'tools', 'check', 'star', 'settings', 'phone', 'sparkles', 'camera', 'chat', 'alert', 'recycle', 'hammer', 'lock'].includes(icon) ||
+    ([
+      'notifications',
+      'document',
+      'truck',
+      'building',
+      'home',
+      'requests',
+      'mypage',
+      'tools',
+      'check',
+      'star',
+      'settings',
+      'phone',
+      'sparkles',
+      'camera',
+      'chat',
+      'alert',
+      'recycle',
+      'hammer',
+      'lock',
+    ].includes(icon) ||
       icon.length > 2);
   return (
     <View style={styles.centerFill}>

@@ -66,6 +66,36 @@ export interface Navigation {
   push: (route: Route) => void;
   pop: () => void;
   switchTab: (tab: TabName) => void;
+  /**
+   * 이탈 가드 — 지금 화면을 떠나기 전에 한 번 끼어든다.
+   *
+   * 작성 중인 폼처럼 나가면 잃는 게 있는 화면이 등록한다. guard 가 true 를 돌려주면
+   * 화면 전환을 멈춘다(보통 확인 모달을 띄운다). 가드는 **원래 가려던 이동**(proceed)을
+   * 그대로 받으므로, 사용자가 "나가기"를 고르면 눌렀던 그 목적지로 간다 —
+   * 뒤로가기든, 브레드크럼이든, 탭 전환이든.
+   *
+   * 뒤로가기 버튼과 안드로이드 하드웨어 back 이 같은 가드를 지나가도록 내비게이션에 둔다 —
+   * 화면마다 따로 막으면 한쪽 경로가 반드시 빠진다.
+   */
+  setLeaveGuard: (guard: LeaveGuard | null) => void;
+}
+
+/** 이탈 가드. 이동을 멈추려면 true 를, 그대로 보내려면 false 를 돌려준다. */
+export type LeaveGuard = (proceed: () => void) => boolean;
+
+/**
+ * 이탈 가드 등록 훅 — 화면이 사라질 때 자동으로 해제한다.
+ * enabled 가 false 면(더 이상 지킬 게 없으면) 가드를 걸지 않는다.
+ */
+export function useLeaveGuard(enabled: boolean, guard: LeaveGuard): void {
+  const nav = useNavigation();
+  const guardRef = React.useRef(guard);
+  guardRef.current = guard;
+  React.useEffect(() => {
+    if (!enabled) return;
+    nav.setLeaveGuard((proceed) => guardRef.current(proceed));
+    return () => nav.setLeaveGuard(null);
+  }, [enabled, nav]);
 }
 
 export const NavigationContext = createContext<Navigation | null>(null);
@@ -119,9 +149,18 @@ export function TabBar({ active }: { active: TabName }) {
             onPress={() => nav.switchTab(tab)}
             style={styles.tabItem}
           >
-            {isActive ? <View style={styles.tabIndicator} /> : <View style={styles.tabIndicatorPlaceholder} />}
+            {isActive ? (
+              <View style={styles.tabIndicator} />
+            ) : (
+              <View style={styles.tabIndicatorPlaceholder} />
+            )}
             <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
-              <AppIcon name={icon} size={22} color={isActive ? colors.primary : colors.textMuted} filled={isActive} />
+              <AppIcon
+                name={icon}
+                size={22}
+                color={isActive ? colors.primary : colors.textMuted}
+                filled={isActive}
+              />
             </View>
             <Text numberOfLines={1} style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {label}

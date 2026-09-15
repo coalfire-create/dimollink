@@ -1,4 +1,4 @@
-import type { ProviderRole, UserType } from '@dimol/shared';
+import type { ProviderRole, RequestKind, UserType } from '@dimol/shared';
 import type { TabName } from './navigation';
 import type { IconName } from './components/AppIcon';
 
@@ -28,6 +28,11 @@ export interface RoleConfig {
   listEmpty: string;
   /** 하단 탭 구성. */
   tabs: RoleTab[];
+  /**
+   * 전역 주요 동작(CTA) — 어느 화면에서든 떠 있는 "새 요청" 버튼.
+   * 요청을 만드는 역할(배출자·철거업체)만 갖는다. 없으면 버튼을 띄우지 않는다.
+   */
+  primaryAction?: { label: string; kind: RequestKind };
 }
 
 const TAB_HOME = (label: string): RoleTab => ({ tab: 'home', label, icon: 'home' });
@@ -43,6 +48,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     marketRateParty: 'TRANSPORT',
     listTitle: '내 요청',
     listEmpty: '철거·원상복구를 신청하면 진행 상황이 여기에 쌓여요.',
+    primaryAction: { label: '신규 철거 요청', kind: 'DEMOLITION' },
     // 라벨은 4글자 이하로 — 탭 4개가 한 줄에 들어가야 작은 화면에서 안 잘린다.
     tabs: [TAB_HOME('홈'), TAB_REQUESTS('이용내역'), TAB_NOTI, TAB_MYPAGE],
   },
@@ -52,6 +58,7 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     marketRateParty: 'DISPOSAL',
     listTitle: '내 작업',
     listEmpty: '운반·처리 요청을 등록하면 여기에서 진행 상황을 볼 수 있어요.',
+    primaryAction: { label: '신규 운반 요청', kind: 'TRANSPORT' },
     tabs: [TAB_HOME('홈'), TAB_REQUESTS('내 작업'), TAB_NOTI, TAB_MYPAGE],
   },
   TRANSPORT_COMPANY: {

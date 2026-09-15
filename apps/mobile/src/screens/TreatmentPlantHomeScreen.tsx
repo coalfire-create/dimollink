@@ -1,17 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, offersTransportLabel, suggestedQuoteAmount, type MarketRate, type ProviderJobs, type ProviderPricing, type ServiceRequest } from '@dimol/shared';
-import { getMarketRate, getPricing, listJobs, submitQuote } from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle, StatusBadge,
+import {
+  REQUEST_KIND_LABELS,
+  REQUEST_STATUS_LABELS,
+  offersTransportLabel,
+  suggestedQuoteAmount,
+  type ProviderJobs,
+  type ProviderPricing,
+  type ServiceRequest,
+} from '@dimol/shared';
+import { getPricing, listJobs, submitQuote } from '../api/client';
+import {
+  AppButton,
+  Card,
+  ErrorBanner,
+  Field,
+  SectionTitle,
+  StatusBadge,
   InlineEmpty,
 } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { AppIcon } from '../components/AppIcon';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
+import { MarketRateCard } from '../components/MarketRateCard';
+import { useMarketRate } from './home/useMarketRate';
 import { theme } from '../theme';
-
-const MARKET_RATE_MIN_SAMPLE = 5;
 
 function requestSubtitle(r: ServiceRequest): string {
   if (r.kind === 'DEMOLITION') return r.siteAddress;
@@ -25,7 +39,7 @@ export function TreatmentPlantHomeScreen() {
   const config = ROLE_CONFIG.WASTE_TREATMENT_PLANT;
 
   const [jobs, setJobs] = useState<ProviderJobs | null>(null);
-  const [rate, setRate] = useState<MarketRate | null>(null);
+  const rate = useMarketRate(config.marketRateParty);
   const [refreshing, setRefreshing] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [quoteAmounts, setQuoteAmounts] = useState<Record<string, string>>({});
@@ -34,13 +48,8 @@ export function TreatmentPlantHomeScreen() {
   const [pricing, setPricing] = useState<ProviderPricing | null>(null);
 
   const load = useCallback(async () => {
-    const [jobsRes, rateRes, priceRes] = await Promise.allSettled([
-      listJobs(user.id),
-      config.marketRateParty ? getMarketRate(config.marketRateParty) : Promise.resolve(null),
-      getPricing(user.id),
-    ]);
+    const [jobsRes, priceRes] = await Promise.allSettled([listJobs(user.id), getPricing(user.id)]);
     if (jobsRes.status === 'fulfilled' && jobsRes.value) setJobs(jobsRes.value);
-    if (rateRes.status === 'fulfilled' && rateRes.value) setRate(rateRes.value);
     if (priceRes.status === 'fulfilled' && priceRes.value) setPricing(priceRes.value);
   }, [user.id, config.marketRateParty]);
 
@@ -55,7 +64,9 @@ export function TreatmentPlantHomeScreen() {
       const next = { ...prev };
       for (const job of jobs.open) {
         if (!next[job.id]) {
-          next[job.id] = String(suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons));
+          next[job.id] = String(
+            suggestedQuoteAmount(user.userType, pricing.unitPrice, job.wasteTons),
+          );
         }
       }
       return next;
@@ -86,24 +97,6 @@ export function TreatmentPlantHomeScreen() {
     }
   }
 
-  const renderMarketRate = () => {
-    if (
-      config.marketRateParty &&
-      rate &&
-      rate.quoteCount >= MARKET_RATE_MIN_SAMPLE &&
-      rate.averageAmount !== null
-    ) {
-      return (
-        <Card style={styles.rateCard}>
-          <Text style={styles.rateTitle}>요즘 처리 평균 시세</Text>
-          <Text style={styles.rateAmount}>{rate.averageAmount.toLocaleString('ko-KR')}원</Text>
-          <Text style={styles.rateNote}>최근 견적 {rate.quoteCount}건 기준 참고용이에요</Text>
-        </Card>
-      );
-    }
-    return null;
-  };
-
   return (
     <View style={styles.screen}>
       <ScreenHeader title={`${user.name}${config.homeGreetingSuffix}`} />
@@ -128,7 +121,7 @@ export function TreatmentPlantHomeScreen() {
           </View>
         </FadeInUp>
 
-        {renderMarketRate()}
+        <MarketRateCard rate={rate} party={config.marketRateParty} />
 
         <SectionTitle>새 반입 예약</SectionTitle>
         <ErrorBanner message={quoteError} />
@@ -252,25 +245,6 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.caption,
     fontWeight: '700',
-  },
-  rateCard: {
-    backgroundColor: colors.surface,
-    marginTop: spacing.sm,
-  },
-  rateTitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '600',
-  },
-  rateAmount: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginVertical: spacing.xs / 2,
-  },
-  rateNote: {
-    color: colors.textMuted,
-    fontSize: font.caption,
   },
   requestRow: {
     alignItems: 'center',
