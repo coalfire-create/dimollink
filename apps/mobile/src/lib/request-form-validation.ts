@@ -97,10 +97,16 @@ export function hasErrors(errors: RequestFormErrors): boolean {
   return Object.keys(errors).length > 0;
 }
 
-/** 배너·토스트에 쓸 요약 문구 — 필드별 문구는 각 입력 아래에 따로 붙는다. */
+/**
+ * 하단 고정 배너에 쓸 요약 — **개수만** 알린다.
+ *
+ * 문구 자체는 이미 각 입력 아래에 붙어 있다. 배너까지 같은 문장을 반복하면 한 화면에서
+ * 같은 말을 두 번 읽게 된다. 배너가 필요한 이유는 다른 데 있다 — 화면 위쪽에서 하단
+ * 고정 CTA 를 누르면 인라인 문구가 화면 밖에 있어 "눌러도 아무 일이 없다"로 보인다.
+ * 그래서 여기서는 "몇 군데를 고쳐야 하는지"만 말하고, 무엇을 고칠지는 그 칸이 말한다.
+ */
 export function errorSummary(errors: RequestFormErrors): string | null {
   const count = Object.keys(errors).length;
   if (count === 0) return null;
-  if (count === 1) return Object.values(errors)[0] ?? null;
-  return `입력을 확인해 주세요. 확인이 필요한 항목이 ${count}개 있어요.`;
+  return `확인이 필요한 항목이 ${count}개 있어요. 빨간 표시가 있는 칸을 확인해 주세요.`;
 }

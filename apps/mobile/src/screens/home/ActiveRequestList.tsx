@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { Card, SectionTitle, StatusBadge } from '../../components/ui';
+import { requestSubtitle, requestTons } from '../../lib/request-summary';
 import { useNavigation } from '../../navigation';
 import { theme } from '../../theme';
 
@@ -27,8 +28,12 @@ export function ActiveRequestList({ requests }: { requests: ServiceRequest[] }) 
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
             <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
           </View>
+          <Text style={styles.meta} numberOfLines={1}>
+            {requestSubtitle(request)}
+          </Text>
           <Text style={styles.meta}>
-            {request.wasteTons}톤 · {new Date(request.createdAt).toLocaleDateString('ko-KR')}
+            {new Date(request.createdAt).toLocaleDateString('ko-KR')}
+            {requestTons(request) ? ` · ${requestTons(request)}` : ''}
           </Text>
         </Card>
       ))}

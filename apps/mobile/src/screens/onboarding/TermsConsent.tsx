@@ -36,13 +36,16 @@ export function TermsConsent({ accepted, onToggle }: { accepted: boolean; onTogg
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, touch } = theme;
 
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: spacing.sm,
+    // 체크박스(24px)만 세면 누를 곳이 32px 밖에 안 됐다. 가입을 막는 필수 항목이라
+    // 다른 버튼과 같은 48px 터치 영역을 준다.
+    minHeight: touch.minButtonHeight,
     paddingVertical: spacing.xs,
   },
   checkbox: {

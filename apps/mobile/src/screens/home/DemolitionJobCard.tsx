@@ -9,7 +9,7 @@ import {
 } from '@dimol/shared';
 import { Card } from '../../components/ui';
 import { theme } from '../../theme';
-import { requestSubtitle } from './requestSubtitle';
+import { requestSubtitle } from '../../lib/request-summary';
 
 /**
  * 새 철거 요청 카드 — 견적을 낼지 말지 **목록에서 바로 판단할 수 있게** 하는 요약.

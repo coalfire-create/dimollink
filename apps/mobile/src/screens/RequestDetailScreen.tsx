@@ -8,6 +8,7 @@ import { StatusTimeline } from '../components/StatusTimeline';
 import { FadeInUp } from '../components/motion';
 import { EstimateComparison } from '../components/demolition/EstimateComparison';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { ROLE_CONFIG } from '../roleConfig';
 import { CancelPanel } from './request-detail/CancelPanel';
 import { CounterpartyActions } from './request-detail/CounterpartyActions';
 import { PaidRefundCard } from './request-detail/PaidRefundCard';
@@ -42,7 +43,10 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     <Breadcrumbs
       items={[
         { label: '홈', onPress: () => nav.switchTab('home') },
-        { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+        // 이 탭의 이름은 역할마다 다르다(배출자 "내 요청", 운반 "콜 내역"…).
+        // 빵부스러기에 '요청 관리'라고 박아 두면 눌러서 도착한 화면의 제목과 달라
+        // 다른 곳으로 온 것처럼 읽힌다.
+        { label: ROLE_CONFIG[user.userType].listTitle, onPress: () => nav.switchTab('requests') },
         { label: '진행 상태 상세' },
       ]}
     />
