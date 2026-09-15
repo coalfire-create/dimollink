@@ -91,9 +91,7 @@ export function SiteBriefCard({
               <Text style={styles.areaNote}>{area.note}</Text>
             </>
           ) : (
-            <Text style={styles.areaMissing}>
-              면적 근거가 없습니다 — 실사에서 직접 확인하세요.
-            </Text>
+            <Text style={styles.areaMissing}>면적 근거가 없습니다 — 실사에서 직접 확인하세요.</Text>
           )}
         </View>
 

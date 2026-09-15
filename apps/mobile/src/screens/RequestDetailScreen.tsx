@@ -1,53 +1,29 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Image } from 'react-native';
-import {
-  ASBESTOS_RISK_LABELS,
-  BUILDING_TYPE_LABELS,
-  DEMOLITION_TYPE_LABELS,
-  REQUEST_STATUS_LABELS,
-  asbestosRisk,
-  isRequestCancellable,
-  ledgerDisplayRows,
-  type Quote,
-  type ServiceRequest,
-} from '@dimol/shared';
-import {
-  ApiError,
-  acceptQuote,
-  cancelPayment,
-  cancelRequest,
-  getRequest,
-  listQuotes,
-  updateRequestStatus,
-  getSitePhotoViewUrl,
-} from '../api/client';
-import {
-  AppButton,
-  Card,
-  ErrorBanner,
-  Field,
-  InfoRow,
-  SectionTitle,
-  StatusBadge,
-} from '../components/ui';
-import { FadeInUp } from '../components/motion';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { isRequestCancellable, type ServiceRequest } from '@dimol/shared';
+import { Card, ErrorBanner, SectionTitle } from '../components/ui';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { RequestDetailSkeleton } from '../components/Skeleton';
 import { StatusTimeline } from '../components/StatusTimeline';
-import { useToast } from '../components/Toast';
-import { requestsKey } from '../api/queryKeys';
-import { invalidateQueries, setQueryData, useQuery } from '../lib/query';
-import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { FadeInUp } from '../components/motion';
 import { EstimateComparison } from '../components/demolition/EstimateComparison';
+import { ScreenHeader, useNavigation, useSession } from '../navigation';
+import { CancelPanel } from './request-detail/CancelPanel';
+import { CounterpartyActions } from './request-detail/CounterpartyActions';
+import { PaidRefundCard } from './request-detail/PaidRefundCard';
+import { ProviderWorkCard } from './request-detail/ProviderWorkCard';
+import { QuoteList } from './request-detail/QuoteList';
+import { RequestHeroCard } from './request-detail/RequestHeroCard';
+import { RequestInfoCard } from './request-detail/RequestInfoCard';
+import { useRequestDetail } from './request-detail/useRequestDetail';
 import { theme } from '../theme';
-import { isVisionMaterialCode, visionMaterialLabel } from '@dimol/shared';
 
 /**
- * 요청 상세 — 상단 요약(핵심 액션 포함) + 상태 타임라인 + 취소 + 채팅 진입.
- * 화면 순서는 상태 전이 로직을 그대로 따른다: 요약/결제 → 진행 상황 → 지금 해야 할 일
- * (견적 선택·환불·작업 진행) → 상세 정보 → 부가 액션(채팅) → 취소(가장 아래, 파괴적 동작).
- * 취소 버튼 노출은 shared 의 isRequestCancellable 로 서버 전이 규칙과 일치시킨다
- * (진행중부터는 취소 불가 — 취소 정책).
+ * 요청 진행 상태 상세 — 지금 어느 단계인지, 지금 내가 할 수 있는 게 뭔지.
+ *
+ * 이 파일은 **누구에게 무엇을 보여줄지**만 정한다(배출자냐 업체냐, 어느 상태냐).
+ * 데이터와 상태 전이는 [[useRequestDetail]] 에, 각 구간의 화면은
+ * `screens/request-detail/` 아래 자기 파일에 있다.
  */
 
 const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
@@ -59,136 +35,18 @@ const KIND_LABELS: Record<ServiceRequest['kind'], string> = {
 export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const nav = useNavigation();
   const user = useSession();
-  const toast = useToast();
-  const [acceptingQuoteId, setAcceptingQuoteId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [cancelMode, setCancelMode] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [cancelling, setCancelling] = useState(false);
-  const [refundMode, setRefundMode] = useState(false);
-  const [refunding, setRefunding] = useState(false);
-  const [advancing, setAdvancing] = useState(false);
-  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const detail = useRequestDetail(requestId);
+  const { request } = detail;
 
-  const detailKey = requestsKey.detail(requestId);
-  const {
-    data: request,
-    error: loadError,
-    isLoading,
-    refetch,
-  } = useQuery<ServiceRequest>(detailKey, () => getRequest(requestId));
-
-  /**
-   * 서버가 돌려준 최신 요청을 캐시에 바로 써 넣는다 — 다시 조회하지 않고도 화면이 바뀐다.
-   * 목록 캐시는 무효화만 해 둔다(대시보드로 돌아갈 때 갱신된 상태로 보이게).
-   */
-  const setRequest = useCallback(
-    (next: ServiceRequest) => {
-      setQueryData(detailKey, next);
-      invalidateQueries('requests:list');
-    },
-    [detailKey],
+  const crumbs = (
+    <Breadcrumbs
+      items={[
+        { label: '홈', onPress: () => nav.switchTab('home') },
+        { label: '요청 관리', onPress: () => nav.switchTab('requests') },
+        { label: '진행 상태 상세' },
+      ]}
+    />
   );
-
-  const load = useCallback(async () => {
-    invalidateQueries(`requests:quotes:${requestId}`);
-    await refetch();
-  }, [refetch, requestId]);
-
-  // 견적은 "내 요청이고 아직 매칭 대기중"일 때만 의미가 있다 — 그 외에는 아예 부르지 않는다.
-  const shouldLoadQuotes =
-    request !== undefined && request.requesterId === user.id && request.status === 'REQUESTED';
-  const { data: quotesData } = useQuery<Quote[]>(
-    shouldLoadQuotes ? requestsKey.quotes(requestId) : null,
-    () => listQuotes(requestId).catch(() => []),
-  );
-  const quotes: Quote[] = shouldLoadQuotes ? (quotesData ?? []) : [];
-
-  // 현장 사진은 키만 저장돼 있어 볼 때마다 서명 URL 을 받아야 한다.
-  useEffect(() => {
-    const keys = request?.sitePhotoKeys;
-    if (!keys || keys.length === 0) {
-      setPhotoUrls([]);
-      return;
-    }
-    let active = true;
-    void (async () => {
-      const urls = await Promise.all(
-        keys.map(async (key) => {
-          try {
-            return (await getSitePhotoViewUrl(key)).viewUrl;
-          } catch {
-            return '';
-          }
-        }),
-      );
-      if (active) setPhotoUrls(urls.filter((url) => url !== ''));
-    })();
-    return () => {
-      active = false;
-    };
-  }, [request?.sitePhotoKeys]);
-
-  async function acceptQuoteAndMatch(quoteId: string) {
-    setError(null);
-    setAcceptingQuoteId(quoteId);
-    try {
-      await acceptQuote(quoteId);
-      await load(); // 요청이 MATCHED 로 바뀌고 견적 섹션은 사라진다.
-      toast.success('견적을 수락했어요.', '결제하면 작업 일정이 확정돼요.');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '견적 수락에 실패했습니다.');
-    } finally {
-      setAcceptingQuoteId(null);
-    }
-  }
-
-  // 업체(매칭 확정 업체)가 작업 상태를 진행한다.
-  async function advance(status: 'IN_PROGRESS' | 'COMPLETED') {
-    setError(null);
-    setAdvancing(true);
-    try {
-      setRequest(await updateRequestStatus(requestId, status));
-      toast.success(status === 'IN_PROGRESS' ? '작업을 시작했어요.' : '작업 완료로 표시했어요.');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '상태 변경에 실패했습니다.');
-    } finally {
-      setAdvancing(false);
-    }
-  }
-
-  async function confirmRefund() {
-    if (!request?.paymentId) return;
-    setError(null);
-    setRefunding(true);
-    try {
-      // 결제완료(배차 전) 취소 = 전액 환불. 서버가 결제자·금액을 검증한다.
-      await cancelPayment({ paymentId: request.paymentId, stage: 'BEFORE_DISPATCH' });
-      setRefundMode(false);
-      toast.success('환불 요청이 접수됐어요.');
-      await load(); // 요청이 CANCELLED 로 전이된다.
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '환불 처리에 실패했습니다.');
-    } finally {
-      setRefunding(false);
-    }
-  }
-
-  async function confirmCancel() {
-    setError(null);
-    setCancelling(true);
-    try {
-      setRequest(await cancelRequest(requestId, cancelReason.trim() || '사용자 취소'));
-      toast.success('요청을 취소했어요.');
-      setCancelMode(false);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '취소에 실패했습니다.');
-    } finally {
-      setCancelling(false);
-    }
-  }
-
-  const errorMessage = error ?? (loadError ? loadError.message : null);
 
   // 아직 보여줄 데이터가 없는 동안에는 스피너 대신 들어올 화면의 뼈대를 그린다.
   // 데이터가 도착해도 레이아웃이 통째로 바뀌지 않아 화면이 튀지 않는다.
@@ -196,15 +54,9 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
     return (
       <View style={styles.screen}>
         <ScreenHeader title="요청 상세" canGoBack />
-        <Breadcrumbs
-          items={[
-            { label: '홈', onPress: () => nav.switchTab('home') },
-            { label: '요청 관리', onPress: () => nav.switchTab('requests') },
-            { label: '진행 상태 상세' },
-          ]}
-        />
-        <ErrorBanner message={errorMessage} onRetry={() => void refetch()} />
-        {isLoading ? <RequestDetailSkeleton /> : null}
+        {crumbs}
+        <ErrorBanner message={detail.errorMessage} onRetry={() => void detail.refetch()} />
+        {detail.isLoading ? <RequestDetailSkeleton /> : null}
       </View>
     );
   }
@@ -213,7 +65,7 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const isRequester = user.id === request.requesterId;
   const isProvider = user.id === request.matchedProviderId;
   const counterpartyId = request.matchedProviderId
-    ? user.id === request.requesterId
+    ? isRequester
       ? request.matchedProviderId
       : request.requesterId
     : null;
@@ -223,48 +75,14 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   return (
     <View style={styles.screen}>
       <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
-      <Breadcrumbs
-        items={[
-          { label: '홈', onPress: () => nav.switchTab('home') },
-          { label: '요청 관리', onPress: () => nav.switchTab('requests') },
-          { label: '진행 상태 상세' },
-        ]}
-      />
+      {crumbs}
       <ScrollView contentContainerStyle={styles.content}>
-        {/* 요약 카드 — 종류·지역·상태·합의 금액을 한눈에. 결제할 차례면 여기서 바로 결제한다. */}
         <FadeInUp delay={0}>
-          <Card style={awaitingPayment ? styles.heroCardHighlight : styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <Text style={styles.heroKind}>{KIND_LABELS[request.kind]}</Text>
-              <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
-            </View>
-            <Text style={styles.heroRegion}>{request.region}</Text>
-
-            {request.agreedFee !== undefined ? (
-              <>
-                <View style={styles.heroDivider} />
-                <View style={styles.heroFeeRow}>
-                  <Text style={styles.heroFeeLabel}>
-                    {request.status === 'MATCHED' ? '결제 예정 금액' : '합의 금액'}
-                  </Text>
-                  <Text style={styles.heroFeeValue}>
-                    {request.agreedFee.toLocaleString('ko-KR')}원
-                  </Text>
-                </View>
-              </>
-            ) : null}
-
-            {awaitingPayment ? (
-              <>
-                <Text style={styles.heroActionHint}>결제하면 바로 작업이 시작돼요.</Text>
-                <AppButton
-                  label="결제하기"
-                  style={styles.heroButton}
-                  onPress={() => nav.push({ name: 'payment', requestId: request.id })}
-                />
-              </>
-            ) : null}
-          </Card>
+          <RequestHeroCard
+            request={request}
+            kindLabel={KIND_LABELS[request.kind]}
+            awaitingPayment={awaitingPayment}
+          />
         </FadeInUp>
 
         {cancelled ? (
@@ -285,414 +103,42 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           </FadeInUp>
         )}
 
-        <SectionTitle>요청 정보</SectionTitle>
-        <Card>
-          <InfoRow label="지역" value={request.region} />
-          {request.kind !== 'DEMOLITION' ? (
-            <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
-          ) : null}
-          <InfoRow
-            label="올바로 신고"
-            value={request.allbaroRequested ? '신청함' : '간이 확인서'}
-          />
-          {request.kind === 'DEMOLITION' ? (
-            <>
-              <InfoRow label="현장 주소" value={request.siteAddress} />
-              {request.demolitionDetails?.buildingType ? (
-                <InfoRow
-                  label="건물 종류"
-                  value={
-                    BUILDING_TYPE_LABELS[request.demolitionDetails.buildingType] ??
-                    request.demolitionDetails.buildingType
-                  }
-                />
-              ) : null}
-              {request.demolitionDetails?.demolitionType ? (
-                <InfoRow
-                  label="철거 종류"
-                  value={
-                    DEMOLITION_TYPE_LABELS[request.demolitionDetails.demolitionType] ??
-                    request.demolitionDetails.demolitionType
-                  }
-                />
-              ) : null}
-              {request.demolitionDetails?.spaceSize ? (
-                <InfoRow label="평수 / 면적" value={request.demolitionDetails.spaceSize} />
-              ) : null}
-              {request.demolitionDetails?.floorCount ? (
-                <InfoRow label="층수" value={request.demolitionDetails.floorCount} />
-              ) : null}
-              {request.demolitionDetails?.hasElevator !== undefined ? (
-                <InfoRow
-                  label="엘리베이터"
-                  value={request.demolitionDetails.hasElevator ? '있음' : '없음'}
-                />
-              ) : null}
-              {request.demolitionDetails?.hasVehicleAccess !== undefined ? (
-                <InfoRow
-                  label="차량/사다리 진입"
-                  value={request.demolitionDetails.hasVehicleAccess ? '가능' : '불가'}
-                />
-              ) : null}
-              {request.demolitionDetails?.desiredDate ? (
-                <InfoRow label="희망 철거일" value={request.demolitionDetails.desiredDate} />
-              ) : null}
-              {request.demolitionDetails?.description ? (
-                <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
-              ) : null}
-              {ledgerDisplayRows(request.demolitionDetails?.buildingLedger).map((row) => (
-                <InfoRow
-                  key={`ledger-${row.label}`}
-                  label={`대장 ${row.label}`}
-                  value={row.value}
-                />
-              ))}
-              {request.demolitionDetails?.buildingLedger &&
-              (asbestosRisk(request.demolitionDetails.buildingLedger) === 'HIGH' ||
-                asbestosRisk(request.demolitionDetails.buildingLedger) === 'POSSIBLE') ? (
-                <InfoRow
-                  label="⚠️ 석면"
-                  value={`${ASBESTOS_RISK_LABELS[asbestosRisk(request.demolitionDetails.buildingLedger)]} — 철거 전 석면 사전조사 필요`}
-                />
-              ) : null}
-              {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
-                <>
-                  <InfoRow
-                    label="✨ AI 분석 요약"
-                    value={request.demolitionDetails.dimolVisionAnalysis.summary}
-                  />
-                  {request.demolitionDetails.dimolVisionAnalysis.hazards &&
-                  request.demolitionDetails.dimolVisionAnalysis.hazards.length > 0 ? (
-                    <InfoRow
-                      label="⚠️ 위험요소"
-                      value={request.demolitionDetails.dimolVisionAnalysis.hazards.join(', ')}
-                    />
-                  ) : null}
-                  {request.demolitionDetails.dimolVisionAnalysis.materials &&
-                  request.demolitionDetails.dimolVisionAnalysis.materials.length > 0 ? (
-                    <InfoRow
-                      label="🧱 감지된 소재"
-                      value={request.demolitionDetails.dimolVisionAnalysis.materials
-                        .map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m))
-                        .join(', ')}
-                    />
-                  ) : null}
-                  {request.demolitionDetails.dimolVisionAnalysis.confidence ? (
-                    <InfoRow
-                      label="분석 정확도"
-                      value={request.demolitionDetails.dimolVisionAnalysis.confidence}
-                    />
-                  ) : null}
-                </>
-              ) : null}
-              {request.wasteItems && request.wasteItems.length > 0 ? (
-                <View style={{ marginTop: theme.spacing.sm }}>
-                  <Text style={{ fontWeight: '600', marginBottom: theme.spacing.xs }}>
-                    폐기물 상세 내역
-                  </Text>
-                  {request.wasteItems.map((item, idx) => (
-                    <InfoRow
-                      key={idx}
-                      label={visionMaterialLabel(item.material)}
-                      value={`${item.kg} kg`}
-                    />
-                  ))}
-                  <InfoRow label="총 예상 무게" value={`${request.wasteTons} 톤`} />
-                </View>
-              ) : null}
-            </>
-          ) : null}
-          {request.kind === 'TRANSPORT' ? (
-            <>
-              <InfoRow label="상차지" value={request.loadAddress} />
-              <InfoRow label="하차지" value={request.unloadAddress} />
-            </>
-          ) : null}
-          {request.kind === 'DISPOSAL_RESERVATION' ? (
-            <InfoRow
-              label="방문 일시"
-              value={new Date(request.visitAt).toLocaleString('ko-KR', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            />
-          ) : null}
-          <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
-          {photoUrls.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginVertical: 8 }}
-            >
-              {photoUrls.map((url, idx) => (
-                <Image
-                  key={idx}
-                  source={{ uri: url }}
-                  style={{
-                    width: 120,
-                    height: 120,
-                    borderRadius: 8,
-                    marginRight: 8,
-                    backgroundColor: theme.colors.surface,
-                  }}
-                  resizeMode="cover"
-                />
-              ))}
-            </ScrollView>
-          ) : null}
-          <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
-        </Card>
+        <RequestInfoCard request={request} photoUrls={detail.photoUrls} />
 
         {/* 철거는 현장을 봐야 금액이 정해진다 — 개산/실사/확정을 나눠 보여준다.
             운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
         {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
-          <EstimateComparison requestId={request.id} onMatched={() => void load()} />
+          <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
         ) : null}
 
-        {quotes.length > 0 ? (
-          <>
-            <SectionTitle>받은 견적 ({quotes.length})</SectionTitle>
-            <Text style={styles.quoteHint}>가격을 비교하고 선택하세요.</Text>
-            {[...quotes]
-              .sort((a, b) => a.amount - b.amount)
-              .map((q, i) => (
-                <Card key={q.id} style={i === 0 ? styles.bestQuoteCard : undefined}>
-                  <View style={styles.quoteHeader}>
-                    <Text style={styles.quoteProviderName}>{q.providerName || '철거업체'}</Text>
-                    {i === 0 ? (
-                      <View style={styles.bestBadge}>
-                        <Text style={styles.bestBadgeText}>최저가</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.quoteRow}>
-                    <Text style={styles.quoteAmount}>{q.amount.toLocaleString('ko-KR')}원</Text>
-                  </View>
-                  <Text style={styles.quoteTime}>
-                    {new Date(q.createdAt).toLocaleString('ko-KR', {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: 'numeric',
-                    })}
-                  </Text>
-                  {q.memo ? <Text style={styles.quoteMemo}>{q.memo}</Text> : null}
-                  <AppButton
-                    label="이 견적 선택"
-                    onPress={() => acceptQuoteAndMatch(q.id)}
-                    loading={acceptingQuoteId === q.id}
-                  />
-                </Card>
-              ))}
-          </>
-        ) : null}
+        <QuoteList
+          quotes={detail.quotes}
+          acceptingQuoteId={detail.acceptingQuoteId}
+          onAccept={detail.acceptQuoteAndMatch}
+        />
 
         {isRequester && request.status === 'PAID' ? (
-          <Card>
-            <Text style={styles.paidBadge}>✓ 결제가 완료됐어요</Text>
-            {request.paymentId ? (
-              refundMode ? (
-                <View style={{ marginTop: spacing.sm }}>
-                  <Text style={styles.cancelPolicy}>
-                    아직 배차 전이라 전액 환불돼요. 정말 취소·환불하시겠어요?
-                  </Text>
-                  <AppButton
-                    label="취소하고 환불받기"
-                    variant="danger"
-                    onPress={confirmRefund}
-                    loading={refunding}
-                  />
-                  <View style={{ height: spacing.xs }} />
-                  <AppButton
-                    label="돌아가기"
-                    variant="outline"
-                    onPress={() => setRefundMode(false)}
-                  />
-                </View>
-              ) : (
-                <AppButton
-                  label="결제 취소·환불"
-                  variant="danger"
-                  style={{ marginTop: spacing.sm }}
-                  onPress={() => setRefundMode(true)}
-                />
-              )
-            ) : null}
-          </Card>
-        ) : null}
-
-        {isProvider && (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
-          <>
-            <SectionTitle>작업 진행</SectionTitle>
-            <Card>
-              {request.status === 'PAID' ? (
-                <>
-                  <Text style={styles.quoteHint}>현장 도착 후 작업을 시작하세요.</Text>
-                  <AppButton
-                    label="작업 시작"
-                    onPress={() => advance('IN_PROGRESS')}
-                    loading={advancing}
-                  />
-                </>
-              ) : (
-                <>
-                  <Text style={styles.quoteHint}>작업이 끝나면 완료 처리하세요.</Text>
-                  <AppButton
-                    label="작업 완료"
-                    onPress={() => advance('COMPLETED')}
-                    loading={advancing}
-                  />
-                </>
-              )}
-            </Card>
-          </>
-        ) : null}
-
-        <SectionTitle>요청 정보</SectionTitle>
-        <Card>
-          {request.kind !== 'DEMOLITION' ? (
-            <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
-          ) : null}
-          <InfoRow
-            label="올바로 신고"
-            value={request.allbaroRequested ? '신청함' : '간이 확인서'}
+          <PaidRefundCard
+            canRefund={!!request.paymentId}
+            refunding={detail.refunding}
+            onRefund={detail.confirmRefund}
           />
-          {request.kind === 'DEMOLITION' ? (
-            <>
-              <InfoRow label="현장 주소" value={request.siteAddress} />
-              {request.demolitionDetails?.buildingType ? (
-                <InfoRow
-                  label="건물 종류"
-                  value={
-                    BUILDING_TYPE_LABELS[request.demolitionDetails.buildingType] ??
-                    request.demolitionDetails.buildingType
-                  }
-                />
-              ) : null}
-              {request.demolitionDetails?.demolitionType ? (
-                <InfoRow
-                  label="철거 종류"
-                  value={
-                    DEMOLITION_TYPE_LABELS[request.demolitionDetails.demolitionType] ??
-                    request.demolitionDetails.demolitionType
-                  }
-                />
-              ) : null}
-              {request.demolitionDetails?.spaceSize ? (
-                <InfoRow label="평수 / 면적" value={request.demolitionDetails.spaceSize} />
-              ) : null}
-              {request.demolitionDetails?.floorCount ? (
-                <InfoRow label="층수" value={request.demolitionDetails.floorCount} />
-              ) : null}
-              {request.demolitionDetails?.hasElevator !== undefined ? (
-                <InfoRow
-                  label="엘리베이터"
-                  value={request.demolitionDetails.hasElevator ? '있음' : '없음'}
-                />
-              ) : null}
-              {request.demolitionDetails?.hasVehicleAccess !== undefined ? (
-                <InfoRow
-                  label="차량/사다리 진입"
-                  value={request.demolitionDetails.hasVehicleAccess ? '가능' : '불가'}
-                />
-              ) : null}
-              {request.demolitionDetails?.desiredDate ? (
-                <InfoRow label="희망 철거일" value={request.demolitionDetails.desiredDate} />
-              ) : null}
-              {request.demolitionDetails?.description ? (
-                <InfoRow label="상세 요구사항" value={request.demolitionDetails.description} />
-              ) : null}
-              {request.demolitionDetails?.dimolVisionAnalysis?.summary ? (
-                <InfoRow
-                  label="디몰비전 분석"
-                  value={request.demolitionDetails.dimolVisionAnalysis.summary}
-                />
-              ) : null}
-            </>
-          ) : null}
-          {request.kind === 'TRANSPORT' ? (
-            <>
-              <InfoRow label="상차지" value={request.loadAddress} />
-              <InfoRow label="하차지" value={request.unloadAddress} />
-            </>
-          ) : null}
-          {request.kind === 'DISPOSAL_RESERVATION' ? (
-            <InfoRow
-              label="방문 일시"
-              value={new Date(request.visitAt).toLocaleString('ko-KR', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })}
-            />
-          ) : null}
-          <InfoRow label="현장 사진" value={`${request.sitePhotoKeys.length}장`} />
-          <InfoRow label="접수일" value={new Date(request.createdAt).toLocaleDateString('ko-KR')} />
-        </Card>
-
-        {counterpartyId && !cancelled ? (
-          <>
-            <SectionTitle>매칭 업체와 대화</SectionTitle>
-            <AppButton
-              label="채팅하기"
-              variant="outline"
-              onPress={() => nav.push({ name: 'chat', requestId: request.id, counterpartyId })}
-            />
-
-            {request.kind === 'TRANSPORT' &&
-            (request.status === 'PAID' || request.status === 'IN_PROGRESS') ? (
-              <AppButton
-                label="실시간 트럭 위치 확인"
-                variant="primary"
-                style={{ marginTop: spacing.sm }}
-                onPress={() => nav.push({ name: 'tracking', requestId: request.id })}
-              />
-            ) : null}
-          </>
         ) : null}
 
-        {counterpartyId && (request.status === 'COMPLETED' || request.status === 'SETTLED') ? (
-          <>
-            <SectionTitle>서비스 평가</SectionTitle>
-            <AppButton
-              label="리뷰 남기기"
-              variant="outline"
-              onPress={() => nav.push({ name: 'reviewForm', requestId: request.id })}
-            />
-          </>
+        {isProvider ? (
+          <ProviderWorkCard
+            request={request}
+            advancing={detail.advancing}
+            onAdvance={detail.advance}
+          />
         ) : null}
 
-        <ErrorBanner message={errorMessage} />
+        <CounterpartyActions request={request} counterpartyId={counterpartyId} />
+
+        <ErrorBanner message={detail.errorMessage} />
 
         {isRequestCancellable(request.status) ? (
-          cancelMode ? (
-            <Card style={{ marginTop: spacing.sm }}>
-              <Text style={styles.cancelConfirmTitle}>정말 취소하시겠어요?</Text>
-              <Text style={styles.cancelPolicy}>
-                업체 배차 후에 취소하면 위약금 10%를 뺀 금액이 환불돼요. 배차 전에는 전액 환불돼요.
-              </Text>
-              <Field
-                label="취소 사유 (선택)"
-                value={cancelReason}
-                onChangeText={setCancelReason}
-                placeholder="예) 일정이 변경됐어요"
-              />
-              <AppButton
-                label="요청 취소하기"
-                variant="danger"
-                onPress={confirmCancel}
-                loading={cancelling}
-              />
-              <View style={{ height: spacing.xs }} />
-              <AppButton label="돌아가기" variant="outline" onPress={() => setCancelMode(false)} />
-            </Card>
-          ) : (
-            <AppButton
-              label="요청 취소"
-              variant="danger"
-              style={{ marginTop: spacing.sm }}
-              onPress={() => setCancelMode(true)}
-            />
-          )
+          <CancelPanel cancelling={detail.cancelling} onCancel={detail.confirmCancel} />
         ) : null}
       </ScrollView>
     </View>
@@ -710,56 +156,6 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     paddingBottom: spacing.lg,
   },
-  heroCard: {
-    backgroundColor: colors.background,
-  },
-  heroCardHighlight: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  heroTopRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  heroKind: {
-    color: colors.text,
-    fontSize: font.title,
-    fontWeight: '800',
-  },
-  heroRegion: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.xs,
-  },
-  heroDivider: {
-    backgroundColor: colors.border,
-    height: 1,
-    marginVertical: spacing.sm,
-  },
-  heroFeeRow: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  heroFeeLabel: {
-    color: colors.textMuted,
-    fontSize: font.body,
-  },
-  heroFeeValue: {
-    color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-  },
-  heroActionHint: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.sm,
-  },
-  heroButton: {
-    marginTop: spacing.xs,
-  },
   cancelledTitle: {
     color: colors.error,
     fontSize: font.bodyLarge,
@@ -769,74 +165,5 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs,
-  },
-  cancelConfirmTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  cancelPolicy: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginBottom: spacing.sm,
-  },
-  quoteHint: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginBottom: spacing.xs,
-  },
-  bestQuoteCard: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  bestBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-  },
-  bestBadgeText: {
-    color: colors.background,
-    fontSize: font.caption,
-    fontWeight: '800',
-  },
-  quoteHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  quoteProviderName: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
-  },
-  quoteRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quoteAmount: {
-    color: colors.text,
-    fontSize: font.title,
-    fontWeight: '800',
-  },
-  quoteTime: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    marginTop: spacing.xs / 2,
-    marginBottom: spacing.xs,
-  },
-  quoteMemo: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginBottom: spacing.xs,
-    marginTop: spacing.xs / 2,
-  },
-  paidBadge: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
   },
 });
