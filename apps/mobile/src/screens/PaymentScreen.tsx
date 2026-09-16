@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   INTERIOR_CATEGORY_LABELS,
   calculateDeal,
@@ -73,8 +73,8 @@ export function PaymentScreen({
     if (!request) return;
     let total = request.agreedFee ?? 0;
     if (request.kind === 'DEMOLITION') {
-      if (request.status === 'MATCHED') total = total * 0.1;
-      else if (request.status === 'COMPLETED') total = total * 0.9;
+      if (request.status === 'MATCHED') total = Math.floor(total * 0.1);
+      else if (request.status === 'COMPLETED') total = Math.floor(total * 0.9);
     }
     if (total <= 0) {
       setError('결제 금액을 확인할 수 없습니다.');
@@ -91,7 +91,8 @@ export function PaymentScreen({
       totalAmount: total,
       currency: 'CURRENCY_KRW',
       payMethod: payMethod === 'VBANK' ? 'VIRTUAL_ACCOUNT' : 'CARD',
-    });
+      appScheme: 'dimollink',
+    } as any);
   }
 
   /** 결제창 완료 콜백 → 서버가 결제를 조회·검증(금액 일치)하고 선결제를 확정한다. */
@@ -134,8 +135,8 @@ export function PaymentScreen({
 
   let amount = request.agreedFee ?? 0;
   if (request.kind === 'DEMOLITION') {
-    if (request.status === 'MATCHED') amount = amount * 0.1;
-    else if (request.status === 'COMPLETED') amount = amount * 0.9;
+    if (request.status === 'MATCHED') amount = Math.floor(amount * 0.1);
+    else if (request.status === 'COMPLETED') amount = Math.floor(amount * 0.9);
   }
   // 수수료 계산은 서버 정산과 같은 공유 함수를 쓴다 — 여기서 따로 계산하면
   // 반올림 규칙이 갈라져 화면 금액과 실제 정산액이 어긋난다([[marketplace]]).
@@ -179,6 +180,19 @@ export function PaymentScreen({
 
   // 결제창 활성화 시 PortOne WebView 를 전체화면으로 띄운다.
   if (payRequest) {
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.screen}>
+          <ScreenHeader title="결제 안내" canGoBack />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <AppIcon name="close-circle" size={48} color={theme.colors.error} />
+            <Text style={{ marginTop: 16, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>웹 환경에서는 결제를 지원하지 않습니다.</Text>
+            <Text style={{ marginTop: 8, fontSize: 14, color: theme.colors.textMuted, textAlign: 'center' }}>현재 포트원 결제 모듈은 모바일 앱(iOS/Android) 환경에서만 동작합니다. 모바일 기기나 시뮬레이터에서 결제를 진행해 주세요.</Text>
+            <AppButton label="돌아가기" onPress={() => setPayRequest(null)} style={{ marginTop: 24, width: '100%' }} />
+          </View>
+        </View>
+      );
+    }
     return (
       <View style={styles.screen}>
         <PortOne.Payment request={payRequest} onError={onPaymentError} onComplete={onPaymentComplete} />
