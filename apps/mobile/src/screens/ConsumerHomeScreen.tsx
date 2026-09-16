@@ -8,7 +8,7 @@ import { FadeInUp, PressableScale } from '../components/motion';
 import { FEATURE_INTERIOR } from '../featureFlags';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
-import { ActiveRequestList } from './home/ActiveRequestList';
+import { ActiveRequestDashboard } from './home/ActiveRequestDashboard';
 import { GuaranteeCard } from './home/GuaranteeCard';
 import { PartnerList } from './home/PartnerList';
 import { useConsumerHome } from './home/useConsumerHome';
@@ -43,40 +43,40 @@ export function ConsumerHomeScreen() {
           <ErrorBanner message={home.loadError} onRetry={() => void home.load()} />
         </View>
 
-        <FadeInUp delay={40}>
-          <View style={styles.banner}>
-            <View style={styles.bannerText}>
-              <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
-              <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
-            </View>
-            <AppIcon name="building" size={48} color={colors.background} />
-          </View>
-        </FadeInUp>
-
-        <FadeInUp delay={100}>
-          <PressableScale
-            accessibilityLabel="철거 · 원상복구 신청하기"
-            accessibilityHint="현장 사진과 주소를 입력해 견적을 요청합니다"
-            style={styles.ctaCard}
-            onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
-          >
-            <View style={styles.ctaTextBox}>
-              <Text style={styles.ctaTitle}>철거 · 원상복구{'\n'}신청하기</Text>
-              <Text style={styles.ctaSubtitle}>사진 한 장이면 견적까지 한 번에</Text>
-            </View>
-            <View style={styles.ctaIconWrap}>
-              <AppIcon name="hammer" size={40} color={colors.primary} />
-            </View>
-          </PressableScale>
-        </FadeInUp>
-
         {home.activeRequests.length > 0 ? (
-          <FadeInUp delay={140}>
-            <View style={styles.gutter}>
-              <ActiveRequestList requests={home.activeRequests} />
-            </View>
+          <FadeInUp delay={40}>
+            <ActiveRequestDashboard requests={home.activeRequests} />
           </FadeInUp>
-        ) : null}
+        ) : (
+          <>
+            <FadeInUp delay={40}>
+              <View style={styles.banner}>
+                <View style={styles.bannerText}>
+                  <Text style={styles.bannerTitle}>철거를 더 쉽고, 더 똑똑하게</Text>
+                  <Text style={styles.bannerSubtitle}>새롭게 비우는 공식, 비움</Text>
+                </View>
+                <AppIcon name="building" size={48} color={colors.background} />
+              </View>
+            </FadeInUp>
+
+            <FadeInUp delay={100}>
+              <PressableScale
+                accessibilityLabel="철거 · 원상복구 신청하기"
+                accessibilityHint="현장 사진과 주소를 입력해 견적을 요청합니다"
+                style={styles.ctaCard}
+                onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+              >
+                <View style={styles.ctaTextBox}>
+                  <Text style={styles.ctaTitle}>철거 · 원상복구{'\n'}신청하기</Text>
+                  <Text style={styles.ctaSubtitle}>사진 한 장이면 견적까지 한 번에</Text>
+                </View>
+                <View style={styles.ctaIconWrap}>
+                  <AppIcon name="hammer" size={40} color={colors.primary} />
+                </View>
+              </PressableScale>
+            </FadeInUp>
+          </>
+        )}
 
         <FadeInUp delay={180}>
           <View style={styles.gutter}>
