@@ -85,7 +85,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     borderRadius: radius.card,
     padding: spacing.md,
-    marginTop: -spacing.xs,
     marginBottom: spacing.md,
   },
   cardMuted: {
@@ -120,16 +119,19 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingVertical: spacing.xs,
   },
   rowLabel: {
     color: colors.textMuted,
     fontSize: font.caption,
     fontWeight: '600',
+    flexShrink: 0,
+    marginRight: spacing.sm,
   },
   rowValue: {
     color: colors.text,
-    flexShrink: 1,
+    flex: 1,
     fontSize: font.caption,
     fontWeight: '700',
     textAlign: 'right',

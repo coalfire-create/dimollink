@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   chip: {
     backgroundColor: colors.surface,
@@ -66,7 +67,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 4,
-    marginRight: spacing.xs,
     marginBottom: spacing.xs,
   },
   chipActive: {

@@ -22,12 +22,14 @@ export function VisionSteps({
   photoBusy: boolean;
 }) {
   return (
-    <View style={styles.row}>
-      <VisionStep index={1} label="현장 주소 지정" done={addressReady} />
-      <View style={styles.bar} />
-      <VisionStep index={2} label="건물 정보 확인" done={ledgerDone} busy={ledgerBusy} />
-      <View style={styles.bar} />
-      <VisionStep index={3} label="현장 사진 등록" done={photoDone} busy={photoBusy} />
+    <View style={styles.card}>
+      <View style={styles.row}>
+        <VisionStep index={1} label="현장 주소 지정" done={addressReady} />
+        <View style={[styles.bar, addressReady && styles.barActive]} />
+        <VisionStep index={2} label="건물 정보 확인" done={ledgerDone} busy={ledgerBusy} />
+        <View style={[styles.bar, (ledgerDone || photoBusy || photoDone) && styles.barActive]} />
+        <VisionStep index={3} label="현장 사진 등록" done={photoDone} busy={photoBusy} />
+      </View>
     </View>
   );
 }
@@ -49,18 +51,27 @@ function VisionStep({
       <View style={[styles.dot, active && styles.dotActive]}>
         <Text style={[styles.num, active && styles.numActive]}>{done ? '✓' : index}</Text>
       </View>
-      <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
+      <Text style={[styles.label, active && styles.labelActive]} numberOfLines={2}>
+        {label}
+      </Text>
     </View>
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
     marginBottom: spacing.md,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   step: {
     alignItems: 'center',
@@ -69,11 +80,18 @@ const styles = StyleSheet.create({
   bar: {
     backgroundColor: colors.border,
     height: 2,
-    width: spacing.sm,
+    flex: 0.6,
+    marginTop: 15, // dot 높이 32의 정중앙에 정확히 일치
+    alignSelf: 'flex-start',
+  },
+  barActive: {
+    backgroundColor: colors.primary,
   },
   dot: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderWidth: 1.5,
     borderRadius: 999,
     height: 32,
     justifyContent: 'center',
@@ -81,6 +99,7 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   num: {
     color: colors.textMuted,
@@ -89,12 +108,14 @@ const styles = StyleSheet.create({
   },
   numActive: {
     color: colors.background,
+    fontWeight: '800',
   },
   label: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
     textAlign: 'center',
+    lineHeight: font.caption * 1.3,
   },
   labelActive: {
     color: colors.text,

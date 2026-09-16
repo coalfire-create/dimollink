@@ -118,10 +118,24 @@ export function DemolitionSection({ form }: { form: RequestFormState }) {
             form.setSelectedDates(next);
           }}
           markedDates={form.selectedDates}
+          style={styles.calendar}
           theme={{
-            arrowColor: theme.colors.primary,
-            todayTextColor: theme.colors.primary,
+            backgroundColor: theme.colors.background,
+            calendarBackground: theme.colors.background,
+            textSectionTitleColor: theme.colors.textMuted,
             selectedDayBackgroundColor: theme.colors.primary,
+            selectedDayTextColor: theme.colors.background,
+            todayTextColor: theme.colors.primary,
+            dayTextColor: theme.colors.text,
+            textDisabledColor: theme.colors.textMuted,
+            arrowColor: theme.colors.primary,
+            monthTextColor: theme.colors.text,
+            textDayFontWeight: '600',
+            textMonthFontWeight: '800',
+            textDayHeaderFontWeight: '700',
+            textDayFontSize: theme.font.body,
+            textMonthFontSize: theme.font.bodyLarge,
+            textDayHeaderFontSize: theme.font.caption,
           }}
         />
       </View>
@@ -142,9 +156,20 @@ export function DemolitionSection({ form }: { form: RequestFormState }) {
 
 const styles = StyleSheet.create({
   calendarWrap: {
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.card,
+    borderWidth: 1,
     marginBottom: theme.spacing.md,
+    overflow: 'hidden',
+    ...theme.shadow.card,
+  },
+  calendar: {
+    borderRadius: theme.radius.card,
   },
   multilineInput: {
-    minHeight: 80,
+    minHeight: 96,
+    paddingTop: theme.spacing.sm + 2,
+    textAlignVertical: 'top',
   },
 });

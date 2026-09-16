@@ -61,6 +61,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '600',
+    flex: 1,
+    marginRight: spacing.sm,
   },
   segment: {
     flexDirection: 'row',

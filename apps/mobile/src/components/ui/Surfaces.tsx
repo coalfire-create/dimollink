@@ -65,7 +65,7 @@ export function KeyboardAwareScreen({
 }) {
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={[styles.keyboardAware, style]}
     >
       {children}

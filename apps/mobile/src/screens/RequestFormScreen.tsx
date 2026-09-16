@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: 140, // StickyFooter 및 안전영역에 가려지지 않도록 넉넉한 하단 공간 확보
   },
   pilotChip: {
     alignSelf: 'flex-start',

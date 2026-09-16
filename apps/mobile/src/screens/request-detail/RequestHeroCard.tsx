@@ -42,16 +42,16 @@ export function RequestHeroCard({
             <Text style={styles.feeValue}>{won(request.agreedFee)}</Text>
           </View>
           {request.status === 'MATCHED' && (
-             <View style={styles.feeRow}>
-               <Text style={styles.feeLabel}>계약금 (10%)</Text>
-               <Text style={{...styles.feeValue, color: colors.primary}}>{won(request.agreedFee * 0.1)}</Text>
-             </View>
+            <View style={styles.feeSubRow}>
+              <Text style={styles.feeSubLabel}>계약금 (10%)</Text>
+              <Text style={styles.feePrimary}>{won(request.agreedFee * 0.1)}</Text>
+            </View>
           )}
           {request.status === 'COMPLETED' && (
-             <View style={styles.feeRow}>
-               <Text style={styles.feeLabel}>잔금 (90%)</Text>
-               <Text style={{...styles.feeValue, color: colors.primary}}>{won(request.agreedFee * 0.9)}</Text>
-             </View>
+            <View style={styles.feeSubRow}>
+              <Text style={styles.feeSubLabel}>잔금 (90%)</Text>
+              <Text style={styles.feePrimary}>{won(request.agreedFee * 0.9)}</Text>
+            </View>
           )}
         </>
       ) : null}
@@ -123,6 +123,21 @@ const styles = StyleSheet.create({
   feeValue: {
     color: colors.text,
     fontSize: font.titleLarge,
+    fontWeight: '800',
+  },
+  feeSubRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs / 2,
+  },
+  feeSubLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+  },
+  feePrimary: {
+    color: colors.primary,
+    fontSize: font.bodyLarge,
     fontWeight: '800',
   },
   actionHint: {

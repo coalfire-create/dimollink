@@ -139,6 +139,8 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     backgroundColor: colors.primarySoft,
     marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   fillText: {
     color: colors.primary,
