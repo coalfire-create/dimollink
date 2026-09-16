@@ -62,7 +62,7 @@ export function ActiveRequestDashboard({ requests }: { requests: ServiceRequest[
 
               <AppButton
                 label="요청 상세 보기"
-                variant="secondary"
+                variant="outline"
                 onPress={() => nav.push({ name: 'requestDetail', requestId: request.id })}
               />
             </Card>
@@ -73,7 +73,7 @@ export function ActiveRequestDashboard({ requests }: { requests: ServiceRequest[
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   container: {
