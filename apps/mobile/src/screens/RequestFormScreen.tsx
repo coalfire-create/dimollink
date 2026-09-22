@@ -153,6 +153,13 @@ export function RequestFormScreen({
 
 const { colors, font, spacing } = theme;
 
+/**
+ * 스크롤 내용 맨 아래에 비워두는 높이.
+ * 하단 고정 CTA(StickyFooter: 버튼 48 + 위아래 여백 + 홈 인디케이터)에 마지막 입력칸이
+ * 가려지면 사용자가 그 칸을 못 채운다. 8px 배수 토큰으로 넉넉히 잡는다.
+ */
+const FOOTER_CLEARANCE = spacing.md * 6;
+
 const styles = StyleSheet.create({
   screen: {
     backgroundColor: colors.background,
@@ -160,7 +167,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: 140, // StickyFooter 및 안전영역에 가려지지 않도록 넉넉한 하단 공간 확보
+    paddingBottom: FOOTER_CLEARANCE,
   },
   pilotChip: {
     alignSelf: 'flex-start',

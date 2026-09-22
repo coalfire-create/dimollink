@@ -6,6 +6,7 @@ import {
   type CallAvailability,
   type GeoPoint,
   type UserApprovalStatus,
+  type UserProfile,
   type UserType,
 } from '@dimol/shared';
 import { Router, type Request, type Response } from 'express';
@@ -24,6 +25,14 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
   if (typeof lat !== 'number' || typeof lng !== 'number') return undefined;
   const point = { lat, lng };
   return isValidGeoPoint(point) ? point : undefined;
+}
+
+/** 남에게 보여줄 프로필 — 연락처·사업자등록번호(PII)를 뺀다. */
+function toPublicProfile(user: UserProfile): UserProfile {
+  const publicProfile = { ...user };
+  delete publicProfile.phone;
+  delete publicProfile.businessNumber;
+  return publicProfile;
 }
 
 /**
@@ -173,15 +182,16 @@ export function createUsersRouter(
   // GET /api/users?userType=&approvalStatus= — 목록
   router.get('/users', async (req, res) => {
     const { userType, approvalStatus } = req.query;
-    res.json(
-      await store.list({
-        userType: typeof userType === 'string' ? (userType as UserType) : undefined,
-        approvalStatus:
-          typeof approvalStatus === 'string'
-            ? (approvalStatus as UserApprovalStatus)
-            : undefined,
-      }),
-    );
+    const users = await store.list({
+      userType: typeof userType === 'string' ? (userType as UserType) : undefined,
+      approvalStatus:
+        typeof approvalStatus === 'string' ? (approvalStatus as UserApprovalStatus) : undefined,
+    });
+    // 목록은 업체 고르기(홈 화면)에 쓰인다. 로그인만 하면 전 회원의 연락처·사업자번호를
+    // 통째로 받아갈 수 있으면 안 되므로, 단건 조회(GET /users/:id)와 같은 기준으로 PII 를 뺀다.
+    // 운영자용 전체 정보는 관리자 인증이 걸린 GET /api/admin/users 로 본다.
+    const me = authUserId(req);
+    res.json(users.map((user) => (user.id === me ? user : toPublicProfile(user))));
   });
 
   // GET /api/users/:id — 프로필 조회. 본인은 전체, 타인은 PII(연락처·사업자번호) 제외 공개 프로필.
@@ -196,10 +206,7 @@ export function createUsersRouter(
       return;
     }
     // 타인 조회 — 연락처·사업자번호 같은 PII 는 노출하지 않는다.
-    const publicProfile = { ...user };
-    delete publicProfile.phone;
-    delete publicProfile.businessNumber;
-    res.json(publicProfile);
+    res.json(toPublicProfile(user));
   });
 
   // PATCH /api/users/:id/availability — 운반업체 콜대기 상태 토글 (ONLINE/OFFLINE)

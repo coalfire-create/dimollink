@@ -138,4 +138,25 @@ describe('지급대행/세금계산서 — 모의 응답(Phase B)', () => {
       });
       warn.mockRestore();
     });
+
+    // 실거래에서 모의 성공을 돌려주면 돈이 안 나갔는데 정산·발행이 끝난 것으로 기록된다.
+    it('live 모드에서는 모의 지급을 성공으로 돌려주지 않는다', async () => {
+      const client = new PortOneClient(
+        { ...baseConfig, mode: 'live', allowLive: true },
+        fakeSdk(),
+      );
+      await expect(
+        client.createPayout({ payoutId: 'MR-1-TRANSPORT', party: 'TRANSPORT', amount: 10_000 }),
+      ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
+    });
+
+    it('live 모드에서는 모의 세금계산서를 발행 완료로 돌려주지 않는다', async () => {
+      const client = new PortOneClient(
+        { ...baseConfig, mode: 'live', allowLive: true },
+        fakeSdk(),
+      );
+      await expect(
+        client.issueTaxInvoice({ payoutId: 'x', businessNumber: '1112233333', amount: 10_000 }),
+      ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
+    });
   });

@@ -74,7 +74,9 @@ export function statusColor(status: string): { background: string; text: string 
     case 'COMPLETED':
     case 'SETTLED':
       return { background: theme.colors.successSoft, text: theme.colors.success };
+    // 멈춰 있어 사용자가 손을 써야 하는 상태(취소·결제 대기)는 같은 톤으로 묶는다.
     case 'CANCELLED':
+    case 'PAYMENT_DUE':
       return { background: theme.colors.errorSoft, text: theme.colors.error };
     default:
       return { background: theme.colors.surface, text: theme.colors.textMuted };

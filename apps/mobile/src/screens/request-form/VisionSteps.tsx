@@ -60,6 +60,10 @@ function VisionStep({
 
 const { colors, font, spacing, radius } = theme;
 
+/** 단계 동그라미 지름과 연결선 두께 — 선을 동그라미 중앙에 맞추는 계산에 함께 쓴다. */
+const DOT_SIZE = 32;
+const BAR_HEIGHT = 2;
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
@@ -79,9 +83,10 @@ const styles = StyleSheet.create({
   },
   bar: {
     backgroundColor: colors.border,
-    height: 2,
+    height: BAR_HEIGHT,
     flex: 0.6,
-    marginTop: 15, // dot 높이 32의 정중앙에 정확히 일치
+    // dot 의 세로 정중앙에 선을 맞춘다. 숫자를 박아 두면 dot 크기를 바꿀 때 어긋나므로 계산한다.
+    marginTop: (DOT_SIZE - BAR_HEIGHT) / 2,
     alignSelf: 'flex-start',
   },
   barActive: {
@@ -93,9 +98,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 1.5,
     borderRadius: 999,
-    height: 32,
+    height: DOT_SIZE,
     justifyContent: 'center',
-    width: 32,
+    width: DOT_SIZE,
   },
   dotActive: {
     backgroundColor: colors.primary,

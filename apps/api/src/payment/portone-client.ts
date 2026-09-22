@@ -120,6 +120,23 @@ export class PortOneClient {
     }
   }
 
+  /**
+   * 미연동(모의 응답) 기능 가드.
+   *
+   * 지급대행·전자세금계산서는 아직 포트원 파트너정산(Platform)·B2B 에 붙어 있지 않고
+   * 성공한 척하는 값을 돌려준다. 테스트 모드에서는 흐름 확인용으로 쓸모가 있지만,
+   * **실거래(live) 에서 그대로 성공을 반환하면 돈이 나가지 않았는데 정산·발행이 끝난 것으로
+   * 기록된다.** 그 조용한 거짓말이 대사(對査)를 깨뜨리므로 live 에서는 막는다.
+   */
+  private assertMockAllowed(feature: string): void {
+    if (this.config.mode === 'live') {
+      throw new PortOneError(
+        'NOT_CONFIGURED',
+        `${feature}이(가) 아직 포트원에 연동되지 않았습니다. 실거래에서는 모의 응답을 반환하지 않습니다.`,
+      );
+    }
+  }
+
   /** 실거래·설정 가드. 각 API 호출 진입 시 확인한다. */
   private ensureReady(): SdkPaymentClient {
     if (this.config.mode === 'live' && !this.config.allowLive) {
@@ -271,6 +288,7 @@ export class PortOneClient {
     businessNumber?: string;
   }): Promise<PayoutResult> {
     assertPositiveInt(req.amount);
+    this.assertMockAllowed('지급대행(파트너정산)');
     console.warn(
       `[portone] payout 요청 처리 완료 (모의 응답) payout=${req.payoutId} (${req.businessNumber ? maskBusinessNumber(req.businessNumber) : '-'})`,
     );
@@ -289,6 +307,7 @@ export class PortOneClient {
     amount: number;
   }): Promise<TaxInvoiceResult> {
     assertPositiveInt(req.amount);
+    this.assertMockAllowed('전자세금계산서(B2B)');
     console.warn(`[portone] 세금계산서 발행 요청 처리 완료 (모의 응답) (${maskBusinessNumber(req.businessNumber)})`);
     // 실제 연동 시 PortOne B2B API 호출
     return {

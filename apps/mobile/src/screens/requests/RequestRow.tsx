@@ -59,10 +59,10 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
           <View style={styles.topRow}>
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
             <View style={styles.topRowRight}>
+              {/* 결제가 남은 단계면 먼저 보이게 둔다. 뱃지 모양은 상태 뱃지와 같은 것을 쓴다 —
+                  여기서 크기·색을 따로 잡으면 목록에서 이 한 칸만 작고 빨갛게 튄다. */}
               {(request.status === 'MATCHED' || request.status === 'COMPLETED') && (
-                <View style={{ backgroundColor: theme.colors.error, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4 }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>결제 대기</Text>
-                </View>
+                <StatusBadge status="PAYMENT_DUE" label="결제 대기" />
               )}
               <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               <Text style={styles.chevron}>›</Text>
