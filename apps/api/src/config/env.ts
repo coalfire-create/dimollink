@@ -36,6 +36,15 @@ export const env = {
      * 비운영 환경에서만 값을 노출하며, 기본값도 운영에서는 undefined.
      */
     devMasterCode: process.env.OTP_DEV_MASTER_CODE ?? '123456',
+    /**
+     * 마스터 인증코드를 허용할 번호(쉼표 구분). 운영에서는 이 목록(+시드 테스트 계정)
+     * 밖의 번호에는 마스터코드가 통하지 않는다 — 아무 번호나 코드 하나로 로그인되는
+     * 계정 탈취 경로를 막기 위해서다. 비우면 시드 테스트 계정만 허용된다.
+     */
+    testPhones: (process.env.TEST_OTP_PHONES ?? '')
+      .split(',')
+      .map((p) => p.replace(/\D/g, ''))
+      .filter((p) => p.length >= 10),
   },
   /**
    * 테스트/스테이징 전용 스위치. 운영에는 절대 켜지 않는다.

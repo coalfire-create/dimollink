@@ -117,10 +117,16 @@ export interface OtpServiceOptions {
   /** 인증 완료 후 회원가입까지 유효한 창(ms). 기본 10분. */
   verifiedWindowMs?: number;
   /**
-   * 개발/테스트용 마스터 인증코드. 지정 시 이 코드로 언제나 검증을 통과한다.
-   * 운영에서는 반드시 undefined 로 둔다(app.ts 가 비운영 환경에서만 주입).
+   * 개발/테스트용 마스터 인증코드. 지정 시 이 코드로 검증을 통과한다.
+   * 운영에서는 반드시 undefined 이거나, `devMasterPhones` 로 범위를 좁혀서 쓴다.
    */
   devMasterCode?: string;
+  /**
+   * 마스터 인증코드를 허용할 번호. **비우면 모든 번호에 통한다**(로컬 개발 편의).
+   * 목록이 있으면 그 번호에만 통한다 — 운영에 테스트 계정을 남겨둬야 할 때,
+   * 실제 사용자의 번호가 코드 하나로 뚫리는 것을 막는 유일한 장치다.
+   */
+  devMasterPhones?: Iterable<string>;
   /** 시각 주입(테스트용). */
   now?: () => number;
   /** 코드 생성기 주입(테스트용). 기본 6자리 난수. */
@@ -135,6 +141,7 @@ export class OtpService {
   private readonly maxAttempts: number;
   private readonly verifiedWindowMs: number;
   private readonly devMasterCode?: string;
+  private readonly devMasterPhones: ReadonlySet<string>;
   private readonly now: () => number;
   private readonly generateCode: () => string;
 
@@ -146,6 +153,9 @@ export class OtpService {
     this.maxAttempts = options.maxAttempts ?? 5;
     this.verifiedWindowMs = options.verifiedWindowMs ?? 10 * 60 * 1000;
     this.devMasterCode = options.devMasterCode;
+    this.devMasterPhones = new Set(
+      [...(options.devMasterPhones ?? [])].map((p) => normalizePhone(p)).filter((p) => p.length > 0),
+    );
     this.now = options.now ?? Date.now;
     this.generateCode = options.generateCode ?? (() => String(randomInt(0, 1_000_000)).padStart(6, '0'));
   }
@@ -173,8 +183,10 @@ export class OtpService {
    */
   async verify(phoneInput: string, code: string): Promise<boolean> {
     const key = normalizePhone(phoneInput);
-    // 개발/테스트 마스터 코드(운영에서는 주입되지 않음).
-    if (this.devMasterCode !== undefined && code.trim() === this.devMasterCode) {
+    // 개발/테스트 마스터 코드. 허용 번호 목록이 있으면 그 번호에만 통한다.
+    const masterAllowed =
+      this.devMasterPhones.size === 0 || this.devMasterPhones.has(key);
+    if (masterAllowed && this.devMasterCode !== undefined && code.trim() === this.devMasterCode) {
       await this.kv.setVerified(key, this.now() + this.verifiedWindowMs, this.verifiedWindowMs);
       return true;
     }

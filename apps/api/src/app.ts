@@ -61,7 +61,7 @@ import { OtpService, type OtpKv } from './auth/otp-service.js';
 import { CredentialStore, type CredentialRecord } from './auth/credential-store.js';
 import { SessionTokenStore } from './auth/session-store.js';
 import { createSmsSender } from './auth/sms-sender.js';
-import { seedTestAccounts } from './dev/seed.js';
+import { seedTestAccounts, TEST_ACCOUNTS } from './dev/seed.js';
 import { createGeocoder } from './geo/geocoder.js';
 import { createAdminAuth } from './middleware/admin-auth.js';
 import { createRequireAuth } from './middleware/auth.js';
@@ -287,6 +287,12 @@ export function createApp(
     maxAttempts: env.otp.maxAttempts,
     // 운영에서는 마스터 인증코드를 비활성화한다. 단, 테스트 배포는 ALLOW_TEST_OTP=true 로 허용.
     devMasterCode: env.isProduction && !env.allowTestOtp ? undefined : env.otp.devMasterCode,
+    // 운영에서 마스터코드를 켜둘 때는 **시드 테스트 계정(+TEST_OTP_PHONES)** 번호에만 통하게 한다.
+    // 이 제한이 없으면 아무 번호나 코드 하나로 세션이 발급된다(실사용자 계정 탈취).
+    // 비운영에서는 빈 목록 → 아무 번호나 통한다(로컬 개발 편의).
+    devMasterPhones: env.isProduction
+      ? [...TEST_ACCOUNTS.map((a) => a.phone), ...env.otp.testPhones]
+      : env.otp.testPhones,
   });
   // 세션: Redis(다중 인스턴스) 주입 시 그걸 쓰고, 없으면 영속 인메모리(재시작 유지).
   const sessionStore: SessionStore =

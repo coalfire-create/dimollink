@@ -127,4 +127,41 @@ describe('OtpService — 보안 하드닝', () => {
       expect.objectContaining({ code: 'NOT_REQUESTED' }),
     );
   });
+
+  // 운영에 테스트 계정을 남겨두는 동안, 마스터코드가 실사용자 번호까지 뚫으면 안 된다.
+  describe('devMasterPhones — 마스터코드 허용 번호 제한', () => {
+    it('허용 목록에 있는 번호는 마스터코드로 통과한다', async () => {
+      const { service } = makeService({
+        devMasterCode: '123456',
+        devMasterPhones: ['010-1111-0001'],
+      });
+      expect(await service.verify('01011110001', '123456')).toBe(true);
+    });
+
+    it('허용 목록 밖 번호는 마스터코드가 통하지 않는다(실사용자 계정 보호)', async () => {
+      const { service } = makeService({
+        devMasterCode: '123456',
+        devMasterPhones: ['01011110001'],
+      });
+      await expect(service.verify('01099998888', '123456')).rejects.toThrowError(
+        expect.objectContaining({ code: 'NOT_REQUESTED' }),
+      );
+      expect(await service.isPhoneVerified('01099998888')).toBe(false);
+    });
+
+    it('허용 목록 밖 번호도 정상 발송된 코드로는 인증된다', async () => {
+      const { service } = makeService({
+        devMasterCode: '123456',
+        devMasterPhones: ['01011110001'],
+        generateCode: () => '246810',
+      });
+      await service.request('01099998888');
+      expect(await service.verify('01099998888', '246810')).toBe(true);
+    });
+
+    it('목록이 비면 예전처럼 모든 번호에 통한다(로컬 개발)', async () => {
+      const { service } = makeService({ devMasterCode: '123456', devMasterPhones: [] });
+      expect(await service.verify('01099998888', '123456')).toBe(true);
+    });
+  });
 });
