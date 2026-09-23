@@ -30,6 +30,13 @@ export interface AdminStores {
   anomalyDetector: AnomalyDetector;
   quoteStore: QuoteStore;
   pricingStore: PricingStore;
+  /** DB 백업 조회·수동 실행. 미설정(백업 버킷 없음) 이면 해당 라우트가 503 을 낸다. */
+  backups?: AdminBackups;
+}
+
+export interface AdminBackups {
+  run: () => Promise<{ key: string; rowCount: number; bytes: number }>;
+  list: () => Promise<Array<{ key: string; size: number; lastModified?: Date }>>;
 }
 
 /**
@@ -55,6 +62,44 @@ export function createAdminRouter(
     }
     res.status(500).json({ error: '백오피스 처리 오류' });
   }
+
+  /**
+   * GET /api/admin/backups — 백업 목록(최신순).
+   *
+   * 백업은 **있다고 믿는 것과 실제로 있는 것이 다를 때** 사고가 난다. 그래서 운영자가
+   * 파일 목록을 직접 볼 수 있게 열어 둔다. 내용(=PII)은 내려보내지 않는다 — 키·크기·시각만.
+   */
+  router.get('/admin/backups', async (_req, res) => {
+    if (!stores.backups) {
+      res.status(503).json({ error: '백업 스토리지가 설정되지 않았습니다.', code: 'BACKUP_NOT_CONFIGURED' });
+      return;
+    }
+    try {
+      const objects = await stores.backups.list();
+      const items = objects
+        .map((o) => ({ key: o.key, sizeBytes: o.size, createdAt: o.lastModified?.toISOString() }))
+        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+      res.json({ count: items.length, latest: items[0] ?? null, items });
+    } catch (err) {
+      console.error('[admin] 백업 목록 조회 실패', err instanceof Error ? err.message : err);
+      res.status(502).json({ error: '백업 스토리지 조회에 실패했습니다.' });
+    }
+  });
+
+  /** POST /api/admin/backups — 지금 한 번 백업. 복원 리허설·긴급 점검용. */
+  router.post('/admin/backups', async (_req, res) => {
+    if (!stores.backups) {
+      res.status(503).json({ error: '백업 스토리지가 설정되지 않았습니다.', code: 'BACKUP_NOT_CONFIGURED' });
+      return;
+    }
+    try {
+      const result = await stores.backups.run();
+      res.status(201).json(result);
+    } catch (err) {
+      console.error('[admin] 백업 실행 실패', err instanceof Error ? err.message : err);
+      res.status(502).json({ error: '백업에 실패했습니다.' });
+    }
+  });
 
   // GET /api/admin/users?approvalStatus=PENDING — 승인 대기 업체 큐
   router.get('/admin/users', async (req, res) => {

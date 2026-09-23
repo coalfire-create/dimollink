@@ -217,3 +217,38 @@ describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
     expect((await requestStore.get(request.id))?.status).toBe('SETTLED');
   });
 });
+
+/**
+ * 결제창 설정 — 앱이 상점·채널을 서버에서 받아간다.
+ * 앱 번들에 박힌 값과 서버가 검증에 쓰는 상점이 어긋나는 사고를 막는 창구라,
+ * 값이 없을 때 빈 값을 내려보내지 않는지까지 본다.
+ */
+describe('GET /api/payments/config', () => {
+  const saved = { storeId: process.env.PORTONE_STORE_ID, channelKey: process.env.PORTONE_CHANNEL_KEY };
+  afterEach(() => {
+    process.env.PORTONE_STORE_ID = saved.storeId;
+    process.env.PORTONE_CHANNEL_KEY = saved.channelKey;
+  });
+
+  it('상점·채널·모드를 내려준다', async () => {
+    const res = await fetch(`${base}/api/payments/config`);
+    const body = (await res.json()) as Record<string, unknown>;
+    if (res.status === 200) {
+      expect(typeof body.storeId).toBe('string');
+      expect(typeof body.channelKey).toBe('string');
+      expect(['test', 'live']).toContain(body.mode);
+    } else {
+      // 설정이 비어 있는 환경(로컬 CI)에서는 빈 값 대신 503 으로 알린다.
+      expect(res.status).toBe(503);
+      expect(body.code).toBe('CONFIG_MISSING');
+    }
+  });
+
+  it('시크릿(API Secret·웹훅 시크릿)은 절대 내려보내지 않는다', async () => {
+    const res = await fetch(`${base}/api/payments/config`);
+    const text = await res.text();
+    expect(text).not.toContain('apiSecret');
+    expect(text).not.toContain('webhookSecret');
+    expect(text.toLowerCase()).not.toContain('secret');
+  });
+});

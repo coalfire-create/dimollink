@@ -4,6 +4,7 @@ import {
   type CancellationStage,
 } from '@dimol/shared';
 import { Router } from 'express';
+import { env } from '../config/env.js';
 import { authUserId } from '../middleware/auth.js';
 import { PaymentService } from '../payment/payment-service.js';
 import type { PaymentStore } from '../payment/payment-store.js';
@@ -110,6 +111,32 @@ export function createPaymentsRouter(
       : [];
     return { completedDate: body.completedDate, holidays: buildKoreanHolidaySet([year, year + 1], extra) };
   }
+
+  /**
+   * GET /api/payments/config — 앱이 결제창을 띄울 때 쓰는 공개 설정(상점·채널).
+   *
+   * 앱에 박아두지 않는 이유: PG(토스페이먼츠)나 채널을 바꿀 때마다 웹 번들을 다시
+   * 빌드해야 하고, 서버가 결제 검증에 쓰는 storeId 와 앱이 결제창에 넘긴 storeId 가
+   * 어긋나도 실제 결제가 실패할 때까지 모른다. 한 곳(서버 env)에서 내려준다.
+   *
+   * 시크릿이 아니다 — 결제창을 여는 데 필요한 공개 식별자이고, 실제 승인·조회는
+   * 서버가 PORTONE_API_SECRET 으로 다시 검증한다.
+   */
+  router.get('/payments/config', (_req, res) => {
+    if (!env.portone.storeId || !env.portone.channelKey) {
+      res.status(503).json({
+        error: '결제 설정이 아직 없습니다. 잠시 후 다시 시도해 주세요.',
+        code: 'CONFIG_MISSING',
+      });
+      return;
+    }
+    res.json({
+      storeId: env.portone.storeId,
+      channelKey: env.portone.channelKey,
+      /** test 면 실제 청구가 일어나지 않는다 — 앱이 안내 문구를 띄우는 데 쓴다. */
+      mode: env.portone.mode,
+    });
+  });
 
   // POST /api/settlements/preview  정산 플랜 계산(포트원 호출 없음)
   router.post('/settlements/preview', (req, res) => {

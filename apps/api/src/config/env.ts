@@ -176,6 +176,23 @@ export const env = {
     uploadUrlTtlSec: Number(process.env.STORAGE_UPLOAD_URL_TTL_SEC ?? 300),
     viewUrlTtlSec: Number(process.env.STORAGE_VIEW_URL_TTL_SEC ?? 600),
   },
+  /**
+   * DB 백업 보관소(S3 호환). **현장 사진 버킷과 분리한다** — 덤프에는 전 회원 PII 가
+   * 평문으로 들어 있어서, 앱이 쓰는 사진 버킷 키가 새면 백업까지 새는 구조면 안 된다.
+   * 미설정이면 백업 작업이 조용히 꺼진다(기동은 막지 않는다).
+   */
+  backup: {
+    bucket: process.env.BACKUP_BUCKET,
+    endpoint: process.env.BACKUP_ENDPOINT,
+    region: process.env.BACKUP_REGION ?? 'auto',
+    accessKeyId: process.env.BACKUP_ACCESS_KEY_ID,
+    secretAccessKey: process.env.BACKUP_SECRET_ACCESS_KEY,
+    forcePathStyle: process.env.BACKUP_FORCE_PATH_STYLE === 'true',
+    /** 보관 일수. 지난 것은 지우되 최신 1개는 항상 남긴다. */
+    retentionDays: Number(process.env.BACKUP_RETENTION_DAYS ?? 30),
+    /** 하루 한 번 도는 시각(KST). 새벽이라 트래픽·정산 작업과 겹치지 않는다. */
+    hourKst: Number(process.env.BACKUP_HOUR_KST ?? 4),
+  },
   ai: {
     // 현장 사진 비전 분석. 공급자 우선순위: Groq > Gemini > Claude > 목(mock).
     // 미설정 시 목 분석으로 폴백(키·비용 없이 동작).
@@ -225,6 +242,14 @@ export const env = {
     baseUrl: process.env.PORTONE_API_BASE_URL ?? 'https://api.portone.io',
     apiSecret: process.env.PORTONE_API_SECRET,
     storeId: process.env.PORTONE_STORE_ID,
+    /**
+     * 결제창을 띄울 채널(포트원 콘솔에서 PG사별로 발급). 현재 PG 는 **토스페이먼츠**.
+     * 앱에 박아두면 PG·채널을 바꿀 때마다 웹 번들을 다시 빌드해야 하고, 서버가 검증에
+     * 쓰는 상점(storeId)과 어긋나도 배포 전에는 모른다. 그래서 서버가 한 곳에서 쥐고
+     * `GET /api/payments/config` 로 내려준다 — 라이브 전환은 이 변수만 바꾸면 된다.
+     * 공개값이라 앱에 노출돼도 된다(시크릿은 PORTONE_API_SECRET 쪽).
+     */
+    channelKey: process.env.PORTONE_CHANNEL_KEY,
     // 기본은 test. 운영(live) 전환은 CLAUDE.md 규칙상 테스트 모드 검증 완료 후에만 한다.
     mode: (process.env.PORTONE_ENV ?? 'test') as 'test' | 'live',
     // live 호출을 명시적으로 허용하지 않으면 클라이언트가 실거래 호출을 거부한다.

@@ -12,7 +12,7 @@ type PortOnePaymentProps = React.ComponentProps<typeof PortOne.Payment>;
 type PaymentRequest = PortOnePaymentProps['request'];
 type PaymentResponse = Parameters<NonNullable<PortOnePaymentProps['onComplete']>>[0];
 import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
-import { PORTONE } from '../config';
+import { usePaymentConfig } from '../lib/payment-config';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { TaxInvoiceModal } from '../components/TaxInvoiceModal';
 import { useToast } from '../components/Toast';
@@ -50,6 +50,7 @@ export function PaymentScreen({
   source?: 'waste' | 'interior';
 }) {
   const nav = useNavigation();
+  const portone = usePaymentConfig();
   const [request, setRequest] = useState<ServiceRequest | InteriorRequest | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('VBANK');
   const [error, setError] = useState<string | null>(null);
@@ -84,8 +85,8 @@ export function PaymentScreen({
       ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
       : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
     setPayRequest({
-      storeId: PORTONE.storeId,
-      channelKey: PORTONE.channelKey,
+      storeId: portone.storeId,
+      channelKey: portone.channelKey,
       paymentId: newPaymentId(),
       orderName,
       totalAmount: total,

@@ -20,6 +20,7 @@ import type { PersistedSession, SessionStore } from './auth/session-store.js';
 import type { RateLimitStore } from './middleware/security.js';
 import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
+import type { PgQueryable } from './lib/pg-collection.js';
 import { AnomalyDetector } from './anomaly/detect.js';
 import { ChatStore } from './chat/store.js';
 import { HeuristicVolumeEstimator } from './estimation/provider.js';
@@ -42,6 +43,7 @@ import { configureDefaultRetryQueue } from './allbaro/manifest-service.js';
 import { createAllbaroClient } from './allbaro/client.js';
 import { startScheduler } from './scheduler/index.js';
 import {
+  createBackupTask,
   createRetryTask,
   createSettlementTask,
   createSubscriptionBillingTask,
@@ -92,6 +94,8 @@ import { createProductRouter } from './routes/products.js';
 import { createPayoutAccountRouter } from './routes/payout-accounts.js';
 import { PayoutAccountStore } from './payout/store.js';
 import { createPortOneClient } from './payment/portone-client.js';
+import { createBackupStorage, isBackupConfigured } from './backup/backup-storage.js';
+import { backupDateOf, runDbBackup } from './backup/db-backup.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
 import type { DemolitionEstimate, PayoutAccount, Subscription } from '@dimol/shared';
@@ -112,6 +116,11 @@ export interface SharedStores {
   sessionStore?: SessionStore;
   rateLimitStore?: RateLimitStore;
   otpKv?: OtpKv;
+  /**
+   * PostgreSQL 풀. 저장소 인터페이스(persistence)로는 못 하는 일 — DB 전체 덤프 —
+   * 에만 쓴다. 없으면(JSON 파일 저장소) 백업 작업이 꺼진다.
+   */
+  pool?: PgQueryable;
 }
 
 /**
@@ -316,6 +325,24 @@ export function createApp(
   // 상품 결제·정기결제가 쓰는 포트원 클라이언트. 결제 서비스와 같은 설정을 공유해야
   // 한쪽만 운영 전환되는 사고가 없다.
   const portOneClient = createPortOneClient();
+
+  /**
+   * DB 백업 실행기 — pg 풀과 백업 버킷이 둘 다 있을 때만 만들어진다.
+   * 스케줄러(매일)와 관리자 수동 실행이 **같은 경로**를 쓰게 하려고 여기서 한 번만 묶는다.
+   */
+  const backupRunner =
+    shared.pool && isBackupConfigured()
+      ? (() => {
+          const pool = shared.pool as PgQueryable;
+          const storage = createBackupStorage();
+          return {
+            run: () =>
+              runDbBackup({ pool, storage, retentionDays: env.backup.retentionDays }),
+            listKeys: async () => (await storage.list()).map((o) => o.key),
+            list: () => storage.list(),
+          };
+        })()
+      : undefined;
   const demolitionEstimateStore = new DemolitionEstimateStore(
     requestStore,
     persistence<DemolitionEstimate>('demolition-estimates'),
@@ -564,6 +591,7 @@ export function createApp(
         anomalyDetector: new AnomalyDetector(requestStore, quoteStore),
         quoteStore,
         pricingStore,
+        backups: backupRunner,
       },
       requireAdmin,
     ),
@@ -586,13 +614,28 @@ export function createApp(
   // 이게 없으면 둘 다 관리자가 매일 손으로 눌러야 돌아간다. 안 누르면 전자인계서가
   // 큐에 쌓인 채 미신고로 남고, 정산 대상도 아무도 모른다.
   if (env.schedulerEnabled) {
-    startScheduler([
+    const tasks = [
       createRetryTask({ client: createAllbaroClient() }),
       createSettlementTask({ requestStore }),
       // 정산과 달리 자동으로 결제한다 — 구독은 이미 동의된 반복 결제라
       // 매달 사람이 눌러야 한다면 상품이 성립하지 않는다.
       createSubscriptionBillingTask({ subscriptions: subscriptionStore, portone: portOneClient }),
-    ]);
+    ];
+    // DB 백업 — pg 풀과 백업 버킷이 둘 다 있을 때만. 하나라도 없으면 백업할 대상이
+    // 없거나 둘 데가 없다는 뜻이라, 조용히 성공한 척하는 대신 작업 자체를 걸지 않는다.
+    if (backupRunner) {
+      tasks.push(
+        createBackupTask({
+          run: backupRunner.run,
+          listKeys: backupRunner.listKeys,
+          dateOf: backupDateOf,
+          hourKst: env.backup.hourKst,
+        }),
+      );
+    } else {
+      console.warn('[dimol-api] DB 백업 꺼짐 — DATABASE_URL 또는 BACKUP_* 설정이 없습니다.');
+    }
+    startScheduler(tasks);
   }
 
   // 중앙 오류 처리 — 미처리 예외를 500 JSON 으로 변환하고 스택/내부정보는 노출하지 않는다.

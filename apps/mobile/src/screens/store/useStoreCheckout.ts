@@ -10,7 +10,7 @@ import {
   subscribeProduct,
   type SafeSubscription,
 } from '../../api/client';
-import { PORTONE } from '../../config';
+import { usePaymentConfig } from '../../lib/payment-config';
 
 /**
  * 스토어 결제 흐름 — 상품 조회, 일반결제, 정기결제(빌링키), 해지.
@@ -38,6 +38,7 @@ function newPaymentId(): string {
 }
 
 export function useStoreCheckout() {
+  const portone = usePaymentConfig();
   const [products, setProducts] = useState<SalesProduct[]>([]);
   const [subscriptions, setSubscriptions] = useState<SafeSubscription[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -69,8 +70,8 @@ export function useStoreCheckout() {
     setNotice(null);
     setPendingProductId(product.id);
     setPayRequest({
-      storeId: PORTONE.storeId,
-      channelKey: PORTONE.channelKey,
+      storeId: portone.storeId,
+      channelKey: portone.channelKey,
       paymentId: newPaymentId(),
       orderName: product.name,
       totalAmount: product.price,
@@ -108,8 +109,8 @@ export function useStoreCheckout() {
     setNotice(null);
     setPendingProductId(product.id);
     setBillingRequest({
-      storeId: PORTONE.storeId,
-      channelKey: PORTONE.channelKey,
+      storeId: portone.storeId,
+      channelKey: portone.channelKey,
       billingKeyMethod: 'CARD',
       issueName: product.name,
     });
