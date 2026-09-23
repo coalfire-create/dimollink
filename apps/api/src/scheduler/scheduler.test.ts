@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startScheduler, type ScheduledTask } from './index.js';
-import { createSettlementTask, kstDate } from './tasks.js';
+import { createBackupTask, createSettlementTask, kstDate } from './tasks.js';
 import { RequestStore } from '../requests/store.js';
 
 /**
@@ -133,5 +133,61 @@ describe('createSettlementTask — 정산일이 된 건 찾기', () => {
 describe('kstDate', () => {
   it('UTC 자정 직후도 KST 로는 다음 날이다', () => {
     expect(kstDate(new Date('2026-09-07T16:00:00Z'))).toBe('2026-09-08');
+  });
+});
+
+/**
+ * DB 백업 작업.
+ *
+ * "오늘 것이 이미 있는가"를 버킷 목록으로 판단하므로, 재배포가 잦아 작업이 하루에도
+ * 여러 번 도는 상황에서 백업이 중복되지 않는지가 핵심이다.
+ */
+describe('createBackupTask', () => {
+  const backupKeyOf = (yyyymmdd: string) => `db/dimol-${yyyymmdd}-040000.ndjson.gz`;
+  const dateOf = (key: string) => /dimol-(\d{8})-/.exec(key)?.[1];
+  // KST 2026-09-23 05:00
+  const afterHour = () => new Date('2026-09-22T20:00:00Z');
+
+  it('백업 시각이 지났고 오늘 것이 없으면 백업한다', async () => {
+    const run = vi.fn().mockResolvedValue({ key: 'db/x', rowCount: 3, bytes: 100 });
+    await createBackupTask({
+      run,
+      listKeys: async () => [backupKeyOf('20260922')],
+      dateOf,
+      hourKst: 4,
+      now: afterHour,
+    }).run();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('오늘 것이 이미 있으면 다시 뜨지 않는다', async () => {
+    const run = vi.fn();
+    await createBackupTask({
+      run,
+      listKeys: async () => [backupKeyOf('20260923')],
+      dateOf,
+      hourKst: 4,
+      now: afterHour,
+    }).run();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('백업 시각 전에는 돌지 않는다', async () => {
+    const run = vi.fn();
+    await createBackupTask({
+      run,
+      listKeys: async () => [],
+      dateOf,
+      hourKst: 4,
+      // KST 2026-09-23 01:00
+      now: () => new Date('2026-09-22T16:00:00Z'),
+    }).run();
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('백업이 하나도 없으면 첫 백업을 뜬다', async () => {
+    const run = vi.fn().mockResolvedValue({ key: 'db/x', rowCount: 0, bytes: 20 });
+    await createBackupTask({ run, listKeys: async () => [], dateOf, hourKst: 4, now: afterHour }).run();
+    expect(run).toHaveBeenCalledTimes(1);
   });
 });

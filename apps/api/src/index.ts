@@ -67,6 +67,8 @@ async function buildSharedStores(pool?: Pool): Promise<SharedStores> {
     console.log('[dimol-api] 세션: 무상태(서명) — Redis 없이 다중 인스턴스 동작');
     shared.sessionStore = new StatelessSessionStore(env.auth.sessionSecret, sessionTtlMs);
   }
+  // DB 백업은 저장소 인터페이스로는 못 하는 일(전체 덤프)이라 풀 자체가 필요하다.
+  if (pool) shared.pool = pool;
   // OTP: Redis 미사용 + pg 풀 있으면 Postgres 로(인메모리 대신 재시작에도 유지).
   if (!shared.otpKv && pool) {
     await ensureOtpSchema(pool);

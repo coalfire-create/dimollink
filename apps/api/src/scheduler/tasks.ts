@@ -169,3 +169,49 @@ export function createSettlementTask(deps: SettlementTaskDeps): ScheduledTask {
     },
   };
 }
+
+/** 백업 점검 주기. 하루 한 번 돌면 되지만, 재배포가 잦아 1시간마다 확인한다. */
+export const BACKUP_INTERVAL_MS = 60 * 60 * 1000;
+
+export interface BackupTaskDeps {
+  /** 백업 1회 실행. 성공 시 만들어진 키를 돌려준다. */
+  run: () => Promise<{ key: string; rowCount: number; bytes: number }>;
+  /** 이미 있는 백업 키 목록 — "오늘 것이 있는가"를 여기서 판단한다. */
+  listKeys: () => Promise<string[]>;
+  /** 키에서 KST 날짜(YYYYMMDD)를 뽑는 함수. */
+  dateOf: (key: string) => string | undefined;
+  /** 이 시각(KST) 이후에 그날 백업을 뜬다. */
+  hourKst: number;
+  now?: () => Date;
+}
+
+/**
+ * 하루 한 번 DB 백업.
+ *
+ * "오늘 이미 떴는가"를 **버킷 목록으로** 판단한다. 별도 상태 테이블을 두면 그 상태와
+ * 실제 파일이 어긋날 수 있고(파일은 지워졌는데 "떴음"으로 남는 경우), 무엇보다
+ * 백업이 있는지 확인하는 유일하게 믿을 만한 근거는 파일 그 자체다.
+ *
+ * 스케줄러는 인스턴스 하나 전제라 잠금이 없다(index.ts 주석 참조). 두 대로 늘리면
+ * 같은 날 두 번 뜰 수 있는데, 백업이 하루에 두 개 생기는 것은 손해가 아니다.
+ */
+export function createBackupTask(deps: BackupTaskDeps): ScheduledTask {
+  const now = deps.now ?? (() => new Date());
+  return {
+    name: 'db-backup',
+    intervalMs: BACKUP_INTERVAL_MS,
+    async run() {
+      const kst = new Date(now().getTime() + 9 * 60 * 60 * 1000);
+      if (kst.getUTCHours() < deps.hourKst) return; // 아직 백업 시각 전.
+      const today = kstDate(now()).replaceAll('-', '');
+      const keys = await deps.listKeys();
+      if (keys.some((k) => deps.dateOf(k) === today)) return; // 오늘 것이 이미 있다.
+
+      const result = await deps.run();
+      // 내용은 남기지 않는다 — 덤프에는 PII 가 들어 있다. 건수·크기만.
+      console.info(
+        `[scheduler] DB 백업 완료 ${result.rowCount}행 ${Math.round(result.bytes / 1024)}KB`,
+      );
+    },
+  };
+}

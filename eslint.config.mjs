@@ -62,6 +62,11 @@ export default tseslint.config(
     },
   },
   {
+    // 운영 스크립트(deploy/scripts) — Node 전역(process·console) 사용.
+    files: ['deploy/scripts/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+  },
+  {
     // CommonJS 설정 파일 (metro/babel 등) — Node 전역 + require 허용.
     files: ['**/*.config.js', '**/*.cjs'],
     languageOptions: {
