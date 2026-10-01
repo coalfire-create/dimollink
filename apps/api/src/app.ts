@@ -98,9 +98,15 @@ import { createPortOneClient } from './payment/portone-client.js';
 import { createBackupStorage, isBackupConfigured } from './backup/backup-storage.js';
 import { backupDateOf, runDbBackup } from './backup/db-backup.js';
 import { MembershipService } from './subscriptions/membership.js';
+import { PassStore } from './subscriptions/pass-store.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
-import type { DemolitionEstimate, PayoutAccount, Subscription } from '@dimol/shared';
+import type {
+  DemolitionEstimate,
+  MembershipPass,
+  PayoutAccount,
+  Subscription,
+} from '@dimol/shared';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
 import { createNotificationsRouter } from './routes/notifications.js';
@@ -268,7 +274,8 @@ export function createApp(
   );
   const subscriptionStore = new SubscriptionStore(persistence<Subscription>('subscriptions'));
   // 철거업체 멤버십 혜택(우선 알림·수수료 인하·상단 노출) 판정 — 세 곳이 같은 기준을 본다.
-  const membership = new MembershipService(subscriptionStore);
+  const passStore = new PassStore(persistence<MembershipPass>('membership-passes'));
+  const membership = new MembershipService(subscriptionStore, passStore);
   const requestStore = new RequestStore(
     persistence<ServiceRequest>('requests'),
     (request) => {
@@ -403,6 +410,7 @@ export function createApp(
     requireAuth(req, res, next);
   });
   app.use('/api/subscriptions', requireAuth);
+  app.use('/api/membership-passes', requireAuth);
   // 정산 계좌는 본인만 — 은행 목록만 로그인 없이 열어둔다(선택지일 뿐 개인정보가 아니다).
   app.use('/api/payout-accounts', (req, res, next) => {
     if (req.method === 'GET' && req.path === '/banks') {
@@ -604,6 +612,7 @@ export function createApp(
     createProductRouter(subscriptionStore, portOneClient, {
       billingEnabled: Boolean(env.portone.billingChannelKey),
       membership,
+      passes: passStore,
     }),
   );
   // 정산 계좌 — 파트너정산이든 직접 이체든 이 정보는 똑같이 필요하다.

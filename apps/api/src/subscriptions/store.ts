@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { addOneMonth, findSalesProduct, isBillingDue, type Subscription } from '@dimol/shared';
+import {
+  addOneMonth,
+  findSalesProduct,
+  isBillingDue,
+  type SalesProduct,
+  type Subscription,
+} from '@dimol/shared';
 import type { CollectionPersistence } from '../lib/json-collection.js';
 
 /**
@@ -20,7 +26,11 @@ export function kstToday(now: Date = new Date()): string {
 export class SubscriptionStore {
   private readonly fallbackMap = new Map<string, Subscription>();
 
-  constructor(private readonly persistence?: CollectionPersistence<Subscription>) {}
+  constructor(
+    private readonly persistence?: CollectionPersistence<Subscription>,
+    /** 상품 조회. 기본은 판매 카탈로그 — 테스트가 고정 정기결제 상품을 넣을 때만 바꾼다. */
+    private readonly findProduct: (id: string) => SalesProduct | undefined = findSalesProduct,
+  ) {}
 
   private async listInner(): Promise<Subscription[]> {
     if (this.persistence) return this.persistence.list();
@@ -65,7 +75,7 @@ export class SubscriptionStore {
     /** 첫 결제일(YYYY-MM-DD). 기본은 오늘. */
     startDate?: string;
   }): Promise<Subscription> {
-    const product = findSalesProduct(input.productId);
+    const product = this.findProduct(input.productId);
     if (!product || product.billingType !== 'MONTHLY_SUBSCRIPTION') {
       throw new SubscriptionError('정기결제 상품이 아닙니다.');
     }

@@ -4,51 +4,59 @@ import express from 'express';
 import {
   DEMOLITION_MEMBERSHIP_ID,
   MAX_SERVICE_PERIOD_MONTHS,
+  MEMBERSHIP_PASS_DAYS,
   SALES_PRODUCTS,
   findSalesProduct,
   monthlySubscriptionProducts,
-  oneTimeProducts,
   validateSalesProduct,
+  type MonthlySubscriptionProduct,
   type OneTimeProduct,
   type SalesProduct,
   type UserType,
 } from '@dimol/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PortOneClient } from '../payment/portone-client.js';
+import { PassStore } from '../subscriptions/pass-store.js';
 import { SubscriptionStore } from '../subscriptions/store.js';
 import { createProductRouter } from './products.js';
 
 /**
  * 실판매 상품 — PG 심사 대상 경로.
  *
- * 심사 요건을 코드로 못 박는다: 정기결제는 월 단위만, 서비스 제공기간·환불 정책 명시,
- * 금액 권위는 서버 상품가(앱이 보낸 금액을 믿지 않는다), 빌링키는 응답에 없다.
+ * 심사 요건을 코드로 못 박는다: 서비스 제공기간·환불 정책 명시, 금액 권위는 서버 상품가
+ * (앱이 보낸 금액을 믿지 않는다), 이용권은 결제가 확인된 뒤에만·한 결제에 한 번만 생긴다.
  */
 
+const membership = findSalesProduct(DEMOLITION_MEMBERSHIP_ID) as OneTimeProduct;
+
 /**
- * 일반결제 경로 검증용 고정 상품. 지금 실제로 파는 일반결제 상품은 없지만(현장 분석
- * 리포트는 무료로 전환), 경로 자체는 살아 있으므로 금액 검증 규칙을 계속 지킨다.
+ * 정기결제 경로 검증용 고정 상품. 지금 파는 정기결제 상품은 없지만(멤버십은 30일 이용권
+ * 단건결제로 전환), 경로는 남아 있으므로 빌링 채널·첫 달 청구 규칙을 계속 지킨다.
  */
-const FIXTURE_ONE_TIME: OneTimeProduct = {
-  id: 'fixture-one-time',
-  billingType: 'ONE_TIME',
-  name: '테스트 상품',
+const FIXTURE_MONTHLY: MonthlySubscriptionProduct = {
+  id: 'fixture-monthly',
+  billingType: 'MONTHLY_SUBSCRIPTION',
+  name: '테스트 구독',
   description: '테스트',
-  price: 1_000,
+  price: 5_900,
   imagePath: '/product-images/x.png',
-  servicePeriod: { label: '결제 후 24시간 이내', hours: 24 },
+  intervalMonths: 1,
+  cancellationNotice: '언제든 해지',
+  servicePeriod: { label: '1개월', hours: 720 },
   delivery: '배송 없음',
-  refundPolicy: ['제공 전 전액 환불'],
+  refundPolicy: ['7일 내 미사용 시 전액 환불'],
+  availableTo: ['DEMOLITION_COMPANY'],
   benefits: [],
 };
-const CATALOG: readonly SalesProduct[] = [...SALES_PRODUCTS, FIXTURE_ONE_TIME];
-const membershipProduct = findSalesProduct(DEMOLITION_MEMBERSHIP_ID)!;
+const CATALOG: readonly SalesProduct[] = [...SALES_PRODUCTS, FIXTURE_MONTHLY];
 
 let server: Server | undefined;
 let base: string;
 let subscriptions: SubscriptionStore;
+let passes: PassStore;
 let getPayment: ReturnType<typeof vi.fn>;
 let payWithBillingKey: ReturnType<typeof vi.fn>;
+let currentUser: { id: string; userType: UserType };
 
 afterEach(async () => {
   if (server) {
@@ -66,7 +74,9 @@ async function start(options: {
     await new Promise<void>((resolve) => server!.close(() => resolve()));
     server = undefined;
   }
-  subscriptions = new SubscriptionStore();
+  subscriptions = new SubscriptionStore(undefined, (id) => CATALOG.find((p) => p.id === id));
+  passes = new PassStore();
+  currentUser = { id: 'user-1', userType: options.userType ?? 'DEMOLITION_COMPANY' };
   getPayment = vi.fn();
   payWithBillingKey = vi.fn(async (input: { amount: { total: number } }) => ({
     payment: { status: 'PAID', amount: { total: input.amount.total } },
@@ -83,10 +93,7 @@ async function start(options: {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    (req as { authUser?: unknown }).authUser = {
-      id: 'user-1',
-      userType: options.userType ?? 'DEMOLITION_COMPANY',
-    };
+    (req as { authUser?: unknown }).authUser = currentUser;
     next();
   });
   app.use(
@@ -94,6 +101,7 @@ async function start(options: {
     createProductRouter(subscriptions, portone, {
       billingEnabled: options.billingEnabled,
       catalog: CATALOG,
+      passes,
       membership: { memberIdsOn: async () => options.memberIds ?? [] },
     }),
   );
@@ -104,7 +112,7 @@ async function start(options: {
 }
 
 beforeEach(async () => {
-  await start({ billingEnabled: true });
+  await start({ billingEnabled: false });
 });
 
 const post = (path: string, body: unknown) =>
@@ -114,27 +122,26 @@ const post = (path: string, body: unknown) =>
     body: JSON.stringify(body),
   });
 
+/** PortOne 조회 결과를 "결제 완료, 상품가"로 둔다. */
+const paid = (amount = membership.price) =>
+  getPayment.mockResolvedValue({ status: 'PAID', amount: { total: amount } });
+
 describe('상품 카탈로그 — 심사 요건', () => {
-  it('판매 상품은 철거업체 멤버십(월 5,900원) 하나다 — 현장 분석 리포트는 무료 전환', () => {
+  it('판매 상품은 철거업체 멤버십 30일 이용권(단건결제 5,900원) 하나다', () => {
     expect(SALES_PRODUCTS.map((p) => p.id)).toEqual([DEMOLITION_MEMBERSHIP_ID]);
-    expect(membershipProduct.price).toBe(5_900);
-    expect(oneTimeProducts()).toHaveLength(0);
-    expect(findSalesProduct('vision-report')).toBeUndefined();
+    expect(membership.billingType).toBe('ONE_TIME');
+    expect(membership.price).toBe(5_900);
+    expect(membership.grantsDays).toBe(30);
+    expect(monthlySubscriptionProducts()).toHaveLength(0);
   });
 
-  it('멤버십은 철거업체 전용이고 세 가지 혜택을 안내한다', () => {
-    expect(membershipProduct.availableTo).toEqual(['DEMOLITION_COMPANY']);
-    const benefits = membershipProduct.benefits.join('\n');
+  it('철거업체 전용이고 세 가지 혜택·자동 결제 없음을 안내한다', () => {
+    expect(membership.availableTo).toEqual(['DEMOLITION_COMPANY']);
+    const benefits = membership.benefits.join('\n');
     expect(benefits).toContain('우선 알림');
     expect(benefits).toContain('7% → 5%');
     expect(benefits).toContain('상단 노출');
-  });
-
-  it('정기결제는 월 단위만이고 해지 안내가 있다', () => {
-    for (const p of monthlySubscriptionProducts()) {
-      expect(p.intervalMonths).toBe(1);
-      expect(p.cancellationNotice.length).toBeGreaterThan(0);
-    }
+    expect(membership.servicePeriod.label).toContain('자동 결제 없음');
   });
 
   it('모든 상품이 이미지·금액·상세·제공기간·배송·환불 정책을 갖췄다', () => {
@@ -144,10 +151,7 @@ describe('상품 카탈로그 — 심사 요건', () => {
   });
 
   it(`제공기간이 ${MAX_SERVICE_PERIOD_MONTHS}개월을 넘는 상품은 위반으로 잡힌다`, () => {
-    const tooLong = {
-      ...FIXTURE_ONE_TIME,
-      servicePeriod: { label: '13개월', hours: 13 * 30 * 24 },
-    };
+    const tooLong = { ...membership, servicePeriod: { label: '13개월', hours: 13 * 30 * 24 } };
     expect(validateSalesProduct(tooLong).join()).toContain('12개월');
   });
 
@@ -158,136 +162,133 @@ describe('상품 카탈로그 — 심사 요건', () => {
   });
 });
 
-describe('빌링 채널이 없을 때 — 상품은 보이고 결제만 막는다', () => {
-  beforeEach(async () => {
-    await start({ billingEnabled: false });
+describe('30일 이용권 구매 — 단건결제', () => {
+  it('결제가 확인되면 오늘부터 30일 이용권이 생긴다', async () => {
+    paid();
+    const res = await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paid).toBe(true);
+    expect(body.servicePeriod).toBe(membership.servicePeriod.label);
+    const [pass] = await passes.listByUser('user-1');
+    expect(pass!.paymentId).toBe('pay_1');
+    expect(body.pass).toEqual({ startDate: pass!.startDate, endDate: pass!.endDate });
+    const days = (Date.parse(pass!.endDate) - Date.parse(pass!.startDate)) / 86_400_000;
+    expect(days).toBe(MEMBERSHIP_PASS_DAYS);
   });
 
-  it('목록에는 정기결제 상품도 그대로 나온다', async () => {
-    const body = (await (await fetch(`${base}/api/products`)).json()) as { id: string }[];
-    expect(body.map((p) => p.id)).toContain(DEMOLITION_MEMBERSHIP_ID);
+  it('이용 중에 다시 사면 남은 기간 뒤로 30일이 이어진다', async () => {
+    paid();
+    const first = (
+      await (await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' })).json()
+    ).pass;
+    const second = (
+      await (await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_2' })).json()
+    ).pass;
+    expect(second.startDate).toBe(first.endDate);
+    expect(await passes.listByUser('user-1')).toHaveLength(2);
   });
 
-  it('구독 경로는 409 로 막고, 결제를 시도하지 않는다', async () => {
-    const res = await post(`/api/products/${DEMOLITION_MEMBERSHIP_ID}/subscribe`, {
-      billingKey: 'bk_1',
+  it('같은 결제로 검증을 다시 요청해도 이용권은 하나다(재시도·재사용 방지)', async () => {
+    paid();
+    await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    expect(await passes.listByUser('user-1')).toHaveLength(1);
+  });
+
+  it('다른 사람의 결제 id 로는 이용권을 받을 수 없다', async () => {
+    paid();
+    await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    currentUser = { id: 'user-2', userType: 'DEMOLITION_COMPANY' };
+    const res = await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    expect(res.status).toBe(409);
+    expect(await passes.listByUser('user-2')).toHaveLength(0);
+  });
+
+  it('결제액이 상품가와 다르면 거부하고 이용권을 만들지 않는다', async () => {
+    paid(100);
+    const res = await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    expect(res.status).toBe(402);
+    expect((await res.json()).code).toBe('AMOUNT_MISMATCH');
+    expect(await passes.listAll()).toHaveLength(0);
+  });
+
+  it('입금 대기(가상계좌 발급만 됨)면 이용권을 만들지 않는다', async () => {
+    getPayment.mockResolvedValue({
+      status: 'VIRTUAL_ACCOUNT_ISSUED',
+      amount: { total: membership.price },
     });
+    const res = await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    expect((await res.json()).paid).toBe(false);
+    expect(await passes.listAll()).toHaveLength(0);
+  });
+
+  it('철거업체가 아니면 결제 확인 전에 거절한다', async () => {
+    for (const userType of ['CONSUMER', 'TRANSPORT_COMPANY', 'WASTE_TREATMENT_PLANT'] as const) {
+      currentUser = { id: 'user-x', userType };
+      const res = await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_x' });
+      expect(res.status, userType).toBe(403);
+    }
+    expect(getPayment).not.toHaveBeenCalled();
+  });
+
+  it('paymentId 가 없으면 거부', async () => {
+    const res = await post(`/api/products/${membership.id}/purchase`, {});
+    expect(res.status).toBe(400);
+  });
+
+  it('내 이용권 목록 — 최근 종료일 순', async () => {
+    paid();
+    await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_1' });
+    await post(`/api/products/${membership.id}/purchase`, { paymentId: 'pay_2' });
+    const list = (await (await fetch(`${base}/api/membership-passes`)).json()) as {
+      endDate: string;
+    }[];
+    expect(list).toHaveLength(2);
+    expect(list[0]!.endDate > list[1]!.endDate).toBe(true);
+  });
+});
+
+describe('정기결제 경로 — 현재 판매 상품 없음, 규칙만 유지', () => {
+  it('빌링 채널이 없으면 409 로 막고 결제를 시도하지 않는다', async () => {
+    const res = await post(`/api/products/${FIXTURE_MONTHLY.id}/subscribe`, { billingKey: 'bk_1' });
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe('BILLING_UNAVAILABLE');
     expect(payWithBillingKey).not.toHaveBeenCalled();
   });
-});
 
-describe('일반결제 — 금액 권위는 서버 상품가', () => {
-  const product = FIXTURE_ONE_TIME;
-
-  it('상품가와 결제액이 같으면 통과하고 서비스 제공기간을 돌려준다', async () => {
-    getPayment.mockResolvedValue({ status: 'PAID', amount: { total: product.price } });
-    const res = await post(`/api/products/${product.id}/purchase`, { paymentId: 'pay_1' });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.paid).toBe(true);
-    expect(body.servicePeriod).toBe(product.servicePeriod.label);
-  });
-
-  it('결제액이 상품가와 다르면 거부한다 — 앱이 금액을 바꿔도 막힌다', async () => {
-    getPayment.mockResolvedValue({ status: 'PAID', amount: { total: 100 } });
-    const res = await post(`/api/products/${product.id}/purchase`, { paymentId: 'pay_1' });
-    expect(res.status).toBe(402);
-    expect((await res.json()).code).toBe('AMOUNT_MISMATCH');
-  });
-
-  it('정기결제 상품은 일반결제 경로로 살 수 없다 — 결제창이 다르다', async () => {
-    const res = await post(`/api/products/${DEMOLITION_MEMBERSHIP_ID}/purchase`, {
-      paymentId: 'pay_1',
+  it('빌링 채널이 있으면 첫 달을 바로 청구하고, 응답에 빌링키가 없다', async () => {
+    await start({ billingEnabled: true });
+    const res = await post(`/api/products/${FIXTURE_MONTHLY.id}/subscribe`, {
+      billingKey: 'bk_secret',
     });
-    expect(res.status).toBe(404);
-  });
-
-  it('paymentId 가 없으면 거부', async () => {
-    const res = await post(`/api/products/${product.id}/purchase`, {});
-    expect(res.status).toBe(400);
-  });
-});
-
-describe('정기결제 — 철거업체 멤버십 구독', () => {
-  const product = membershipProduct;
-
-  it('빌링키로 구독을 만들고, 응답에 빌링키를 넣지 않는다', async () => {
-    const res = await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_secret' });
-    expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.status).toBe('ACTIVE');
-    // 결제를 일으킬 수 있는 값이라 앱에 내려보내면 안 된다.
-    expect(body.billingKey).toBeUndefined();
-    expect(JSON.stringify(body)).not.toContain('bk_secret');
-  });
-
-  it('구독할 때 첫 달 5,900원을 바로 청구한다 — 안 하면 첫 달이 무료가 된다', async () => {
-    const res = await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_1' });
     expect(res.status).toBe(201);
     expect(payWithBillingKey).toHaveBeenCalledTimes(1);
-    const call = payWithBillingKey.mock.calls[0]![0] as {
-      billingKey: string;
-      amount: { total: number };
-    };
-    expect(call.billingKey).toBe('bk_1');
-    expect(call.amount.total).toBe(5_900);
-  });
-
-  it('철거업체가 아니면 구독할 수 없고, 결제를 시도하지 않는다', async () => {
-    for (const userType of ['CONSUMER', 'TRANSPORT_COMPANY', 'WASTE_TREATMENT_PLANT'] as const) {
-      await start({ billingEnabled: true, userType });
-      const res = await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_1' });
-      expect(res.status, userType).toBe(403);
-      expect(payWithBillingKey).not.toHaveBeenCalled();
-    }
+    expect(JSON.stringify(await res.json())).not.toContain('bk_secret');
   });
 
   it('첫 달 결제가 실패하면 구독을 만들지 않는다', async () => {
+    await start({ billingEnabled: true });
     payWithBillingKey.mockRejectedValueOnce(new Error('카드 한도 초과'));
-    const res = await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_1' });
+    const res = await post(`/api/products/${FIXTURE_MONTHLY.id}/subscribe`, { billingKey: 'bk_1' });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(await subscriptions.listByUser('user-1')).toHaveLength(0);
   });
 
-  it('이미 구독 중이면 결제 전에 거절한다 — 돈만 빠져나가지 않게', async () => {
-    await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_1' });
-    payWithBillingKey.mockClear();
-    const res = await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_2' });
-    expect(res.status).toBe(400);
-    expect(payWithBillingKey).not.toHaveBeenCalled();
-  });
-
-  it('일반결제 상품은 정기결제 경로로 구독할 수 없다', async () => {
-    const res = await post(`/api/products/${FIXTURE_ONE_TIME.id}/subscribe`, {
-      billingKey: 'bk_1',
-    });
-    expect(res.status).toBe(404);
-  });
-
-  it('해지하면 다음 결제부터 청구되지 않는다', async () => {
-    const created = await (
-      await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_1' })
-    ).json();
-    const res = await post(`/api/subscriptions/${created.id}/cancel`, {});
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.status).toBe('CANCELLED');
-    // 이미 결제한 기간은 남는다.
-    expect(body.currentPeriodEnd).toBe(created.currentPeriodEnd);
-  });
-
-  it('내 구독 목록에도 빌링키가 없다', async () => {
-    await post(`/api/products/${product.id}/subscribe`, { billingKey: 'bk_secret' });
-    const res = await fetch(`${base}/api/subscriptions`);
-    expect(JSON.stringify(await res.json())).not.toContain('bk_secret');
+  it('단건결제 상품은 정기결제 경로로, 정기결제 상품은 단건 경로로 살 수 없다', async () => {
+    await start({ billingEnabled: true });
+    expect(
+      (await post(`/api/products/${membership.id}/subscribe`, { billingKey: 'bk_1' })).status,
+    ).toBe(404);
+    expect(
+      (await post(`/api/products/${FIXTURE_MONTHLY.id}/purchase`, { paymentId: 'p' })).status,
+    ).toBe(404);
   });
 });
 
 describe('상단 노출 — 멤버십 업체 목록', () => {
   it('멤버십 회원 id 를 내려준다(로그인 불필요)', async () => {
-    await start({ billingEnabled: true, memberIds: ['company-a', 'company-b'] });
+    await start({ billingEnabled: false, memberIds: ['company-a', 'company-b'] });
     const res = await fetch(`${base}/api/products/featured-providers`);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ providerIds: ['company-a', 'company-b'] });

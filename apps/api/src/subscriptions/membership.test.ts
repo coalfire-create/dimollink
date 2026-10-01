@@ -2,12 +2,16 @@ import {
   DEMOLITION_MEMBERSHIP_ID,
   MEMBER_PLATFORM_FEE_RATE,
   PLATFORM_FEE_RATE,
+  nextPassWindow,
+  passCoversDate,
   subscriptionCoversDate,
+  type MembershipPass,
   type Subscription,
 } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
 import { buildDealSettlementPlan } from '../settlement/plan.js';
 import { MembershipService } from './membership.js';
+import { PassStore } from './pass-store.js';
 import { SubscriptionStore } from './store.js';
 
 /**
@@ -38,6 +42,80 @@ async function storeWith(...subs: Subscription[]): Promise<SubscriptionStore> {
   return store;
 }
 
+const withSubs = (store: SubscriptionStore) => new MembershipService(store, new PassStore());
+
+function pass(overrides: Partial<MembershipPass> = {}): MembershipPass {
+  return {
+    id: 'p-1',
+    userId: 'demo-co',
+    productId: DEMOLITION_MEMBERSHIP_ID,
+    paymentId: 'pay-1',
+    startDate: '2026-10-01',
+    endDate: '2026-10-31',
+    amount: 5_900,
+    createdAt: '2026-10-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('30일 이용권 — 기간 계산', () => {
+  it('시작일 포함, 종료일 미포함', () => {
+    expect(passCoversDate(pass(), '2026-10-01')).toBe(true);
+    expect(passCoversDate(pass(), '2026-10-30')).toBe(true);
+    expect(passCoversDate(pass(), '2026-10-31')).toBe(false);
+    expect(passCoversDate(pass(), '2026-09-30')).toBe(false);
+  });
+
+  it('이용 중이 아니면 오늘부터 30일', () => {
+    expect(nextPassWindow([], '2026-10-01', 30)).toEqual({
+      startDate: '2026-10-01',
+      endDate: '2026-10-31',
+    });
+    // 이미 끝난 이용권은 무시한다.
+    expect(nextPassWindow([pass({ endDate: '2026-09-20' })], '2026-10-01', 30).startDate).toBe(
+      '2026-10-01',
+    );
+  });
+
+  it('이용 중에 다시 사면 남은 기간 뒤로 이어 붙인다(월말·연말 넘김)', () => {
+    expect(nextPassWindow([pass({ endDate: '2026-12-20' })], '2026-12-01', 30)).toEqual({
+      startDate: '2026-12-20',
+      endDate: '2027-01-19',
+    });
+  });
+
+  it('PassStore — 이어 붙이기와 같은 결제 재사용 방지', async () => {
+    const store = new PassStore();
+    const base = { userId: 'u', productId: DEMOLITION_MEMBERSHIP_ID, amount: 5_900, days: 30 };
+    const a = await store.grant({ ...base, paymentId: 'p1', today: '2026-10-01' });
+    const b = await store.grant({ ...base, paymentId: 'p2', today: '2026-10-05' });
+    const again = await store.grant({ ...base, paymentId: 'p1', today: '2026-10-06' });
+    expect(a.endDate).toBe('2026-10-31');
+    expect(b.startDate).toBe('2026-10-31');
+    expect(b.endDate).toBe('2026-11-30');
+    expect(again.id).toBe(a.id);
+    expect(await store.listByUser('u')).toHaveLength(2);
+  });
+
+  it('이용권 기간 안이면 회원(5% 수수료), 밖이면 비회원(7%)', async () => {
+    const passes = new PassStore();
+    await passes.grant({
+      userId: 'demo-co',
+      productId: DEMOLITION_MEMBERSHIP_ID,
+      paymentId: 'p1',
+      amount: 5_900,
+      days: 30,
+      today: '2026-10-01',
+    });
+    const m = new MembershipService(new SubscriptionStore(), passes);
+    expect(await m.isMemberOn('demo-co', '2026-10-15')).toBe(true);
+    expect(await m.feeRateFor('demo-co', '2026-10-15')).toBe(MEMBER_PLATFORM_FEE_RATE);
+    expect(await m.feeRateFor('demo-co', '2026-10-31')).toBe(PLATFORM_FEE_RATE);
+    expect(await m.memberIdsOn('2026-10-15')).toEqual(['demo-co']);
+    expect(await m.memberIdsOn('2026-11-15')).toEqual([]);
+  });
+});
+
 describe('subscriptionCoversDate — 결제로 덮인 기간만 혜택', () => {
   it('시작일부터 종료일 전날까지 혜택', () => {
     expect(subscriptionCoversDate(sub(), '2026-10-01')).toBe(true);
@@ -65,19 +143,19 @@ describe('subscriptionCoversDate — 결제로 덮인 기간만 혜택', () => {
 
 describe('MembershipService', () => {
   it('멤버십 구독이 기간 안이면 회원', async () => {
-    const m = new MembershipService(await storeWith(sub()));
+    const m = withSubs(await storeWith(sub()));
     expect(await m.isMemberOn('demo-co', '2026-10-15')).toBe(true);
     expect(await m.isMemberOn('demo-co', '2026-11-02')).toBe(false);
     expect(await m.isMemberOn('other', '2026-10-15')).toBe(false);
   });
 
   it('다른 상품 구독은 멤버십 혜택이 아니다', async () => {
-    const m = new MembershipService(await storeWith(sub({ productId: 'something-else' })));
+    const m = withSubs(await storeWith(sub({ productId: 'something-else' })));
     expect(await m.isMemberOn('demo-co', '2026-10-15')).toBe(false);
   });
 
   it('회원 id 목록은 중복 없이 기간 안 회원만', async () => {
-    const m = new MembershipService(
+    const m = withSubs(
       await storeWith(
         sub({ id: 'a', userId: 'co-a' }),
         sub({ id: 'a2', userId: 'co-a', status: 'CANCELLED' }),
@@ -88,7 +166,7 @@ describe('MembershipService', () => {
   });
 
   it('수수료율: 회원 5%, 비회원 7% — 처리완료일 기준', async () => {
-    const m = new MembershipService(await storeWith(sub()));
+    const m = withSubs(await storeWith(sub()));
     expect(await m.feeRateFor('demo-co', '2026-10-15')).toBe(MEMBER_PLATFORM_FEE_RATE);
     expect(await m.feeRateFor('demo-co', '2026-11-15')).toBe(PLATFORM_FEE_RATE);
     expect(await m.feeRateFor('other', '2026-10-15')).toBe(PLATFORM_FEE_RATE);

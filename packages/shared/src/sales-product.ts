@@ -58,6 +58,11 @@ interface SalesProductBase {
 
 export interface OneTimeProduct extends SalesProductBase {
   billingType: 'ONE_TIME';
+  /**
+   * 이용권 일수 — 있으면 결제 시 이 기간만큼 혜택을 주는 이용권([[MembershipPass]])이
+   * 생긴다. 자동 갱신은 없다(정기결제가 아니다).
+   */
+  grantsDays?: number;
 }
 
 export interface MonthlySubscriptionProduct extends SalesProductBase {
@@ -81,23 +86,27 @@ export const DEMOLITION_MEMBERSHIP_ID = 'demolition-membership';
 
 const feePct = (rate: number) => `${Math.round(rate * 100)}%`;
 
+/** 이용권 기간(일). 화면 문구와 혜택 기간 계산이 같은 값을 본다. */
+export const MEMBERSHIP_PASS_DAYS = 30;
+
 export const SALES_PRODUCTS: readonly SalesProduct[] = [
   {
     id: DEMOLITION_MEMBERSHIP_ID,
-    billingType: 'MONTHLY_SUBSCRIPTION',
-    name: '철거업체 멤버십 (월 정기결제)',
-    description:
-      '철거업체 전용 월 구독 상품입니다. 새 철거 견적 요청을 가장 먼저 알림으로 받고, 정산 수수료가 낮아지며, 소비자 홈의 협력 업체 목록 상단에 노출됩니다.',
+    billingType: 'ONE_TIME',
+    name: `철거업체 멤버십 ${MEMBERSHIP_PASS_DAYS}일 이용권`,
+    description: `철거업체 전용 ${MEMBERSHIP_PASS_DAYS}일 이용권입니다(1회 결제, 자동 갱신 없음). 이용 기간 동안 새 철거 견적 요청을 가장 먼저 알림으로 받고, 정산 수수료가 낮아지며, 소비자 홈의 협력 업체 목록 상단에 노출됩니다.`,
     price: 5_900,
     imagePath: '/product-images/demolition-membership.png',
-    intervalMonths: 1,
-    servicePeriod: { label: '결제일로부터 1개월 (매월 자동 갱신)', hours: HOURS_PER_MONTH },
+    grantsDays: MEMBERSHIP_PASS_DAYS,
+    servicePeriod: {
+      label: `결제 즉시 ${MEMBERSHIP_PASS_DAYS}일간 이용 (자동 갱신·자동 결제 없음)`,
+      hours: MEMBERSHIP_PASS_DAYS * 24,
+    },
     delivery: '실물 배송 없음 — 결제 즉시 앱에서 혜택이 적용됩니다.',
-    cancellationNotice:
-      '언제든지 마이페이지 > 스토어 · 멤버십에서 해지할 수 있습니다. 해지 시 다음 결제일부터 청구되지 않으며, 이미 결제된 이용 기간은 끝까지 사용할 수 있습니다.',
     refundPolicy: [
-      '결제 후 7일 이내에 혜택(우선 알림 수신·수수료 인하 정산)을 사용하지 않았다면 전액 환불됩니다.',
-      '혜택을 사용한 뒤에는 해당 월 요금은 환불되지 않으며, 해지하면 다음 결제부터 청구되지 않습니다.',
+      '결제 후 7일 이내이고 혜택(우선 알림 수신·인하 수수료 정산)을 사용하지 않았다면 전액 환불됩니다.',
+      '혜택을 사용한 뒤에는 환불되지 않습니다.',
+      `이용 기간이 끝나도 자동으로 결제되지 않습니다. 이용 중에 다시 구매하면 남은 기간 뒤로 ${MEMBERSHIP_PASS_DAYS}일이 이어집니다.`,
       '회사 사정으로 서비스를 제공하지 못한 기간은 일할 계산해 환불합니다.',
     ],
     availableTo: ['DEMOLITION_COMPANY'],
@@ -239,6 +248,55 @@ function kstDateOf(iso: string): string {
  */
 export function subscriptionCoversDate(sub: Subscription, date: string): boolean {
   return kstDateOf(sub.startedAt) <= date && date < sub.currentPeriodEnd;
+}
+
+/**
+ * 기간제 이용권 — 단건결제 한 번이 산 혜택 기간. 정기결제와 달리 결제수단을 보관하지
+ * 않고, 기간이 끝나면 그냥 끝난다(자동 결제 없음).
+ */
+export interface MembershipPass {
+  id: string;
+  userId: string;
+  productId: string;
+  /** 이 이용권을 만든 결제. 같은 결제로 이용권이 두 번 생기지 않게 막는 키다. */
+  paymentId: string;
+  /** 시작일(YYYY-MM-DD, KST, 포함). */
+  startDate: string;
+  /** 종료일(YYYY-MM-DD, KST, **미포함** — 이 날부터 혜택이 없다). */
+  endDate: string;
+  amount: number;
+  createdAt: string;
+}
+
+/** 'YYYY-MM-DD' + n일. */
+export function addDays(date: string, days: number): string {
+  const t = Date.parse(`${date}T00:00:00Z`) + days * 24 * 60 * 60 * 1000;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
+/** 이 이용권이 `date`(KST)에 혜택을 주는가: 시작일 ≤ date < 종료일. */
+export function passCoversDate(pass: MembershipPass, date: string): boolean {
+  return pass.startDate <= date && date < pass.endDate;
+}
+
+/**
+ * 새로 산 이용권의 기간.
+ *
+ * 이용 중에 다시 사면 **남은 기간 뒤로 이어 붙인다** — 오늘부터 다시 시작하면 남아 있던
+ * 날짜만큼 돈을 날리게 된다. 이용 중이 아니면 오늘부터.
+ */
+export function nextPassWindow(
+  existing: readonly MembershipPass[],
+  today: string,
+  days: number,
+): { startDate: string; endDate: string } {
+  const latestEnd = existing
+    .map((p) => p.endDate)
+    .filter((end) => end > today)
+    .sort()
+    .pop();
+  const startDate = latestEnd ?? today;
+  return { startDate, endDate: addDays(startDate, days) };
 }
 
 /** 멤버십 회원 여부에 따른 플랫폼 수수료율. 정산 금액 계산의 단일 원천. */

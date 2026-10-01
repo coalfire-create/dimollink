@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { addOneMonth, isBillingDue, type Subscription } from '@dimol/shared';
+import {
+  addOneMonth,
+  isBillingDue,
+  type MonthlySubscriptionProduct,
+  type Subscription,
+} from '@dimol/shared';
 import { SubscriptionStore, kstToday } from './store.js';
+
+/** 판매 카탈로그에는 지금 정기결제 상품이 없어서(멤버십은 30일 이용권) 고정 상품으로 검증한다. */
+const FIXTURE: MonthlySubscriptionProduct = {
+  id: 'fixture-monthly',
+  billingType: 'MONTHLY_SUBSCRIPTION',
+  name: '테스트 구독',
+  description: '테스트',
+  price: 5_900,
+  imagePath: '/x.png',
+  intervalMonths: 1,
+  cancellationNotice: '언제든 해지',
+  servicePeriod: { label: '1개월', hours: 720 },
+  delivery: '배송 없음',
+  refundPolicy: ['환불'],
+  benefits: [],
+};
+const findFixture = (id: string) => (id === FIXTURE.id ? FIXTURE : undefined);
 
 /**
  * 정기결제 — 돈이 매달 자동으로 빠져나가는 경로라 경계를 못 박는다.
@@ -27,7 +49,7 @@ describe('isBillingDue', () => {
   const base: Subscription = {
     id: 's1',
     userId: 'u1',
-    productId: 'demolition-membership',
+    productId: 'fixture-monthly',
     status: 'ACTIVE',
     billingKey: 'bk_1',
     nextBillingDate: '2026-09-08',
@@ -55,10 +77,10 @@ describe('isBillingDue', () => {
 
 describe('SubscriptionStore', () => {
   it('구독을 만들면 다음 결제일이 한 달 뒤로 잡힌다', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     const sub = await store.create({
       userId: 'u1',
-      productId: 'demolition-membership',
+      productId: 'fixture-monthly',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -67,31 +89,31 @@ describe('SubscriptionStore', () => {
   });
 
   it('같은 상품을 두 번 구독할 수 없다 — 매달 두 번 청구된다', async () => {
-    const store = new SubscriptionStore();
-    const input = { userId: 'u1', productId: 'demolition-membership', billingKey: 'bk_1' };
+    const store = new SubscriptionStore(undefined, findFixture);
+    const input = { userId: 'u1', productId: 'fixture-monthly', billingKey: 'bk_1' };
     await store.create(input);
     await expect(store.create(input)).rejects.toThrow('이미 구독 중');
   });
 
   it('정기결제 상품이 아니면 거부', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     await expect(
       store.create({ userId: 'u1', productId: 'not-a-subscription', billingKey: 'bk_1' }),
     ).rejects.toThrow('정기결제 상품이 아닙니다');
   });
 
   it('빌링키가 없으면 거부', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     await expect(
-      store.create({ userId: 'u1', productId: 'demolition-membership', billingKey: '  ' }),
+      store.create({ userId: 'u1', productId: 'fixture-monthly', billingKey: '  ' }),
     ).rejects.toThrow('빌링키');
   });
 
   it('해지해도 이미 결제한 기간은 남는다', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     const sub = await store.create({
       userId: 'u1',
-      productId: 'demolition-membership',
+      productId: 'fixture-monthly',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -104,20 +126,20 @@ describe('SubscriptionStore', () => {
   });
 
   it('남의 구독은 해지할 수 없다', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     const sub = await store.create({
       userId: 'u1',
-      productId: 'demolition-membership',
+      productId: 'fixture-monthly',
       billingKey: 'bk_1',
     });
     await expect(store.cancel(sub.id, 'u2')).rejects.toThrow('본인 구독만');
   });
 
   it('결제 성공하면 다음 달로 넘어간다', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     const sub = await store.create({
       userId: 'u1',
-      productId: 'demolition-membership',
+      productId: 'fixture-monthly',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -127,10 +149,10 @@ describe('SubscriptionStore', () => {
   });
 
   it('결제 실패해도 결제일은 그대로 — 다음 주기에 재시도한다', async () => {
-    const store = new SubscriptionStore();
+    const store = new SubscriptionStore(undefined, findFixture);
     const sub = await store.create({
       userId: 'u1',
-      productId: 'demolition-membership',
+      productId: 'fixture-monthly',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
