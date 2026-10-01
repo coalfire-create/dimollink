@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as PortOne from '@portone/react-native-sdk';
-import type { SalesProduct } from '@dimol/shared';
+import { addDays, type MembershipPass, type SalesProduct } from '@dimol/shared';
 import {
   ApiError,
   cancelSubscription,
+  listMembershipPasses,
   listProducts,
   listSubscriptions,
   purchaseProduct,
@@ -34,6 +35,9 @@ import { requestWebBillingKey, requestWebPayment, takeStorePaymentReturn } from 
 
 const isWeb = Platform.OS === 'web';
 
+/** 종료일(미포함) → 사람이 읽는 마지막 이용일. */
+const lastDay = (endDateExclusive: string) => addDays(endDateExclusive, -1);
+
 export type PaymentRequest = React.ComponentProps<typeof PortOne.Payment>['request'];
 type PaymentResponse = Parameters<
   NonNullable<React.ComponentProps<typeof PortOne.Payment>['onComplete']>
@@ -53,6 +57,7 @@ export function useStoreCheckout() {
   const user = useSession();
   const [products, setProducts] = useState<SalesProduct[]>([]);
   const [subscriptions, setSubscriptions] = useState<SafeSubscription[]>([]);
+  const [passes, setPasses] = useState<MembershipPass[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -67,6 +72,7 @@ export function useStoreCheckout() {
     try {
       setProducts(await listProducts());
       setSubscriptions(await listSubscriptions().catch(() => []));
+      setPasses(await listMembershipPasses().catch(() => []));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '상품을 불러오지 못했습니다.');
     }
@@ -155,7 +161,12 @@ export function useStoreCheckout() {
     setBusyId(productId);
     try {
       const result = await purchaseProduct(productId, res.paymentId);
-      setNotice(`결제가 완료되었습니다. ${result.servicePeriod}`);
+      setNotice(
+        result.pass
+          ? `결제가 완료되었습니다. ${result.pass.startDate}부터 ${lastDay(result.pass.endDate)}까지 이용할 수 있어요.`
+          : `결제가 완료되었습니다. ${result.servicePeriod}`,
+      );
+      await load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '결제 검증에 실패했습니다.');
     } finally {
@@ -266,8 +277,20 @@ export function useStoreCheckout() {
     setError(message);
   }
 
+  /** 이 상품의 이용권 중 아직 끝나지 않은 것의 마지막 이용일(없으면 null). */
+  function passUntil(productId: string): string | null {
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const end = passes
+      .filter((p) => p.productId === productId && p.endDate > today)
+      .map((p) => p.endDate)
+      .sort()
+      .pop();
+    return end ? lastDay(end) : null;
+  }
+
   return {
     products,
+    passUntil,
     subscriptions,
     activeSubscriptionOf: (productId: string) =>
       subscriptions.find((s) => s.productId === productId && s.status !== 'CANCELLED'),

@@ -30,12 +30,13 @@ describe('renderLandingPage — 심사 항목', () => {
     expect(footer).toContain('/privacy');
   });
 
-  it('빌링 채널이 있으면 구독 버튼, 없으면 상품은 그대로 두고 "준비 중" 안내', () => {
-    expect(html).toContain('앱에서 구독하기');
-    const pending = renderLandingPage(SALES_PRODUCTS, { billingEnabled: false });
-    for (const p of SALES_PRODUCTS) expect(pending).toContain(`id="product-${p.id}"`);
-    expect(pending).not.toContain('앱에서 구독하기');
-    expect(pending).toContain('정기결제 준비 중');
+  it('단건결제 상품은 빌링 채널과 무관하게 바로 구매 버튼이 나온다', () => {
+    const noBilling = renderLandingPage(SALES_PRODUCTS, { billingEnabled: false });
+    for (const p of SALES_PRODUCTS) {
+      expect(noBilling).toContain(`id="product-${p.id}"`);
+      if (p.billingType === 'ONE_TIME') expect(noBilling).toContain('앱에서 구매하기');
+    }
+    expect(noBilling).not.toContain('정기결제 준비 중');
   });
 
   it('비어 있는 사업자 항목(통신판매업 신고번호 등)은 줄째 숨긴다', () => {

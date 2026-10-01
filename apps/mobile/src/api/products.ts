@@ -1,4 +1,4 @@
-import type { SalesProduct, Subscription } from '@dimol/shared';
+import type { MembershipPass, SalesProduct, Subscription } from '@dimol/shared';
 import { api } from './http';
 
 /**
@@ -18,10 +18,14 @@ export const listProducts = () => api<SalesProduct[]>('/products');
  * 응답의 servicePeriod 는 "결제 후 서비스 제공 완료까지"의 기간이다(심사 필수 항목).
  */
 export const purchaseProduct = (productId: string, paymentId: string) =>
-  api<{ productId: string; paid: boolean; amount: number; servicePeriod: string }>(
-    `/products/${productId}/purchase`,
-    { method: 'POST', body: JSON.stringify({ paymentId }) },
-  );
+  api<{
+    productId: string;
+    paid: boolean;
+    amount: number;
+    servicePeriod: string;
+    /** 이용권 상품이면 이번 결제로 생긴 기간(종료일 미포함). */
+    pass?: { startDate: string; endDate: string };
+  }>(`/products/${productId}/purchase`, { method: 'POST', body: JSON.stringify({ paymentId }) });
 
 /** 정기결제창에서 발급받은 빌링키로 월 구독을 만든다. */
 export const subscribeProduct = (productId: string, billingKey: string) =>
@@ -33,6 +37,9 @@ export const subscribeProduct = (productId: string, billingKey: string) =>
 /** 협력 업체 목록 상단에 노출할 업체(멤버십 회원) id. 로그인 없이도 볼 수 있다. */
 export const listFeaturedProviders = () =>
   api<{ providerIds: string[] }>('/products/featured-providers');
+
+/** 내 이용권(최근 종료일 순). */
+export const listMembershipPasses = () => api<MembershipPass[]>('/membership-passes');
 
 export const listSubscriptions = () => api<SafeSubscription[]>('/subscriptions');
 

@@ -11,6 +11,7 @@ import { authUser, authUserId } from '../middleware/auth.js';
 import type { PortOneClient } from '../payment/portone-client.js';
 import { PortOneError } from '../payment/portone-client.js';
 import type { MembershipService } from '../subscriptions/membership.js';
+import type { PassStore } from '../subscriptions/pass-store.js';
 import { SubscriptionError, type SubscriptionStore } from '../subscriptions/store.js';
 
 /**
@@ -33,6 +34,8 @@ export function createProductRouter(
     billingEnabled: boolean;
     /** 상단 노출 대상(멤버십 회원) 조회. 없으면 빈 목록. */
     membership?: Pick<MembershipService, 'memberIdsOn'>;
+    /** 기간제 이용권 저장소. 이용권 상품(grantsDays)을 결제하면 여기에 기간이 생긴다. */
+    passes?: PassStore;
     /** 판매 상품 목록. 테스트에서 고정 상품을 넣을 때만 바꾼다. */
     catalog?: readonly SalesProduct[];
   },
@@ -69,6 +72,7 @@ export function createProductRouter(
   /**
    * POST /api/products/:id/purchase  { paymentId }
    * 일반결제 완료 검증. **금액 권위는 서버 상품가**다 — 앱이 보낸 금액은 믿지 않는다.
+   * 이용권 상품(grantsDays)이면 결제가 확인된 뒤 이용 기간을 만든다.
    */
   router.post('/products/:id/purchase', async (req, res) => {
     const product = findProduct(req.params.id);
@@ -81,17 +85,41 @@ export function createProductRouter(
       res.status(400).json({ error: 'paymentId 가 필요합니다.' });
       return;
     }
+    if (!isAvailableTo(product, authUser(req).userType)) {
+      res
+        .status(403)
+        .json({ error: '이 회원 유형은 살 수 없는 상품입니다.', code: 'NOT_ELIGIBLE' });
+      return;
+    }
+    const userId = authUserId(req);
     try {
+      // 같은 결제를 다른 사람이 들고 와서 이용권을 받아 가지 못하게 한다.
+      const used = await options.passes?.findByPaymentId(paymentId.trim());
+      if (used && used.userId !== userId) {
+        res.status(409).json({ error: '이미 사용된 결제입니다.', code: 'PAYMENT_ALREADY_USED' });
+        return;
+      }
       const verified = await portone.verifyPayment({
         paymentId: paymentId.trim(),
         expectedAmount: product.price,
       });
+      const pass =
+        verified.paid && product.grantsDays && options.passes
+          ? await options.passes.grant({
+              userId,
+              productId: product.id,
+              paymentId: paymentId.trim(),
+              amount: verified.amount,
+              days: product.grantsDays,
+            })
+          : undefined;
       res.json({
         productId: product.id,
         paid: verified.paid,
         amount: verified.amount,
         // 심사 요건: 결제 후 서비스 제공 완료까지의 기간을 응답·영수증에 남긴다.
         servicePeriod: product.servicePeriod.label,
+        ...(pass ? { pass: { startDate: pass.startDate, endDate: pass.endDate } } : {}),
       });
     } catch (err) {
       fail(err, res);
@@ -157,6 +185,12 @@ export function createProductRouter(
     } catch (err) {
       fail(err, res);
     }
+  });
+
+  // GET /api/membership-passes — 내 이용권(최근 종료일 순)
+  router.get('/membership-passes', async (req, res) => {
+    const mine = (await options.passes?.listByUser(authUserId(req))) ?? [];
+    res.json([...mine].sort((a, b) => b.endDate.localeCompare(a.endDate)));
   });
 
   // GET /api/subscriptions — 내 구독 목록
