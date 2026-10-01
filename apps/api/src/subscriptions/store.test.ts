@@ -27,7 +27,7 @@ describe('isBillingDue', () => {
   const base: Subscription = {
     id: 's1',
     userId: 'u1',
-    productId: 'provider-membership',
+    productId: 'demolition-membership',
     status: 'ACTIVE',
     billingKey: 'bk_1',
     nextBillingDate: '2026-09-08',
@@ -58,7 +58,7 @@ describe('SubscriptionStore', () => {
     const store = new SubscriptionStore();
     const sub = await store.create({
       userId: 'u1',
-      productId: 'provider-membership',
+      productId: 'demolition-membership',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -68,7 +68,7 @@ describe('SubscriptionStore', () => {
 
   it('같은 상품을 두 번 구독할 수 없다 — 매달 두 번 청구된다', async () => {
     const store = new SubscriptionStore();
-    const input = { userId: 'u1', productId: 'provider-membership', billingKey: 'bk_1' };
+    const input = { userId: 'u1', productId: 'demolition-membership', billingKey: 'bk_1' };
     await store.create(input);
     await expect(store.create(input)).rejects.toThrow('이미 구독 중');
   });
@@ -76,14 +76,14 @@ describe('SubscriptionStore', () => {
   it('정기결제 상품이 아니면 거부', async () => {
     const store = new SubscriptionStore();
     await expect(
-      store.create({ userId: 'u1', productId: 'vision-report', billingKey: 'bk_1' }),
+      store.create({ userId: 'u1', productId: 'not-a-subscription', billingKey: 'bk_1' }),
     ).rejects.toThrow('정기결제 상품이 아닙니다');
   });
 
   it('빌링키가 없으면 거부', async () => {
     const store = new SubscriptionStore();
     await expect(
-      store.create({ userId: 'u1', productId: 'provider-membership', billingKey: '  ' }),
+      store.create({ userId: 'u1', productId: 'demolition-membership', billingKey: '  ' }),
     ).rejects.toThrow('빌링키');
   });
 
@@ -91,7 +91,7 @@ describe('SubscriptionStore', () => {
     const store = new SubscriptionStore();
     const sub = await store.create({
       userId: 'u1',
-      productId: 'provider-membership',
+      productId: 'demolition-membership',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -107,7 +107,7 @@ describe('SubscriptionStore', () => {
     const store = new SubscriptionStore();
     const sub = await store.create({
       userId: 'u1',
-      productId: 'provider-membership',
+      productId: 'demolition-membership',
       billingKey: 'bk_1',
     });
     await expect(store.cancel(sub.id, 'u2')).rejects.toThrow('본인 구독만');
@@ -117,7 +117,7 @@ describe('SubscriptionStore', () => {
     const store = new SubscriptionStore();
     const sub = await store.create({
       userId: 'u1',
-      productId: 'provider-membership',
+      productId: 'demolition-membership',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });
@@ -130,7 +130,7 @@ describe('SubscriptionStore', () => {
     const store = new SubscriptionStore();
     const sub = await store.create({
       userId: 'u1',
-      productId: 'provider-membership',
+      productId: 'demolition-membership',
       billingKey: 'bk_1',
       startDate: '2026-09-08',
     });

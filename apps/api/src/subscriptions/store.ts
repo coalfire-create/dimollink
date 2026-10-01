@@ -1,10 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  addOneMonth,
-  findSalesProduct,
-  isBillingDue,
-  type Subscription,
-} from '@dimol/shared';
+import { addOneMonth, findSalesProduct, isBillingDue, type Subscription } from '@dimol/shared';
 import type { CollectionPersistence } from '../lib/json-collection.js';
 
 /**
@@ -46,6 +41,11 @@ export class SubscriptionStore {
     return (await this.listInner()).filter((s) => s.userId === userId);
   }
 
+  /** 전체 구독. 멤버십 혜택 대상 집계([[MembershipService]])가 쓴다. */
+  async listAll(): Promise<Subscription[]> {
+    return this.listInner();
+  }
+
   /** 오늘 결제해야 하는 구독들. 스케줄러가 쓴다. */
   async listDue(today = kstToday()): Promise<Subscription[]> {
     return (await this.listInner()).filter((s) => isBillingDue(s, today));
@@ -54,8 +54,9 @@ export class SubscriptionStore {
   /**
    * 정기결제창에서 빌링키를 받은 뒤 구독을 만든다.
    *
-   * 첫 결제는 여기서 일으키지 않는다 — 결제창이 이미 첫 달을 결제했거나(IssueBillingKeyAndPay)
-   * 스케줄러가 오늘분을 처리한다. 두 곳에서 결제하면 이중청구가 된다.
+   * 첫 결제는 여기서 일으키지 않는다 — 구독 경로(`POST /products/:id/subscribe`)가 첫 달을
+   * 승인받은 뒤에만 이걸 부르고, 스케줄러는 다음 결제일(한 달 뒤)부터 청구한다.
+   * 두 곳에서 결제하면 이중청구가 된다.
    */
   async create(input: {
     userId: string;

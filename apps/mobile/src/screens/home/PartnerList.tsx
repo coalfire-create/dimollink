@@ -11,6 +11,9 @@ import { theme } from '../../theme';
  * **평점은 실제 리뷰 집계가 있을 때만 그린다.** 없으면 자리 자체를 비운다 —
  * 신규 업체에 0점이나 지어낸 숫자를 붙이면 그 업체는 영영 일감을 못 받는다.
  * 인증 배지도 마찬가지로 실제로 등록된 것만 표시한다.
+ *
+ * **상단 노출은 유료(멤버십) 광고다.** 돈을 내고 위에 올라간 업체는 반드시 "광고"로
+ * 표시한다 — 표시 없이 위에 두면 소비자는 평가가 좋아서 위에 있는 줄 안다(표시광고법).
  */
 export interface DemolitionPartner {
   id: string;
@@ -20,10 +23,17 @@ export interface DemolitionPartner {
   allbaroCertified: boolean;
   insuranceRegistered: boolean;
   permitRegistered: boolean;
+  /** 멤버십 상단 노출(광고) 대상. */
+  featured: boolean;
 }
 
-export function toPartner(user: UserProfile, rating: RatingSummary | null): DemolitionPartner {
+export function toPartner(
+  user: UserProfile,
+  rating: RatingSummary | null,
+  featured = false,
+): DemolitionPartner {
   return {
+    featured,
     id: user.id,
     name: user.name,
     region: user.region ? `${user.region} 및 인근 지역` : '지역 미등록',
@@ -83,6 +93,11 @@ function PartnerCard({ partner }: { partner: DemolitionPartner }) {
             {partner.region}
           </Text>
         </View>
+        {partner.featured ? (
+          <Text accessibilityLabel="광고" style={styles.adBadge}>
+            광고
+          </Text>
+        ) : null}
         {partner.rating && partner.rating.average !== null ? (
           <View
             accessibilityLabel={`평점 ${partner.rating.average}점, 리뷰 ${partner.rating.reviewCount}건`}
@@ -156,6 +171,16 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     marginTop: spacing.xs / 2,
+  },
+  adBadge: {
+    borderColor: colors.border,
+    borderRadius: radius.badge,
+    borderWidth: 1,
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '700',
+    marginLeft: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   ratingBox: {
     alignItems: 'center',

@@ -183,3 +183,33 @@ describe('콜 알림 팬아웃 상한 — 업체가 늘어도 비용이 곱해�
     expect(service.notifyTransportCall(request, companies)).toHaveLength(2);
   });
 });
+
+describe('notifyDemolitionMembers — 멤버십 우선 알림', () => {
+  const request = {
+    id: 'r-demo',
+    kind: 'DEMOLITION',
+    status: 'REQUESTED',
+    location: { lat: 37.5, lng: 127.5 },
+  } as never;
+
+  it('반경 안 회원에게 가까운 순으로, 좌표 없는 회원은 뒤에 붙여 문자(CALL)로 보낸다', () => {
+    const sent: AppNotification[] = [];
+    const service = new NotificationService({ send: (n) => sent.push(n) });
+    const created = service.notifyDemolitionMembers(request, [
+      { id: 'm-noloc' },
+      { id: 'm-far', location: { lat: 37.9, lng: 127.5 } }, // ~44km — 반경 밖
+      { id: 'm-near', location: { lat: 37.6, lng: 127.5 } },
+      { id: 'm-here', location: { lat: 37.5, lng: 127.5 } },
+    ]);
+    expect(created.map((n) => n.userId)).toEqual(['m-here', 'm-near', 'm-noloc']);
+    expect(created.every((n) => n.kind === 'CALL')).toBe(true);
+    expect(created[0]!.message).toContain('멤버십 우선 알림');
+    expect(sent).toHaveLength(3);
+  });
+
+  it('철거 요청이 아니면 보내지 않는다', () => {
+    const service = new NotificationService({ send: () => undefined });
+    const transport = { ...(request as object), kind: 'TRANSPORT' } as never;
+    expect(service.notifyDemolitionMembers(transport, [{ id: 'm-here' }])).toHaveLength(0);
+  });
+});

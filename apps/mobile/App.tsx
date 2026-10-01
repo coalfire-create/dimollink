@@ -40,6 +40,7 @@ import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
+import { isStorePaymentReturn } from './src/screens/store/webPayment';
 import { PayoutAccountScreen } from './src/screens/PayoutAccountScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
@@ -167,6 +168,16 @@ function AppRoot() {
    * 안 그러면 로그인 화면이 뜨는 사이에 프리필이 사라진다.
    */
   const [pendingPrefill, setPendingPrefill] = useState<RequestPrefillPayload | null>(null);
+  /**
+   * 로그인 전 상품 안내에서 "구매하기"를 눌렀다 — 로그인이 끝나면 스토어를 연다.
+   * 웹 결제창이 리다이렉트로 돌아온 경우(모바일 브라우저)도 스토어로 돌아가야 해서 같이 쓴다.
+   */
+  const [pendingStore, setPendingStore] = useState(() => isStorePaymentReturn());
+  const goBuy = useCallback(() => {
+    setPendingStore(true);
+    setSession(null);
+    setAuthRoute('login');
+  }, []);
 
   const handleDevRoleSelect = useCallback(
     (roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
@@ -305,6 +316,13 @@ function AppRoot() {
   );
 
   const isMember = session !== null && session !== 'guest';
+
+  // 구매하려다 로그인한 경우 — 세션이 잡히면 스토어로 바로 보낸다.
+  useEffect(() => {
+    if (!pendingStore || !isMember) return;
+    setPendingStore(false);
+    setStack([{ name: 'store' }]);
+  }, [pendingStore, isMember]);
 
   // 프리필이 있고 회원 세션이 잡히면 철거 요청 폼을 채워서 연다.
   // 링크를 한 번만 쓰도록 즉시 비운다 — 안 그러면 뒤로 갈 때마다 폼이 다시 열린다.
@@ -446,6 +464,7 @@ function AppRoot() {
             setSession(null);
             setAuthRoute('signup');
           }}
+          onBuy={goBuy}
         />
       );
     }
@@ -484,6 +503,7 @@ function AppRoot() {
             onLogin={() => setAuthRoute('login')}
             onSignup={() => setAuthRoute('signup')}
             onGuest={() => setSession('guest')}
+            onBuy={goBuy}
             onAdmin={() => setAuthRoute('admin')}
             onDevRoleSelect={__DEV__ ? handleDevRoleSelect : undefined}
           />

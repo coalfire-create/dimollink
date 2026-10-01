@@ -14,7 +14,7 @@ import { MenuList, type MenuItem } from '../components/MenuList';
 import { FadeInUp } from '../components/motion';
 import { confirmDialog } from '../lib/dialog';
 import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
-import { CompanyInfoFooter } from './mypage/CompanyInfoFooter';
+import { CompanyInfoFooter } from '../components/CompanyInfoFooter';
 import { CompanySettings } from './mypage/CompanySettings';
 import { ProfileHero } from './mypage/ProfileHero';
 import { RatingCards } from './mypage/RatingCards';

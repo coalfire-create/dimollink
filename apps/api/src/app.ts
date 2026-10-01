@@ -85,6 +85,7 @@ import { createPaymentsRouter } from './routes/payments.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createChatRouter } from './routes/chat.js';
 import { createEstimationRouter } from './routes/estimation.js';
+import { createLandingPageRouter } from './routes/landing-page.js';
 import { createMapPageRouter } from './routes/map-page.js';
 import { createScanViewerPageRouter } from './routes/scan-viewer-page.js';
 import { createSiteAnalysisRouter } from './routes/site-analysis.js';
@@ -96,6 +97,7 @@ import { PayoutAccountStore } from './payout/store.js';
 import { createPortOneClient } from './payment/portone-client.js';
 import { createBackupStorage, isBackupConfigured } from './backup/backup-storage.js';
 import { backupDateOf, runDbBackup } from './backup/db-backup.js';
+import { MembershipService } from './subscriptions/membership.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
 import type { DemolitionEstimate, PayoutAccount, Subscription } from '@dimol/shared';
@@ -179,14 +181,16 @@ export function createApp(
       },
     }),
   );
+  // 판매 상품 이미지 — 앱 스토어 화면·첫 화면·랜딩이 같은 파일을 본다(PG 심사: 상품 이미지 필수).
+  // 파일명이 해시가 아니라서 바꾸면 바로 보이도록 짧게만 캐시한다.
+  app.use('/product-images', express.static(join(publicDir, 'product-images'), { maxAge: '1h' }));
   // 법적 고지·랜딩 — 스토어/앱 링크가 요구하는 공개 URL(명시 경로).
   app.get('/privacy', (_req: Request, res: Response) =>
     res.sendFile(join(publicDir, 'privacy.html')),
   );
   app.get('/terms', (_req: Request, res: Response) => res.sendFile(join(publicDir, 'terms.html')));
-  app.get('/landing', (_req: Request, res: Response) =>
-    res.sendFile(join(publicDir, 'index.html')),
-  );
+  // 회사·상품 소개(PG 심사 확인용) — shared 의 상품·사업자 정보로 서버가 그린다.
+  app.use('/', createLandingPageRouter({ billingEnabled: Boolean(env.portone.billingChannelKey) }));
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
   app.use('/api', healthRouter);
@@ -262,6 +266,9 @@ export function createApp(
     ),
     persistence<AppNotification>('notifications'),
   );
+  const subscriptionStore = new SubscriptionStore(persistence<Subscription>('subscriptions'));
+  // 철거업체 멤버십 혜택(우선 알림·수수료 인하·상단 노출) 판정 — 세 곳이 같은 기준을 본다.
+  const membership = new MembershipService(subscriptionStore);
   const requestStore = new RequestStore(
     persistence<ServiceRequest>('requests'),
     (request) => {
@@ -269,6 +276,17 @@ export function createApp(
     },
     // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
     async (request) => {
+      // 신규 철거 견적 요청 → 멤버십 철거업체에게 우선 알림(멤버십 혜택).
+      if (request.kind === 'DEMOLITION') {
+        const memberIds = new Set(await membership.memberIdsOn());
+        if (memberIds.size === 0) return;
+        const members = (await userStore.list({ userType: 'DEMOLITION_COMPANY' })).filter(
+          (u) =>
+            memberIds.has(u.id) && u.approvalStatus === 'APPROVED' && u.id !== request.requesterId,
+        );
+        notificationService.notifyDemolitionMembers(request, members);
+        return;
+      }
       if (request.kind !== 'TRANSPORT') return;
       const companies = (await userStore.list({ userType: 'TRANSPORT_COMPANY' })).filter(
         (u) =>
@@ -316,7 +334,6 @@ export function createApp(
     persistence<Incident>('incidents'),
   );
   const quoteStore = new QuoteStore(requestStore, persistence<Quote>('quotes'));
-  const subscriptionStore = new SubscriptionStore(persistence<Subscription>('subscriptions'));
   // ⚠️ 계좌번호·사업자번호(PII)를 담는다. 응답 경로는 전부 마스킹을 거친다.
   const payoutAccountStore = new PayoutAccountStore(
     userStore,
@@ -336,8 +353,7 @@ export function createApp(
           const pool = shared.pool as PgQueryable;
           const storage = createBackupStorage();
           return {
-            run: () =>
-              runDbBackup({ pool, storage, retentionDays: env.backup.retentionDays }),
+            run: () => runDbBackup({ pool, storage, retentionDays: env.backup.retentionDays }),
             listKeys: async () => (await storage.list()).map((o) => o.key),
             list: () => storage.list(),
           };
@@ -458,12 +474,15 @@ export function createApp(
       paymentStore,
       userStore,
       payoutAccountStore,
+      membership,
     ),
   );
   const geocoder = createGeocoder();
   app.use(
     '/api',
-    createMatchingRouter(async (providerId) => (await reviewStore.ratingSummary(providerId)).average),
+    createMatchingRouter(
+      async (providerId) => (await reviewStore.ratingSummary(providerId)).average,
+    ),
   );
   app.use('/api', createUploadsRouter());
   app.use('/api', createRequestsRouter(requestStore, userStore, geocoder));
@@ -567,17 +586,26 @@ export function createApp(
   const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
   app.use(
     '/api',
-    createSiteAnalysisRouter(consensusSiteAnalyzer, mockSiteAnalyzer, siteAnalysisQueue, siteAnalysisStore, volumeEstimator),
+    createSiteAnalysisRouter(
+      consensusSiteAnalyzer,
+      mockSiteAnalyzer,
+      siteAnalysisQueue,
+      siteAnalysisStore,
+      volumeEstimator,
+    ),
   );
   app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
   // 철거 견적 — 개산(범위) → 실사 → 확정. 운반·처리의 단발 견적과 분리한다
   // (철거 금액은 현장을 봐야 정해져서, 사진만 보고 낸 금액을 계약금액으로 쓰면 안 된다).
+  app.use('/api', createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore));
+  // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
   app.use(
     '/api',
-    createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore),
+    createProductRouter(subscriptionStore, portOneClient, {
+      billingEnabled: Boolean(env.portone.billingChannelKey),
+      membership,
+    }),
   );
-  // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
-  app.use('/api', createProductRouter(subscriptionStore, portOneClient));
   // 정산 계좌 — 파트너정산이든 직접 이체든 이 정보는 똑같이 필요하다.
   app.use('/api', createPayoutAccountRouter(payoutAccountStore));
   app.use(

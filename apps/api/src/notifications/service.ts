@@ -47,6 +47,10 @@ const TEMPLATES: Partial<Record<MatchStatus, { requester?: string; provider?: st
 /** 신규 운반요청 "콜" 알림 문구. 고령 사용자 기준으로 짧고 명확하게. */
 const TRANSPORT_CALL_MESSAGE = '가까운 곳에 새 운반 콜이 있어요. 지금 확인해 주세요.';
 
+/** 신규 철거 견적 요청 — 멤버십 업체 우선 알림 문구. */
+const DEMOLITION_MEMBER_CALL_MESSAGE =
+  '[멤버십 우선 알림] 새 철거 견적 요청이 들어왔어요. 지금 확인해 주세요.';
+
 /** 콜 알림 대상 운반업체 (거리 계산용 좌표를 가질 수 있음). */
 export interface TransportCallTarget {
   id: string;
@@ -134,6 +138,39 @@ export class NotificationService {
   }
 
   /**
+   * 신규 철거 견적 요청 — **멤버십 철거업체에게 먼저** 알린다(멤버십 혜택).
+   *
+   * 비회원 업체는 일감 목록에서 같은 요청을 그대로 본다. 알림을 받는 쪽이 먼저 움직일 수
+   * 있다는 것이 혜택이고, 요청 자체를 회원에게만 보여주지는 않는다(소비자 매칭 기회를
+   * 줄이지 않기 위해). 현장 좌표가 있으면 반경 밖 회원은 빼고 가까운 순으로 보낸다.
+   * 좌표를 등록하지 않은 회원은 거리를 판단할 수 없어 뒤에 붙여 보낸다 — 돈을 낸 혜택이
+   * 좌표 미등록 때문에 통째로 사라지면 안 된다(운반 콜과 다른 점).
+   * 호출부가 회원·승인·본인 제외 필터를 끝낸 목록을 넘긴다.
+   */
+  notifyDemolitionMembers(
+    request: ServiceRequest,
+    members: readonly TransportCallTarget[],
+  ): AppNotification[] {
+    if (request.kind !== 'DEMOLITION') return [];
+    const ranked = rankByDistance(request.location, [...members], {
+      maxRadiusKm: MATCH_RADIUS_KM,
+    });
+    const targets = ranked.slice(0, TRANSPORT_CALL_FANOUT_LIMIT);
+
+    return this.dispatch(
+      targets.map<AppNotification>((company) => ({
+        id: randomUUID(),
+        userId: company.id,
+        requestId: request.id,
+        status: request.status,
+        message: DEMOLITION_MEMBER_CALL_MESSAGE,
+        kind: 'CALL',
+        createdAt: new Date().toISOString(),
+      })),
+    );
+  }
+
+  /**
    * 철거 견적 진행 알림(개산 도착·실사 예약·확정 도착).
    *
    * 이 흐름은 상대가 다음 행동을 해야 이어진다 — 개산이 와도 소비자가 모르면 실사를
@@ -181,9 +218,10 @@ export class NotificationService {
 
   /** 채팅 알림 전송 (Push Notification). */
   notifyChatMessage(request: ServiceRequest, senderId: string, content: string) {
-    const targetId = request.requesterId === senderId ? request.matchedProviderId : request.requesterId;
+    const targetId =
+      request.requesterId === senderId ? request.matchedProviderId : request.requesterId;
     if (!targetId) return;
-    
+
     // 이 단계에서는 FCM 연동 대신 NotificationProvider 를 사용해 푸시 알림 로그를 남깁니다.
     // (실제 FCM 연동 시 이 메서드에서 provider.sendPush 등 별도 인터페이스 호출 가능)
     const notification: AppNotification = {
@@ -196,7 +234,7 @@ export class NotificationService {
       kind: 'CHAT',
       createdAt: new Date().toISOString(),
     };
-    
+
     // 인앱 알림함에는 굳이 모든 메시지를 저장하지 않고 푸시만 보낼 수도 있지만,
     // 현재 구조상 dispatch 로 전달하여 기록도 남깁니다.
     this.dispatch([notification]);

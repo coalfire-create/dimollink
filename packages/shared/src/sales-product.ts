@@ -1,3 +1,6 @@
+import { MEMBER_PLATFORM_FEE_RATE, PLATFORM_FEE_RATE } from './constants.js';
+import type { UserType } from './user.js';
+
 /**
  * 실판매 상품 — 앱 안에서 실제로 결제할 수 있는 상품 정의.
  *
@@ -10,7 +13,19 @@
  *  - 일반결제는 **서비스 제공기간 명시 필수**(결제 후 서비스 완료까지). 타입에서 강제한다.
  *  - 결제창이 갈린다: 일반결제=일반결제창, 정기결제=정기결제창(빌링키 발급).
  *    이건 화면 쪽 규칙이라 [[PORTONE]] 연동부에서 지킨다.
+ *  - (토스페이먼츠 심사) 상품 **이미지·금액·상세**가 홈페이지에 노출돼야 하고, 무형 서비스는
+ *    **서비스 제공기간·환불 정책**이 필수다. 배송 규정도 확인하므로 "배송 없음"을 명시한다.
+ *  - (토스페이먼츠 심사) 서비스 **최대 제공기간은 12개월**을 넘을 수 없다.
  */
+
+/**
+ * 서비스 최대 제공기간(개월) — 토스페이먼츠 심사 기준. 이보다 긴 기간을 파는 상품
+ * (연간 이용권 등)은 심사에서 반려된다. [[validateSalesProduct]] 가 이 값으로 막는다.
+ */
+export const MAX_SERVICE_PERIOD_MONTHS = 12;
+
+/** 1개월을 시간으로 — 제공기간 상한 비교용(가장 긴 달 기준이 아니라 30일로 고정). */
+const HOURS_PER_MONTH = 30 * 24;
 
 export type BillingType = 'ONE_TIME' | 'MONTHLY_SUBSCRIPTION';
 
@@ -21,19 +36,28 @@ interface SalesProductBase {
   description: string;
   /** 판매가(원, VAT 포함). */
   price: number;
-  /** 구매 가능한 회원 유형. 비우면 전체. */
-  availableTo?: readonly ('CONSUMER' | 'PROVIDER')[];
+  /** 구매 가능한 회원 유형. 비우면 전체. 서버 구독 경로가 이 값으로 막는다. */
+  availableTo?: readonly UserType[];
   /** 상품이 제공하는 것 — 화면에 목록으로 띄운다. */
   benefits: readonly string[];
+  /**
+   * 상품 이미지 — 서버 정적 경로(`apps/api/public/product-images/`). 앱은 API 호스트를
+   * 붙여 띄우고, 랜딩 페이지는 그대로 쓴다. 한 파일을 양쪽이 같이 본다.
+   */
+  imagePath: string;
+  /**
+   * 서비스 제공기간 — 결제 후 서비스 제공 완료(정기결제는 1회 결제가 덮는 기간)까지.
+   * **심사 필수 항목**이라 선택이 아니다. 사람이 읽는 문구와 기계가 쓰는 시간을 함께 둔다.
+   */
+  servicePeriod: { label: string; hours: number };
+  /** 제공 방식(배송 규정). 무형 서비스라 실물 배송이 없다는 점을 명시한다. */
+  delivery: string;
+  /** 취소·환불 정책 — 화면에 항목별로 그대로 노출한다. 심사 필수 항목. */
+  refundPolicy: readonly string[];
 }
 
 export interface OneTimeProduct extends SalesProductBase {
   billingType: 'ONE_TIME';
-  /**
-   * 서비스 제공기간 — 결제 후 서비스 제공 완료까지. **심사 필수 항목**이라 선택이 아니다.
-   * 사람이 읽는 문구와 기계가 쓰는 시간을 함께 둔다(환불 기준 계산에 쓴다).
-   */
-  servicePeriod: { label: string; hours: number };
 }
 
 export interface MonthlySubscriptionProduct extends SalesProductBase {
@@ -52,41 +76,76 @@ export type SalesProduct = OneTimeProduct | MonthlySubscriptionProduct;
  * 가격을 코드에 두는 이유는 CLAUDE.md 원칙(비즈니스 상수는 packages/shared)과 같다 —
  * 서버·앱·심사 자료가 같은 값을 봐야 하고, 여기 한 곳만 고치면 전부 따라온다.
  */
+/** 철거업체 멤버십 상품 id — 혜택(우선 알림·수수료 인하·상단 노출) 판정이 이 값으로 구독을 찾는다. */
+export const DEMOLITION_MEMBERSHIP_ID = 'demolition-membership';
+
+const feePct = (rate: number) => `${Math.round(rate * 100)}%`;
+
 export const SALES_PRODUCTS: readonly SalesProduct[] = [
   {
-    id: 'vision-report',
-    billingType: 'ONE_TIME',
-    name: '디몰비전 현장 분석 리포트',
-    description:
-      '현장 사진을 올리면 AI가 자재·철거 공정·예상 폐기물량을 분석해 리포트로 만들어 드립니다. 건축물대장(공공데이터)을 함께 조회해 구조·연면적을 반영합니다.',
-    price: 9_900,
-    servicePeriod: { label: '결제 후 24시간 이내 리포트 제공', hours: 24 },
-    benefits: [
-      '자재 종류별 예상 물량(톤) 산출',
-      '철거 공정 순서와 안전 유의사항',
-      '올바로 전자인계서 의무 대상 여부 판정',
-      '건축물대장 기반 구조·연면적 반영',
-    ],
-  },
-  {
-    id: 'provider-membership',
+    id: DEMOLITION_MEMBERSHIP_ID,
     billingType: 'MONTHLY_SUBSCRIPTION',
-    name: '업체 멤버십 (월 정기결제)',
+    name: '철거업체 멤버십 (월 정기결제)',
     description:
-      '철거·운반·처리 업체를 위한 월 구독 상품입니다. 새 요청 알림을 우선으로 받고, 개산 견적을 제한 없이 제출할 수 있습니다.',
-    price: 49_000,
+      '철거업체 전용 월 구독 상품입니다. 새 철거 견적 요청을 가장 먼저 알림으로 받고, 정산 수수료가 낮아지며, 소비자 홈의 협력 업체 목록 상단에 노출됩니다.',
+    price: 5_900,
+    imagePath: '/product-images/demolition-membership.png',
     intervalMonths: 1,
+    servicePeriod: { label: '결제일로부터 1개월 (매월 자동 갱신)', hours: HOURS_PER_MONTH },
+    delivery: '실물 배송 없음 — 결제 즉시 앱에서 혜택이 적용됩니다.',
     cancellationNotice:
-      '언제든지 마이페이지 > 멤버십에서 해지할 수 있습니다. 해지 시 다음 결제일부터 청구되지 않으며, 이미 결제된 이용 기간은 끝까지 사용할 수 있습니다.',
-    availableTo: ['PROVIDER'],
+      '언제든지 마이페이지 > 스토어 · 멤버십에서 해지할 수 있습니다. 해지 시 다음 결제일부터 청구되지 않으며, 이미 결제된 이용 기간은 끝까지 사용할 수 있습니다.',
+    refundPolicy: [
+      '결제 후 7일 이내에 혜택(우선 알림 수신·수수료 인하 정산)을 사용하지 않았다면 전액 환불됩니다.',
+      '혜택을 사용한 뒤에는 해당 월 요금은 환불되지 않으며, 해지하면 다음 결제부터 청구되지 않습니다.',
+      '회사 사정으로 서비스를 제공하지 못한 기간은 일할 계산해 환불합니다.',
+    ],
+    availableTo: ['DEMOLITION_COMPANY'],
     benefits: [
-      '새 요청 알림 우선 수신',
-      '개산 견적 제출 무제한',
-      '업체 프로필에 멤버십 배지 노출',
-      '개산 정확도 리포트 제공',
+      '새 철거 견적 요청 우선 알림(문자·앱)',
+      `플랫폼 수수료 인하 ${feePct(PLATFORM_FEE_RATE)} → ${feePct(MEMBER_PLATFORM_FEE_RATE)}`,
+      '소비자 홈 협력 업체 목록 상단 노출(광고)',
     ],
   },
 ];
+
+/**
+ * 심사 요건 위반 사유 목록(없으면 빈 배열). 상품을 추가·수정할 때 테스트가 이걸로 막는다.
+ * 런타임에 거르는 용도가 아니다 — 잘못된 상품은 배포 전에 걸려야 한다.
+ */
+export function validateSalesProduct(p: SalesProduct): string[] {
+  const problems: string[] = [];
+  if (!Number.isInteger(p.price) || p.price <= 0) problems.push('가격은 양의 정수(원)여야 합니다.');
+  if (!p.imagePath.startsWith('/')) problems.push('이미지 경로가 필요합니다.');
+  if (!p.description.trim()) problems.push('상세 설명이 필요합니다.');
+  if (!p.servicePeriod.label.trim() || p.servicePeriod.hours <= 0) {
+    problems.push('서비스 제공기간이 필요합니다.');
+  }
+  if (p.servicePeriod.hours > MAX_SERVICE_PERIOD_MONTHS * HOURS_PER_MONTH) {
+    problems.push(`서비스 제공기간은 ${MAX_SERVICE_PERIOD_MONTHS}개월을 넘을 수 없습니다.`);
+  }
+  if (!p.delivery.trim()) problems.push('제공 방식(배송 규정)이 필요합니다.');
+  if (p.refundPolicy.length === 0) problems.push('환불 정책이 필요합니다.');
+  return problems;
+}
+
+/**
+ * 지금 결제할 수 있는가.
+ *
+ * 상품은 항상 노출한다(PG 심사·고객 안내). 다만 정기결제는 PG 의 **자동결제(빌링) 채널**이
+ * 따로 있어야 결제창이 열리므로, 채널이 없는 동안에는 "정기결제 준비 중"으로 막는다.
+ */
+export function isPurchasable(
+  product: SalesProduct,
+  options: { billingEnabled: boolean },
+): boolean {
+  return product.billingType === 'ONE_TIME' || options.billingEnabled;
+}
+
+/** 이 회원 유형이 살 수 있는 상품인가. */
+export function isAvailableTo(product: SalesProduct, userType: UserType): boolean {
+  return !product.availableTo || product.availableTo.includes(userType);
+}
 
 export function findSalesProduct(id: string): SalesProduct | undefined {
   return SALES_PRODUCTS.find((p) => p.id === id);
@@ -164,4 +223,25 @@ export function addOneMonth(date: string): string {
 export function isBillingDue(sub: Subscription, todayKst: string): boolean {
   if (sub.status === 'CANCELLED') return false;
   return sub.nextBillingDate <= todayKst;
+}
+
+/** ISO 시각 → 'YYYY-MM-DD'(KST). */
+function kstDateOf(iso: string): string {
+  return new Date(Date.parse(iso) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * 이 구독이 `date`(YYYY-MM-DD, KST)에 혜택을 주는가.
+ *
+ * 기준은 **결제로 덮인 기간**이다: 시작일 ≤ date < 이번 이용 기간 종료일.
+ * - 해지해도 이미 결제한 기간은 끝까지 혜택이 유지된다(해지 안내 문구와 같은 약속).
+ * - 결제 실패가 이어져 기간이 갱신되지 않으면 종료일이 지나는 순간 혜택이 끝난다.
+ */
+export function subscriptionCoversDate(sub: Subscription, date: string): boolean {
+  return kstDateOf(sub.startedAt) <= date && date < sub.currentPeriodEnd;
+}
+
+/** 멤버십 회원 여부에 따른 플랫폼 수수료율. 정산 금액 계산의 단일 원천. */
+export function platformFeeRateFor(options: { member: boolean }): number {
+  return options.member ? MEMBER_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
 }

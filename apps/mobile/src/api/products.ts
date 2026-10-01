@@ -30,6 +30,10 @@ export const subscribeProduct = (productId: string, billingKey: string) =>
     body: JSON.stringify({ billingKey }),
   });
 
+/** 협력 업체 목록 상단에 노출할 업체(멤버십 회원) id. 로그인 없이도 볼 수 있다. */
+export const listFeaturedProviders = () =>
+  api<{ providerIds: string[] }>('/products/featured-providers');
+
 export const listSubscriptions = () => api<SafeSubscription[]>('/subscriptions');
 
 /** 해지 — 다음 결제부터 청구되지 않고, 이미 결제한 기간은 끝까지 쓴다. */
