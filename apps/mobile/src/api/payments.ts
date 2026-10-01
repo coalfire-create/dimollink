@@ -1,7 +1,4 @@
-import type {
-  CancellationStage,
-  SettlementPlan,
-} from '@dimol/shared';
+import type { CancellationStage, SettlementPlan } from '@dimol/shared';
 import { api } from './http';
 
 /**
@@ -14,6 +11,8 @@ import { api } from './http';
 export interface PaymentConfig {
   storeId: string;
   channelKey: string;
+  /** 정기결제(빌링키 발급) 채널. 없으면 정기결제 상품을 팔지 않는다. */
+  billingChannelKey?: string | null;
   /** 'test' 면 실제 청구가 일어나지 않는다. */
   mode: 'test' | 'live';
 }

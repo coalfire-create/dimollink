@@ -1,130 +1,152 @@
-import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useRef } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import brandmark from '../../assets/brandmark.png';
 import { AppButton } from '../components/ui';
+import { CompanyInfoFooter } from '../components/CompanyInfoFooter';
 import { FadeInUp } from '../components/motion';
+import { ProductShowcase } from './store/ProductShowcase';
+import { DevRoleShortcuts, type DevRoleKey } from './welcome/DevRoleShortcuts';
 import { theme } from '../theme';
 
 /**
  * 진입 게이트 — 앱을 열면 가장 먼저 보이는 화면.
  * 레퍼런스 디자인(007~009.png): 파란 전면 배경 + 대형 타이포 + 소파 일러스트 + 하단 흰 시트.
  * 로그인 / 회원가입으로만 서비스에 들어갈 수 있고, 둘러보기(게스트)는 별도 경로.
+ *
+ * 첫 화면은 웹에서 곧 **홈페이지**다. PG(토스페이먼츠) 심사가 홈페이지에서 판매 상품과
+ * 하단 사업자 정보(고객센터 전화 포함)를 확인하므로, 첫 뷰포트 아래로 상품 안내와 푸터를
+ * 이어 붙인다. 첫 뷰포트(파란 히어로 + 버튼 시트)는 화면 높이를 꽉 채워 그대로 둔다.
  */
 export function WelcomeScreen({
   onLogin,
   onSignup,
   onGuest,
+  onBuy,
   onAdmin,
   onDevRoleSelect,
 }: {
   onLogin: () => void;
   onSignup: () => void;
   onGuest: () => void;
+  /** 상품 안내의 "구매하기" — 로그인 후 스토어로 이어진다. */
+  onBuy: () => void;
   onAdmin?: () => void;
-  onDevRoleSelect?: (role: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => void;
+  onDevRoleSelect?: (role: DevRoleKey) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const productsY = useRef(0);
   return (
-    <View style={styles.container}>
-      {/* 상단: 파란색 배경 + 로고 + 타이포.
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.scroll}>
+      <View
+        style={{ minHeight: height }}
+        onLayout={(e) => {
+          // 상품 안내는 이 첫 뷰포트 바로 아래에서 시작한다 — 자기 높이가 곧 스크롤 목표다.
+          productsY.current = e.nativeEvent.layout.height;
+        }}
+      >
+        {/* 상단: 파란색 배경 + 로고 + 타이포.
           파란 배경은 상태바까지 꽉 채우고, 내용만 노치 아래로 내린다. */}
-      <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg }]}>
-        <Pressable
-          accessibilityRole="image"
-          accessibilityLabel="비움 로고"
-          delayLongPress={1200}
-          onLongPress={onAdmin}
-          style={[styles.logoWrap, { top: insets.top + spacing.sm }]}
-        >
-          <Image source={brandmark} style={styles.logoImage} resizeMode="contain" />
-        </Pressable>
-        <FadeInUp delay={40}>
-          <Text style={styles.heroTitle}>
-            {'철거부터\n처리까지\n비움'}
-          </Text>
-        </FadeInUp>
-        <FadeInUp delay={160}>
-          <Text style={styles.heroSubtitle}>
-            {'건설폐기물 전국 매칭 플랫폼\n올바로 전자인계서 자동화'}
-          </Text>
-        </FadeInUp>
+        <View style={[styles.heroSection, { paddingTop: insets.top + spacing.lg }]}>
+          <Pressable
+            accessibilityRole="image"
+            accessibilityLabel="비움 로고"
+            delayLongPress={1200}
+            onLongPress={onAdmin}
+            style={[styles.logoWrap, { top: insets.top + spacing.sm }]}
+          >
+            <Image source={brandmark} style={styles.logoImage} resizeMode="contain" />
+          </Pressable>
+          <FadeInUp delay={40}>
+            <Text style={styles.heroTitle}>{'철거부터\n처리까지\n비움'}</Text>
+          </FadeInUp>
+          <FadeInUp delay={160}>
+            <Text style={styles.heroSubtitle}>
+              {'건설폐기물 전국 매칭 플랫폼\n올바로 전자인계서 자동화'}
+            </Text>
+          </FadeInUp>
 
-        {/* 핵심 강점 — 빈 공간을 채우고 가치를 전달 */}
-        <FadeInUp delay={240}>
-          <View style={styles.features}>
-            {[
-              '전국 어디나 · 건설폐기물 전문',
-              '올바로 전자인계서 자동 처리',
-              '여러 업체 견적 비교 후 선택',
-            ].map((t) => (
-              <View key={t} style={styles.featureRow}>
-                <View style={styles.featureCheck}>
-                  <Text style={styles.featureCheckText}>✓</Text>
+          {/* 핵심 강점 — 빈 공간을 채우고 가치를 전달 */}
+          <FadeInUp delay={240}>
+            <View style={styles.features}>
+              {[
+                '전국 어디나 · 건설폐기물 전문',
+                '올바로 전자인계서 자동 처리',
+                '여러 업체 견적 비교 후 선택',
+              ].map((t) => (
+                <View key={t} style={styles.featureRow}>
+                  <View style={styles.featureCheck}>
+                    <Text style={styles.featureCheckText}>✓</Text>
+                  </View>
+                  <Text style={styles.featureText}>{t}</Text>
                 </View>
-                <Text style={styles.featureText}>{t}</Text>
-              </View>
-            ))}
-          </View>
-        </FadeInUp>
-
-      </View>
-
-      {/* 하단: 흰색 라운드 시트 — 홈 인디케이터 위로 버튼을 띄운다. */}
-      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
-        {/* 말풍선 */}
-        <FadeInUp delay={360}>
-          <View style={styles.speechBubble}>
-            <Text style={styles.speechBubbleText}>전국 서비스 · 10초 가입</Text>
-            <View style={styles.speechBubbleTail} />
-          </View>
-        </FadeInUp>
-
-        <FadeInUp delay={420}>
-          <AppButton label="로그인" onPress={onLogin} />
-          <View style={{ height: theme.spacing.sm }} />
-          <AppButton label="회원가입" variant="outline" onPress={onSignup} />
-        </FadeInUp>
-
-        <FadeInUp delay={480}>
-          <View style={styles.linksRow}>
-            <Pressable onPress={onGuest}>
-              <Text style={styles.linkText}>로그인 없이 둘러보기</Text>
-            </Pressable>
-            {/* 관리자 백오피스(공유 운영 토큰 경로)는 일반 사용자에게 보일 이유가 없다.
-                링크를 지우는 대신 로고를 길게 눌러 들어가게 남겨 뒀다 — 운영자는 알고
-                쓰고, 일반 사용자 눈에는 안 띈다. */}
-          </View>
-        </FadeInUp>
-
-        {/* UI 검증용 로그인 없는 빠른 진입 칩 */}
-        {onDevRoleSelect ? (
-          <FadeInUp delay={520}>
-            <View style={styles.devSection}>
-              <Text style={styles.devSectionTitle}>⚡️ UI 검증용 바로가기 (로그인 없이 바로 진입)</Text>
-
-              <View style={styles.devGrid}>
-                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('CONSUMER')}>
-                  <Text style={styles.devChipText}>👤 소비자</Text>
-                </Pressable>
-                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('DEMOLITION')}>
-                  <Text style={styles.devChipText}>🏗 철거</Text>
-                </Pressable>
-                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('TRANSPORT')}>
-                  <Text style={styles.devChipText}>🚚 운반</Text>
-                </Pressable>
-                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('TREATMENT')}>
-                  <Text style={styles.devChipText}>🏭 처리장</Text>
-                </Pressable>
-                <Pressable style={styles.devChip} onPress={() => onDevRoleSelect('INTERIOR')}>
-                  <Text style={styles.devChipText}>🛠 인테리어</Text>
-                </Pressable>
-              </View>
+              ))}
             </View>
           </FadeInUp>
-        ) : null}
+        </View>
+
+        {/* 하단: 흰색 라운드 시트 — 홈 인디케이터 위로 버튼을 띄운다. */}
+        <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          {/* 말풍선 */}
+          <FadeInUp delay={360}>
+            <View style={styles.speechBubble}>
+              <Text style={styles.speechBubbleText}>전국 서비스 · 10초 가입</Text>
+              <View style={styles.speechBubbleTail} />
+            </View>
+          </FadeInUp>
+
+          <FadeInUp delay={420}>
+            <AppButton label="로그인" onPress={onLogin} />
+            <View style={{ height: theme.spacing.sm }} />
+            <AppButton label="회원가입" variant="outline" onPress={onSignup} />
+          </FadeInUp>
+
+          <FadeInUp delay={480}>
+            <View style={styles.linksRow}>
+              <Pressable onPress={onGuest}>
+                <Text style={styles.linkText}>로그인 없이 둘러보기</Text>
+              </Pressable>
+              <Text style={styles.linkDivider}>|</Text>
+              <Pressable
+                onPress={() =>
+                  scrollRef.current?.scrollTo({ y: productsY.current, animated: false })
+                }
+              >
+                <Text style={styles.linkText}>상품·요금 보기</Text>
+              </Pressable>
+              {/* 관리자 백오피스(공유 운영 토큰 경로)는 일반 사용자에게 보일 이유가 없다.
+                링크를 지우는 대신 로고를 길게 눌러 들어가게 남겨 뒀다 — 운영자는 알고
+                쓰고, 일반 사용자 눈에는 안 띈다. */}
+            </View>
+          </FadeInUp>
+
+          {/* UI 검증용 로그인 없는 빠른 진입 칩 */}
+          {onDevRoleSelect ? (
+            <FadeInUp delay={520}>
+              <DevRoleShortcuts onSelect={onDevRoleSelect} />
+            </FadeInUp>
+          ) : null}
+        </View>
       </View>
-    </View>
+
+      {/* 첫 뷰포트 아래 — 상품·요금 안내와 사업자 정보(홈페이지 하단). */}
+      <View style={[styles.publicInfo, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={styles.publicInner}>
+          <ProductShowcase onBuy={onBuy} />
+          <CompanyInfoFooter />
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 
@@ -134,6 +156,19 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.primary,
     flex: 1,
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  publicInfo: {
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+  },
+  publicInner: {
+    alignSelf: 'center',
+    maxWidth: theme.maxContentWidth,
+    width: '100%',
   },
   heroSection: {
     flex: 1,
@@ -258,37 +293,5 @@ const styles = StyleSheet.create({
     color: colors.border,
     fontSize: font.body,
     marginHorizontal: spacing.xs / 2,
-  },
-  devSection: {
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  devSectionTitle: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-  },
-  devGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    justifyContent: 'center',
-  },
-  devChip: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  devChipText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
   },
 });

@@ -250,6 +250,12 @@ export const env = {
      * 공개값이라 앱에 노출돼도 된다(시크릿은 PORTONE_API_SECRET 쪽).
      */
     channelKey: process.env.PORTONE_CHANNEL_KEY,
+    /**
+     * 정기결제(빌링키 발급) 채널. 토스페이먼츠는 자동결제를 **별도 계약·별도 채널**로 연다 —
+     * 일반결제 채널로는 빌링키 발급창이 열리지 않는다. 비어 있으면 정기결제 상품을
+     * 노출하지 않는다([[sellableProducts]]). 공개값.
+     */
+    billingChannelKey: process.env.PORTONE_BILLING_CHANNEL_KEY || undefined,
     // 기본은 test. 운영(live) 전환은 CLAUDE.md 규칙상 테스트 모드 검증 완료 후에만 한다.
     mode: (process.env.PORTONE_ENV ?? 'test') as 'test' | 'live',
     // live 호출을 명시적으로 허용하지 않으면 클라이언트가 실거래 호출을 거부한다.

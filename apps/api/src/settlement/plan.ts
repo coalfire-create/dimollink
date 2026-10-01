@@ -47,8 +47,13 @@ export function buildDealSettlementPlan(input: {
   holidays?: ReadonlySet<string>;
   /** 지급 대상 사업자번호(PII). */
   sellerBusinessNumber?: string;
+  /**
+   * 적용 수수료율. 생략하면 기본 PLATFORM_FEE_RATE. 멤버십 회원은 인하된 값이 들어온다
+   * ([[MembershipService]] feeRateFor) — 결제자가 낸 금액은 같고 수취인 몫만 달라진다.
+   */
+  feeRate?: number;
 }): SettlementPlan {
-  const deal = calculateDeal(input.amount);
+  const deal = calculateDeal(input.amount, input.feeRate);
   return {
     breakdown: {
       // 기존 SettlementBreakdown 계약을 유지하되, 단일 수취인이라 한쪽에만 담는다.

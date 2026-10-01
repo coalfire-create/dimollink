@@ -3,26 +3,36 @@ import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon, type IconName } from '../components/AppIcon';
 import { AppButton } from '../components/ui';
+import { CompanyInfoFooter } from '../components/CompanyInfoFooter';
 import { FadeInUp } from '../components/motion';
+import { ProductShowcase } from './store/ProductShowcase';
 import { theme } from '../theme';
 import brandmark from '../../assets/brandmark.png';
 
 /**
  * 게스트(로그인 없이 둘러보기) 화면.
  * 서비스 소개만 제공하고, 요청 등록·내 정보 등 실제 기능은 로그인/회원가입으로 유도한다.
+ * 판매 상품과 사업자 정보(고객센터 전화)도 여기서 볼 수 있다 — PG 심사 요건.
  */
 const STEPS: Array<{ icon: IconName; title: string; description: string }> = [
   { icon: 'document', title: '요청 등록', description: '철거·운반·처리 요청을 한 번에 올려요' },
   { icon: 'tools', title: '업체 매칭', description: '가까운 업체가 견적을 보내드려요' },
-  { icon: 'recycle', title: '올바로 자동 처리', description: '전자인계서 신고까지 알아서 처리해요' },
+  {
+    icon: 'recycle',
+    title: '올바로 자동 처리',
+    description: '전자인계서 신고까지 알아서 처리해요',
+  },
 ];
 
 export function GuestHomeScreen({
   onLogin,
   onSignup,
+  onBuy,
 }: {
   onLogin: () => void;
   onSignup: () => void;
+  /** 상품 "구매하기" — 로그인 후 스토어로 이어진다. */
+  onBuy: () => void;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -31,7 +41,10 @@ export function GuestHomeScreen({
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + theme.spacing.md, paddingBottom: insets.bottom + theme.spacing.lg },
+          {
+            paddingTop: insets.top + theme.spacing.md,
+            paddingBottom: insets.bottom + theme.spacing.lg,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -68,6 +81,11 @@ export function GuestHomeScreen({
               </View>
             </FadeInUp>
           ))}
+        </View>
+
+        <View style={styles.publicInfo}>
+          <ProductShowcase onBuy={onBuy} />
+          <CompanyInfoFooter />
         </View>
       </ScrollView>
 
@@ -135,6 +153,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.caption,
     fontWeight: '700',
+  },
+  publicInfo: {
+    marginTop: spacing.lg,
   },
   stepsContainer: {
     gap: spacing.sm,

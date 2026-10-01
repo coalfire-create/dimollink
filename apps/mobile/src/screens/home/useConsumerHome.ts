@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ServiceRequest } from '@dimol/shared';
-import { getRatingSummary, listRequests, listUsers } from '../../api/client';
+import { getRatingSummary, listFeaturedProviders, listRequests, listUsers } from '../../api/client';
 import { hasSeenGuide, setSeenGuide } from '../../lib/session-storage';
 import { useSession } from '../../navigation';
 import { toPartner, type DemolitionPartner } from './PartnerList';
@@ -35,10 +35,15 @@ export function useConsumerHome() {
   }, [user.id]);
 
   const load = useCallback(async () => {
-    const [reqsRes, usersRes] = await Promise.allSettled([
+    const [reqsRes, usersRes, featuredRes] = await Promise.allSettled([
       listRequests(user.id),
       listUsers({ userType: 'DEMOLITION_COMPANY', approvalStatus: 'APPROVED' }),
+      listFeaturedProviders(),
     ]);
+    // 멤버십(상단 노출 광고) 업체. 못 불러오면 광고 없이 원래 순서대로 보여준다.
+    const featured = new Set(
+      featuredRes.status === 'fulfilled' ? featuredRes.value.providerIds : [],
+    );
 
     if (reqsRes.status === 'fulfilled') setRequests(reqsRes.value);
 
@@ -47,7 +52,11 @@ export function useConsumerHome() {
       const ratings = await Promise.all(
         usersRes.value.map((u) => getRatingSummary(u.id).catch(() => null)),
       );
-      setPartners(usersRes.value.map((u, index) => toPartner(u, ratings[index])));
+      const partners = usersRes.value.map((u, index) =>
+        toPartner(u, ratings[index], featured.has(u.id)),
+      );
+      // 멤버십 업체를 위로. 같은 그룹 안에서는 원래 순서를 지킨다(안정 정렬).
+      setPartners([...partners].sort((a, b) => Number(b.featured) - Number(a.featured)));
       setPartnersLoaded(true);
     }
 

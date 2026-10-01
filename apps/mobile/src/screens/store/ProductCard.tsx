@@ -1,18 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { SalesProduct } from '@dimol/shared';
+import { isAvailableTo, isPurchasable, type SalesProduct } from '@dimol/shared';
 import { AppButton, Card } from '../../components/ui';
-import { won } from '../../lib/format';
+import { usePaymentConfig } from '../../lib/payment-config';
+import { useSession } from '../../navigation';
 import { theme } from '../../theme';
+import { ProductDetails } from './ProductDetails';
 import type { StoreCheckoutState } from './useStoreCheckout';
 
 /**
- * 상품 카드 — 일반결제 상품과 월 정기결제 상품.
+ * 상품 카드 — 상품 정보([[ProductDetails]]) + 결제 버튼.
  *
- * 화면이 반드시 보여줘야 하는 것(PG 심사 필수 항목):
- *  - 일반결제: **서비스 제공기간**(결제 후 완료까지).
- *  - 정기결제: 결제 주기(월 1회)와 **해지 방법**.
- * 이 문구들은 장식이 아니라 요건이라, 빼거나 접어 두지 않는다.
+ * 일반결제 상품은 일반결제창, 월 정기결제 상품은 정기결제창으로 간다([[useStoreCheckout]]).
+ * 대상 회원이 아니거나(예: 철거업체 전용) 정기결제 채널이 아직 없으면 버튼 대신 이유를 보여준다.
  */
 export function ProductCard({
   product,
@@ -21,68 +21,52 @@ export function ProductCard({
   product: SalesProduct;
   store: StoreCheckoutState;
 }) {
+  const user = useSession();
+  const billingEnabled = Boolean(usePaymentConfig().billingChannelKey);
   const subscription = store.activeSubscriptionOf(product.id);
   const monthly = product.billingType === 'MONTHLY_SUBSCRIPTION';
+  const eligible = isAvailableTo(product, user.userType);
+  const purchasable = isPurchasable(product, { billingEnabled });
 
   return (
     <Card>
-      <Text style={styles.name}>{product.name}</Text>
-      <Text style={styles.price}>
-        {won(product.price)}
-        {monthly ? ' / 월' : ''}
-      </Text>
-      <Text style={styles.description}>{product.description}</Text>
-
-      {product.benefits.map((benefit) => (
-        <Text key={benefit} style={styles.benefit}>
-          · {benefit}
-        </Text>
-      ))}
-
-      {!monthly ? (
-        <>
-          <View style={styles.terms}>
-            <Text style={styles.termsLabel}>서비스 제공기간</Text>
-            <Text style={styles.termsValue}>{product.servicePeriod.label}</Text>
-          </View>
+      <ProductDetails product={product} />
+      <View style={styles.actions}>
+        {!eligible && !subscription ? (
+          <Text style={styles.blocked}>가입 유형이 맞지 않아 구독할 수 없는 상품이에요.</Text>
+        ) : !purchasable && !subscription ? (
+          <Text style={styles.blocked}>
+            정기결제 준비 중입니다. 결제가 열리면 바로 구독할 수 있어요.
+          </Text>
+        ) : !monthly ? (
           <AppButton
             label="결제하기"
             loading={store.busyId === product.id}
             onPress={() => store.startOneTime(product)}
           />
-        </>
-      ) : (
-        <>
-          <View style={styles.terms}>
-            <Text style={styles.termsLabel}>결제 주기</Text>
-            <Text style={styles.termsValue}>매월 1회 자동결제 (월 단위)</Text>
-            <Text style={styles.termsLabel}>해지 방법</Text>
-            <Text style={styles.termsValue}>{product.cancellationNotice}</Text>
-          </View>
-          {subscription ? (
-            <>
-              <Text style={styles.subState}>
-                구독 중 · 다음 결제일 {subscription.nextBillingDate}
-                {subscription.status === 'PAYMENT_FAILED'
-                  ? ' (결제 실패 — 카드를 확인해 주세요)'
-                  : ''}
-              </Text>
-              <AppButton
-                label="구독 해지"
-                variant="outline"
-                loading={store.busyId === subscription.id}
-                onPress={() => void store.cancel(subscription)}
-              />
-            </>
-          ) : (
+        ) : subscription ? (
+          <>
+            <Text style={styles.subState}>
+              구독 중 · 다음 결제일 {subscription.nextBillingDate}
+              {subscription.status === 'PAYMENT_FAILED'
+                ? ' (결제 실패 — 카드를 확인해 주세요)'
+                : ''}
+            </Text>
             <AppButton
-              label="정기결제 등록"
-              loading={store.busyId === product.id}
-              onPress={() => store.startSubscription(product)}
+              label="구독 해지"
+              variant="outline"
+              loading={store.busyId === subscription.id}
+              onPress={() => void store.cancel(subscription)}
             />
-          )}
-        </>
-      )}
+          </>
+        ) : (
+          <AppButton
+            label="정기결제 등록"
+            loading={store.busyId === product.id}
+            onPress={() => store.startSubscription(product)}
+          />
+        )}
+      </View>
     </Card>
   );
 }
@@ -90,32 +74,12 @@ export function ProductCard({
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  name: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
-  price: {
-    color: colors.primary,
-    fontSize: font.title,
-    fontWeight: '800',
-    marginTop: spacing.xs / 2,
-  },
-  description: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    lineHeight: font.body * 1.5,
-    marginTop: spacing.xs,
-  },
-  benefit: { color: colors.text, fontSize: font.body, marginTop: spacing.xs / 2 },
-  terms: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    marginTop: spacing.sm,
-    padding: spacing.sm,
-  },
-  termsLabel: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
-  termsValue: {
+  actions: { marginTop: spacing.sm },
+  blocked: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
+  subState: {
     color: colors.text,
     fontSize: font.body,
-    lineHeight: font.body * 1.5,
-    marginBottom: spacing.xs / 2,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
   },
-  subState: { color: colors.text, fontSize: font.body, fontWeight: '700', marginTop: spacing.sm },
 });

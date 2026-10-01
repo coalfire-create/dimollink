@@ -1,8 +1,4 @@
-import {
-  buildKoreanHolidaySet,
-  canReceivePayout,
-  type CancellationStage,
-} from '@dimol/shared';
+import { buildKoreanHolidaySet, canReceivePayout, type CancellationStage } from '@dimol/shared';
 import { Router } from 'express';
 import { env } from '../config/env.js';
 import { authUserId } from '../middleware/auth.js';
@@ -10,6 +6,7 @@ import { PaymentService } from '../payment/payment-service.js';
 import type { PaymentStore } from '../payment/payment-store.js';
 import { PortOneError } from '../payment/portone-client.js';
 import type { QuoteStore } from '../quotes/store.js';
+import type { MembershipService } from '../subscriptions/membership.js';
 import type { PayableRequestStore } from '../payment/payable-request.js';
 import type { UserStore } from '../users/store.js';
 import type { PayoutAccountStore } from '../payout/store.js';
@@ -89,6 +86,7 @@ function parsePlanInput(body: unknown): BuildSettlementPlanInput | string {
  *                     요청을 합친 창구(PayableRequestStore)를 주입해 두 흐름을 모두 처리한다.
  * @param quoteStore   선결제 금액을 수락된 견적에서 산출(금액 권위, 선택). 주입 시 클라이언트 금액 무시.
  * @param paymentStore 결제 기록(취소 시 결제자 검증·환불 기준금액, 선택).
+ * @param membership   멤버십 회원의 인하 수수료 적용(선택). 없으면 모두 기본 수수료.
  */
 export function createPaymentsRouter(
   service: PaymentService = new PaymentService(),
@@ -97,11 +95,14 @@ export function createPaymentsRouter(
   paymentStore?: PaymentStore,
   userStore?: UserStore,
   payoutAccountStore?: PayoutAccountStore,
+  membership?: Pick<MembershipService, 'feeRateFor'>,
 ): Router {
   const router = Router();
 
   /** completedDate + 공휴일(음력·대체공휴일)을 파싱해 공휴일 셋을 만든다. */
-  function parseSettlementDate(body: Record<string, unknown>): { completedDate: string; holidays: ReturnType<typeof buildKoreanHolidaySet> } | string {
+  function parseSettlementDate(
+    body: Record<string, unknown>,
+  ): { completedDate: string; holidays: ReturnType<typeof buildKoreanHolidaySet> } | string {
     if (typeof body.completedDate !== 'string' || !DATE_RE.test(body.completedDate)) {
       return 'completedDate(YYYY-MM-DD)가 필요합니다.';
     }
@@ -109,7 +110,10 @@ export function createPaymentsRouter(
     const extra = Array.isArray(body.extraHolidays)
       ? body.extraHolidays.filter((d): d is string => typeof d === 'string')
       : [];
-    return { completedDate: body.completedDate, holidays: buildKoreanHolidaySet([year, year + 1], extra) };
+    return {
+      completedDate: body.completedDate,
+      holidays: buildKoreanHolidaySet([year, year + 1], extra),
+    };
   }
 
   /**
@@ -133,6 +137,8 @@ export function createPaymentsRouter(
     res.json({
       storeId: env.portone.storeId,
       channelKey: env.portone.channelKey,
+      /** 정기결제(빌링키) 채널. 없으면 null — 앱은 정기결제 상품을 받지 않는다. */
+      billingChannelKey: env.portone.billingChannelKey ?? null,
       /** test 면 실제 청구가 일어나지 않는다 — 앱이 안내 문구를 띄우는 데 쓴다. */
       mode: env.portone.mode,
     });
@@ -194,7 +200,8 @@ export function createPaymentsRouter(
       const amount = agreedFee ?? (accepted ? accepted.transportFee + accepted.disposalFee : 0);
       if (amount <= 0) {
         res.status(409).json({
-          error: '확정된 금액이 없어 결제할 수 없습니다. 견적 수락 또는 업체 수락(금액)을 먼저 진행해 주세요.',
+          error:
+            '확정된 금액이 없어 결제할 수 없습니다. 견적 수락 또는 업체 수락(금액)을 먼저 진행해 주세요.',
           code: 'NO_AGREED_AMOUNT',
         });
         return;
@@ -224,7 +231,9 @@ export function createPaymentsRouter(
       // 입금 완료 웹훅(Transaction.Paid)이 올 때까지 매칭 상태를 유지한다.
       if (payment.paid && (await requestStore?.get(matchRequestId))?.status === 'MATCHED') {
         try {
-          await requestStore?.changeStatus(matchRequestId, 'PAID', { paymentId: payment.paymentId });
+          await requestStore?.changeStatus(matchRequestId, 'PAID', {
+            paymentId: payment.paymentId,
+          });
         } catch {
           // 상태 전이 실패가 결제 응답을 막지 않게 한다(결제는 이미 성립).
         }
@@ -257,7 +266,9 @@ export function createPaymentsRouter(
           const record = await paymentStore?.get(evPaymentId);
           if (record && (await requestStore?.get(record.matchRequestId))?.status === 'MATCHED') {
             try {
-              await requestStore?.changeStatus(record.matchRequestId, 'PAID', { paymentId: evPaymentId });
+              await requestStore?.changeStatus(record.matchRequestId, 'PAID', {
+                paymentId: evPaymentId,
+              });
             } catch {
               // 이미 전이됨 등 — 웹훅 응답을 막지 않는다.
             }
@@ -309,6 +320,11 @@ export function createPaymentsRouter(
         completedDate: dateParsed.completedDate,
         holidays: dateParsed.holidays,
         sellerBusinessNumber: seller?.businessNumber,
+        // 멤버십 회원이면 인하 수수료. 처리완료일 기준으로 판단한다.
+        feeRate:
+          sellerId && membership
+            ? await membership.feeRateFor(sellerId, dateParsed.completedDate)
+            : undefined,
       });
     } else {
       const parsed = parsePlanInput(req.body);
@@ -338,9 +354,7 @@ export function createPaymentsRouter(
     try {
       const payouts = await service.executePayouts(matchRequestId, plan);
       // 전자세금계산서 발행(실패해도 지급 응답을 막지 않음).
-      const taxInvoices = await service
-        .issueTaxInvoices(matchRequestId, plan)
-        .catch(() => []);
+      const taxInvoices = await service.issueTaxInvoices(matchRequestId, plan).catch(() => []);
       // 처리 완료(COMPLETED) 요청은 정산 완료(SETTLED)로 전이.
       if ((await requestStore?.get(matchRequestId))?.status === 'COMPLETED') {
         try {
@@ -396,7 +410,11 @@ export function createPaymentsRouter(
       matchRequestId = payment.matchRequestId;
     } else {
       // paymentStore 미주입(테스트) 시에만 클라이언트 paidAmount 사용.
-      if (typeof body.paidAmount !== 'number' || !Number.isInteger(body.paidAmount) || body.paidAmount < 0) {
+      if (
+        typeof body.paidAmount !== 'number' ||
+        !Number.isInteger(body.paidAmount) ||
+        body.paidAmount < 0
+      ) {
         res.status(400).json({ error: 'paidAmount(0 이상 정수)가 필요합니다.' });
         return;
       }

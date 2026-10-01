@@ -19,6 +19,7 @@
     "@dimol/shared": "*",
     "@expo/metro-runtime": "~4.0.1",
     "@expo/vector-icons": "~14.0.4",
+    "@portone/browser-sdk": "^0.1.13",
     "@portone/react-native-sdk": "^0.7.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
