@@ -225,3 +225,19 @@ describe('UserStore — 소셜 신원 연결', () => {
     expect(replaced.socialIdentities?.[0]?.providerUserId).toBe('kakao-999');
   });
 });
+
+describe('UserStore.update — 결제용 이메일', () => {
+  it('유효한 이메일은 저장하고, 형식이 틀리면 거부한다', async () => {
+    const store = new UserStore();
+    const u = await store.create(consumer);
+    expect((await store.update(u.id, { email: ' buyer@example.com ' })).email).toBe('buyer@example.com');
+    await expect(store.update(u.id, { email: 'not-an-email' })).rejects.toThrow(UserValidationError);
+  });
+
+  it('빈 문자열은 기존 이메일을 지우지 않는다', async () => {
+    const store = new UserStore();
+    const u = await store.create(consumer);
+    await store.update(u.id, { email: 'buyer@example.com' });
+    expect((await store.update(u.id, { email: '' })).email).toBe('buyer@example.com');
+  });
+});

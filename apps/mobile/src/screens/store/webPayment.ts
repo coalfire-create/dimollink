@@ -6,6 +6,8 @@
  * 이 파일은 같은 시그니처로 타입과 네이티브 번들을 맞춘다.
  */
 
+import type { PortOneCustomer } from '../../lib/portone-customer';
+
 export interface StorePaymentReturn {
   productId: string;
   kind: 'payment' | 'billing';
@@ -23,13 +25,16 @@ export interface WebPaymentInput {
   orderName: string;
   totalAmount: number;
   productId: string;
+  customer: PortOneCustomer;
 }
 
 export interface WebBillingInput {
   storeId: string;
   channelKey: string;
+  /** 빌링키 발급 건 식별자. KG이니시스는 필수다. */
+  issueId: string;
   issueName: string;
-  customerId: string;
+  customer: PortOneCustomer;
   productId: string;
 }
 

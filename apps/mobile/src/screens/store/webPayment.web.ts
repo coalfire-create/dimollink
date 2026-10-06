@@ -16,7 +16,7 @@ export type {
 } from './webPayment';
 
 /**
- * 웹 결제창 — 포트원 브라우저 SDK(토스페이먼츠 채널).
+ * 웹 결제창 — 포트원 브라우저 SDK. PG 는 서버가 내려준 채널이 정한다(현재 KG이니시스).
  *
  * 웹에서는 React Native SDK 의 WebView 결제창이 동작하지 않는다. PG 심사자는 홈페이지
  * (= 웹앱)에서 결제창을 직접 열어 보므로 웹 전용 경로가 반드시 있어야 한다.
@@ -68,6 +68,7 @@ export async function requestWebPayment(input: WebPaymentInput): Promise<WebPaym
     totalAmount: input.totalAmount,
     currency: 'CURRENCY_KRW',
     payMethod: 'CARD',
+    customer: input.customer,
     redirectUrl: returnUrl('payment', input.productId),
   });
 }
@@ -77,9 +78,11 @@ export async function requestWebBillingKey(input: WebBillingInput): Promise<WebB
     storeId: input.storeId,
     channelKey: input.channelKey,
     billingKeyMethod: 'CARD',
+    issueId: input.issueId,
     issueName: input.issueName,
-    // 토스페이먼츠 빌링은 고객 식별자(customerKey)가 필요하다.
-    customer: { customerId: input.customerId },
+    customer: input.customer,
+    // 월 정기결제 상품만 판다([[sales-product]]). KG이니시스 모바일 발급은 제공 주기가 필수다.
+    offerPeriod: { interval: '1m' },
     redirectUrl: returnUrl('billing', input.productId),
   });
 }

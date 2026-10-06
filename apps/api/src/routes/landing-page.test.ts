@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { escapeHtml, renderLandingPage } from './landing-page.js';
 
 /**
- * 공개 소개 페이지 — 토스페이먼츠 가맹 심사가 홈페이지에서 확인하는 항목이 빠지지 않게 한다.
+ * 공개 소개 페이지 — PG(KG이니시스) 가맹 심사가 홈페이지에서 확인하는 항목이 빠지지 않게 한다.
  * 상품: 이미지·금액·상세·제공기간·환불 정책 / 푸터: 사업자 정보·고객센터 전화번호.
  */
 
@@ -26,6 +26,7 @@ describe('renderLandingPage — 심사 항목', () => {
     expect(footer).toContain(COMPANY_INFO.representative);
     expect(footer).toContain(COMPANY_INFO.address);
     expect(footer).toContain(COMPANY_INFO.supportPhone);
+    expect(footer).toContain(COMPANY_INFO.hostingProvider);
     expect(footer).toContain('/terms');
     expect(footer).toContain('/privacy');
   });

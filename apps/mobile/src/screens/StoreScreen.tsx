@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as PortOne from '@portone/react-native-sdk';
+import { BuyerEmailModal } from '../components/BuyerEmailModal';
 import { Card, ErrorBanner, SectionTitle } from '../components/ui';
 import { ScreenHeader } from '../navigation';
 import { ProductCard } from './store/ProductCard';
@@ -63,6 +64,7 @@ export function StoreScreen() {
           </>
         ) : null}
       </ScrollView>
+      <BuyerEmailModal {...store.emailPrompt} />
     </View>
   );
 }

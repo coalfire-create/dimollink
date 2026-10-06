@@ -259,7 +259,7 @@ export function createUsersRouter(
     }
   });
 
-  // PATCH /api/users/:id — 프로필 수정 (이름/연락처/지역)
+  // PATCH /api/users/:id — 프로필 수정 (이름/연락처/이메일/지역)
   router.patch('/users/:id', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -269,6 +269,7 @@ export function createUsersRouter(
           name: typeof body.name === 'string' ? body.name : undefined,
           region: typeof body.region === 'string' ? body.region : undefined,
           phone: typeof body.phone === 'string' ? body.phone : undefined,
+          email: typeof body.email === 'string' ? body.email : undefined,
           location: parseGeoPoint(body.location),
         }),
       );

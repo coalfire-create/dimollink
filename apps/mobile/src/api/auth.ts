@@ -89,6 +89,10 @@ export const setOffersTransport = (userId: string, offersTransport: boolean) =>
     body: JSON.stringify({ offersTransport }),
   });
 
+/** 결제 영수증·PG 구매자 정보용 이메일 저장(처음 결제할 때 받는다). */
+export const updateEmail = (userId: string, email: string) =>
+  api<UserProfile>(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ email }) });
+
 export const getRating = (userId: string) => api<RatingSummary>(`/users/${userId}/rating`);
 
 export const listUsers = (params?: { userType?: string; approvalStatus?: string }) => {

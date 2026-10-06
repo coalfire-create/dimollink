@@ -3,6 +3,7 @@ import {
   USER_TYPES,
   isCompanyType,
   isValidBusinessNumber,
+  isValidEmail,
   isValidGeoPoint,
   normalizeBusinessNumber,
   usesCallAvailability,
@@ -42,6 +43,8 @@ export interface UpdateUserInput {
   name?: string;
   region?: string;
   phone?: string;
+  /** 결제 영수증·PG 구매자 정보용. 빈 문자열은 무시한다(지우는 경로는 두지 않는다). */
+  email?: string;
   location?: GeoPoint;
 }
 
@@ -214,6 +217,10 @@ export class UserStore {
       }
       phonePatch = { phone: input.phone.trim() };
     }
+    const email = input.email?.trim();
+    if (email && !isValidEmail(email)) {
+      throw new UserValidationError('이메일 주소를 정확히 입력해 주세요.');
+    }
     if (input.location !== undefined && !isValidGeoPoint(input.location)) {
       throw new UserValidationError('유효한 좌표(lat -90~90, lng -180~180)가 필요합니다.');
     }
@@ -222,6 +229,7 @@ export class UserStore {
       ...(input.name?.trim() ? { name: input.name.trim() } : {}),
       ...(input.region?.trim() ? { region: input.region.trim() } : {}),
       ...phonePatch,
+      ...(email ? { email } : {}),
       ...(input.location ? { location: input.location } : {}),
       updatedAt: new Date().toISOString(),
     };

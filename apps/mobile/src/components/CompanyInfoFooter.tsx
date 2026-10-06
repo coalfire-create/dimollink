@@ -5,11 +5,11 @@ import { WEB_BASE_URL } from '../api/client';
 import { theme } from '../theme';
 
 /**
- * 사업자 정보 푸터 — 전자상거래법 제10조 표시사항 + PG(토스페이먼츠) 심사 요건.
+ * 사업자 정보 푸터 — 전자상거래법 제10조 표시사항 + PG(KG이니시스) 심사 요건.
  *
  * 통신판매중개 서비스는 상호·대표자·주소·사업자등록번호·통신판매업신고번호를
- * 소비자가 볼 수 있는 곳에 띄워야 하고, 토스페이먼츠는 여기에 **고객센터 전화번호**까지
- * 요구한다. 로그인 전 첫 화면에도 보여야 해서 화면 공용 컴포넌트로 둔다.
+ * 소비자가 볼 수 있는 곳에 띄워야 하고, PG 심사는 여기에 **고객센터 전화번호**와
+ * **호스팅 서비스 제공자**까지 확인한다. 로그인 전 첫 화면에도 보여야 해서 화면 공용 컴포넌트로 둔다.
  *
  * 값이 아직 안 채워진 항목은 **비워 두고 숨긴다** — 없는 번호를 만들어 띄우는 것이
  * 표시 누락보다 나쁘다([[constants]] COMPANY_INFO).
@@ -23,6 +23,7 @@ export function CompanyInfoFooter() {
     { label: '주소', value: COMPANY_INFO.address },
     { label: '이메일', value: COMPANY_INFO.email },
     { label: '개인정보 보호책임자', value: COMPANY_INFO.privacyOfficer },
+    { label: '호스팅 서비스', value: COMPANY_INFO.hostingProvider },
   ].filter((row) => row.value.length > 0);
 
   return (

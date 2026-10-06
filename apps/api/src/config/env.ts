@@ -243,7 +243,8 @@ export const env = {
     apiSecret: process.env.PORTONE_API_SECRET,
     storeId: process.env.PORTONE_STORE_ID,
     /**
-     * 결제창을 띄울 채널(포트원 콘솔에서 PG사별로 발급). 현재 PG 는 **토스페이먼츠**.
+     * 결제창을 띄울 채널(포트원 콘솔에서 PG사별로 발급). 현재 PG 는 **KG이니시스**
+     * (2026-10 토스페이먼츠에서 전환 — 토스는 지급대행 월 고정비 때문에 보류).
      * 앱에 박아두면 PG·채널을 바꿀 때마다 웹 번들을 다시 빌드해야 하고, 서버가 검증에
      * 쓰는 상점(storeId)과 어긋나도 배포 전에는 모른다. 그래서 서버가 한 곳에서 쥐고
      * `GET /api/payments/config` 로 내려준다 — 라이브 전환은 이 변수만 바꾸면 된다.
@@ -251,7 +252,7 @@ export const env = {
      */
     channelKey: process.env.PORTONE_CHANNEL_KEY,
     /**
-     * 정기결제(빌링키 발급) 채널. 토스페이먼츠는 자동결제를 **별도 계약·별도 채널**로 연다 —
+     * 정기결제(빌링키 발급) 채널. PG 는 자동결제를 **별도 계약·별도 채널**로 연다 —
      * 일반결제 채널로는 빌링키 발급창이 열리지 않는다. 비어 있으면 정기결제 상품을
      * 노출하지 않는다([[sellableProducts]]). 공개값.
      */
