@@ -13,7 +13,8 @@ import {
   type SafeSubscription,
 } from '../../api/client';
 import { usePaymentConfig } from '../../lib/payment-config';
-import { portOneCustomer } from '../../lib/portone-customer';
+import { useBuyerEmail } from '../../lib/buyer-email';
+import type { PortOneCustomer } from '../../lib/portone-customer';
 import { useSession } from '../../navigation';
 import { requestWebBillingKey, requestWebPayment, takeStorePaymentReturn } from './webPayment';
 
@@ -64,6 +65,7 @@ const NO_CHANNEL = '결제 설정을 불러오지 못했어요. 잠시 후 다�
 export function useStoreCheckout() {
   const portone = usePaymentConfig();
   const user = useSession();
+  const buyer = useBuyerEmail(user);
   const [products, setProducts] = useState<SalesProduct[]>([]);
   const [subscriptions, setSubscriptions] = useState<SafeSubscription[]>([]);
   const [passes, setPasses] = useState<MembershipPass[]>([]);
@@ -109,7 +111,10 @@ export function useStoreCheckout() {
       setError(NO_CHANNEL);
       return;
     }
-    const customer = portOneCustomer(user);
+    buyer.withCustomer((customer) => openOneTime(product, customer));
+  }
+
+  function openOneTime(product: SalesProduct, customer: PortOneCustomer) {
     const paymentId = newPaymentId();
     if (isWeb) {
       setBusyId(product.id);
@@ -200,7 +205,10 @@ export function useStoreCheckout() {
       setError('지금은 정기결제를 이용할 수 없어요.');
       return;
     }
-    const customer = portOneCustomer(user);
+    buyer.withCustomer((customer) => openSubscription(product, channelKey, customer));
+  }
+
+  function openSubscription(product: SalesProduct, channelKey: string, customer: PortOneCustomer) {
     const issueId = newIssueId();
     if (isWeb) {
       setBusyId(product.id);
@@ -328,6 +336,8 @@ export function useStoreCheckout() {
     startOneTime,
     startSubscription,
     cancel,
+    /** 처음 결제할 때 이메일을 묻는 창([[BuyerEmailModal]]). */
+    emailPrompt: buyer.prompt,
   };
 }
 

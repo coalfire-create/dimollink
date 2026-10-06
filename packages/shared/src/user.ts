@@ -146,6 +146,11 @@ export interface UserProfile {
   location?: GeoPoint;
   /** 연락처 (PII — 로그 평문 금지). */
   phone?: string;
+  /**
+   * 이메일 (PII — 로그 평문 금지). 가입은 휴대폰만으로 하므로 대개 비어 있고, 처음 결제할 때
+   * 받는다 — KG이니시스 PC 결제창은 구매자 이메일이 없으면 열리지 않는다. 결제 영수증이 간다.
+   */
+  email?: string;
   /** 사업자등록번호, 정규화 10자리 (PII — 로그 평문 금지). 업체 필수. */
   businessNumber?: string;
   approvalStatus: UserApprovalStatus;
@@ -199,4 +204,12 @@ export function formatPhoneForDisplay(phone: string | undefined): string {
   }
   if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   return phone;
+}
+
+/**
+ * 이메일 형식 검사 — 결제 영수증을 받을 수 있는 정도만 본다(RFC 전체를 따르지 않는다).
+ * 앱 입력창과 서버가 같은 기준을 쓴다.
+ */
+export function isValidEmail(value: string): boolean {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

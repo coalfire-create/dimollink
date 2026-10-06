@@ -1,6 +1,6 @@
 import type { UserProfile } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
-import { portOneCustomer } from './portone-customer';
+import { knownEmail, portOneCustomer } from './portone-customer';
 
 const base = {
   id: 'u1',
@@ -27,5 +27,15 @@ describe('portOneCustomer — KG이니시스 구매자 정보', () => {
     expect(withEmail.email).toBe('a@b.kr');
     expect(portOneCustomer(base)).not.toHaveProperty('email');
     expect(portOneCustomer(base)).not.toHaveProperty('phoneNumber');
+  });
+
+  it('프로필 이메일이 소셜 이메일보다 앞서고, 막 입력받은 값이 가장 앞선다', () => {
+    const user = {
+      ...base,
+      email: 'profile@b.kr',
+      socialIdentities: [{ provider: 'kakao' as const, providerUserId: 'k1', email: 'social@b.kr', linkedAt: '' }],
+    };
+    expect(knownEmail(user)).toBe('profile@b.kr');
+    expect(portOneCustomer(user, 'typed@b.kr').email).toBe('typed@b.kr');
   });
 });

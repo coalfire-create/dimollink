@@ -7,8 +7,8 @@ import type { UserProfile } from '@dimol/shared';
  * (포트원 KG이니시스 V2 연동 문서). 빠지면 결제창이 열리지 않고 오류로 끝난다.
  * PG 마다 요구가 달라도 아는 값을 다 넘기는 쪽이 안전하므로 PG 를 가리지 않고 쓴다.
  *
- * 이메일은 프로필에 따로 없어서 소셜 로그인으로 받은 값을 쓴다. 없으면 넣지 않는다 —
- * 지어낸 주소를 넣으면 결제 영수증이 엉뚱한 곳으로 간다.
+ * 이메일은 가입 때 받지 않으므로 대개 처음 결제할 때 받는다([[buyer-email]]). 모르면 넣지
+ * 않는다 — 지어낸 주소를 넣으면 결제 영수증이 엉뚱한 곳으로 간다.
  */
 export interface PortOneCustomer {
   customerId: string;
@@ -17,9 +17,14 @@ export interface PortOneCustomer {
   email?: string;
 }
 
-export function portOneCustomer(user: UserProfile): PortOneCustomer {
+/** 회원에 대해 알고 있는 이메일 — 프로필 값, 없으면 소셜 로그인으로 받은 값. */
+export function knownEmail(user: UserProfile): string | undefined {
+  return user.email || user.socialIdentities?.find((s) => s.email)?.email;
+}
+
+/** `email` 은 이번 결제에서 막 입력받은 값(세션 프로필에는 아직 반영 전). */
+export function portOneCustomer(user: UserProfile, email = knownEmail(user)): PortOneCustomer {
   const phoneNumber = user.phone?.replace(/\D/g, '');
-  const email = user.socialIdentities?.find((s) => s.email)?.email;
   return {
     customerId: user.id,
     fullName: user.name,
