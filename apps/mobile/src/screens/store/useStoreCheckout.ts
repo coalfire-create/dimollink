@@ -13,6 +13,7 @@ import {
   type SafeSubscription,
 } from '../../api/client';
 import { usePaymentConfig } from '../../lib/payment-config';
+import { portOneCustomer } from '../../lib/portone-customer';
 import { useSession } from '../../navigation';
 import { requestWebBillingKey, requestWebPayment, takeStorePaymentReturn } from './webPayment';
 
@@ -51,6 +52,14 @@ type BillingKeyResponse = Parameters<
 function newPaymentId(): string {
   return `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
+
+/** 빌링키 발급 건 식별자. KG이니시스는 고객사가 채번해 넘겨야 한다. */
+function newIssueId(): string {
+  return `issue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** 서버 설정 조회가 실패했고 번들 폴백에도 채널이 없을 때의 안내. */
+const NO_CHANNEL = '결제 설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
 
 export function useStoreCheckout() {
   const portone = usePaymentConfig();
@@ -96,6 +105,11 @@ export function useStoreCheckout() {
   function startOneTime(product: SalesProduct) {
     setError(null);
     setNotice(null);
+    if (!portone.channelKey) {
+      setError(NO_CHANNEL);
+      return;
+    }
+    const customer = portOneCustomer(user);
     const paymentId = newPaymentId();
     if (isWeb) {
       setBusyId(product.id);
@@ -106,6 +120,7 @@ export function useStoreCheckout() {
         orderName: product.name,
         totalAmount: product.price,
         productId: product.id,
+        customer,
       })
         .then((res) => {
           setBusyId(null);
@@ -127,6 +142,7 @@ export function useStoreCheckout() {
       totalAmount: product.price,
       currency: 'CURRENCY_KRW',
       payMethod: 'CARD',
+      customer,
     });
   }
 
@@ -184,13 +200,16 @@ export function useStoreCheckout() {
       setError('지금은 정기결제를 이용할 수 없어요.');
       return;
     }
+    const customer = portOneCustomer(user);
+    const issueId = newIssueId();
     if (isWeb) {
       setBusyId(product.id);
       requestWebBillingKey({
         storeId: portone.storeId,
         channelKey,
+        issueId,
         issueName: product.name,
-        customerId: user.id,
+        customer,
         productId: product.id,
       })
         .then((res) => {
@@ -208,8 +227,11 @@ export function useStoreCheckout() {
       storeId: portone.storeId,
       channelKey,
       billingKeyMethod: 'CARD',
+      issueId,
       issueName: product.name,
-      customer: { customerId: user.id },
+      customer,
+      // 월 정기결제만 판다. KG이니시스 모바일 발급은 제공 주기가 필수다.
+      offerPeriod: { interval: '1m' },
     });
   }
 

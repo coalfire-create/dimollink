@@ -18,7 +18,7 @@ export interface PaymentConfig {
 }
 /**
  * 결제창에 쓸 상점·채널을 서버에서 받는다.
- * 앱에 박아두면 PG(토스페이먼츠)·채널을 바꿀 때마다 번들을 다시 빌드해야 한다.
+ * 앱에 박아두면 PG(현재 KG이니시스)·채널을 바꿀 때마다 번들을 다시 빌드해야 한다.
  */
 export const fetchPaymentConfig = () => api<PaymentConfig>('/payments/config');
 

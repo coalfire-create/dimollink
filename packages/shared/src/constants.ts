@@ -24,6 +24,15 @@ export const MEMBER_PLATFORM_FEE_RATE = 0.05;
  */
 export const CANCELLATION_PENALTY_RATE = 0.1;
 
+/**
+ * 가상계좌 입금기한 24시간.
+ *
+ * KG이니시스는 가상계좌 발급 시 입금기한이 필수다. 매칭이 확정된 뒤 배차까지 결제를
+ * 오래 묶어 두면 업체가 일정을 못 잡으므로 하루로 둔다. 기한이 지나면 계좌가 닫히고
+ * 배출자는 결제를 다시 시작한다.
+ */
+export const VIRTUAL_ACCOUNT_VALID_HOURS = 24;
+
 /** 정산 주기: 익영업일(D+1). 수수료 제외 금액을 운반업체/처리장에 지급. */
 export const SETTLEMENT_DELAY_BUSINESS_DAYS = 1;
 
@@ -65,8 +74,9 @@ export const PILOT = {
  * 사업자 정보(전자상거래법 제10조 표시사항).
  *
  * 통신판매중개 사업자는 상호·대표자·주소·사업자등록번호·통신판매업신고번호를
- * 소비자가 쉽게 볼 수 있는 곳에 표시해야 한다. 토스페이먼츠 가맹 심사도 홈페이지 하단에
- * 사업자 정보와 **고객센터 전화번호**를 요구하고, 값이 **사업자등록증과 일치**해야 한다.
+ * 소비자가 쉽게 볼 수 있는 곳에 표시해야 한다. PG(KG이니시스) 가맹 심사도 홈페이지 하단에
+ * 사업자 정보·**고객센터 전화번호**·**호스팅 서비스 제공자**를 확인하고, 값이
+ * **사업자등록증과 일치**해야 한다.
  * 그래서 첫 화면·마이페이지·랜딩(/landing)·약관 페이지가 모두 이 값 하나를 본다.
  *
  * 값이 비어 있으면 푸터가 해당 줄을 숨긴다 — 없는 번호를 지어내 띄우는 것이 표시
@@ -90,4 +100,9 @@ export const COMPANY_INFO = {
   email: 'demolink@naver.com',
   /** 고객센터 전화 — [[SUPPORT_PHONE]] 과 같은 값. */
   supportPhone: SUPPORT_PHONE,
+  /**
+   * 호스팅 서비스 제공자(전자상거래법 시행령 표시사항). 서버·웹을 올린 곳의 상호.
+   * 배포처를 옮기면 이 값도 바꾼다.
+   */
+  hostingProvider: 'Railway Corporation',
 } as const;

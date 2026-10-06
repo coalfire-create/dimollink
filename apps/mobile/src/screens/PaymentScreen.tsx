@@ -4,6 +4,7 @@ import {
   INTERIOR_CATEGORY_LABELS,
   calculateDeal,
   REQUEST_KIND_LABELS,
+  VIRTUAL_ACCOUNT_VALID_HOURS,
   type InteriorRequest,
   type ServiceRequest,
 } from '@dimol/shared';
@@ -13,11 +14,12 @@ type PaymentRequest = PortOnePaymentProps['request'];
 type PaymentResponse = Parameters<NonNullable<PortOnePaymentProps['onComplete']>>[0];
 import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client';
 import { usePaymentConfig } from '../lib/payment-config';
+import { portOneCustomer } from '../lib/portone-customer';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { TaxInvoiceModal } from '../components/TaxInvoiceModal';
 import { useToast } from '../components/Toast';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation } from '../navigation';
+import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { AppIcon } from '../components/AppIcon';
 import { theme } from '../theme';
 
@@ -51,6 +53,7 @@ export function PaymentScreen({
 }) {
   const nav = useNavigation();
   const portone = usePaymentConfig();
+  const user = useSession();
   const [request, setRequest] = useState<ServiceRequest | InteriorRequest | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('VBANK');
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +84,10 @@ export function PaymentScreen({
       setError('결제 금액을 확인할 수 없습니다.');
       return;
     }
+    if (!portone.channelKey) {
+      setError('결제 설정을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
     const orderName = isInterior(request)
       ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
       : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
@@ -92,6 +99,11 @@ export function PaymentScreen({
       totalAmount: total,
       currency: 'CURRENCY_KRW',
       payMethod: payMethod === 'VBANK' ? 'VIRTUAL_ACCOUNT' : 'CARD',
+      // KG이니시스는 가상계좌 입금기한이 필수다.
+      ...(payMethod === 'VBANK'
+        ? { virtualAccount: { accountExpiry: { validHours: VIRTUAL_ACCOUNT_VALID_HOURS } } }
+        : {}),
+      customer: portOneCustomer(user),
       appScheme: 'dimollink',
     } as PaymentRequest);
   }
