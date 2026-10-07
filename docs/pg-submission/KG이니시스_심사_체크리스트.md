@@ -18,7 +18,7 @@ PG 를 토스페이먼츠에서 KG이니시스로 바꾸면서(사유는 `CLAUDE
 | 환불규정 | `/landing#refund`, `/terms` 제6조, 상품별 환불 정책 | ✅ |
 | 판매 상품(이미지·가격·상세·제공기간·제공방식) | `/landing#products`, 앱 첫 화면 `ProductShowcase` | ✅ (`landing-page.test.ts` 가 검증) |
 | 로그인 없이 상품·가격 열람 | `/landing`, 앱 첫 화면 | ✅ |
-| 실제 결제창 열기 | 로그인 → 내 정보 → 스토어 · 멤버십 → 결제하기 | ⚠️ 이니시스 채널 연결 후 테스트 필요 |
+| 실제 결제창 열기 | 로그인 → 내 정보 → 스토어 · 멤버십 → 결제하기 | ✅ 2026-10-07 PC Chrome 에서 30일 이용권 결제 → 서버 검증 → 이용권 발급 확인 |
 
 ## 2. 이니시스 결제창 필수값 (포트원 V2 KG이니시스 문서 기준)
 
@@ -33,6 +33,16 @@ PG 를 토스페이먼츠에서 KG이니시스로 바꾸면서(사유는 `CLAUDE
 
 **이메일:** 가입은 휴대폰 OTP 전용이라 대부분 회원에게 이메일이 없다. 그래서 스토어·매칭 결제에서
 결제창을 열기 직전에 이메일을 한 번 받아 `PATCH /api/users/:id` 로 저장하고, 다음 결제부터는 묻지 않는다.
+
+### 테스트 결제 결과 (2026-10-07, 이니시스 테스트 채널)
+
+- PC Chrome·iPhone Safari: 결제창 정상. **PC Chrome 실결제 → `POST /api/products/demolition-membership/purchase` 200 → 이용권 발급** 확인.
+- **PC(맥) Safari: 결제창이 `V901 잘못된 접근 방식입니다`로 바로 실패.** WebKit 엔진 문제(UA 를 바꿔도 동일).
+  이니시스 PC 결제창은 iframe 만 지원해서(`windowType` POPUP·REDIRECTION 은 포트원이 거부) 코드로 우회할 수 없다.
+  운영 MID 에서도 같은지 포트원/이니시스에 확인 필요.
+- 테스트 MID 카드 결제는 실제 승인 후 당일 자동 취소되는 것으로 안내됨 — 다음 날 취소 반영을 확인한다.
+- **포트원 웹훅 URL 이 사이트 루트(`/`)로 잡혀 404.** 콘솔에서 `https://www.디몰링크.com/api/payments/webhook` 으로 바꾸고
+  `PORTONE_WEBHOOK_SECRET` 을 Railway 에 넣어야 가상계좌 입금 통지가 반영된다.
 
 ## 3. 전환 절차 (Railway 변수만 바꾼다 — 앱 재빌드 불필요)
 
