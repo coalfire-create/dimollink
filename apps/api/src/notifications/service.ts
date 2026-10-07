@@ -164,7 +164,7 @@ export class NotificationService {
         requestId: request.id,
         status: request.status,
         message: DEMOLITION_MEMBER_CALL_MESSAGE,
-        kind: 'CALL',
+        kind: 'MEMBER_CALL',
         createdAt: new Date().toISOString(),
       })),
     );
@@ -203,6 +203,16 @@ export class NotificationService {
     }
     if (created.length > 0) void this.persistence?.saveAll([...this.notifications.values()]);
     return created;
+  }
+
+  /**
+   * `since`(ISO) 이후 이 회원에게 멤버십 우선 알림을 보냈는가.
+   * 이용권 환불 판정에 쓴다 — 우선 알림을 받았다면 혜택을 쓴 것이다.
+   */
+  sentMemberCallSince(userId: string, since: string): boolean {
+    return [...this.notifications.values()].some(
+      (n) => n.userId === userId && n.kind === 'MEMBER_CALL' && n.createdAt >= since,
+    );
   }
 
   /** 알림함 목록 (최신순). */

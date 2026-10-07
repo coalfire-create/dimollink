@@ -6,6 +6,7 @@ import { usePaymentConfig } from '../../lib/payment-config';
 import { useSession } from '../../navigation';
 import { theme } from '../../theme';
 import { ProductDetails } from './ProductDetails';
+import { PassRefundAction } from './PassRefundAction';
 import type { StoreCheckoutState } from './useStoreCheckout';
 
 /**
@@ -27,6 +28,7 @@ export function ProductCard({
   const monthly = product.billingType === 'MONTHLY_SUBSCRIPTION';
   const eligible = isAvailableTo(product, user.userType);
   const purchasable = isPurchasable(product, { billingEnabled });
+  const refundable = store.refundablePass(product.id);
 
   return (
     <Card>
@@ -50,6 +52,7 @@ export function ProductCard({
               loading={store.busyId === product.id}
               onPress={() => store.startOneTime(product)}
             />
+            {refundable ? <PassRefundAction pass={refundable} store={store} /> : null}
           </>
         ) : subscription ? (
           <>
@@ -81,7 +84,7 @@ export function ProductCard({
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  actions: { marginTop: spacing.sm },
+  actions: { marginTop: spacing.sm, gap: spacing.xs },
   blocked: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
   subState: {
     color: colors.text,

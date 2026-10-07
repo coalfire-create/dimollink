@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import * as PortOne from '@portone/react-native-sdk';
-import { addDays, type MembershipPass, type SalesProduct } from '@dimol/shared';
+import {
+  addDays,
+  isWithinPassRefundWindow,
+  type MembershipPass,
+  type SalesProduct,
+} from '@dimol/shared';
 import {
   ApiError,
   cancelSubscription,
@@ -9,6 +14,7 @@ import {
   listProducts,
   listSubscriptions,
   purchaseProduct,
+  refundMembershipPass,
   subscribeProduct,
   type SafeSubscription,
 } from '../../api/client';
@@ -311,16 +317,47 @@ export function useStoreCheckout() {
   function passUntil(productId: string): string | null {
     const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const end = passes
-      .filter((p) => p.productId === productId && p.endDate > today)
+      .filter((p) => p.productId === productId && !p.refundedAt && p.endDate > today)
       .map((p) => p.endDate)
       .sort()
       .pop();
     return end ? lastDay(end) : null;
   }
 
+  /**
+   * 환불 버튼을 띄울 이용권 — 가장 최근에 산 것이 환불 기간 안이면 그것(없으면 null).
+   * 혜택 사용 여부는 서버만 알아서, 눌렀을 때 서버가 거절하면 이유를 보여준다.
+   */
+  function refundablePass(productId: string): MembershipPass | null {
+    const latest = passes
+      .filter((p) => p.productId === productId && !p.refundedAt)
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+      .pop();
+    return latest && isWithinPassRefundWindow(latest, new Date()) ? latest : null;
+  }
+
+  async function refund(pass: MembershipPass) {
+    setBusyId(pass.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await refundMembershipPass(pass.id);
+      setNotice(
+        `환불되었습니다. ${pass.amount.toLocaleString()}원이 결제한 수단으로 돌아갑니다(카드는 승인 취소, 3~7영업일).`,
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : '환불에 실패했습니다.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return {
     products,
     passUntil,
+    refundablePass,
+    refund,
     subscriptions,
     activeSubscriptionOf: (productId: string) =>
       subscriptions.find((s) => s.productId === productId && s.status !== 'CANCELLED'),

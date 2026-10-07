@@ -192,7 +192,7 @@ describe('notifyDemolitionMembers — 멤버십 우선 알림', () => {
     location: { lat: 37.5, lng: 127.5 },
   } as never;
 
-  it('반경 안 회원에게 가까운 순으로, 좌표 없는 회원은 뒤에 붙여 문자(CALL)로 보낸다', () => {
+  it('반경 안 회원에게 가까운 순으로, 좌표 없는 회원은 뒤에 붙여 문자(MEMBER_CALL)로 보낸다', () => {
     const sent: AppNotification[] = [];
     const service = new NotificationService({ send: (n) => sent.push(n) });
     const created = service.notifyDemolitionMembers(request, [
@@ -202,7 +202,7 @@ describe('notifyDemolitionMembers — 멤버십 우선 알림', () => {
       { id: 'm-here', location: { lat: 37.5, lng: 127.5 } },
     ]);
     expect(created.map((n) => n.userId)).toEqual(['m-here', 'm-near', 'm-noloc']);
-    expect(created.every((n) => n.kind === 'CALL')).toBe(true);
+    expect(created.every((n) => n.kind === 'MEMBER_CALL')).toBe(true);
     expect(created[0]!.message).toContain('멤버십 우선 알림');
     expect(sent).toHaveLength(3);
   });
@@ -211,5 +211,15 @@ describe('notifyDemolitionMembers — 멤버십 우선 알림', () => {
     const service = new NotificationService({ send: () => undefined });
     const transport = { ...(request as object), kind: 'TRANSPORT' } as never;
     expect(service.notifyDemolitionMembers(transport, [{ id: 'm-here' }])).toHaveLength(0);
+  });
+
+  it('sentMemberCallSince — 기준 시각 이후 받은 우선 알림만 센다(이용권 환불 판정용)', () => {
+    const service = new NotificationService({ send: () => undefined });
+    const before = new Date(Date.now() - 1000).toISOString();
+    service.notifyDemolitionMembers(request, [{ id: 'm-here' }]);
+    const after = new Date(Date.now() + 1000).toISOString();
+    expect(service.sentMemberCallSince('m-here', before)).toBe(true);
+    expect(service.sentMemberCallSince('m-here', after)).toBe(false);
+    expect(service.sentMemberCallSince('someone-else', before)).toBe(false);
   });
 });

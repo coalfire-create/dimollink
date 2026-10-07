@@ -98,6 +98,7 @@ import { createPortOneClient } from './payment/portone-client.js';
 import { createBackupStorage, isBackupConfigured } from './backup/backup-storage.js';
 import { backupDateOf, runDbBackup } from './backup/db-backup.js';
 import { MembershipService } from './subscriptions/membership.js';
+import { PassRefundService } from './subscriptions/pass-refund.js';
 import { PassStore } from './subscriptions/pass-store.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
@@ -613,6 +614,14 @@ export function createApp(
       billingEnabled: Boolean(env.portone.billingChannelKey),
       membership,
       passes: passStore,
+      // 이용권 환불 — 혜택 사용 = 우선 알림 수신 또는 그 이후 정산 완료(인하 수수료 적용 가능).
+      passRefunds: new PassRefundService(passStore, portOneClient, {
+        usedSince: async (userId, since) =>
+          notificationService.sentMemberCallSince(userId, since) ||
+          (await requestStore.list({ providerId: userId, status: 'SETTLED' })).some(
+            (r) => r.updatedAt >= since,
+          ),
+      }),
     }),
   );
   // 정산 계좌 — 파트너정산이든 직접 이체든 이 정보는 똑같이 필요하다.

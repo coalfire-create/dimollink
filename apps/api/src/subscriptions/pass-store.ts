@@ -24,6 +24,24 @@ export class PassStore {
     return (await this.listAll()).filter((p) => p.userId === userId);
   }
 
+  async get(id: string): Promise<MembershipPass | undefined> {
+    if (this.persistence) return this.persistence.get(id);
+    return this.fallbackMap.get(id);
+  }
+
+  /** 환불 처리 — 기록은 지우지 않는다(같은 결제로 이용권을 다시 받지 못하게 막는 키라서). */
+  async markRefunded(
+    id: string,
+    refund: { refundedAt: string; refundedAmount: number },
+  ): Promise<MembershipPass> {
+    const pass = await this.get(id);
+    if (!pass) throw new Error(`이용권이 없습니다(id=${id}).`);
+    const refunded: MembershipPass = { ...pass, ...refund };
+    if (this.persistence) await this.persistence.save(refunded);
+    else this.fallbackMap.set(id, refunded);
+    return refunded;
+  }
+
   async findByPaymentId(paymentId: string): Promise<MembershipPass | undefined> {
     return (await this.listAll()).find((p) => p.paymentId === paymentId);
   }

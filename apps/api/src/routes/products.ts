@@ -11,6 +11,7 @@ import { authUser, authUserId } from '../middleware/auth.js';
 import type { PortOneClient } from '../payment/portone-client.js';
 import { PortOneError } from '../payment/portone-client.js';
 import type { MembershipService } from '../subscriptions/membership.js';
+import { PassRefundError, type PassRefundService } from '../subscriptions/pass-refund.js';
 import type { PassStore } from '../subscriptions/pass-store.js';
 import { SubscriptionError, type SubscriptionStore } from '../subscriptions/store.js';
 
@@ -36,6 +37,8 @@ export function createProductRouter(
     membership?: Pick<MembershipService, 'memberIdsOn'>;
     /** 기간제 이용권 저장소. 이용권 상품(grantsDays)을 결제하면 여기에 기간이 생긴다. */
     passes?: PassStore;
+    /** 이용권 환불. 없으면 환불 경로가 503 을 돌려준다. */
+    passRefunds?: PassRefundService;
     /** 판매 상품 목록. 테스트에서 고정 상품을 넣을 때만 바꾼다. */
     catalog?: readonly SalesProduct[];
   },
@@ -45,6 +48,10 @@ export function createProductRouter(
   const findProduct = (id: string) => catalog.find((p) => p.id === id);
 
   function fail(err: unknown, res: Response): void {
+    if (err instanceof PassRefundError) {
+      res.status(err.code === 'NOT_FOUND' ? 404 : 409).json({ error: err.message, code: err.code });
+      return;
+    }
     if (err instanceof SubscriptionError) {
       res.status(400).json({ error: err.message });
       return;
@@ -191,6 +198,22 @@ export function createProductRouter(
   router.get('/membership-passes', async (req, res) => {
     const mine = (await options.passes?.listByUser(authUserId(req))) ?? [];
     res.json([...mine].sort((a, b) => b.endDate.localeCompare(a.endDate)));
+  });
+
+  /**
+   * POST /api/membership-passes/:id/refund — 이용권 전액 환불(본인만).
+   * 환불 기간·혜택 사용 여부 판정은 [[PassRefundService]] 가 한다.
+   */
+  router.post('/membership-passes/:id/refund', async (req, res) => {
+    if (!options.passRefunds) {
+      res.status(503).json({ error: '지금은 환불을 처리할 수 없습니다. 고객센터로 문의해 주세요.' });
+      return;
+    }
+    try {
+      res.json(await options.passRefunds.refund(req.params.id, authUserId(req)));
+    } catch (err) {
+      fail(err, res);
+    }
   });
 
   // GET /api/subscriptions — 내 구독 목록

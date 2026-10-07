@@ -41,6 +41,13 @@ export const listFeaturedProviders = () =>
 /** 내 이용권(최근 종료일 순). */
 export const listMembershipPasses = () => api<MembershipPass[]>('/membership-passes');
 
+/**
+ * 이용권 전액 환불 — 결제 후 7일 이내·혜택 미사용·가장 최근 이용권만.
+ * 판정은 서버가 하고, 안 되면 이유를 담은 오류(409)를 돌려준다.
+ */
+export const refundMembershipPass = (passId: string) =>
+  api<MembershipPass>(`/membership-passes/${passId}/refund`, { method: 'POST', body: '{}' });
+
 export const listSubscriptions = () => api<SafeSubscription[]>('/subscriptions');
 
 /** 해지 — 다음 결제부터 청구되지 않고, 이미 결제한 기간은 끝까지 쓴다. */
