@@ -49,3 +49,6 @@ coverage/
 
 # Local Netlify folder
 .netlify
+
+# 공공 시세 수집 결과(기관명 등 포함, 재생성 가능) — 커밋 금지
+apps/api/data/market/
