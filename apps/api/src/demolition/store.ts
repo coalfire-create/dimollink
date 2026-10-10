@@ -232,6 +232,17 @@ export class DemolitionEstimateStore {
     return updated;
   }
 
+  /**
+   * 실사 기록을 통째로 바꿔 저장한다(원격 실사 전환, [[remote-visit]]).
+   * 판정(권한·상한·자료 제출 여부)은 호출하는 서비스가 끝낸 뒤에 부른다 — 여기서는 저장만.
+   */
+  async recordVisit(estimateId: string, visit: SiteVisit): Promise<DemolitionEstimate> {
+    const estimate = await this.requireEstimate(estimateId);
+    const updated: DemolitionEstimate = { ...estimate, stage: 'VISIT_SCHEDULED', visit };
+    await this.save(updated);
+    return updated;
+  }
+
   /** 실사 예약을 물린다 — 자리를 비워야 다른 업체를 부를 수 있다. */
   async cancelVisit(estimateId: string, requesterId: string): Promise<DemolitionEstimate> {
     const estimate = await this.requireEstimate(estimateId);

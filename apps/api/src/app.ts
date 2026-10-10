@@ -106,6 +106,7 @@ import { MembershipService } from './subscriptions/membership.js';
 import { PassStore } from './subscriptions/pass-store.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
+import { RemoteSiteVisitService } from './demolition/remote-visit.js';
 import { EstimateParityService } from './estimate-parity/service.js';
 import { ParitySampleStore } from './estimate-parity/store.js';
 import { createEstimateParityRouter } from './routes/estimate-parity.js';
@@ -653,7 +654,23 @@ export function createApp(
   app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
   // 철거 견적 — 개산(범위) → 실사 → 확정. 운반·처리의 단발 견적과 분리한다
   // (철거 금액은 현장을 봐야 정해져서, 사진만 보고 낸 금액을 계약금액으로 쓰면 안 된다).
-  app.use('/api', createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore));
+  // 원격 실사로 진행 — 업체가 소비자가 보낸 원격 실사 자료로 실사를 마쳤다고 견적에 남긴다
+  // (REMOTE + remoteSurveyId). 그래야 정합성 표본이 영상통화 없이도 쌓인다.
+  const remoteSiteVisitService = new RemoteSiteVisitService({
+    estimates: demolitionEstimateStore,
+    surveyByRequest: (requestId) => remoteSurveyStore.getByRequest(requestId),
+    requesterOf: async (requestId) => (await requestStore.get(requestId))?.requesterId,
+    notify: surveyNotifier,
+  });
+  app.use(
+    '/api',
+    createDemolitionEstimateRouter(
+      demolitionEstimateStore,
+      requestStore,
+      userStore,
+      remoteSiteVisitService,
+    ),
+  );
   // 원격 실사 촬영 패키지 + 추가 촬영 요청 — 방문 없이 현장에서 보던 것을 보게 한다.
   app.use('/api', createRemoteSurveyRouter(remoteSurveyStore, remoteSurveyShotRequestStore));
   // 영상통화 실사(Phase 4) — 업체가 현장에 가지 않고 "거기 비춰 주세요"로 본다.

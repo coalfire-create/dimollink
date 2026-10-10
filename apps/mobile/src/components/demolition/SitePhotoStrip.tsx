@@ -16,7 +16,17 @@ import { theme } from '../../theme';
  * 사진을 못 불러왔다고 조용히 알리고, 화면 자체는 그대로 뜬다.
  */
 
-export function SitePhotoStrip({ photoKeys }: { photoKeys: readonly string[] }) {
+export function SitePhotoStrip({
+  photoKeys,
+  title,
+}: {
+  photoKeys: readonly string[];
+  /**
+   * 섹션 제목. 생략하면 "현장 사진 n장", null 이면 제목 없이 사진만 — 다른 카드 안에
+   * 끼워 넣을 때(가상 현장의 항목별 사진) 쓴다.
+   */
+  title?: string | null;
+}) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [failed, setFailed] = useState(false);
   const [zoomed, setZoomed] = useState<string | null>(null);
@@ -58,7 +68,9 @@ export function SitePhotoStrip({ photoKeys }: { photoKeys: readonly string[] }) 
 
   return (
     <View>
-      <SectionTitle>현장 사진 {photoKeys.length}장</SectionTitle>
+      {title === null ? null : (
+        <SectionTitle>{title ?? `현장 사진 ${photoKeys.length}장`}</SectionTitle>
+      )}
       {failed ? (
         <Card>
           <Text style={styles.hint}>
