@@ -12,6 +12,7 @@ export * from './site-coverage.js';
 export * from './request.js';
 export * from './request-prefill.js';
 export * from './demolition-estimate.js';
+export * from './estimate-parity.js';
 export * from './demolition-worksheet.js';
 export * from './sales-product.js';
 export * from './marketplace.js';
