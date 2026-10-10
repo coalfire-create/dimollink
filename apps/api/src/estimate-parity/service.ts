@@ -41,8 +41,19 @@ export interface RefreshSummary {
   created: number;
   /** 금액이 바뀌어 갱신한 AUTO 표본 수. */
   updated: number;
-  /** 더 이상 원격·방문이 둘 다 없어 지운 AUTO 표본 수. */
+  /** 더 이상 원격·방문이 둘 다 없어 지운 AUTO 표본 수(직원 입력이 없는 것만). */
   removed: number;
+  /** 근거가 사라졌지만 직원이 넣은 실적 톤·메모가 있어 지우지 않고 stale 로 남긴 수. */
+  staled: number;
+}
+
+/** 견적이 사라진 AUTO 표본을 남길 때 붙이는 사유. */
+export const STALE_REASON_ESTIMATES_GONE =
+  '원격·방문 확정 견적이 더 이상 둘 다 있지 않습니다. 직원이 넣은 실적 톤·메모를 지키려고 남겨 두었습니다.';
+
+/** 직원이 손으로 넣은 값이 있는가 — 있으면 재계산이 이 표본을 지우면 안 된다. */
+function hasStaffInput(sample: ParitySample): boolean {
+  return sample.actualTon !== undefined || (sample.note ?? '').trim().length > 0;
 }
 
 function sameAmounts(a: readonly number[], b: readonly number[]): boolean {
@@ -96,7 +107,11 @@ export class EstimateParityService {
 
   /**
    * 현재 철거 견적에서 AUTO 표본을 다시 만든다(멱등).
-   * MANUAL 표본은 건드리지 않는다. 이미 입력된 실적 톤은 조회 결과가 없으면 유지한다.
+   * MANUAL 표본은 건드리지 않는다. 이미 입력된 실적 톤·메모는 다시 만들 때 그대로 옮긴다.
+   *
+   * **직원 입력을 조용히 잃지 않는다**: 근거 견적이 사라진 AUTO 표본은 실적 톤이나 메모가
+   * 있으면 지우지 않고 stale 로 표시해 남긴다(보고서 계산에서는 빠진다). 견적이 다시 생기면
+   * stale 이 풀린다. 직원 입력이 없는 것만 지운다.
    */
   async refreshAuto(): Promise<RefreshSummary> {
     const byRequest = new Map<string, DemolitionEstimate[]>();
@@ -109,7 +124,7 @@ export class EstimateParityService {
     const existing = (await this.samples.list()).filter((s) => s.source === 'AUTO');
     const existingById = new Map(existing.map((s) => [s.id, s]));
     const keep = new Set<string>();
-    const summary: RefreshSummary = { created: 0, updated: 0, removed: 0 };
+    const summary: RefreshSummary = { created: 0, updated: 0, removed: 0, staled: 0 };
 
     for (const [requestId, list] of byRequest) {
       const derived = deriveParitySample(list);
@@ -139,7 +154,8 @@ export class EstimateParityService {
         sameAmounts(prev.remoteFinalAmounts, next.remoteFinalAmounts) &&
         sameAmounts(prev.inPersonFinalAmounts, next.inPersonFinalAmounts) &&
         prev.actualTon === next.actualTon &&
-        prev.estimatedTon === next.estimatedTon
+        prev.estimatedTon === next.estimatedTon &&
+        !prev.stale
       ) {
         continue;
       } else summary.updated += 1;
@@ -147,7 +163,12 @@ export class EstimateParityService {
     }
 
     for (const s of existing) {
-      if (!keep.has(s.id)) {
+      if (keep.has(s.id)) continue;
+      if (hasStaffInput(s)) {
+        if (s.stale) continue; // 이미 표시해 둔 것 — 다시 셀 필요 없다.
+        await this.samples.save({ ...s, stale: true, staleReason: STALE_REASON_ESTIMATES_GONE });
+        summary.staled += 1;
+      } else {
         await this.samples.delete(s.id);
         summary.removed += 1;
       }

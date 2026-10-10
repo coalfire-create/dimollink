@@ -66,6 +66,12 @@ export interface ParitySample {
   actualTon?: number;
   source: ParitySampleSource;
   note?: string;
+  /**
+   * 근거 견적이 사라졌지만 직원이 넣은 실적 톤·메모가 있어 지우지 않고 남긴 AUTO 표본.
+   * 보고서 계산에서는 빠지고(`staleCount` 로만 센다), 견적이 다시 생기면 풀린다.
+   */
+  stale?: boolean;
+  staleReason?: string;
   createdAt: string;
 }
 
@@ -230,6 +236,8 @@ export interface ParityReport {
   n: number;
   /** 비교 불가로 빠진 표본 수. */
   excluded: number;
+  /** 근거 견적이 사라져 계산에서 뺀(stale) 표본 수. */
+  staleCount: number;
   /** |차이|의 중앙값. */
   medianAbsDiff: number | null;
   /** |차이|의 80백분위(최근접 순위). */
@@ -278,7 +286,9 @@ function pct(ratio: number): string {
  *  - 아니면 FAIL.
  */
 export function computeParityReport(samples: readonly ParitySample[]): ParityReport {
-  const deduped = dedupeParitySamples(samples);
+  // stale 표본은 근거 금액이 더 이상 없으므로 계산에 넣지 않는다(개수만 알린다).
+  const staleCount = samples.filter((s) => s.stale).length;
+  const deduped = dedupeParitySamples(samples.filter((s) => !s.stale));
   const sites: ParitySiteResult[] = [];
   for (const s of deduped) {
     const r = compareParitySample(s);
@@ -348,6 +358,7 @@ export function computeParityReport(samples: readonly ParitySample[]): ParityRep
   return {
     n,
     excluded: deduped.length - n,
+    staleCount,
     medianAbsDiff,
     p80AbsDiff,
     shareWithinTarget,

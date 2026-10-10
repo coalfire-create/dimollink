@@ -76,7 +76,9 @@ export function ParitySampleRow({
       <Text style={s.meta}>{facts.join(' · ')}</Text>
       <Text style={s.meta}>원격 {sample.remoteFinalAmounts.map(won).join(', ')}</Text>
       <Text style={s.meta}>방문 {sample.inPersonFinalAmounts.map(won).join(', ')}</Text>
-      {site ? (
+      {sample.stale ? (
+        <Text style={s.warn}>계산 제외 — {sample.staleReason ?? '근거 견적이 사라졌습니다.'}</Text>
+      ) : site ? (
         <Text style={site.withinTarget ? s.name : s.warn}>
           차이 {formatRatio(site.diffRatio, true)}
           {site.withinTarget ? ' · 목표 안' : ' · 목표 밖'}

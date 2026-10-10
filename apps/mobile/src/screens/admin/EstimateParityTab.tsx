@@ -99,6 +99,11 @@ export function EstimateParityTab({ token, onError }: AdminTabProps) {
                 · {reason}
               </Text>
             ))}
+            {report.staleCount > 0 ? (
+              <Text style={s.warn}>
+                근거 견적이 사라져 계산에서 뺀 표본 {report.staleCount}개(직원 입력 보존)
+              </Text>
+            ) : null}
             {report.excluded > 0 ? (
               <Text style={s.warn}>금액이 비어 비교하지 못한 표본 {report.excluded}개</Text>
             ) : null}

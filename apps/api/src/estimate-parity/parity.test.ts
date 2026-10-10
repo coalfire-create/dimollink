@@ -310,6 +310,18 @@ describe('computeParityReport — 판정', () => {
     expect(report.sites[0]!.sampleId).toBe('m');
   });
 
+  it('stale 표본은 계산에서 빠지고 staleCount 로만 센다(같은 요청의 MANUAL 도 가리지 않는다)', () => {
+    const report = computeParityReport([
+      sample({ id: 'live', requestId: 'r1', remoteFinalAmounts: [11_000_000] }),
+      sample({ id: 'old', requestId: 'r2', source: 'AUTO', stale: true, actualTon: 90 }),
+      sample({ id: 'old2', requestId: 'r1', source: 'AUTO', stale: true, createdAt: '2026-12-01' }),
+    ]);
+    expect(report.n).toBe(1);
+    expect(report.staleCount).toBe(2);
+    expect(report.excluded).toBe(0);
+    expect(report.sites[0]!.sampleId).toBe('live');
+  });
+
   it('톤 오차 — |오차| 중앙값과 부호 있는 평균', () => {
     const report = computeParityReport([
       sample({ id: 'a', requestId: 'a', estimatedTon: 12, actualTon: 10 }), // +20%
