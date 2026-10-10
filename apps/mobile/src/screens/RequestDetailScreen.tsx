@@ -16,6 +16,7 @@ import { ProviderWorkCard } from './request-detail/ProviderWorkCard';
 import { QuoteList } from './request-detail/QuoteList';
 import { RequestHeroCard } from './request-detail/RequestHeroCard';
 import { RequestInfoCard } from './request-detail/RequestInfoCard';
+import { RemoteSurveyEntryCard } from './request-detail/RemoteSurveyEntryCard';
 import { useRequestDetail } from './request-detail/useRequestDetail';
 import { theme } from '../theme';
 
@@ -138,7 +139,10 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
         {/* 철거는 현장을 봐야 금액이 정해진다 — 개산/실사/확정을 나눠 보여준다.
             운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
         {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
-          <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
+          <>
+            <RemoteSurveyEntryCard requestId={request.id} />
+            <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
+          </>
         ) : null}
 
         <QuoteList

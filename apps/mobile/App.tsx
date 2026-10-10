@@ -34,6 +34,7 @@ import { clearQueryCache } from './src/lib/query';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { EstimateScreen } from './src/screens/EstimateScreen';
 import { EstimateWorksheetScreen } from './src/screens/demolition/EstimateWorksheetScreen';
+import { RemoteSurveyScreen } from './src/screens/RemoteSurveyScreen';
 import { SiteAnalysisScreen } from './src/screens/SiteAnalysisScreen';
 import { TrackingScreen } from './src/screens/TrackingScreen';
 import { GuestHomeScreen } from './src/screens/GuestHomeScreen';
@@ -398,6 +399,8 @@ function AppRoot() {
         return <EstimateScreen />;
       case 'estimateWorksheet':
         return <EstimateWorksheetScreen requestId={route.requestId} />;
+      case 'remoteSurvey':
+        return <RemoteSurveyScreen requestId={route.requestId} />;
       case 'siteAnalysis':
         return <SiteAnalysisScreen />;
       // 인테리어(밀봉 역경매) — FEATURE_INTERIOR 가 꺼져 있으면 라우트 자체를 막는다.

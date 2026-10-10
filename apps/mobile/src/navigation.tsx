@@ -45,6 +45,8 @@ export type Route =
   | { name: 'estimate' }
   // 철거업체가 요청 하나를 놓고 견적을 산정하는 화면(현장 브리핑 + 금액 입력).
   | { name: 'estimateWorksheet'; requestId: string }
+  // 소비자가 업체 방문 없이 현장을 보여주는 원격 실사 촬영(체크리스트·질문·추가 촬영 요청).
+  | { name: 'remoteSurvey'; requestId: string }
   | { name: 'siteAnalysis' }
   // 인테리어 밀봉 역경매 (파일럿 밖 · FEATURE_INTERIOR)
   | { name: 'interiorForm' }
