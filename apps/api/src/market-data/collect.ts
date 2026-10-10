@@ -75,7 +75,10 @@ async function main(): Promise<void> {
 
   const dir = join(process.cwd(), 'data', 'market');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'g2b-demolition.jsonl'), contracts.map((c) => JSON.stringify(c)).join('\n'));
+  writeFileSync(
+    join(dir, 'g2b-demolition.jsonl'),
+    contracts.map((c) => JSON.stringify(c)).join('\n'),
+  );
   writeFileSync(join(dir, 'summary.json'), JSON.stringify(summary, null, 2));
   console.log(
     `계약 ${summary.contracts}건 · ㎡당 단가 계산 가능 ${summary.withPerSqm}건 · 구조 확인 ${summary.withStructure}건`,

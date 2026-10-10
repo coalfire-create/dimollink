@@ -172,7 +172,8 @@ export function calibrationFactor(
   privatePerSqm: number[],
   publicMedianPerSqm: number,
 ): number | undefined {
-  if (privatePerSqm.length < MARKET_PRICE_MIN_SAMPLES || !(publicMedianPerSqm > 0)) return undefined;
+  if (privatePerSqm.length < MARKET_PRICE_MIN_SAMPLES || !(publicMedianPerSqm > 0))
+    return undefined;
   const ratios = privatePerSqm.map((p) => p / publicMedianPerSqm).sort((a, b) => a - b);
   return Math.round(quantile(ratios, 0.5) * 1000) / 1000;
 }

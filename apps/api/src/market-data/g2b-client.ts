@@ -78,7 +78,10 @@ interface G2bResponse {
   OpenAPI_ServiceResponse?: { cmmMsgHeader?: { errMsg?: string; returnAuthMsg?: string } };
   response?: {
     header?: { resultCode?: string; resultMsg?: string };
-    body?: { totalCount?: number | string; items?: RawContract[] | { item?: RawContract | RawContract[] } | '' };
+    body?: {
+      totalCount?: number | string;
+      items?: RawContract[] | { item?: RawContract | RawContract[] } | '';
+    };
   };
 }
 

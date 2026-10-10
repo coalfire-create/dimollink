@@ -66,7 +66,9 @@ describe('나라장터 원본 정규화', () => {
   });
 
   it('석면·내부 철거는 부분 철거로 표시한다', () => {
-    expect(normalizeContract({ cntrctNm: '본관 석면 해체공사', thtmCntrctAmt: '5000000' })?.partial).toBe(true);
+    expect(
+      normalizeContract({ cntrctNm: '본관 석면 해체공사', thtmCntrctAmt: '5000000' })?.partial,
+    ).toBe(true);
   });
 
   it('묶음 필드에서 첫 기관명을 꺼낸다', () => {
@@ -123,18 +125,30 @@ describe('수집기', () => {
     ];
     const fetchOk = vi.fn(async () => ({ json: async () => pages.shift() }) as Response);
     const client = new G2bContractClient('k', fetchOk as unknown as typeof fetch);
-    expect(await client.search('철거', new Date(2025, 0, 1), new Date(2025, 0, 31))).toHaveLength(2);
+    expect(await client.search('철거', new Date(2025, 0, 1), new Date(2025, 0, 31))).toHaveLength(
+      2,
+    );
     expect(String(fetchOk.mock.calls[0][0])).toContain('inqryBgnDt=202501010000');
 
-    const fetchErr = vi.fn(async () => ({
-      json: async () => ({
-        OpenAPI_ServiceResponse: {
-          cmmMsgHeader: { errMsg: 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR', returnAuthMsg: '등록되지 않은 서비스키' },
-        },
-      }),
-    }) as Response);
+    const fetchErr = vi.fn(
+      async () =>
+        ({
+          json: async () => ({
+            OpenAPI_ServiceResponse: {
+              cmmMsgHeader: {
+                errMsg: 'SERVICE_KEY_IS_NOT_REGISTERED_ERROR',
+                returnAuthMsg: '등록되지 않은 서비스키',
+              },
+            },
+          }),
+        }) as Response,
+    );
     await expect(
-      new G2bContractClient('k', fetchErr as unknown as typeof fetch).search('철거', new Date(), new Date()),
+      new G2bContractClient('k', fetchErr as unknown as typeof fetch).search(
+        '철거',
+        new Date(),
+        new Date(),
+      ),
     ).rejects.toThrow('SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
   });
 });
