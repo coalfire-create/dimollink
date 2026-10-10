@@ -13,7 +13,8 @@
     "pretest": "npm run build -w @dimol/shared",
     "test": "vitest run",
     "test:watch": "vitest",
-    "market:g2b": "tsx src/market-data/collect.ts"
+    "market:g2b": "tsx src/market-data/collect.ts",
+    "market:link": "tsx src/market-data/link-ledger.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1078.0",
