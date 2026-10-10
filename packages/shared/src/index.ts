@@ -40,3 +40,4 @@ export * from './vision-report.js';
 export * from './vision-eval.js';
 export * from './vision-prefill.js';
 export * from './design-tokens.js';
+export * from './remote-survey.js';

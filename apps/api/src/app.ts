@@ -101,11 +101,17 @@ import { MembershipService } from './subscriptions/membership.js';
 import { PassStore } from './subscriptions/pass-store.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
-import type {
-  DemolitionEstimate,
-  MembershipPass,
-  PayoutAccount,
-  Subscription,
+import { RemoteSurveyStore } from './remote-survey/store.js';
+import { RemoteSurveyShotRequestStore } from './remote-survey/shot-request-store.js';
+import { createRemoteSurveyRouter } from './routes/remote-surveys.js';
+import {
+  remoteSurveyProviderIds,
+  type DemolitionEstimate,
+  type MembershipPass,
+  type PayoutAccount,
+  type RemoteSurvey,
+  type RemoteSurveyShotRequest,
+  type Subscription,
 } from '@dimol/shared';
 import { createJobsRouter } from './routes/jobs.js';
 import { createLocationsRouter } from './routes/locations.js';
@@ -375,6 +381,27 @@ export function createApp(
       if (request) notificationService.notifyEstimate(request, userId, message);
     },
   );
+  // 원격 실사 촬영 패키지 — 소비자가 찍고, 이 요청의 철거 견적에 참여 중인 업체가 본다.
+  // 참여 판정은 견적 저장소에서 가져온다(떨어진 업체는 빠진다).
+  const surveyNotifier = async (requestId: string, userId: string, message: string) => {
+    const request = await requestStore.get(requestId);
+    if (request) notificationService.notifyEstimate(request, userId, message);
+  };
+  const remoteSurveyStore = new RemoteSurveyStore(
+    requestStore,
+    async (requestId) =>
+      remoteSurveyProviderIds(
+        await demolitionEstimateStore.listByRequest(requestId),
+        (await requestStore.get(requestId))?.matchedProviderId,
+      ),
+    persistence<RemoteSurvey>('remote-surveys'),
+    surveyNotifier,
+  );
+  const remoteSurveyShotRequestStore = new RemoteSurveyShotRequestStore(
+    remoteSurveyStore,
+    persistence<RemoteSurveyShotRequest>('remote-survey-shot-requests'),
+    surveyNotifier,
+  );
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
   // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
   const interiorStore = new InteriorStore(
@@ -400,6 +427,8 @@ export function createApp(
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   // 철거 견적(개산·실사·확정) — 전 단계가 당사자 확인을 하므로 로그인 필수.
   app.use('/api/demolition-estimates', requireAuth);
+  // 원격 실사 — 남의 집 내부 사진이라 소비자 본인·참여 업체 확인을 위해 로그인 필수.
+  app.use('/api/remote-surveys', requireAuth);
   // 상품 목록(GET /api/products)은 로그인 없이 볼 수 있어야 한다 — 심사자가 먼저 본다.
   // 결제·구독은 사람에게 귀속돼야 하므로 로그인 필수.
   app.use('/api/products', (req, res, next) => {
@@ -606,6 +635,8 @@ export function createApp(
   // 철거 견적 — 개산(범위) → 실사 → 확정. 운반·처리의 단발 견적과 분리한다
   // (철거 금액은 현장을 봐야 정해져서, 사진만 보고 낸 금액을 계약금액으로 쓰면 안 된다).
   app.use('/api', createDemolitionEstimateRouter(demolitionEstimateStore, requestStore, userStore));
+  // 원격 실사 촬영 패키지 + 추가 촬영 요청 — 방문 없이 현장에서 보던 것을 보게 한다.
+  app.use('/api', createRemoteSurveyRouter(remoteSurveyStore, remoteSurveyShotRequestStore));
   // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
   app.use(
     '/api',
