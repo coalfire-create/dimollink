@@ -18,6 +18,7 @@ import { RequestHeroCard } from './request-detail/RequestHeroCard';
 import { RequestInfoCard } from './request-detail/RequestInfoCard';
 import { RemoteSurveyEntryCard } from './request-detail/RemoteSurveyEntryCard';
 import { useRequestDetail } from './request-detail/useRequestDetail';
+import { VideoSurveyCard } from './request-detail/VideoSurveyCard';
 import { theme } from '../theme';
 
 /**
@@ -143,6 +144,11 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             <RemoteSurveyEntryCard requestId={request.id} />
             <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
           </>
+        ) : null}
+
+        {/* 영상통화 실사 — 업체가 현장에 오지 않고 영상으로 본다. 카드가 역할별로 알아서 숨는다. */}
+        {request.kind === 'DEMOLITION' && !cancelled ? (
+          <VideoSurveyCard requestId={request.id} isRequester={isRequester} />
         ) : null}
 
         <QuoteList

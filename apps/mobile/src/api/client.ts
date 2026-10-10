@@ -29,3 +29,4 @@ export * from './reviews';
 export * from './uploads';
 export * from './scan3d';
 export * from './remoteSurvey';
+export * from './videoSurvey';
