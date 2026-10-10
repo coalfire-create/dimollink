@@ -41,11 +41,10 @@ describe('나라장터 원본 정규화', () => {
   it('철거 계약만 남기고 필드를 맞춘다', () => {
     const c = normalizeContract({
       untyCntrctNo: 'R25A0001',
-      cntrctNm: '○○초 철근콘크리트조 별관 철거공사(연면적 600㎡)',
+      cnstwkNm: '○○초 철근콘크리트조 별관 철거공사(연면적 600㎡)',
       thtmCntrctAmt: '90,000,000',
       cntrctCnclsDate: '20250314',
       dminsttList: '[1^7012345^경기도교육청^...]',
-      cnstwkSiteRgnNm: '경기도 양평군',
     });
     expect(c).toEqual({
       id: 'R25A0001',
@@ -53,7 +52,6 @@ describe('나라장터 원본 정규화', () => {
       amount: 90_000_000,
       contractDate: '2025-03-14',
       agency: '경기도교육청',
-      region: '경기도 양평군',
       areaM2: 600,
       structure: 'RC',
       partial: false,
@@ -128,7 +126,7 @@ describe('수집기', () => {
     expect(await client.search('철거', new Date(2025, 0, 1), new Date(2025, 0, 31))).toHaveLength(
       2,
     );
-    expect(String(fetchOk.mock.calls[0][0])).toContain('inqryBgnDt=202501010000');
+    expect(String(fetchOk.mock.calls[0][0])).toContain('inqryBgnDate=20250101');
 
     const fetchErr = vi.fn(
       async () =>

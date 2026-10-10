@@ -58,7 +58,9 @@ async function main(): Promise<void> {
         if (c) all.push(c);
       }
     }
-    console.log(`${start.toISOString().slice(0, 7)} 완료 (누적 ${all.length}건)`);
+    console.log(
+      `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')} 완료 (누적 ${all.length}건)`,
+    );
   }
   if (dryRun) return;
 

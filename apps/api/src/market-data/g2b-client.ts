@@ -47,7 +47,8 @@ function isoDate(v: unknown): string | undefined {
  * 필드명은 서비스 버전에 따라 조금씩 달라 후보를 순서대로 본다.
  */
 export function normalizeContract(raw: RawContract): PublicDemolitionContract | null {
-  const name = str(raw.cntrctNm);
+  // 공사 계약은 공사명이 cnstwkNm 에 온다(cntrctNm 은 물품·용역용).
+  const name = str(raw.cnstwkNm) ?? str(raw.cntrctNm);
   if (!name || !isDemolitionContractName(name)) return null;
   const amount = Number(
     String(raw.thtmCntrctAmt ?? raw.totCntrctAmt ?? raw.cntrctAmt ?? '').replace(/,/g, ''),
@@ -60,22 +61,23 @@ export function normalizeContract(raw: RawContract): PublicDemolitionContract | 
     amount,
     contractDate: isoDate(raw.cntrctCnclsDate ?? raw.cntrctDate),
     agency: firstPackedName(raw.dminsttList) ?? str(raw.cntrctInsttNm),
-    region: str(raw.cnstwkSiteRgnNm) ?? str(raw.cnstrtsiteRgnNm),
     areaM2: parseAreaM2(name),
     structure: parseStructure(name),
     partial: isPartialDemolition(name),
   };
 }
 
-/** YYYYMMDDHHMM — 이 서비스는 12자리만 받는다(8자리면 HTTP_ERROR). */
-function g2bDateTime(d: Date, endOfDay: boolean): string {
+/** YYYYMMDD — 검색(PPSSrch) 오퍼레이션은 inqryBgnDate/inqryEndDate 에 8자리 날짜를 받는다. */
+function g2bDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${endOfDay ? '2359' : '0000'}`;
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
 }
 
-/** 정상 응답은 response, 키·서비스 오류는 OpenAPI_ServiceResponse 로 온다. */
+/** 정상 응답은 response, 키 오류는 OpenAPI_ServiceResponse, 파라미터 오류는 ResponseError 로 온다. */
 interface G2bResponse {
   OpenAPI_ServiceResponse?: { cmmMsgHeader?: { errMsg?: string; returnAuthMsg?: string } };
+  /** 요청 파라미터 오류(필수값 누락 등). */
+  'nkoneps.com.response.ResponseError'?: { header?: { resultCode?: string; resultMsg?: string } };
   response?: {
     header?: { resultCode?: string; resultMsg?: string };
     body?: {
@@ -104,9 +106,9 @@ export class G2bContractClient {
       `numOfRows=${PAGE_SIZE}`,
       `pageNo=${pageNo}`,
       `inqryDiv=1`,
-      `inqryBgnDt=${g2bDateTime(from, false)}`,
-      `inqryEndDt=${g2bDateTime(to, true)}`,
-      `cntrctNm=${encodeURIComponent(keyword)}`,
+      `inqryBgnDate=${g2bDate(from)}`,
+      `inqryEndDate=${g2bDate(to)}`,
+      `cnstwkNm=${encodeURIComponent(keyword)}`,
     ].join('&');
     const res = await this.fetchImpl(`${ENDPOINT}?${query}`, {
       signal: AbortSignal.timeout(this.timeoutMs),
@@ -114,6 +116,9 @@ export class G2bContractClient {
     const body = (await res.json()) as G2bResponse;
     const err = body.OpenAPI_ServiceResponse?.cmmMsgHeader;
     if (err) throw new Error(`나라장터 API 오류: ${err.errMsg} (${err.returnAuthMsg})`);
+    const paramErr = body['nkoneps.com.response.ResponseError']?.header;
+    if (paramErr)
+      throw new Error(`나라장터 API 오류: ${paramErr.resultCode} ${paramErr.resultMsg}`);
     const header = body.response?.header;
     if (header && header.resultCode !== '00') {
       throw new Error(`나라장터 API 오류: ${header.resultCode} ${header.resultMsg}`);
