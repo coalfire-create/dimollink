@@ -197,3 +197,91 @@ export function calibrationFactor(
   const ratios = privatePerSqm.map((p) => p / publicMedianPerSqm).sort((a, b) => a - b);
   return Math.round(quantile(ratios, 0.5) * 1000) / 1000;
 }
+
+/**
+ * 연면적 구간 경계(㎡). ㎡당 철거비는 규모에 크게 좌우된다(장비 반입·가설 같은 고정비가
+ * 작은 건물에선 면적당 크게 잡힌다 — 실데이터에서 50㎡ 미만이 200~500㎡의 3배 안팎).
+ * 1,000㎡ 이상은 필지의 다른 건물 면적이 섞여 단가가 비정상적으로 낮게 나와 쓰지 않는다.
+ */
+export const MARKET_PRICE_SIZE_BANDS = [0, 50, 100, 200, 500, 1000] as const;
+
+export interface PerSqmBandStats extends PerSqmStats {
+  structure: BuildingStructure;
+  /** 구간 하한(포함)·상한(제외), ㎡. */
+  minM2: number;
+  maxM2: number;
+}
+
+function bandOf(areaM2: number): { minM2: number; maxM2: number } | undefined {
+  const edges = MARKET_PRICE_SIZE_BANDS;
+  for (let i = 0; i < edges.length - 1; i++) {
+    const lo = edges[i] ?? 0;
+    const hi = edges[i + 1] ?? Infinity;
+    if (areaM2 >= lo && areaM2 < hi) return { minM2: lo, maxM2: hi };
+  }
+  return undefined;
+}
+
+/** 구조 × 연면적 구간별 ㎡당 분포. 구조 미상·구간 밖·표본 부족은 뺀다. */
+export function summarizePerSqmByBand(contracts: PublicDemolitionContract[]): PerSqmBandStats[] {
+  const out: PerSqmBandStats[] = [];
+  const structures: BuildingStructure[] = ['RC', 'BRICK', 'WOOD'];
+  for (const structure of structures) {
+    for (let i = 0; i < MARKET_PRICE_SIZE_BANDS.length - 1; i++) {
+      const minM2 = MARKET_PRICE_SIZE_BANDS[i] ?? 0;
+      const maxM2 = MARKET_PRICE_SIZE_BANDS[i + 1] ?? Infinity;
+      const inBand = contracts.filter(
+        (c) => c.structure === structure && c.areaM2 && c.areaM2 >= minM2 && c.areaM2 < maxM2,
+      );
+      const [stats] = summarizePerSqm(inBand);
+      if (stats) out.push({ ...stats, structure, minM2, maxM2 });
+    }
+  }
+  return out;
+}
+
+/**
+ * 앱 화면에 띄우는 최소 표본 수. 통계(5건)보다 높게 잡는다 — 화면에 뜨면 업체는 기준으로
+ * 받아들이는데, 10건 안팎이면 한 건의 특수 공사가 범위를 몇 배로 벌린다
+ * (실데이터: 철근콘크리트 50㎡ 미만 5건의 상위 25%가 ㎡당 150만 원).
+ */
+export const MARKET_PRICE_MIN_SAMPLES_FOR_DISPLAY = 15;
+
+export interface PublicPriceReference {
+  structure: BuildingStructure;
+  minM2: number;
+  maxM2: number;
+  /** 비교한 공공 계약 수. */
+  count: number;
+  /** ㎡당 하위 25%·중앙값·상위 25%. */
+  perSqm: { p25: number; median: number; p75: number };
+  /** 이 현장 연면적에 곱한 금액 범위(하위 25% ~ 상위 25%). */
+  minAmount: number;
+  maxAmount: number;
+}
+
+/**
+ * 구조·연면적이 비슷한 공공 철거 계약의 시세. 맞는 구간이 없으면 null — 다른 구간 값을
+ * 끌어다 쓰지 않는다(규모가 다르면 ㎡당 단가가 몇 배씩 달라진다).
+ */
+export function publicPriceReference(
+  baseline: readonly PerSqmBandStats[],
+  structure: BuildingStructure | undefined,
+  areaM2: number | undefined,
+): PublicPriceReference | null {
+  if (!structure || !areaM2 || areaM2 <= 0) return null;
+  const band = bandOf(areaM2);
+  if (!band) return null;
+  const row = baseline.find((b) => b.structure === structure && b.minM2 === band.minM2);
+  if (!row || row.count < MARKET_PRICE_MIN_SAMPLES_FOR_DISPLAY) return null;
+  const roundTo10k = (n: number) => Math.round(n / 10_000) * 10_000;
+  return {
+    structure,
+    minM2: row.minM2,
+    maxM2: row.maxM2,
+    count: row.count,
+    perSqm: { p25: row.p25, median: row.median, p75: row.p75 },
+    minAmount: roundTo10k(row.p25 * areaM2),
+    maxAmount: roundTo10k(row.p75 * areaM2),
+  };
+}

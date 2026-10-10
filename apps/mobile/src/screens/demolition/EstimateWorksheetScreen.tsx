@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { asbestosRisk, estimateChecklist, resolveFloorArea } from '@dimol/shared';
+import { asbestosRisk, estimateChecklist, resolveFloorArea, structureCodeOf } from '@dimol/shared';
 import { Card, ErrorBanner, KeyboardAwareScreen, LoadingView } from '../../components/ui';
 import { FadeInUp } from '../../components/motion';
 import { EstimateInputCard } from '../../components/demolition/EstimateInputCard';
@@ -110,6 +110,7 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
           <EstimateInputCard
             mine={worksheet.mine}
             area={area}
+            structure={structureCodeOf(details?.buildingLedger)}
             wasteTons={request.wasteTons}
             myUnitPrice={worksheet.unitPrice}
             busy={worksheet.busy}

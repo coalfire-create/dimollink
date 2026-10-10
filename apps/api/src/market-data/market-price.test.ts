@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   calibrationFactor,
+  publicPriceReference,
+  summarizePerSqmByBand,
   contractPricePerSqm,
   parseAreaM2,
   parseStructure,
@@ -148,5 +150,47 @@ describe('수집기', () => {
         new Date(),
       ),
     ).rejects.toThrow('SERVICE_KEY_IS_NOT_REGISTERED_ERROR');
+  });
+});
+
+describe('규모 구간 기준표', () => {
+  const band = (structure: 'RC' | 'BRICK', minM2: number, count: number) => ({
+    structure,
+    minM2,
+    maxM2: minM2 === 50 ? 100 : 200,
+    count,
+    p25: 200_000,
+    median: 300_000,
+    p75: 500_000,
+  });
+
+  it('구조·연면적 구간이 맞는 행으로 이 현장 금액 범위를 낸다(만 원 단위)', () => {
+    const ref = publicPriceReference([band('BRICK', 50, 120)], 'BRICK', 66.6);
+    expect(ref).toMatchObject({ count: 120, minAmount: 13_320_000, maxAmount: 33_300_000 });
+  });
+
+  it('구간·구조가 없거나 표본이 적으면 띄우지 않는다', () => {
+    expect(publicPriceReference([band('BRICK', 50, 120)], 'RC', 66.6)).toBeNull();
+    expect(publicPriceReference([band('BRICK', 50, 120)], 'BRICK', 150)).toBeNull();
+    expect(publicPriceReference([band('BRICK', 50, 6)], 'BRICK', 66.6)).toBeNull();
+    expect(publicPriceReference([band('BRICK', 50, 120)], undefined, 66.6)).toBeNull();
+    expect(publicPriceReference([band('BRICK', 50, 120)], 'BRICK', 1500)).toBeNull();
+  });
+
+  it('구조×구간별로 묶고 구간 밖(1,000㎡ 이상)은 뺀다', () => {
+    const rows = [60, 70, 80, 90, 95, 1500].map((areaM2, i) =>
+      contract({ id: `b${i}`, structure: 'BRICK', areaM2, amount: areaM2 * 300_000 }),
+    );
+    expect(summarizePerSqmByBand(rows)).toEqual([
+      {
+        structure: 'BRICK',
+        minM2: 50,
+        maxM2: 100,
+        count: 5,
+        p25: 300_000,
+        median: 300_000,
+        p75: 300_000,
+      },
+    ]);
   });
 });
