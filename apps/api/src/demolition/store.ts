@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import {
   canScheduleMoreVisits,
+  siteVisitMode,
   validateFinalEstimate,
   validatePreliminaryRange,
   type DemolitionEstimate,
+  type SiteVisit,
 } from '@dimol/shared';
 import type { CollectionPersistence } from '../lib/json-collection.js';
 import type { RequestStore } from '../requests/store.js';
@@ -138,6 +140,64 @@ export class DemolitionEstimateStore {
     requesterId: string,
     scheduledAt: string,
   ): Promise<DemolitionEstimate> {
+    // 방문 실사는 저장 모양을 예전 그대로 둔다(mode 없음 = 방문, [[siteVisitMode]]).
+    return this.reserveVisit(estimateId, requesterId, scheduledAt, {}, true);
+  }
+
+  /**
+   * 영상통화 실사([[video-survey]])를 견적에 건다.
+   *  - 실사가 아직 없으면 원격(REMOTE) 실사로 예약한다 — 방문 실사와 같은 상한·권한 규칙.
+   *  - 이미 방문 실사가 잡혀 있으면 방식은 그대로 두고 통화 id 만 덧붙인다(보조 통화).
+   * 알림은 통화 쪽이 따로 보내므로 여기서는 보내지 않는다(같은 내용이 두 번 가면 안 된다).
+   */
+  async attachVideoSession(
+    estimateId: string,
+    requesterId: string,
+    scheduledAt: string,
+    videoSessionId: string,
+  ): Promise<DemolitionEstimate> {
+    const estimate = await this.requireEstimate(estimateId);
+    if (estimate.visit) {
+      const request = await this.requestStore.get(estimate.requestId);
+      if (request?.requesterId !== requesterId) {
+        throw new DemolitionEstimateError('본인 요청에만 실사를 예약할 수 있습니다.');
+      }
+      const updated: DemolitionEstimate = { ...estimate, visit: { ...estimate.visit, videoSessionId } };
+      await this.save(updated);
+      return updated;
+    }
+    return this.reserveVisit(
+      estimateId,
+      requesterId,
+      scheduledAt,
+      { mode: 'REMOTE', videoSessionId },
+      false,
+    );
+  }
+
+  /**
+   * 영상통화가 취소되면 건 것을 푼다. 원격 실사였으면 실사 자체를 비우고(자리 반납),
+   * 방문 실사의 보조 통화였으면 통화 id 만 뗀다. 확정 견적이 나온 뒤에는 건드리지 않는다.
+   */
+  async detachVideoSession(estimateId: string, videoSessionId: string): Promise<void> {
+    const estimate = await this.get(estimateId);
+    if (!estimate?.visit || estimate.visit.videoSessionId !== videoSessionId || estimate.final) {
+      return;
+    }
+    if (siteVisitMode(estimate.visit) === 'REMOTE') {
+      await this.save({ ...estimate, stage: 'PRELIMINARY', visit: undefined });
+      return;
+    }
+    await this.save({ ...estimate, visit: { ...estimate.visit, videoSessionId: undefined } });
+  }
+
+  private async reserveVisit(
+    estimateId: string,
+    requesterId: string,
+    scheduledAt: string,
+    extra: Omit<SiteVisit, 'scheduledAt'>,
+    notifyProvider: boolean,
+  ): Promise<DemolitionEstimate> {
     const estimate = await this.requireEstimate(estimateId);
     const request = await this.requestStore.get(estimate.requestId);
     if (!request) throw new DemolitionEstimateError('요청을 찾을 수 없습니다.');
@@ -159,14 +219,16 @@ export class DemolitionEstimateStore {
     const updated: DemolitionEstimate = {
       ...estimate,
       stage: 'VISIT_SCHEDULED',
-      visit: { scheduledAt },
+      visit: { scheduledAt, ...extra },
     };
     await this.save(updated);
-    await this.announce(
-      estimate.requestId,
-      estimate.providerId,
-      `현장 실사가 예약되었어요. ${new Date(scheduledAt).toLocaleString('ko-KR')}`,
-    );
+    if (notifyProvider) {
+      await this.announce(
+        estimate.requestId,
+        estimate.providerId,
+        `현장 실사가 예약되었어요. ${new Date(scheduledAt).toLocaleString('ko-KR')}`,
+      );
+    }
     return updated;
   }
 

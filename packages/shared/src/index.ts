@@ -27,6 +27,7 @@ export * from './offer.js';
 export * from './notification.js';
 export * from './location-share.js';
 export * from './chat.js';
+export * from './video-survey.js';
 export * from './estimation.js';
 export * from './scan-volume.js';
 export * from './reference-object.js';

@@ -233,6 +233,15 @@ export const env = {
     /** 데모 일일 총 호출 상한. 분당 레이트리밋만으로는 하루치 비용을 못 막는다. */
     visionDemoDailyLimit: Number(process.env.VISION_DEMO_DAILY_LIMIT ?? 100),
   },
+  /**
+   * 영상통화 실사(Daily.co). 키가 없으면 목 공급자가 동작하고 화면에 "테스트 모드"가 뜬다 —
+   * 키 없이도 예약·입장·종료 전 경로를 검증할 수 있게 하기 위해서다.
+   * 방은 비공개·2인·녹화 없음으로만 만든다([[video-survey]]).
+   */
+  video: {
+    dailyApiKey: process.env.DAILY_API_KEY || undefined,
+    timeoutMs: Number(process.env.DAILY_TIMEOUT_MS ?? 10_000),
+  },
   buildingRegistry: {
     // 건축물대장 표제부 OpenAPI 키 (data.go.kr)
     apiKey: process.env.VISION_BLDG_LEDGER_KEY,

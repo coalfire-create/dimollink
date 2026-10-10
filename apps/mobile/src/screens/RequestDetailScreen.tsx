@@ -17,6 +17,7 @@ import { QuoteList } from './request-detail/QuoteList';
 import { RequestHeroCard } from './request-detail/RequestHeroCard';
 import { RequestInfoCard } from './request-detail/RequestInfoCard';
 import { useRequestDetail } from './request-detail/useRequestDetail';
+import { VideoSurveyCard } from './request-detail/VideoSurveyCard';
 import { theme } from '../theme';
 
 /**
@@ -139,6 +140,11 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
             운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
         {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
           <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
+        ) : null}
+
+        {/* 영상통화 실사 — 업체가 현장에 오지 않고 영상으로 본다. 카드가 역할별로 알아서 숨는다. */}
+        {request.kind === 'DEMOLITION' && !cancelled ? (
+          <VideoSurveyCard requestId={request.id} isRequester={isRequester} />
         ) : null}
 
         <QuoteList
