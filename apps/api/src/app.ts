@@ -101,8 +101,12 @@ import { MembershipService } from './subscriptions/membership.js';
 import { PassStore } from './subscriptions/pass-store.js';
 import { SubscriptionStore } from './subscriptions/store.js';
 import { DemolitionEstimateStore } from './demolition/store.js';
+import { EstimateParityService } from './estimate-parity/service.js';
+import { ParitySampleStore } from './estimate-parity/store.js';
+import { createEstimateParityRouter } from './routes/estimate-parity.js';
 import type {
   DemolitionEstimate,
+  ParitySample,
   MembershipPass,
   PayoutAccount,
   Subscription,
@@ -375,6 +379,14 @@ export function createApp(
       if (request) notificationService.notifyEstimate(request, userId, message);
     },
   );
+  // 원격 vs 방문 견적 정합성(시범 측정). 철거 견적은 읽기만 한다.
+  // 실적 톤 조회(4번째 인자)는 비워 둔다 — 올바로 반입·계량 톤이 아직 요청에 저장되지 않아
+  // 직원이 입력한다([[estimate-parity/service]] ActualTonnageLookup 참고).
+  const estimateParityService = new EstimateParityService(
+    new ParitySampleStore(persistence<ParitySample>('estimate-parity-samples')),
+    demolitionEstimateStore,
+    requestStore,
+  );
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
   // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
   const interiorStore = new InteriorStore(
@@ -633,6 +645,8 @@ export function createApp(
       requireAdmin,
     ),
   );
+  // 원격 vs 방문 견적 정합성 — 관리자 전용, 같은 가드.
+  app.use('/api', createEstimateParityRouter(estimateParityService, requireAdmin));
 
   // SPA 폴백 — /api 외 GET 요청은 Expo 웹 앱 진입점으로(클라이언트 라우팅 지원).
   app.get(/^(?!\/api(\/|$)).*/, (_req: Request, res: Response) => {

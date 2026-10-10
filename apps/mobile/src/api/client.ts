@@ -25,6 +25,7 @@ export * from './products';
 export * from './payout-account';
 export * from './interior';
 export * from './admin';
+export * from './estimate-parity';
 export * from './reviews';
 export * from './uploads';
 export * from './scan3d';
