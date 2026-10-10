@@ -39,10 +39,30 @@ export interface PreliminaryEstimate {
   createdAt: string;
 }
 
+/**
+ * 실사 방식.
+ *  - `IN_PERSON`: 업체가 현장에 직접 간다(기존 방식).
+ *  - `REMOTE`: 현장에 가지 않고 원격 실사 자료([[remote-survey]] 촬영 패키지·3D 스캔)와
+ *    필요하면 영상통화([[video-survey]])로 본다. 이동 없이 같은 사람이 같은 것을 보고 판단한다.
+ * 원격 견적이 방문 견적과 얼마나 같은지는 [[estimate-parity]] 가 표본으로 잰다.
+ */
+export type SiteVisitMode = 'IN_PERSON' | 'REMOTE';
+
 export interface SiteVisit {
   /** 실사 예정 일시(ISO). */
   scheduledAt: string;
   completedAt?: string;
+  /** 실사 방식. 없으면 기존 데이터 — `IN_PERSON` 으로 본다. */
+  mode?: SiteVisitMode;
+  /** 원격 실사에 쓴 촬영 패키지 id([[remote-survey]]). */
+  remoteSurveyId?: string;
+  /** 원격 실사 중 영상통화 세션 id([[video-survey]]). */
+  videoSessionId?: string;
+}
+
+/** 실사 방식 — 옛 데이터(mode 없음)는 방문 실사로 본다. */
+export function siteVisitMode(visit: SiteVisit | undefined): SiteVisitMode {
+  return visit?.mode ?? 'IN_PERSON';
 }
 
 export interface FinalEstimate {
