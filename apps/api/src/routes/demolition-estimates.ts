@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { providerEstimateAccuracy, visibleDemolitionEstimates } from '@dimol/shared';
 import { authUserId } from '../middleware/auth.js';
+import type { RemoteSiteVisitService } from '../demolition/remote-visit.js';
 import { DemolitionEstimateError, type DemolitionEstimateStore } from '../demolition/store.js';
 import type { RequestStore } from '../requests/store.js';
 import type { UserStore } from '../users/store.js';
@@ -15,6 +16,8 @@ export function createDemolitionEstimateRouter(
   store: DemolitionEstimateStore,
   requestStore: RequestStore,
   userStore: UserStore,
+  /** 원격 실사 전환([[remote-visit]]). 없으면 원격 관련 요청만 503 — 방문 흐름은 그대로 돈다. */
+  remoteVisits?: RemoteSiteVisitService,
 ): Router {
   const router = Router();
 
@@ -94,19 +97,40 @@ export function createDemolitionEstimateRouter(
     }
   });
 
-  // POST /api/demolition-estimates/:id/final  { amount, overrunReason?, memo? }
+  // POST /api/demolition-estimates/:id/remote-visit — 업체 본인: 원격 실사로 진행
+  // 소비자가 보낸 원격 실사 자료로 실사를 마친다고 기록한다(REMOTE + remoteSurveyId).
+  router.post('/demolition-estimates/:id/remote-visit', async (req, res) => {
+    if (!remoteVisits) {
+      res.status(503).json({ error: '원격 실사를 지금 쓸 수 없습니다.' });
+      return;
+    }
+    try {
+      res.json(await remoteVisits.markRemote(req.params.id, authUserId(req)));
+    } catch (err) {
+      fail(err, res);
+    }
+  });
+
+  // POST /api/demolition-estimates/:id/final  { amount, overrunReason?, memo?, remote? }
   // 3단계 — 실사를 마친 업체가 확정 금액을 낸다. 개산 상단 초과 시 사유 필수.
+  // remote=true 면 원격 실사 자료 기준 확정 — 실사 기록을 REMOTE 로 맞춘 뒤 같은 확정 경로를 탄다.
   router.post('/demolition-estimates/:id/final', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
+    const remote = body.remote === true;
+    if (remote && !remoteVisits) {
+      res.status(503).json({ error: '원격 실사를 지금 쓸 수 없습니다.' });
+      return;
+    }
+    const args = [
+      req.params.id,
+      authUserId(req),
+      Number(body.amount),
+      typeof body.overrunReason === 'string' ? body.overrunReason : undefined,
+      typeof body.memo === 'string' ? body.memo : undefined,
+    ] as const;
     try {
       res.json(
-        await store.submitFinal(
-          req.params.id,
-          authUserId(req),
-          Number(body.amount),
-          typeof body.overrunReason === 'string' ? body.overrunReason : undefined,
-          typeof body.memo === 'string' ? body.memo : undefined,
-        ),
+        remote ? await remoteVisits!.submitFinalRemote(...args) : await store.submitFinal(...args),
       );
     } catch (err) {
       fail(err, res);

@@ -72,6 +72,20 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
           />
         </FadeInUp>
 
+        {/* 가상 현장 — 원격 실사 사진·3D·영상통화로 현장에 가지 않고 실사를 마치는 곳. */}
+        <FadeInUp delay={40}>
+          <Card
+            style={styles.linkCard}
+            onPress={() => nav.push({ name: 'virtualSite', requestId })}
+          >
+            <View style={styles.linkBody}>
+              <Text style={styles.linkText}>가상 현장 열기</Text>
+              <Text style={styles.linkHint}>원격 실사 사진·3D·영상통화로 실사하기</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Card>
+        </FadeInUp>
+
         <FadeInUp delay={60}>
           <SitePhotoStrip photoKeys={request.sitePhotoKeys} />
         </FadeInUp>
@@ -137,6 +151,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  linkBody: {
+    flex: 1,
+  },
+  linkHint: {
+    color: colors.textMuted,
+    fontSize: font.body,
   },
   linkText: {
     color: colors.primary,
