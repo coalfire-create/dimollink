@@ -6,6 +6,7 @@ import { AppButton, Card, ErrorBanner, Field, KeyboardAwareScreen } from '../com
 import { theme } from '../theme';
 import { AllbaroTab } from './admin/AllbaroTab';
 import { ApprovalTab } from './admin/ApprovalTab';
+import { EstimateParityTab } from './admin/EstimateParityTab';
 import { IncidentsTab } from './admin/IncidentsTab';
 import { RequestsTab } from './admin/RequestsTab';
 import { StatsTab } from './admin/StatsTab';
@@ -24,7 +25,7 @@ import { errorMessage } from './admin/shared';
  *  - **공유 운영 토큰**: 첫 관리자를 만들 때와 계정이 잠겼을 때의 비상 경로.
  */
 
-type TabKey = 'approval' | 'requests' | 'incidents' | 'allbaro' | 'stats';
+type TabKey = 'approval' | 'requests' | 'incidents' | 'allbaro' | 'stats' | 'parity';
 
 const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: 'approval', label: '승인·권한' },
@@ -32,6 +33,7 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: 'incidents', label: '분쟁·이상' },
   { key: 'allbaro', label: '올바로' },
   { key: 'stats', label: '현황' },
+  { key: 'parity', label: '견적 정합성' },
 ];
 
 export function AdminScreen({ onBack }: { onBack: () => void }) {
@@ -134,6 +136,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
         {authed && tab === 'incidents' ? <IncidentsTab {...tabProps} /> : null}
         {authed && tab === 'allbaro' ? <AllbaroTab {...tabProps} /> : null}
         {authed && tab === 'stats' ? <StatsTab {...tabProps} /> : null}
+        {authed && tab === 'parity' ? <EstimateParityTab {...tabProps} /> : null}
       </ScrollView>
     </KeyboardAwareScreen>
   );

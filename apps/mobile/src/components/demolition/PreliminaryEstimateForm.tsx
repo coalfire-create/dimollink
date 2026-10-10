@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { suggestedRange, validatePreliminaryRange, type FloorAreaBasis } from '@dimol/shared';
+import {
+  suggestedRange,
+  validatePreliminaryRange,
+  type BuildingStructure,
+  type FloorAreaBasis,
+} from '@dimol/shared';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../ui';
 import { PressableScale } from '../motion';
 import { won } from '../../lib/format';
 import { theme } from '../../theme';
+import { PublicPriceReferenceNote } from './PublicPriceReferenceNote';
 import { UnitConversion } from './UnitConversion';
 import { parseAmount } from './parseAmount';
 
@@ -19,6 +25,7 @@ import { parseAmount } from './parseAmount';
  */
 export function PreliminaryEstimateForm({
   area,
+  structure,
   wasteTons,
   myUnitPrice,
   busy,
@@ -26,6 +33,7 @@ export function PreliminaryEstimateForm({
   onSubmit,
 }: {
   area: FloorAreaBasis | null;
+  structure: BuildingStructure | undefined;
   wasteTons: number;
   /** 마이페이지에 저장해 둔 내 단가(원/㎡). 없으면 제안을 띄우지 않는다. */
   myUnitPrice: number | null;
@@ -90,6 +98,8 @@ export function PreliminaryEstimateForm({
               : '연면적 근거가 없어 자동 제안을 띄우지 않습니다. 직접 산정하세요.'}
           </Text>
         )}
+
+        <PublicPriceReferenceNote structure={structure} area={area} />
 
         <ErrorBanner message={shown} />
 

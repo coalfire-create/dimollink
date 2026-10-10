@@ -16,6 +16,7 @@ import {
 } from '@dimol/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PortOneClient } from '../payment/portone-client.js';
+import { PassRefundService } from '../subscriptions/pass-refund.js';
 import { PassStore } from '../subscriptions/pass-store.js';
 import { SubscriptionStore } from '../subscriptions/store.js';
 import { createProductRouter } from './products.js';
@@ -56,6 +57,9 @@ let subscriptions: SubscriptionStore;
 let passes: PassStore;
 let getPayment: ReturnType<typeof vi.fn>;
 let payWithBillingKey: ReturnType<typeof vi.fn>;
+let cancelPayment: ReturnType<typeof vi.fn>;
+/** 혜택 사용 여부(이용권 환불 판정). 테스트마다 바꾼다. */
+let benefitUsed: boolean;
 let currentUser: { id: string; userType: UserType };
 
 afterEach(async () => {
@@ -78,6 +82,8 @@ async function start(options: {
   passes = new PassStore();
   currentUser = { id: 'user-1', userType: options.userType ?? 'DEMOLITION_COMPANY' };
   getPayment = vi.fn();
+  cancelPayment = vi.fn(async () => ({}));
+  benefitUsed = false;
   payWithBillingKey = vi.fn(async (input: { amount: { total: number } }) => ({
     payment: { status: 'PAID', amount: { total: input.amount.total } },
   }));
@@ -85,7 +91,7 @@ async function start(options: {
     { baseUrl: 'https://x', mode: 'test', allowLive: false, apiSecret: 'test' },
     {
       getPayment: getPayment as never,
-      cancelPayment: vi.fn(),
+      cancelPayment: cancelPayment as never,
       payWithBillingKey: payWithBillingKey as never,
     },
   );
@@ -103,6 +109,9 @@ async function start(options: {
       catalog: CATALOG,
       passes,
       membership: { memberIdsOn: async () => options.memberIds ?? [] },
+      passRefunds: new PassRefundService(passes, portone, {
+        usedSince: async () => benefitUsed,
+      }),
     }),
   );
   await new Promise<void>((resolve) => {
@@ -246,6 +255,45 @@ describe('30일 이용권 구매 — 단건결제', () => {
     }[];
     expect(list).toHaveLength(2);
     expect(list[0]!.endDate > list[1]!.endDate).toBe(true);
+  });
+});
+
+describe('30일 이용권 환불', () => {
+  async function buyPass(paymentId = 'pay_1') {
+    paid();
+    await post(`/api/products/${membership.id}/purchase`, { paymentId });
+    return (await passes.listByUser(currentUser.id)).find((p) => p.paymentId === paymentId)!;
+  }
+
+  it('혜택을 안 썼으면 전액 PG 취소 후 환불 처리하고, 목록에 환불 시각이 보인다', async () => {
+    const pass = await buyPass();
+    const res = await post(`/api/membership-passes/${pass.id}/refund`, {});
+    expect(res.status).toBe(200);
+    expect((await res.json()).refundedAmount).toBe(membership.price);
+    expect(cancelPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentId: 'pay_1', amount: membership.price }),
+    );
+    const [listed] = (await (await fetch(`${base}/api/membership-passes`)).json()) as {
+      refundedAt?: string;
+    }[];
+    expect(listed!.refundedAt).toBeDefined();
+  });
+
+  it('혜택을 썼으면 409 BENEFIT_USED 이고 PG 취소를 부르지 않는다', async () => {
+    const pass = await buyPass();
+    benefitUsed = true;
+    const res = await post(`/api/membership-passes/${pass.id}/refund`, {});
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('BENEFIT_USED');
+    expect(cancelPayment).not.toHaveBeenCalled();
+  });
+
+  it('남의 이용권은 404', async () => {
+    const pass = await buyPass();
+    currentUser = { id: 'user-2', userType: 'DEMOLITION_COMPANY' };
+    const res = await post(`/api/membership-passes/${pass.id}/refund`, {});
+    expect(res.status).toBe(404);
+    expect(cancelPayment).not.toHaveBeenCalled();
   });
 });
 

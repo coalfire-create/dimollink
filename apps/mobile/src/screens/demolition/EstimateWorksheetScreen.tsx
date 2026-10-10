@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { asbestosRisk, estimateChecklist, resolveFloorArea } from '@dimol/shared';
+import { asbestosRisk, estimateChecklist, resolveFloorArea, structureCodeOf } from '@dimol/shared';
 import { Card, ErrorBanner, KeyboardAwareScreen, LoadingView } from '../../components/ui';
 import { FadeInUp } from '../../components/motion';
 import { EstimateInputCard } from '../../components/demolition/EstimateInputCard';
@@ -72,6 +72,20 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
           />
         </FadeInUp>
 
+        {/* 가상 현장 — 원격 실사 사진·3D·영상통화로 현장에 가지 않고 실사를 마치는 곳. */}
+        <FadeInUp delay={40}>
+          <Card
+            style={styles.linkCard}
+            onPress={() => nav.push({ name: 'virtualSite', requestId })}
+          >
+            <View style={styles.linkBody}>
+              <Text style={styles.linkText}>가상 현장 열기</Text>
+              <Text style={styles.linkHint}>원격 실사 사진·3D·영상통화로 실사하기</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Card>
+        </FadeInUp>
+
         <FadeInUp delay={60}>
           <SitePhotoStrip photoKeys={request.sitePhotoKeys} />
         </FadeInUp>
@@ -96,6 +110,7 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
           <EstimateInputCard
             mine={worksheet.mine}
             area={area}
+            structure={structureCodeOf(details?.buildingLedger)}
             wasteTons={request.wasteTons}
             myUnitPrice={worksheet.unitPrice}
             busy={worksheet.busy}
@@ -137,6 +152,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  linkBody: {
+    flex: 1,
+  },
+  linkHint: {
+    color: colors.textMuted,
+    fontSize: font.body,
   },
   linkText: {
     color: colors.primary,

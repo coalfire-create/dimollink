@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DemolitionEstimate, FloorAreaBasis } from '@dimol/shared';
+import type { BuildingStructure, DemolitionEstimate, FloorAreaBasis } from '@dimol/shared';
 import { MyEstimateCard } from './MyEstimateCard';
 import { PreliminaryEstimateForm } from './PreliminaryEstimateForm';
 
@@ -12,6 +12,7 @@ import { PreliminaryEstimateForm } from './PreliminaryEstimateForm';
 export function EstimateInputCard({
   mine,
   area,
+  structure,
   wasteTons,
   myUnitPrice,
   busy,
@@ -21,6 +22,8 @@ export function EstimateInputCard({
 }: {
   mine: DemolitionEstimate | null;
   area: FloorAreaBasis | null;
+  /** 건축물대장 주구조. 공공 시세 참고선을 고르는 데 쓴다. */
+  structure: BuildingStructure | undefined;
   wasteTons: number;
   /** 마이페이지에 저장해 둔 내 단가(원/㎡). 없으면 제안을 띄우지 않는다. */
   myUnitPrice: number | null;
@@ -33,6 +36,7 @@ export function EstimateInputCard({
     return (
       <PreliminaryEstimateForm
         area={area}
+        structure={structure}
         wasteTons={wasteTons}
         myUnitPrice={myUnitPrice}
         busy={busy}

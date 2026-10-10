@@ -90,6 +90,12 @@ const feePct = (rate: number) => `${Math.round(rate * 100)}%`;
 /** 이용권 기간(일). 화면 문구와 혜택 기간 계산이 같은 값을 본다. */
 export const MEMBERSHIP_PASS_DAYS = 30;
 
+/**
+ * 이용권 환불 가능 기간(일, 결제 시각부터). 전자상거래법 청약철회 기간(7일)에 맞춘 값이고,
+ * 환불 정책 문구와 서버 환불 판정([[passRefundBlock]])이 같은 값을 본다.
+ */
+export const PASS_REFUND_WINDOW_DAYS = 7;
+
 export const SALES_PRODUCTS: readonly SalesProduct[] = [
   {
     id: DEMOLITION_MEMBERSHIP_ID,
@@ -105,7 +111,7 @@ export const SALES_PRODUCTS: readonly SalesProduct[] = [
     },
     delivery: '실물 배송 없음 — 결제 즉시 앱에서 혜택이 적용됩니다.',
     refundPolicy: [
-      '결제 후 7일 이내이고 혜택(우선 알림 수신·인하 수수료 정산)을 사용하지 않았다면 전액 환불됩니다.',
+      `결제 후 ${PASS_REFUND_WINDOW_DAYS}일 이내이고 혜택(우선 알림 수신·인하 수수료 정산)을 사용하지 않았다면 앱의 [스토어 · 멤버십]에서 바로 전액 환불받을 수 있습니다.`,
       '혜택을 사용한 뒤에는 환불되지 않습니다.',
       `이용 기간이 끝나도 자동으로 결제되지 않습니다. 이용 중에 다시 구매하면 남은 기간 뒤로 ${MEMBERSHIP_PASS_DAYS}일이 이어집니다.`,
       '회사 사정으로 서비스를 제공하지 못한 기간은 일할 계산해 환불합니다.',
@@ -267,6 +273,10 @@ export interface MembershipPass {
   endDate: string;
   amount: number;
   createdAt: string;
+  /** 환불한 시각(ISO). 있으면 이 이용권은 혜택을 주지 않는다. */
+  refundedAt?: string;
+  /** 환불 금액(원). 지금은 전액 환불만 한다. */
+  refundedAmount?: number;
 }
 
 /** 'YYYY-MM-DD' + n일. */
@@ -275,9 +285,9 @@ export function addDays(date: string, days: number): string {
   return new Date(t).toISOString().slice(0, 10);
 }
 
-/** 이 이용권이 `date`(KST)에 혜택을 주는가: 시작일 ≤ date < 종료일. */
+/** 이 이용권이 `date`(KST)에 혜택을 주는가: 환불되지 않았고 시작일 ≤ date < 종료일. */
 export function passCoversDate(pass: MembershipPass, date: string): boolean {
-  return pass.startDate <= date && date < pass.endDate;
+  return !pass.refundedAt && pass.startDate <= date && date < pass.endDate;
 }
 
 /**
@@ -292,6 +302,7 @@ export function nextPassWindow(
   days: number,
 ): { startDate: string; endDate: string } {
   const latestEnd = existing
+    .filter((p) => !p.refundedAt)
     .map((p) => p.endDate)
     .filter((end) => end > today)
     .sort()
@@ -303,4 +314,43 @@ export function nextPassWindow(
 /** 멤버십 회원 여부에 따른 플랫폼 수수료율. 정산 금액 계산의 단일 원천. */
 export function platformFeeRateFor(options: { member: boolean }): number {
   return options.member ? MEMBER_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
+}
+
+/** 이용권을 환불할 수 없는 이유. */
+export type PassRefundBlock =
+  | 'ALREADY_REFUNDED'
+  | 'WINDOW_PASSED'
+  | 'NEWER_PASS_EXISTS'
+  | 'BENEFIT_USED';
+
+/** 환불 불가 사유 → 화면에 그대로 띄우는 문구. */
+export const PASS_REFUND_BLOCK_MESSAGES: Record<PassRefundBlock, string> = {
+  ALREADY_REFUNDED: '이미 환불된 이용권입니다.',
+  WINDOW_PASSED: `결제 후 ${PASS_REFUND_WINDOW_DAYS}일이 지나 환불할 수 없습니다.`,
+  NEWER_PASS_EXISTS: '뒤에 이어 산 이용권이 있어요. 가장 최근 이용권부터 환불해 주세요.',
+  BENEFIT_USED: '이미 혜택(우선 알림·인하 수수료 정산)을 사용해 환불할 수 없습니다.',
+};
+
+/** 결제 후 환불 가능 기간 안인가. 화면은 버튼 노출에, 서버는 판정에 같은 값을 쓴다. */
+export function isWithinPassRefundWindow(pass: MembershipPass, now: Date): boolean {
+  const elapsed = now.getTime() - Date.parse(pass.createdAt);
+  return elapsed <= PASS_REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * 이용권 환불 판정 — 막는 이유가 없으면 null.
+ *
+ * **가장 최근 이용권만** 환불한다. 이용 중에 다시 사면 남은 기간 뒤로 이어 붙이므로
+ * ([[nextPassWindow]]) 앞의 이용권을 빼면 뒤 이용권 앞에 빈 기간이 생겨 그만큼 손해를 본다.
+ * 혜택 사용 여부는 저장소를 봐야 알 수 있어 호출부가 계산해 넘긴다.
+ */
+export function passRefundBlock(
+  pass: MembershipPass,
+  context: { now: Date; newerPassExists: boolean; benefitUsed: boolean },
+): PassRefundBlock | null {
+  if (pass.refundedAt) return 'ALREADY_REFUNDED';
+  if (!isWithinPassRefundWindow(pass, context.now)) return 'WINDOW_PASSED';
+  if (context.newerPassExists) return 'NEWER_PASS_EXISTS';
+  if (context.benefitUsed) return 'BENEFIT_USED';
+  return null;
 }
