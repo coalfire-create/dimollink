@@ -66,7 +66,14 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
 
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((idx) => (
-                <Pressable key={idx} onPress={() => setRating(idx)} style={styles.starBtn}>
+                <Pressable
+                  key={idx}
+                  accessibilityRole="button"
+                  accessibilityLabel={`별점 ${idx}점`}
+                  accessibilityState={{ selected: idx <= rating }}
+                  onPress={() => setRating(idx)}
+                  style={styles.starBtn}
+                >
                   <AppIcon
                     name="star"
                     size={36}
@@ -123,11 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
     borderRadius: 16,
     padding: theme.spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...theme.shadow.card,
     alignItems: 'center',
   },
   title: {

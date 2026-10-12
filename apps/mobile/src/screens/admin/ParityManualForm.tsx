@@ -108,6 +108,7 @@ export function ParityManualForm({
           <Pressable
             key={code}
             accessibilityRole="button"
+            accessibilityLabel={`구조 ${code}`}
             accessibilityState={{ selected: structure === code }}
             onPress={() => setStructure(structure === code ? undefined : code)}
             style={[s.chip, structure === code && { backgroundColor: theme.colors.primarySoft }]}

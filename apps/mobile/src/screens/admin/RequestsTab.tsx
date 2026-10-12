@@ -139,6 +139,7 @@ export function RequestsTab({ token, onError }: AdminTabProps) {
                   <Pressable
                     key={next}
                     accessibilityRole="button"
+                    accessibilityLabel={`상태를 ${next}(으)로 강제 변경`}
                     style={s.chip}
                     onPress={() =>
                       confirmThen(
