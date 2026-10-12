@@ -22,7 +22,13 @@ export function DevRoleShortcuts({ onSelect }: { onSelect: (role: DevRoleKey) =>
       <Text style={styles.devSectionTitle}>⚡️ UI 검증용 바로가기 (로그인 없이 바로 진입)</Text>
       <View style={styles.devGrid}>
         {ROLES.map((role) => (
-          <Pressable key={role.key} style={styles.devChip} onPress={() => onSelect(role.key)}>
+          <Pressable
+            key={role.key}
+            accessibilityRole="button"
+            accessibilityLabel={`${role.label} 역할로 바로 들어가기`}
+            style={styles.devChip}
+            onPress={() => onSelect(role.key)}
+          >
             <Text style={styles.devChipText}>{role.label}</Text>
           </Pressable>
         ))}
@@ -54,6 +60,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   devChip: {
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight,
     backgroundColor: colors.primarySoft,
     borderColor: colors.border,
     borderRadius: 8,

@@ -141,9 +141,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
