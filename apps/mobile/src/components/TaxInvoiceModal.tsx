@@ -44,7 +44,12 @@ export function TaxInvoiceModal({ visible, onClose, onSubmit, amount }: Props) {
           />
 
           <View style={styles.buttonRow}>
-            <Pressable onPress={onClose} style={[styles.button, styles.cancelButton]}>
+            <Pressable
+              onPress={onClose}
+              style={[styles.button, styles.cancelButton]}
+              accessibilityRole="button"
+              accessibilityLabel="세금계산서 발행 다음에 하기"
+            >
               <Text style={styles.cancelText}>다음에 하기</Text>
             </Pressable>
             <AppButton 

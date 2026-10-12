@@ -86,10 +86,11 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 22,
+    fontSize: font.title,
     fontWeight: 'bold',
+    lineHeight: 32,
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   numberText: {
     color: colors.primary,
@@ -144,10 +145,10 @@ const styles = StyleSheet.create({
   tipTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.xs,
   },
   tipEmoji: {
-    fontSize: 18,
+    fontSize: font.body,
     marginRight: spacing.xs,
   },
   tipTitle: {

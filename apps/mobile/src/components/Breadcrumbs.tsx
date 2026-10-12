@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
   linkHit: {
     // 터치 영역을 글자보다 넉넉하게 — 작은 글씨 링크를 누르기 어려우면 안 된다.
     justifyContent: 'center',
-    minHeight: 40,
-    paddingHorizontal: 4,
+    minHeight: theme.touch.minButtonHeight,
+    paddingHorizontal: spacing.xs,
   },
   link: {
     color: colors.primary,

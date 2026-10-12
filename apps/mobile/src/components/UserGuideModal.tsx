@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     // 좌우로 버튼 폭만큼 비워 두면 어느 길이의 제목이든 겹치지 않는다.
     paddingHorizontal: touch.minButtonHeight,
     color: colors.text,
-    fontSize: 28,
+    fontSize: font.titleLarge,
     fontWeight: '900',
     marginBottom: spacing.sm,
     textAlign: 'center',

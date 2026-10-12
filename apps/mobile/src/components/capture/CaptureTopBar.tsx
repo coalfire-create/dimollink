@@ -68,7 +68,7 @@ export function CaptureTopBar({
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing, radius, touch } = theme;
 
 const styles = StyleSheet.create({
   topBar: {
@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: touch.minButtonHeight,
+    height: touch.minButtonHeight,
+    borderRadius: touch.minButtonHeight / 2,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: { color: colors.background, fontSize: 20, fontWeight: '700' },
+  closeBtnText: { color: colors.background, fontSize: font.bodyLarge, fontWeight: '700' },
   dotsRow: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
   dot: { flex: 1, height: 5, borderRadius: 999 },
   dotDone: { backgroundColor: colors.primary },
