@@ -179,7 +179,7 @@ export function PaymentScreen({
           </FadeInUp>
         </View>
         <StickyFooter>
-          <AppButton label="세금계산서/현금영수증 발행" variant="outline" style={{marginBottom: 8}} onPress={() => setShowTaxModal(true)} />
+          <AppButton label="세금계산서/현금영수증 발행" variant="outline" style={{ marginBottom: theme.spacing.xs }} onPress={() => setShowTaxModal(true)} />
           <AppButton label="확인" onPress={() => nav.pop()} />
         </StickyFooter>
         <TaxInvoiceModal
@@ -241,6 +241,7 @@ export function PaymentScreen({
             <FadeInUp key={m} delay={120 + i * 70}>
               <Pressable
                 accessibilityRole="radio"
+                accessibilityLabel={m === 'VBANK' ? '계좌이체(가상계좌)로 결제' : '카드로 결제'}
                 accessibilityState={{ checked: selected }}
                 onPress={() => setPayMethod(m)}
                 style={[styles.methodCard, selected && styles.methodSelected]}

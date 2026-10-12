@@ -127,6 +127,7 @@ export function PayoutAccountScreen() {
                 <Pressable
                   key={bank.code}
                   accessibilityRole="button"
+                  accessibilityLabel={bank.name}
                   accessibilityState={{ selected: bankCode === bank.code }}
                   style={[styles.bank, bankCode === bank.code && styles.bankSelected]}
                   onPress={() => setBankCode(bank.code)}

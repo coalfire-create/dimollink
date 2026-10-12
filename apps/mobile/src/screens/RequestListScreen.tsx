@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.caption,
     fontWeight: '700',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     textAlign: 'center',
   },
 });

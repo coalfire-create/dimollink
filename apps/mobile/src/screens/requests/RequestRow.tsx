@@ -92,14 +92,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background,
     borderRadius: radius.card,
-    elevation: 3,
+    ...theme.shadow.card,
     flexDirection: 'row',
     marginBottom: spacing.sm,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
   },
   cardPressed: {
     opacity: 0.92,

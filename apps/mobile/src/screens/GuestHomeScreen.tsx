@@ -207,10 +207,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 12,
-    height: 44,
+    height: 48,
     justifyContent: 'center',
     marginLeft: spacing.xs,
-    width: 44,
+    width: 48,
   },
   actions: {
     backgroundColor: colors.background,

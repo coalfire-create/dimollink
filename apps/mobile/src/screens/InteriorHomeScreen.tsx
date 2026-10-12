@@ -47,6 +47,8 @@ export function InteriorHomeScreen() {
 
         <FadeInUp delay={80}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="들어온 시공 요청 보기"
             style={styles.interiorCard}
             onPress={() => nav.push({ name: 'interiorList', scope: 'open' })}
           >
@@ -81,7 +83,7 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     margin: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
@@ -104,12 +106,12 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   interiorCard: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     flexDirection: 'row',
     marginHorizontal: spacing.sm,
     marginBottom: spacing.xs,
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   interiorChevron: {
     color: colors.primary,

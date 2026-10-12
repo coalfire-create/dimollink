@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     margin: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
 });

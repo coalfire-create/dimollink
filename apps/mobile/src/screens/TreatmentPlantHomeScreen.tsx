@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     margin: spacing.sm,
     padding: spacing.md,
     flexDirection: 'row',
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   transportBadge: {
     alignItems: 'center',
@@ -104,10 +104,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 999,
     flexDirection: 'row',
-    gap: spacing.xs / 2,
+    gap: spacing.xs,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    paddingVertical: spacing.xs,
   },
   transportBadgeText: {
     color: colors.background,

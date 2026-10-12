@@ -51,6 +51,7 @@ function TransportOfferToggle({ user }: { user: UserProfile }) {
       <Card>
         <Pressable
           accessibilityRole="switch"
+          accessibilityLabel="운반요청 받기"
           accessibilityState={{ checked: offers, busy }}
           onPress={toggle}
           disabled={busy}

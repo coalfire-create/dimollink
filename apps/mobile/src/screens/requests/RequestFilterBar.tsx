@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     flex: 1,
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
     justifyContent: 'center',
     minHeight: touch.minButtonHeight,
   },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     minWidth: 32,
     overflow: 'hidden',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
     textAlign: 'center',
   },
   tabCountActive: {
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.caption,
     fontWeight: '700',
-    marginRight: 4,
+    marginRight: spacing.xs,
   },
   chip: {
     alignItems: 'center',
