@@ -265,9 +265,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     marginBottom: spacing.sm,
   },
-  paymentContainer: {
-    paddingTop: spacing.xs,
-  },
+  paymentContainer: { paddingTop: spacing.xs },
   paymentTotal: {
     color: colors.text,
     fontSize: font.bodyLarge,
