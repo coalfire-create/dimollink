@@ -153,6 +153,48 @@ describe('선결제 — 금액 권위(수락 견적 기준)', () => {
   });
 });
 
+describe('선결제 — 결제 재사용 방지', () => {
+  async function paidRequest(phone: string, amount: number) {
+    const owner = await makeUser(phone);
+    const request = await makeRequest(owner.id);
+    await acceptQuote(request.id, owner.id, 'TRANSPORT', amount);
+    return { owner, request };
+  }
+  const prepay = async (ownerId: string, matchRequestId: string) =>
+    post('/api/payments/prepay', await sessionStore.issue(ownerId), {
+      matchRequestId,
+      paymentId: 'pay-test',
+      completedDate: '2026-07-10',
+    });
+
+  it('같은 금액의 다른 요청에 이미 쓴 결제를 내밀면 409(PAYMENT_ALREADY_USED), 기존 기록 유지', async () => {
+    const a = await paidRequest('01060000011', 300000);
+    expect((await prepay(a.owner.id, a.request.id)).status).toBe(200);
+
+    const b = await makeRequest(a.owner.id);
+    await acceptQuote(b.id, a.owner.id, 'TRANSPORT', 300000);
+    const res = await prepay(a.owner.id, b.id);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('PAYMENT_ALREADY_USED');
+    expect((await paymentStore.get('pay-test'))?.matchRequestId).toBe(a.request.id);
+  });
+
+  it('같은 요청의 재확인은 허용', async () => {
+    const a = await paidRequest('01060000012', 200000);
+    expect((await prepay(a.owner.id, a.request.id)).status).toBe(200);
+    expect((await prepay(a.owner.id, a.request.id)).status).toBe(200);
+  });
+
+  it('취소된 결제는 같은 요청이라도 다시 확정할 수 없다', async () => {
+    const a = await paidRequest('01060000013', 200000);
+    expect((await prepay(a.owner.id, a.request.id)).status).toBe(200);
+    await paymentStore.markCancelled('pay-test');
+    const res = await prepay(a.owner.id, a.request.id);
+    expect(res.status).toBe(409);
+    expect((await paymentStore.get('pay-test'))?.status).toBe('CANCELLED');
+  });
+});
+
 describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
   async function prepaid(owner: { id: string }, request: { id: string }) {
     await acceptQuote(request.id, owner.id, 'TRANSPORT', 100000);
