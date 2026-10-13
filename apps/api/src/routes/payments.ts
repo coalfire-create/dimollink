@@ -184,6 +184,15 @@ export function createPaymentsRouter(
       }
     }
 
+    // 재사용 방지: 포트원 검증은 상태·금액만 보므로, 같은 금액의 다른 요청에 이미 쓴 결제를
+    // 들고 오면 통과해 버린다(결제 1건으로 요청 2건 PAID + 기존 기록 덮어쓰기).
+    // 같은 요청의 재호출(가상계좌 발급 후 재확인 등)만 허용하고, 취소된 결제는 되살리지 않는다.
+    const existing = await paymentStore?.get(paymentId);
+    if (existing && (existing.matchRequestId !== matchRequestId || existing.status === 'CANCELLED')) {
+      res.status(409).json({ error: '이미 사용된 결제입니다.', code: 'PAYMENT_ALREADY_USED' });
+      return;
+    }
+
     const body = (req.body ?? {}) as Record<string, unknown>;
     const dateParsed = parseSettlementDate(body);
     if (typeof dateParsed === 'string') {
