@@ -11,16 +11,31 @@ import {
 } from 'react-native';
 import { ApiError, createReview } from '../api/client';
 import { AppIcon } from '../components/AppIcon';
-import { AppButton, ErrorBanner } from '../components/ui';
-import { ScreenHeader, useNavigation } from '../navigation';
+import { AppButton, ErrorBanner, StickyFooter } from '../components/ui';
+import { useToast } from '../components/Toast';
+import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
 
 /**
- * 리뷰 작성 화면. 
+ * 리뷰 작성 화면.
  * 완료/정산된 일감에 대해 상대방을 1~5점(별점) 및 한줄평으로 평가한다.
+ *
+ * 점수는 숫자보다 말로 읽힌다("5점 / 5점" → "최고예요") — 고령 사용자가 별 개수를
+ * 세지 않아도 지금 고른 점수가 무슨 뜻인지 바로 안다.
  */
+const RATING_WORDS: Record<number, string> = {
+  1: '별로예요',
+  2: '아쉬워요',
+  3: '보통이에요',
+  4: '좋아요',
+  5: '최고예요',
+};
 export function ReviewScreen({ requestId }: { requestId: string }) {
   const nav = useNavigation();
+  const user = useSession();
+  const toast = useToast();
+  // 배출자는 업체를, 업체는 고객을 평가한다 — "업체(또는 고객)"처럼 둘 다 적지 않는다.
+  const question = user.userType === 'CONSUMER' ? '업체는 어땠나요?' : '고객은 어땠나요?';
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,6 +46,7 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
     setLoading(true);
     try {
       await createReview({ requestId, rating, comment });
+      toast.success('후기를 남겼어요', '소중한 평가 고마워요.');
       nav.pop();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -46,7 +62,7 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
   return (
     <View style={styles.container}>
       <ScreenHeader title="평가하기" canGoBack />
-      
+
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -59,10 +75,10 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
           ) : null}
 
           <View style={styles.card}>
-            <Text style={styles.title}>업체(또는 고객)의 서비스는 어떠셨나요?</Text>
-            <Text style={styles.subtitle}>
-              솔직한 평가가 플랫폼의 신뢰를 높입니다.
+            <Text style={styles.title} accessibilityRole="header">
+              {question}
             </Text>
+            <Text style={styles.subtitle}>별을 눌러 점수를 골라 주세요.</Text>
 
             <View style={styles.stars}>
               {[1, 2, 3, 4, 5].map((idx) => (
@@ -76,7 +92,7 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
                 >
                   <AppIcon
                     name="star"
-                    size={36}
+                    size={44}
                     // 별점은 오류가 아니다 — 오류 전용 빨강 대신 브랜드 보조색(주황)을 쓴다.
                     color={idx <= rating ? theme.colors.secondary : theme.colors.border}
                     filled={idx <= rating}
@@ -84,7 +100,9 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
                 </Pressable>
               ))}
             </View>
-            <Text style={styles.ratingText}>{rating}점 / 5점</Text>
+            <Text style={styles.ratingText}>
+              {RATING_WORDS[rating]} ({rating}점)
+            </Text>
 
             <Text style={styles.label}>한줄평 (선택)</Text>
             <TextInput
@@ -99,14 +117,14 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
             />
           </View>
         </ScrollView>
-        <View style={styles.footer}>
+        <StickyFooter>
           <AppButton
-            label="리뷰 등록하기"
+            label="후기 남기기"
             onPress={handleSubmit}
             loading={loading}
             disabled={loading}
           />
-        </View>
+        </StickyFooter>
       </KeyboardAvoidingView>
     </View>
   );
@@ -114,7 +132,7 @@ export function ReviewScreen({ requestId }: { requestId: string }) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.appBackground,
     flex: 1,
   },
   scroll: {
@@ -153,7 +171,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
   },
   starBtn: {
-    padding: theme.spacing.xs / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: theme.touch.minButtonHeight,
+    minWidth: theme.touch.minButtonHeight,
   },
   ratingText: {
     fontSize: theme.font.bodyLarge,
@@ -179,12 +200,5 @@ const styles = StyleSheet.create({
     minHeight: 100,
     padding: theme.spacing.sm,
     textAlignVertical: 'top',
-  },
-  footer: {
-    backgroundColor: theme.colors.background,
-    borderTopColor: theme.colors.border,
-    borderTopWidth: 1,
-    padding: theme.spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? 32 : theme.spacing.sm,
   },
 });

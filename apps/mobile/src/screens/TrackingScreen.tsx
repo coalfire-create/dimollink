@@ -7,7 +7,24 @@ import { AppIcon } from '../components/AppIcon';
 import { theme } from '../theme';
 import { API_BASE_URL } from '../api/client';
 import type { GeoPoint } from '@dimol/shared';
-import { LoadingView } from '../components/ui';
+import { EmptyState, ErrorBanner } from '../components/ui';
+
+/**
+ * 위치 공유 WebSocket 주소.
+ *
+ * 웹 운영 번들은 API 주소가 상대경로('/api')라 http 접두사를 떼는 방식으로는
+ * 'ws:///ws/tracking' 같은 깨진 주소가 나왔다. 상대경로면 지금 페이지의 호스트를 쓴다.
+ */
+function trackingSocketUrl(requestId: string, role: string): string {
+  const query = `/ws/tracking?requestId=${encodeURIComponent(requestId)}&role=${role}`;
+  if (API_BASE_URL.startsWith('/') && typeof window !== 'undefined') {
+    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return `${proto}${window.location.host}${query}`;
+  }
+  const proto = API_BASE_URL.startsWith('https') ? 'wss://' : 'ws://';
+  const host = API_BASE_URL.replace(/^https?:\/\//, '').replace(/\/api$/, '');
+  return `${proto}${host}${query}`;
+}
 
 export function TrackingScreen({ requestId }: { requestId: string }) {
   const user = useSession();
@@ -18,12 +35,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    // Determine WS URL from API URL (e.g. http://... -> ws://...)
-    const wsProto = API_BASE_URL.startsWith('https') ? 'wss://' : 'ws://';
-    const wsHost = API_BASE_URL.replace(/^https?:\/\//, '').replace(/\/api$/, '');
-    const wsUrl = `${wsProto}${wsHost}/ws/tracking?requestId=${requestId}&role=${role}`;
-
-    const socket = new WebSocket(wsUrl);
+    const socket = new WebSocket(trackingSocketUrl(requestId, role));
     ws.current = socket;
 
     socket.onopen = () => {
@@ -77,7 +89,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
             if (ws.current?.readyState === WebSocket.OPEN) {
               ws.current.send(JSON.stringify({ location: coords }));
             }
-          }
+          },
         );
       })();
     }
@@ -91,14 +103,20 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
   return (
     <View style={styles.container}>
       <ScreenHeader title="실시간 위치" canGoBack />
-      {errorMsg ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{errorMsg}</Text>
-        </View>
-      ) : null}
-      
+      <ErrorBanner message={errorMsg} />
       {!location ? (
-        <LoadingView />
+        // 차량이 아직 출발 전이면 위치가 오지 않는다 — 끝없는 로딩 대신 무엇을 기다리는지 알린다.
+        <View style={styles.map}>
+          <EmptyState
+            icon="truck"
+            title={isProvider ? '내 위치를 찾고 있어요' : '차량이 출발하면 위치가 보여요'}
+            description={
+              isProvider
+                ? '위치 권한을 허용하면 고객에게 차량 위치가 전해져요.'
+                : '이 화면을 켜 두면 출발하는 순간 지도에 바로 나타나요.'
+            }
+          />
+        </View>
       ) : (
         <MapView
           style={styles.map}
@@ -126,13 +144,11 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
           </Marker>
         </MapView>
       )}
-      
+
       <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>
-          {isProvider ? '위치 공유 중' : '실시간 트래킹 중'}
-        </Text>
+        <Text style={styles.infoTitle}>{isProvider ? '위치 공유 중' : '실시간 트래킹 중'}</Text>
         <Text style={styles.infoSubtitle}>
-          {isProvider 
+          {isProvider
             ? '고객에게 차량의 실시간 위치를 전송하고 있습니다.'
             : '트럭의 실시간 위치를 지도에서 확인할 수 있습니다.'}
         </Text>
@@ -148,14 +164,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  errorContainer: {
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.error,
-  },
-  errorText: {
-    color: theme.colors.background,
-    fontWeight: 'bold',
   },
   markerBadge: {
     backgroundColor: theme.colors.background,
@@ -179,5 +187,5 @@ const styles = StyleSheet.create({
   infoSubtitle: {
     fontSize: theme.font.body,
     color: theme.colors.textMuted,
-  }
+  },
 });

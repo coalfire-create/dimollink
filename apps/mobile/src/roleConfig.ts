@@ -49,7 +49,8 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     homeIntro: '무엇을 도와드릴까요?',
     homeActive: { title: '진행중인 요청', empty: '아직 요청이 없어요. 철거 요청을 시작해 보세요.' },
     marketRateParty: 'TRANSPORT',
-    listTitle: '내 요청',
+    // 탭 이름과 같게 — 탭은 '이용내역'인데 화면 제목이 '내 요청'이면 다른 곳에 온 것처럼 읽힌다.
+    listTitle: '이용내역',
     listEmpty: '철거·원상복구를 신청하면 진행 상황이 여기에 쌓여요.',
     primaryAction: { label: '신규 철거 요청', kind: 'DEMOLITION' },
     // 라벨은 4글자 이하로 — 탭 4개가 한 줄에 들어가야 작은 화면에서 안 잘린다.

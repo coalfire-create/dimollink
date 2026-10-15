@@ -102,10 +102,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
+    // 테두리 없이 그림자만 — 회색 바닥 위 흰 카드가 테두리보다 덜 복잡해 보인다.
+    // 강조가 필요한 카드(결제할 차례 등)는 화면에서 테두리를 직접 얹는다.
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: radius.card,
-    borderWidth: 1,
+    borderWidth: 0,
     marginBottom: spacing.sm,
     padding: spacing.md,
     ...theme.shadow.card,

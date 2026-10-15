@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   PERIOD_FILTERS,
@@ -18,6 +18,10 @@ import { theme } from '../../theme';
  * 작은 메뉴 항목은 고령 사용자가 누르기 어렵다. 칩은 선택지가 늘 보이고 터치 영역이 크다.
  *
  * 상태 탭에 건수를 같이 적는다 — 눌러 보기 전에 어디에 몇 건이 있는지 알 수 있다.
+ *
+ * 기간·정렬은 평소에 접어 두고 "전체 기간 · 최신순" 한 줄로만 보여준다. 칩 여덟 개를
+ * 늘 펼쳐 두었더니 첫 화면이 필터로 꽉 차서 정작 목록은 한 건만 보였다. 대부분은
+ * 상태 탭만으로 충분하고, 기간·정렬은 가끔 바꾼다.
  */
 export function RequestFilterBar({
   status,
@@ -36,6 +40,9 @@ export function RequestFilterBar({
   onChangePeriod: (value: PeriodFilter) => void;
   onChangeSort: (value: SortKey) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const periodLabel = PERIOD_FILTERS.find((p) => p.value === period)?.label ?? '';
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sort)?.label ?? '';
   return (
     <View style={styles.wrap}>
       <View style={styles.tabRow} accessibilityRole="tablist">
@@ -51,36 +58,54 @@ export function RequestFilterBar({
               style={[styles.tab, active && styles.tabActive]}
             >
               <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
-              <Text style={[styles.tabCount, active && styles.tabCountActive]}>{counts[value]}</Text>
+              <Text style={[styles.tabCount, active && styles.tabCountActive]}>
+                {counts[value]}
+              </Text>
             </Pressable>
           );
         })}
       </View>
 
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${periodLabel}, ${sortLabel}. 조건 ${open ? '접기' : '바꾸기'}`}
+        onPress={() => setOpen((v) => !v)}
+        style={styles.summaryRow}
+      >
+        <Text style={styles.summaryText}>
+          {periodLabel} · {sortLabel}
+        </Text>
+        <Text style={styles.summaryAction}>{open ? '접기 ▴' : '조건 바꾸기 ▾'}</Text>
+      </Pressable>
       {/* 한 줄에 가로 스크롤로 밀어 넣었더니 뒤쪽(정렬)이 화면 밖으로 잘렸다.
           손가락은 밀 수 있어도 마우스는 못 민다 — 두 줄로 나눠 항상 다 보이게 한다. */}
-      <View style={styles.chipRow}>
-        <Text style={styles.chipGroupLabel}>기간</Text>
-        {PERIOD_FILTERS.map(({ value, label }) => (
-          <Chip
-            key={value}
-            label={label}
-            active={value === period}
-            onPress={() => onChangePeriod(value)}
-          />
-        ))}
-      </View>
-      <View style={[styles.chipRow, styles.chipRowLast]}>
-        <Text style={styles.chipGroupLabel}>정렬</Text>
-        {SORT_OPTIONS.map(({ value, label }) => (
-          <Chip
-            key={value}
-            label={label}
-            active={value === sort}
-            onPress={() => onChangeSort(value)}
-          />
-        ))}
-      </View>
+      {open ? (
+        <>
+          <View style={styles.chipRow}>
+            <Text style={styles.chipGroupLabel}>기간</Text>
+            {PERIOD_FILTERS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                active={value === period}
+                onPress={() => onChangePeriod(value)}
+              />
+            ))}
+          </View>
+          <View style={[styles.chipRow, styles.chipRowLast]}>
+            <Text style={styles.chipGroupLabel}>정렬</Text>
+            {SORT_OPTIONS.map(({ value, label }) => (
+              <Chip
+                key={value}
+                label={label}
+                active={value === sort}
+                onPress={() => onChangeSort(value)}
+              />
+            ))}
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -101,6 +126,23 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 const { colors, font, spacing, radius, touch } = theme;
 
 const styles = StyleSheet.create({
+  summaryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: theme.touch.minButtonHeight,
+    paddingHorizontal: theme.spacing.md,
+  },
+  summaryText: {
+    color: theme.colors.textMuted,
+    fontSize: theme.font.body,
+    fontWeight: '600',
+  },
+  summaryAction: {
+    color: theme.colors.primary,
+    fontSize: theme.font.body,
+    fontWeight: '700',
+  },
   wrap: {
     backgroundColor: colors.background,
     borderBottomColor: colors.border,

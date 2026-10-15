@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from '../components/AppIcon';
 import { AppButton, ErrorBanner } from '../components/ui';
@@ -18,11 +18,20 @@ import { theme } from '../theme';
  */
 export function EstimateScreen() {
   const estimate = useVolumeEstimate();
+  const scrollRef = useRef<ScrollView>(null);
+  // 결과는 버튼 아래에 붙어 화면 밖에 뜨기 쉽다 — 나오면 그 자리로 내려 준다.
+  useEffect(() => {
+    if (estimate.result) scrollRef.current?.scrollToEnd({ animated: true });
+  }, [estimate.result]);
 
   return (
     <View style={styles.screen}>
       <ScreenHeader title="폐기물 양 미리 계산" canGoBack />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <FadeInUp delay={20}>
           <View style={styles.introCard}>
             <AppIcon name="sparkles" size={22} color={colors.primary} />

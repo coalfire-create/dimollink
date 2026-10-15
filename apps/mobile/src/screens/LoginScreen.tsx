@@ -77,94 +77,88 @@ export function LoginScreen({
         ]}
         keyboardShouldPersistTaps="handled"
       >
-      <FadeInUp delay={20}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="뒤로 가기"
-          onPress={onBack}
-          style={s.backBtn}
-        >
-          <Text style={[s.backLabel, { color: colors.primary, fontSize: font.bodyLarge }]}>
-            ‹ 뒤로
-          </Text>
-        </Pressable>
-      </FadeInUp>
+        <FadeInUp delay={20}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            onPress={onBack}
+            style={s.backBtn}
+          >
+            <Text style={[s.backLabel, { color: colors.primary, fontSize: font.bodyLarge }]}>
+              ‹ 뒤로
+            </Text>
+          </Pressable>
+        </FadeInUp>
 
-      <FadeInUp delay={60}>
-        <View style={s.header}>
-          <Image
-            source={brandmark}
-            style={s.brandmark}
-            resizeMode="contain"
-            accessibilityLabel="비움 로고"
-          />
-          <Text style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}>
-            비움 파트너스 통합 로그인
-          </Text>
-          <Text style={[s.subtitle, { color: colors.textMuted, fontSize: font.body }]}>
-            안전하고 투명한 철거·폐기물 매칭 플랫폼, 비움입니다.
-          </Text>
-        </View>
-      </FadeInUp>
+        <FadeInUp delay={60}>
+          {/* 소비자·업체가 같은 화면으로 들어온다 — "파트너스 로그인"이라고 적으면 소비자는
+            자기 화면이 아닌 줄 안다. 묻는 것 하나만 크게 쓴다. */}
+          <View style={s.header}>
+            <Image
+              source={brandmark}
+              style={s.brandmark}
+              resizeMode="contain"
+              accessibilityLabel="비움 로고"
+            />
+            <Text
+              accessibilityRole="header"
+              style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}
+            >
+              {'휴대폰 번호로\n로그인해 주세요'}
+            </Text>
+          </View>
+        </FadeInUp>
 
-      <FadeInUp delay={160}>
-        <View style={s.cardContainer}>
-          {/* 오류는 입력칸 위에 — 버튼 아래에 두면 키보드가 올라온 상태에서 안 보인다. */}
-          <ErrorBanner message={error} />
-          <Field
-            label="휴대폰번호"
-            required
-            value={phone}
-            onChangeText={setPhone}
-            placeholder="010-0000-0000"
-            keyboardType="phone-pad"
-            // 기기·비밀번호 관리자의 자동 완성을 쓸 수 있게 한다.
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            maxLength={13}
-            returnKeyType="next"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-            hint="가입할 때 등록한 휴대폰 번호로 로그인해 주세요."
-          />
-          <Field
-            ref={passwordRef}
-            label="비밀번호"
-            required
-            value={password}
-            onChangeText={setPassword}
-            placeholder="비밀번호"
-            secureTextEntry
-            autoComplete="current-password"
-            textContentType="password"
-            // 키보드 '완료'로 바로 로그인 — 버튼까지 스크롤하지 않아도 된다.
-            returnKeyType="done"
-            onSubmitEditing={() => void submit()}
-          />
-          <AppButton label="로그인" onPress={submit} loading={busy} disabled={busy} />
-        </View>
-      </FadeInUp>
+        <FadeInUp delay={160}>
+          <View>
+            {/* 오류는 입력칸 위에 — 버튼 아래에 두면 키보드가 올라온 상태에서 안 보인다. */}
+            <ErrorBanner message={error} />
+            <Field
+              label="휴대폰번호"
+              required
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="010-0000-0000"
+              keyboardType="phone-pad"
+              // 기기·비밀번호 관리자의 자동 완성을 쓸 수 있게 한다.
+              autoComplete="tel"
+              textContentType="telephoneNumber"
+              maxLength={13}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              hint="가입할 때 등록한 번호예요."
+            />
+            <Field
+              ref={passwordRef}
+              label="비밀번호"
+              required
+              value={password}
+              onChangeText={setPassword}
+              placeholder="비밀번호"
+              secureTextEntry
+              autoComplete="current-password"
+              textContentType="password"
+              // 키보드 '완료'로 바로 로그인 — 버튼까지 스크롤하지 않아도 된다.
+              returnKeyType="done"
+              onSubmitEditing={() => void submit()}
+            />
+            <AppButton label="로그인" onPress={submit} loading={busy} disabled={busy} />
+          </View>
+        </FadeInUp>
 
-      <FadeInUp delay={300}>
-        <View style={s.signupCard}>
-          <Text style={[s.signupCardTitle, { color: colors.text, fontSize: font.bodyLarge }]}>
-            아직 비움 파트너가 아니신가요?
-          </Text>
-          <Text style={[s.signupCardDesc, { color: colors.textMuted, fontSize: font.body }]}>
-            기업·개인 회원가입을 통해 비움의 원스톱 서비스를 경험해 보세요.
-          </Text>
-          <View style={{ height: theme.spacing.xs }} />
+        <FadeInUp delay={300}>
           <PressableScale
             accessibilityRole="button"
-            accessibilityLabel="회원가입 하기"
+            accessibilityLabel="처음이신가요? 회원가입하기"
             onPress={onSignup}
-            style={s.signupBtn}
+            style={s.signupLink}
           >
-            <Text style={[s.signupBtnText, { color: colors.primary, fontSize: font.bodyLarge }]}>
-              회원가입 하기 ➔
+            <Text style={[s.signupText, { color: colors.textMuted, fontSize: font.body }]}>
+              처음이신가요?{' '}
+              <Text style={{ color: colors.primary, fontWeight: '800' }}>회원가입</Text>
             </Text>
           </PressableScale>
-        </View>
-      </FadeInUp>
+        </FadeInUp>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -186,57 +180,25 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
   header: {
-    alignItems: 'center',
+    marginBottom: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
   },
   brandmark: {
-    width: 72,
-    height: 72,
-    alignSelf: 'center',
-    marginBottom: theme.spacing.xs,
+    height: 56,
+    marginBottom: theme.spacing.md,
+    width: 56,
   },
   title: {
     fontWeight: '800',
-    textAlign: 'center',
-    lineHeight: 36,
-    marginBottom: theme.spacing.xs,
+    lineHeight: 38,
   },
-  subtitle: {
-    textAlign: 'center',
-  },
-  cardContainer: {
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.card,
-    padding: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-    ...theme.shadow.card,
-  },
-  signupCard: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.card,
-    padding: theme.spacing.md,
+  signupLink: {
     alignItems: 'center',
-    marginTop: theme.spacing.sm,
-  },
-  signupCardTitle: {
-    fontWeight: '800',
-    marginBottom: theme.spacing.xs / 2,
-  },
-  signupCardDesc: {
-    textAlign: 'center',
-  },
-  signupBtn: {
-    minHeight: theme.touch.minButtonHeight,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.md,
+    minHeight: theme.touch.minButtonHeight,
   },
-  signupBtnText: {
-    fontWeight: '800',
+  signupText: {
+    fontWeight: '600',
   },
 });

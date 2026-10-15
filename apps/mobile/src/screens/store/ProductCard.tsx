@@ -32,51 +32,55 @@ export function ProductCard({
 
   return (
     <Card>
-      <ProductDetails product={product} />
-      <View style={styles.actions}>
-        {!eligible && !subscription ? (
-          <Text style={styles.blocked}>철거업체 회원만 구매할 수 있는 상품이에요.</Text>
-        ) : !purchasable && !subscription ? (
-          <Text style={styles.blocked}>
-            정기결제 준비 중입니다. 결제가 열리면 바로 구독할 수 있어요.
-          </Text>
-        ) : !monthly ? (
-          <>
-            {store.passUntil(product.id) ? (
-              <Text style={styles.subState}>
-                이용 중 · {store.passUntil(product.id)}까지 (다시 결제하면 30일이 이어져요)
+      <ProductDetails
+        product={product}
+        actions={
+          <View style={styles.actions}>
+            {!eligible && !subscription ? (
+              <Text style={styles.blocked}>철거업체 회원만 구매할 수 있는 상품이에요.</Text>
+            ) : !purchasable && !subscription ? (
+              <Text style={styles.blocked}>
+                정기결제 준비 중입니다. 결제가 열리면 바로 구독할 수 있어요.
               </Text>
-            ) : null}
-            <AppButton
-              label="결제하기"
-              loading={store.busyId === product.id}
-              onPress={() => store.startOneTime(product)}
-            />
-            {refundable ? <PassRefundAction pass={refundable} store={store} /> : null}
-          </>
-        ) : subscription ? (
-          <>
-            <Text style={styles.subState}>
-              구독 중 · 다음 결제일 {subscription.nextBillingDate}
-              {subscription.status === 'PAYMENT_FAILED'
-                ? ' (결제 실패 — 카드를 확인해 주세요)'
-                : ''}
-            </Text>
-            <AppButton
-              label="구독 해지"
-              variant="outline"
-              loading={store.busyId === subscription.id}
-              onPress={() => void store.cancel(subscription)}
-            />
-          </>
-        ) : (
-          <AppButton
-            label="정기결제 등록"
-            loading={store.busyId === product.id}
-            onPress={() => store.startSubscription(product)}
-          />
-        )}
-      </View>
+            ) : !monthly ? (
+              <>
+                {store.passUntil(product.id) ? (
+                  <Text style={styles.subState}>
+                    이용 중 · {store.passUntil(product.id)}까지 (다시 결제하면 30일이 이어져요)
+                  </Text>
+                ) : null}
+                <AppButton
+                  label="결제하기"
+                  loading={store.busyId === product.id}
+                  onPress={() => store.startOneTime(product)}
+                />
+                {refundable ? <PassRefundAction pass={refundable} store={store} /> : null}
+              </>
+            ) : subscription ? (
+              <>
+                <Text style={styles.subState}>
+                  구독 중 · 다음 결제일 {subscription.nextBillingDate}
+                  {subscription.status === 'PAYMENT_FAILED'
+                    ? ' (결제 실패 — 카드를 확인해 주세요)'
+                    : ''}
+                </Text>
+                <AppButton
+                  label="구독 해지"
+                  variant="outline"
+                  loading={store.busyId === subscription.id}
+                  onPress={() => void store.cancel(subscription)}
+                />
+              </>
+            ) : (
+              <AppButton
+                label="정기결제 등록"
+                loading={store.busyId === product.id}
+                onPress={() => store.startSubscription(product)}
+              />
+            )}
+          </View>
+        }
+      />
     </Card>
   );
 }
