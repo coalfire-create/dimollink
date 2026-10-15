@@ -26,11 +26,11 @@ export const REQUEST_TIMELINE: MatchStatus[] = [
 /** 각 단계에서 사용자가 실제로 기다리는 일 — 라벨만으로는 안 보이는 부분을 채운다. */
 const STEP_HINTS: Record<MatchStatus, string> = {
   REQUESTED: '업체들이 견적을 보내는 중이에요.',
-  MATCHED: '견적이 승인되었어요. 계약금(에스크로)을 결제하면 일정이 확정돼요.',
-  PAID: '계약금 예치가 끝났어요. 대금은 안전하게 보관되며 작업일에 현장에 나가요.',
-  IN_PROGRESS: '철거 공사가 진행 중이에요.',
-  COMPLETED: '공사가 완료됐어요. 잔금을 결제하고 구매를 확정해주세요.',
-  SETTLED: '최종 잔금 결제 및 세무 처리가 모두 끝났어요.',
+  MATCHED: '업체가 정해졌어요. 결제하면 일정이 확정돼요.',
+  PAID: '결제가 끝났어요. 작업일에 업체가 현장에 나가요.',
+  IN_PROGRESS: '현장 작업이 진행 중이에요.',
+  COMPLETED: '작업이 끝났어요. 다음 영업일에 업체 정산이 진행돼요.',
+  SETTLED: '업체 정산까지 모두 끝났어요.',
   CANCELLED: '취소된 요청이에요.',
 };
 

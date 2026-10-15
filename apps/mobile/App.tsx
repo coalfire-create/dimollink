@@ -43,6 +43,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { AdminScreen } from './src/screens/AdminScreen';
 import { StoreScreen } from './src/screens/StoreScreen';
 import { isStorePaymentReturn } from './src/screens/store/webPayment';
+import { peekRequestPaymentReturn } from './src/lib/request-web-payment';
 import { PayoutAccountScreen } from './src/screens/PayoutAccountScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { MyPageScreen } from './src/screens/MyPageScreen';
@@ -175,6 +176,8 @@ function AppRoot() {
    * 웹 결제창이 리다이렉트로 돌아온 경우(모바일 브라우저)도 스토어로 돌아가야 해서 같이 쓴다.
    */
   const [pendingStore, setPendingStore] = useState(() => isStorePaymentReturn());
+  /** 요청 선결제가 모바일 브라우저에서 결제사 페이지를 거쳐 돌아왔다 — 그 요청의 결제 화면으로. */
+  const [pendingPayment, setPendingPayment] = useState(() => peekRequestPaymentReturn());
   const goBuy = useCallback(() => {
     setPendingStore(true);
     setSession(null);
@@ -325,6 +328,19 @@ function AppRoot() {
     setPendingStore(false);
     setStack([{ name: 'store' }]);
   }, [pendingStore, isMember]);
+
+  // 결제사에서 돌아왔으면 세션이 잡힌 뒤 결제 화면을 다시 연다(검증은 결제 화면이 마저 한다).
+  useEffect(() => {
+    if (!pendingPayment || !isMember) return;
+    setPendingPayment(null);
+    const { requestId, source } = pendingPayment;
+    setStack([
+      source === 'interior'
+        ? { name: 'interiorDetail', requestId }
+        : { name: 'requestDetail', requestId },
+      { name: 'payment', requestId, source },
+    ]);
+  }, [pendingPayment, isMember]);
 
   // 프리필이 있고 회원 세션이 잡히면 철거 요청 폼을 채워서 연다.
   // 링크를 한 번만 쓰도록 즉시 비운다 — 안 그러면 뒤로 갈 때마다 폼이 다시 열린다.
