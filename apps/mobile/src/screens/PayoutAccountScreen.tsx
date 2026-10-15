@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { validatePayoutAccountInput, type SafePayoutAccount } from '@dimol/shared';
+import { ApiError, getMyPayoutAccount, listBanks, savePayoutAccount } from '../api/client';
 import {
-  ApiError,
-  getMyPayoutAccount,
-  listBanks,
-  savePayoutAccount,
-} from '../api/client';
-import { AppButton, Card, ErrorBanner, Field, SectionTitle,
+  AppButton,
+  Card,
+  ErrorBanner,
+  Field,
+  SectionTitle,
   KeyboardAwareScreen,
 } from '../components/ui';
 import { ScreenHeader, useSession } from '../navigation';
@@ -22,12 +22,31 @@ import { theme } from '../theme';
  *  - **예금주명은 사업자등록증 상호와 같아야 한다**. 다르면 PG 실명확인에서 떨어지는데,
  *    그 사실을 등록 시점에 알려주지 않으면 정산일에 가서야 알게 된다.
  */
+/**
+ * 처음에 펼쳐 둘 은행 수 — 서버 목록은 큰 시중은행이 앞에 온다([[payout-account]] KOREAN_BANKS).
+ * 스무 개를 다 깔면 은행 칩이 화면을 채워 계좌번호 칸이 아래로 밀려난다.
+ */
+const FEATURED_BANK_COUNT = 6;
+
+/** 펼치기 전에는 앞쪽 은행만 — 이미 고른 은행이 뒤쪽이면 그것도 같이 보여 준다. */
+function visibleBanks<T extends { code: string }>(
+  banks: T[],
+  selected: string,
+  showAll: boolean,
+): T[] {
+  if (showAll) return banks;
+  const featured = banks.slice(0, FEATURED_BANK_COUNT);
+  const picked = banks.find((b) => b.code === selected);
+  return picked && !featured.includes(picked) ? [...featured, picked] : featured;
+}
+
 export function PayoutAccountScreen() {
   const user = useSession();
   const [account, setAccount] = useState<SafePayoutAccount | null>(null);
   const [banks, setBanks] = useState<{ code: string; name: string }[]>([]);
   const [editing, setEditing] = useState(false);
   const [bankCode, setBankCode] = useState('');
+  const [showAllBanks, setShowAllBanks] = useState(false);
   const [accountNumber, setAccountNumber] = useState('');
   const [holderName, setHolderName] = useState(user.name);
   const [busy, setBusy] = useState(false);
@@ -123,7 +142,7 @@ export function PayoutAccountScreen() {
 
             <Text style={styles.label}>은행</Text>
             <View style={styles.bankGrid}>
-              {banks.map((bank) => (
+              {visibleBanks(banks, bankCode, showAllBanks).map((bank) => (
                 <Pressable
                   key={bank.code}
                   accessibilityRole="button"
@@ -139,6 +158,16 @@ export function PayoutAccountScreen() {
                   </Text>
                 </Pressable>
               ))}
+              {!showAllBanks && banks.length > FEATURED_BANK_COUNT ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="다른 은행 보기"
+                  style={styles.bank}
+                  onPress={() => setShowAllBanks(true)}
+                >
+                  <Text style={[styles.bankLabel, styles.moreBanks]}>다른 은행 보기 ▾</Text>
+                </Pressable>
+              ) : null}
             </View>
 
             <Field
@@ -209,6 +238,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   bankSelected: { backgroundColor: colors.primary },
+  moreBanks: { color: colors.primary },
   bankLabel: { color: colors.text, fontSize: font.body, fontWeight: '700' },
   bankLabelSelected: { color: colors.background },
 });

@@ -182,7 +182,15 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
   const insets = useSafeAreaInsets();
   return (
     // 노치·상태바 아래로 제목을 내린다(고정 8px 이면 상태바에 제목이 깔린다).
-    <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
+    // 탭 첫 화면(뒤로 없음)은 홈들과 같은 왼쪽 큰 제목 — 화면 바닥색 위에 바로 얹는다.
+    // 뒤로 가는 화면은 흰 띠 위에 "← 뒤로" + 제목.
+    <View
+      style={[
+        styles.header,
+        !canGoBack && styles.headerRoot,
+        { paddingTop: insets.top + (canGoBack ? spacing.xs : spacing.md) },
+      ]}
+    >
       {canGoBack ? (
         <Pressable
           accessibilityRole="button"
@@ -195,7 +203,8 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
       ) : null}
       <Text
         numberOfLines={1}
-        style={[styles.headerTitle, !canGoBack && styles.headerTitleCentered]}
+        accessibilityRole="header"
+        style={[styles.headerTitle, !canGoBack && styles.headerTitleRoot]}
       >
         {title}
       </Text>
@@ -265,12 +274,11 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
     paddingHorizontal: spacing.md,
     // paddingTop 은 안전영역에 맞춰 런타임에 정한다.
-    // Subtle downward shadow
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+  },
+  headerRoot: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    paddingHorizontal: spacing.sm,
   },
   backButton: {
     alignItems: 'center',
@@ -291,8 +299,8 @@ const styles = StyleSheet.create({
     fontSize: font.title,
     fontWeight: '800',
   },
-  headerTitleCentered: {
+  headerTitleRoot: {
     flex: 1,
-    textAlign: 'center',
+    fontSize: font.titleLarge,
   },
 });

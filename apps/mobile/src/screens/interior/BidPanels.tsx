@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { INTERIOR_BID_STATUS_LABELS, type InteriorRequest } from '@dimol/shared';
 import { AppButton, Card, Field, SectionTitle, StatusBadge } from '../../components/ui';
 import { FadeInUp } from '../../components/motion';
-import { won } from '../../lib/format';
+import { won, amountReadout } from '../../lib/format';
 import { useNavigation } from '../../navigation';
 import { theme } from '../../theme';
 import type { InteriorDetailState } from './useInteriorDetail';
@@ -127,6 +127,8 @@ export function MyBidPanel({ detail }: { detail: InteriorDetailState }) {
           <Field
             label="견적 금액 (원)"
             value={amount}
+            // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+            hint={amountReadout(amount)}
             onChangeText={setAmount}
             placeholder="예) 18000000"
             keyboardType="number-pad"

@@ -8,7 +8,7 @@ import {
 } from '@dimol/shared';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../ui';
 import { PressableScale } from '../motion';
-import { won } from '../../lib/format';
+import { won, amountReadout } from '../../lib/format';
 import { theme } from '../../theme';
 import { PublicPriceReferenceNote } from './PublicPriceReferenceNote';
 import { UnitConversion } from './UnitConversion';
@@ -107,6 +107,8 @@ export function PreliminaryEstimateForm({
           label="예상 하단(원)"
           required
           value={minAmount}
+          // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+          hint={amountReadout(minAmount)}
           onChangeText={setMinAmount}
           keyboardType="number-pad"
           placeholder="8000000"
@@ -117,6 +119,8 @@ export function PreliminaryEstimateForm({
           label="예상 상단(원)"
           required
           value={maxAmount}
+          // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+          hint={amountReadout(maxAmount)}
           onChangeText={setMaxAmount}
           keyboardType="number-pad"
           placeholder="12000000"

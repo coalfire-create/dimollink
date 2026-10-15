@@ -49,7 +49,8 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     homeIntro: '무엇을 도와드릴까요?',
     homeActive: { title: '진행중인 요청', empty: '아직 요청이 없어요. 철거 요청을 시작해 보세요.' },
     marketRateParty: 'TRANSPORT',
-    listTitle: '내 요청',
+    // 탭 이름과 같게 — 탭은 '이용내역'인데 화면 제목이 '내 요청'이면 다른 곳에 온 것처럼 읽힌다.
+    listTitle: '이용내역',
     listEmpty: '철거·원상복구를 신청하면 진행 상황이 여기에 쌓여요.',
     primaryAction: { label: '신규 철거 요청', kind: 'DEMOLITION' },
     // 라벨은 4글자 이하로 — 탭 4개가 한 줄에 들어가야 작은 화면에서 안 잘린다.
@@ -86,3 +87,14 @@ export const ROLE_CONFIG: Record<UserType, RoleConfig> = {
     tabs: [TAB_HOME('홈'), TAB_NOTI, TAB_MYPAGE],
   },
 };
+
+/**
+ * 요청 목록 탭의 이름 — **없으면 null**.
+ *
+ * 운반·처리장·인테리어는 수락한 일이 홈에 바로 깔려 있어 목록 탭이 없다. 그런데 화면들이
+ * 모두 `switchTab('requests')`로 보내면 이 역할들은 없는 탭으로 가서 아무 일도 안 일어난다.
+ * 목록으로 보내는 버튼은 이 값이 있을 때만 그리고, 이름도 탭과 같게 쓴다.
+ */
+export function requestsTabLabel(userType: UserType): string | null {
+  return ROLE_CONFIG[userType].tabs.find((t) => t.tab === 'requests')?.label ?? null;
+}

@@ -10,8 +10,7 @@ import {
   type SortKey,
   type StatusFilter,
 } from '../lib/request-filters';
-import { AppButton, EmptyState, ErrorBanner } from '../components/ui';
-import { Breadcrumbs } from '../components/Breadcrumbs';
+import { EmptyState, ErrorBanner } from '../components/ui';
 import { RequestListSkeleton } from '../components/Skeleton';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
@@ -65,19 +64,7 @@ export function RequestListScreen() {
   return (
     <View style={styles.screen}>
       <ScreenHeader title={config.listTitle} />
-      <Breadcrumbs
-        items={[{ label: '홈', onPress: () => nav.switchTab('home') }, { label: config.listTitle }]}
-      />
       <ErrorBanner message={error ? error.message : null} onRetry={() => void refetch()} />
-
-      {primaryAction ? (
-        <View style={styles.ctaRow}>
-          <AppButton
-            label={`+ ${primaryAction.label}`}
-            onPress={() => nav.push({ name: 'requestForm', kind: primaryAction.kind })}
-          />
-        </View>
-      ) : null}
 
       <RequestFilterBar
         status={status}
@@ -104,6 +91,13 @@ export function RequestListScreen() {
               icon="requests"
               title={status === 'ALL' ? '아직 요청이 없어요' : '조건에 맞는 건이 없어요'}
               description={status === 'ALL' ? config.listEmpty : '탭이나 기간을 바꿔서 찾아보세요.'}
+              // 처음 쓰는 사람은 여기서 바로 시작한다(홈에도 같은 버튼이 있다).
+              actionLabel={status === 'ALL' && primaryAction ? primaryAction.label : undefined}
+              onAction={
+                primaryAction
+                  ? () => nav.push({ name: 'requestForm', kind: primaryAction.kind })
+                  : undefined
+              }
             />
           }
           ListFooterComponent={
@@ -136,13 +130,8 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.appBackground,
     flex: 1,
-  },
-  ctaRow: {
-    backgroundColor: colors.background,
-    paddingBottom: spacing.xs,
-    paddingHorizontal: spacing.sm,
   },
   content: {
     flexGrow: 1,

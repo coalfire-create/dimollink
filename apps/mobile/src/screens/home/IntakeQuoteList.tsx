@@ -6,6 +6,7 @@ import { AppButton, ErrorBanner, Field, InlineEmpty, SectionTitle } from '../../
 import { useSession } from '../../navigation';
 import { theme } from '../../theme';
 import { OpenJobCard } from './JobCard';
+import { amountReadout } from '../../lib/format';
 
 /**
  * 새 반입 예약 — 처리장이 건별로 견적을 제출한다.
@@ -76,6 +77,8 @@ export function IntakeQuoteList({ jobs }: { jobs: RankedJob[] }) {
                 <Field
                   label="견적 금액(원)"
                   value={amounts[job.id] ?? ''}
+                  // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+                  hint={amountReadout(amounts[job.id] ?? '')}
                   onChangeText={(value) => setAmounts((prev) => ({ ...prev, [job.id]: value }))}
                   placeholder="예) 80000"
                   keyboardType="number-pad"

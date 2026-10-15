@@ -1,13 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { SectionList, StyleSheet, Text, View } from 'react-native';
 import type { AppNotification } from '@dimol/shared';
 import { ApiError, listNotifications } from '../api/client';
-import { Card, EmptyState, ErrorBanner, LoadingView } from '../components/ui';
+import { Card, EmptyState, ErrorBanner, LoadingView, SectionTitle } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, TabBar, useNavigation, useSession } from '../navigation';
 import { theme } from '../theme';
 
-/** 알림함 (Phase 4) — 상태 전이 시 서버가 생성한 알림을 최신순으로 보여준다. */
+/**
+ * 알림함 (Phase 4) — 상태 전이 시 서버가 생성한 알림을 최신순으로 보여준다.
+ *
+ * "오늘"과 "이전"으로 나눠 새 소식이 어디까지인지 보이게 한다. 예전에는 최근 알림을
+ * 회색 바탕으로 칠했는데 화면 바닥도 회색이라 오히려 새 알림이 가장 흐리게 보였다.
+ */
 
 function statusDotColor(status: string): string {
   switch (status) {
@@ -68,10 +73,15 @@ export function NotificationsScreen() {
       {notifications === null ? (
         <LoadingView />
       ) : (
-        <FlatList
+        <SectionList
           contentContainerStyle={styles.content}
-          data={notifications}
+          sections={[
+            { title: '오늘', data: notifications.filter((n) => isRecent(n.createdAt)) },
+            { title: '이전', data: notifications.filter((n) => !isRecent(n.createdAt)) },
+          ].filter((section) => section.data.length > 0)}
           keyExtractor={(item) => item.id}
+          stickySectionHeadersEnabled={false}
+          renderSectionHeader={({ section }) => <SectionTitle>{section.title}</SectionTitle>}
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
@@ -87,20 +97,19 @@ export function NotificationsScreen() {
           }
           renderItem={({ item, index }) => (
             <FadeInUp delay={Math.min(index, 6) * 60}>
-              <Card
-                onPress={() => nav.push({ name: 'requestDetail', requestId: item.requestId })}
-                style={isRecent(item.createdAt) ? styles.cardUnread : undefined}
-              >
+              <Card onPress={() => nav.push({ name: 'requestDetail', requestId: item.requestId })}>
                 <View style={styles.itemRow}>
                   <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: statusDotColor(item.status) },
-                    ]}
+                    style={[styles.statusDot, { backgroundColor: statusDotColor(item.status) }]}
                   />
                   <View style={styles.itemContent}>
                     <Text style={styles.message}>{item.message}</Text>
-                    <Text style={styles.time}>{relativeTime(item.createdAt)}</Text>
+                    <Text style={styles.time}>
+                      {isRecent(item.createdAt) ? (
+                        <Text style={styles.newLabel}>새 소식 · </Text>
+                      ) : null}
+                      {relativeTime(item.createdAt)}
+                    </Text>
                   </View>
                 </View>
               </Card>
@@ -117,17 +126,18 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.appBackground,
     flex: 1,
   },
   content: {
     flexGrow: 1,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
     // 마지막 항목이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
     paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
-  cardUnread: {
-    backgroundColor: theme.colors.surface,
+  newLabel: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   itemRow: {
     alignItems: 'flex-start',

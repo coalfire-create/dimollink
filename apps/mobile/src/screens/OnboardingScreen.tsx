@@ -71,11 +71,13 @@ export function OnboardingScreen({
               resizeMode="contain"
               accessibilityLabel="비움 로고"
             />
-            <Text style={styles.appName}>비움 회원가입</Text>
+            <Text style={styles.appName} accessibilityRole="header">
+              비움 회원가입
+            </Text>
             <Text style={styles.appSubtitle}>
               {social
                 ? '소셜 계정 인증이 완료되었습니다. 회원 정보를 입력해 주세요.'
-                : '10초만에 가입하고 신속한 매칭 서비스를 이용하세요.'}
+                : '역할을 고르고 이름·번호만 적으면 끝나요.'}
             </Text>
           </View>
         </FadeInUp>
@@ -176,26 +178,24 @@ const styles = StyleSheet.create({
     fontSize: font.bodyLarge,
     fontWeight: '800',
   },
+  // 로그인 화면과 같은 머리 — 왼쪽 정렬 큰 제목(가운데 정렬 로고 배너는 뺐다).
   headerWrap: {
-    alignItems: 'center',
     marginVertical: spacing.md,
   },
   brandmark: {
-    height: 64,
-    width: 64,
-    marginBottom: spacing.xs,
+    height: 56,
+    width: 56,
+    marginBottom: spacing.md,
   },
   appName: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontWeight: '800',
   },
   appSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    textAlign: 'center',
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   sectionHeader: {
     flexDirection: 'row',

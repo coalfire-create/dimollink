@@ -4,6 +4,7 @@ import { acceptJob, getPricing } from '../../api/client';
 import { AppButton, ErrorBanner, Field, InlineEmpty, SectionTitle } from '../../components/ui';
 import { useSession } from '../../navigation';
 import { OpenJobCard } from './JobCard';
+import { amountReadout } from '../../lib/format';
 
 /**
  * 들어온 운반 콜 — 금액을 적고 수락하면 그 자리에서 매칭된다.
@@ -69,6 +70,8 @@ export function OpenCallList({ jobs, onAccepted }: { jobs: RankedJob[]; onAccept
             <Field
               label="수락 금액(원)"
               value={amounts[job.id] ?? ''}
+              // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+              hint={amountReadout(amounts[job.id] ?? '')}
               onChangeText={(value) => setAmounts((prev) => ({ ...prev, [job.id]: value }))}
               placeholder="예) 80000"
               keyboardType="number-pad"

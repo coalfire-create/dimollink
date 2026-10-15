@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { exceedsPreliminary, type DemolitionEstimate, type FloorAreaBasis } from '@dimol/shared';
 import { AppButton, Card, ErrorBanner, Field, SectionTitle } from '../ui';
-import { won } from '../../lib/format';
+import { won, amountReadout } from '../../lib/format';
 import { theme } from '../../theme';
 import { UnitConversion } from './UnitConversion';
 import { parseAmount } from './parseAmount';
@@ -91,6 +91,8 @@ export function MyEstimateCard({
               label="확정 금액(원)"
               required
               value={finalAmount}
+              // 숫자만 치면 0 하나 차이를 놓친다 — 아래에 말로 읽어 준다.
+              hint={amountReadout(finalAmount)}
               onChangeText={setFinalAmount}
               keyboardType="number-pad"
               placeholder="11000000"

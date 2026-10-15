@@ -9,7 +9,7 @@ import {
 } from '@dimol/shared';
 import { Card } from '../../components/ui';
 import { theme } from '../../theme';
-import { requestSubtitle } from '../../lib/request-summary';
+import { requestSubtitle, requestTons } from '../../lib/request-summary';
 
 /**
  * 새 철거 요청 카드 — 견적을 낼지 말지 **목록에서 바로 판단할 수 있게** 하는 요약.
@@ -37,9 +37,12 @@ export function DemolitionJobCard({ job, onPress }: { job: RankedJob; onPress: (
             <Text style={styles.signalText}>연면적 {area.m2.toLocaleString('ko-KR')}㎡</Text>
           </View>
         ) : null}
-        <View style={styles.signal}>
-          <Text style={styles.signalText}>{job.wasteTons}톤</Text>
-        </View>
+        {/* 실사 전 철거는 물량이 0 이라 "0톤"이 모든 카드에 똑같이 붙는다 — 모를 땐 비운다. */}
+        {requestTons(job) ? (
+          <View style={styles.signal}>
+            <Text style={styles.signalText}>{requestTons(job)}</Text>
+          </View>
+        ) : null}
         <View style={styles.signal}>
           <Text style={styles.signalText}>사진 {job.sitePhotoKeys.length}장</Text>
         </View>

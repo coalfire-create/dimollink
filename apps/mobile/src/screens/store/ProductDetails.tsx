@@ -13,7 +13,17 @@ import { theme } from '../../theme';
  *  - **서비스 제공기간**, 제공 방식(배송 규정), **환불 정책**
  *  - 정기결제: 결제 주기(월 1회)와 **해지 방법**
  */
-export function ProductDetails({ product }: { product: SalesProduct }) {
+export function ProductDetails({
+  product,
+  actions,
+}: {
+  product: SalesProduct;
+  /**
+   * 결제 버튼 자리 — 혜택 바로 아래, 약관 위. 약관(제공기간·환불)은 PG 심사상 상품
+   * 화면에 늘 보여야 해서 접지 않는 대신, 버튼을 약관 아래 끝에서 위로 올렸다.
+   */
+  actions?: React.ReactNode;
+}) {
   const monthly = product.billingType === 'MONTHLY_SUBSCRIPTION';
   return (
     <View>
@@ -40,6 +50,8 @@ export function ProductDetails({ product }: { product: SalesProduct }) {
           · {benefit}
         </Text>
       ))}
+
+      {actions}
 
       <View style={styles.terms}>
         <Text style={styles.termsLabel}>서비스 제공기간</Text>
