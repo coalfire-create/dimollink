@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { AuthSession, RequestPrefillPayload, UserProfile } from '@dimol/shared';
-import { parsePrefillFromUrl } from '@dimol/shared';
+import { canUseStore, parsePrefillFromUrl } from '@dimol/shared';
 import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
 import { parseAuthDeepLink } from './src/lib/social-auth';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
@@ -323,11 +323,12 @@ function AppRoot() {
   const isMember = session !== null && session !== 'guest';
 
   // 구매하려다 로그인한 경우 — 세션이 잡히면 스토어로 바로 보낸다.
+  // 살 수 있는 상품이 없는 회원(소비자 등)은 스토어 대신 홈에 둔다([[canUseStore]]).
   useEffect(() => {
     if (!pendingStore || !isMember) return;
     setPendingStore(false);
-    setStack([{ name: 'store' }]);
-  }, [pendingStore, isMember]);
+    if (canUseStore((session as UserProfile).userType)) setStack([{ name: 'store' }]);
+  }, [pendingStore, isMember, session]);
 
   // 결제사에서 돌아왔으면 세션이 잡힌 뒤 결제 화면을 다시 연다(검증은 결제 화면이 마저 한다).
   useEffect(() => {

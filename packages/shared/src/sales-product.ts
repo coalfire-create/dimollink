@@ -163,6 +163,17 @@ export function isAvailableTo(product: SalesProduct, userType: UserType): boolea
   return !product.availableTo || product.availableTo.includes(userType);
 }
 
+/**
+ * 스토어(상품·멤버십) 메뉴를 보여 줄 회원 유형인가 — 살 수 있는 상품이 하나라도 있으면.
+ *
+ * 지금 상품은 철거업체 멤버십 하나라 사실상 철거업체만 보인다. 화면에서 'DEMOLITION_COMPANY'
+ * 를 직접 비교하지 않고 상품 목록에서 끌어내는 이유: 운반업체용 상품이 생기면 메뉴가 따로
+ * 고치지 않아도 같이 열려야 한다. 서버도 구매 시 [[isAvailableTo]] 로 같은 기준을 다시 본다.
+ */
+export function canUseStore(userType: UserType): boolean {
+  return SALES_PRODUCTS.some((product) => isAvailableTo(product, userType));
+}
+
 export function findSalesProduct(id: string): SalesProduct | undefined {
   return SALES_PRODUCTS.find((p) => p.id === id);
 }
@@ -318,10 +329,7 @@ export function platformFeeRateFor(options: { member: boolean }): number {
 
 /** 이용권을 환불할 수 없는 이유. */
 export type PassRefundBlock =
-  | 'ALREADY_REFUNDED'
-  | 'WINDOW_PASSED'
-  | 'NEWER_PASS_EXISTS'
-  | 'BENEFIT_USED';
+  'ALREADY_REFUNDED' | 'WINDOW_PASSED' | 'NEWER_PASS_EXISTS' | 'BENEFIT_USED';
 
 /** 환불 불가 사유 → 화면에 그대로 띄우는 문구. */
 export const PASS_REFUND_BLOCK_MESSAGES: Record<PassRefundBlock, string> = {
