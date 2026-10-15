@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { PILOT } from '@dimol/shared';
+import { PILOT, type CancellationStage } from '@dimol/shared';
 import express from 'express';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SessionTokenStore } from '../auth/session-store.js';
@@ -9,6 +9,7 @@ import { PaymentStore } from '../payment/payment-store.js';
 import type { PaymentService } from '../payment/payment-service.js';
 import { QuoteStore } from '../quotes/store.js';
 import { RequestStore } from '../requests/store.js';
+import { assertCancellable, calculateRefund } from '../settlement/refund.js';
 import { UserStore } from '../users/store.js';
 import { createPaymentsRouter } from './payments.js';
 
@@ -30,9 +31,12 @@ const fakeService = {
     paid: true,
   }),
   verifyWebhook: async () => ({ type: 'noop' }),
-  cancel: async () => ({
-    breakdown: { stage: 'BEFORE_DISPATCH', cancellable: true, paidAmount: 0, penaltyAmount: 0, refundAmount: 0 },
-  }),
+  // 실제 서비스와 같은 환불 규칙 — 작업 시작 후 단계면 예외(라우트가 409 로 바꾼다).
+  cancel: async (input: { paidAmount: number; stage: CancellationStage }) => {
+    const breakdown = calculateRefund(input);
+    assertCancellable(breakdown);
+    return { breakdown };
+  },
   executePayouts: async () => [],
   issueTaxInvoices: async () => [],
 } as unknown as PaymentService;
@@ -230,6 +234,30 @@ describe('취소 — 결제자 본인 + 기록 기준 금액', () => {
     expect(res.status).toBe(403);
   });
 
+  it('작업이 시작된 건은 앱이 "배차 전"이라고 보내도 환불되지 않는다(409)', async () => {
+    const owner = await makeUser('01060000009');
+    const request = await makeRequest(owner.id);
+    await prepaid(owner, request);
+    await requestStore.changeStatus(request.id, 'IN_PROGRESS');
+    const res = await post('/api/payments/cancel', await sessionStore.issue(owner.id), {
+      paymentId: 'pay-test',
+      stage: 'BEFORE_DISPATCH',
+    });
+    expect(res.status).toBe(409);
+    expect((await paymentStore.get('pay-test'))?.status).toBe('PAID');
+  });
+
+  it('이미 취소된 결제는 다시 환불하지 않는다(409)', async () => {
+    const owner = await makeUser('01060000010');
+    const request = await makeRequest(owner.id);
+    await prepaid(owner, request);
+    const token = await sessionStore.issue(owner.id);
+    const body = { paymentId: 'pay-test', stage: 'BEFORE_DISPATCH' };
+    expect((await post('/api/payments/cancel', token, body)).status).toBe(200);
+    const again = await post('/api/payments/cancel', token, body);
+    expect(again.status).toBe(409);
+  });
+
   it('없는 결제는 404', async () => {
     const owner = await makeUser('01060000008');
     const res = await post('/api/payments/cancel', await sessionStore.issue(owner.id), {
@@ -245,7 +273,10 @@ describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
     const owner = await makeUser('01060000011');
     const request = await makeRequest(owner.id);
     // 라이프사이클: 매칭(금액)→결제→작업시작→작업완료.
-    await requestStore.changeStatus(request.id, 'MATCHED', { matchedProviderId: 'p', agreedFee: 100000 });
+    await requestStore.changeStatus(request.id, 'MATCHED', {
+      matchedProviderId: 'p',
+      agreedFee: 100000,
+    });
     await requestStore.changeStatus(request.id, 'PAID', { paymentId: 'x' });
     await requestStore.changeStatus(request.id, 'IN_PROGRESS');
     await requestStore.changeStatus(request.id, 'COMPLETED');
@@ -266,7 +297,10 @@ describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
  * 값이 없을 때 빈 값을 내려보내지 않는지까지 본다.
  */
 describe('GET /api/payments/config', () => {
-  const saved = { storeId: process.env.PORTONE_STORE_ID, channelKey: process.env.PORTONE_CHANNEL_KEY };
+  const saved = {
+    storeId: process.env.PORTONE_STORE_ID,
+    channelKey: process.env.PORTONE_CHANNEL_KEY,
+  };
   afterEach(() => {
     process.env.PORTONE_STORE_ID = saved.storeId;
     process.env.PORTONE_CHANNEL_KEY = saved.channelKey;

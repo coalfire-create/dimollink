@@ -184,7 +184,8 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
 
             <ErrorBanner message={detail.errorMessage} />
 
-            {isRequestCancellable(request.status) ? (
+            {/* 결제가 끝난 건은 위 "취소하고 환불받기"로만 — 일반 취소는 환불 없이 상태만 바뀐다. */}
+            {isRequestCancellable(request.status) && request.status !== 'PAID' ? (
               <CancelPanel cancelling={detail.cancelling} onCancel={detail.confirmCancel} />
             ) : null}
 
