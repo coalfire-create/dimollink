@@ -1,8 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RatingSummary, UserProfile } from '@dimol/shared';
-import { AppIcon } from '../../components/AppIcon';
-import { Card, SectionTitle } from '../../components/ui';
+import { Card, IconTile, SectionTitle } from '../../components/ui';
 import { theme } from '../../theme';
 
 /**
@@ -82,9 +81,8 @@ function PartnerCard({ partner }: { partner: DemolitionPartner }) {
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.logo}>
-          <AppIcon name="hammer" size={24} color={colors.primary} />
-        </View>
+        {/* 모든 업체가 같은 망치 아이콘이면 줄마다 구분이 안 된다 — 업체 이름 첫 글자로. */}
+        <IconTile label={partner.name.trim().charAt(0) || '비'} style={styles.logo} />
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={2}>
             {partner.name}
@@ -151,13 +149,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   logo: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.badge,
-    height: 48,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 48,
   },
   info: {
     flex: 1,

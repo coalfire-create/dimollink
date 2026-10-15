@@ -1,6 +1,7 @@
 import {
   CANCELLATION_PENALTY_RATE,
   type CancellationStage,
+  type MatchStatus,
   type RefundBreakdown,
 } from '@dimol/shared';
 
@@ -70,4 +71,29 @@ export function assertCancellable(breakdown: RefundBreakdown): void {
   if (!breakdown.cancellable) {
     throw new CancellationNotAllowedError(breakdown.stage);
   }
+}
+
+/** 취소 단계의 엄격함 순서 — 뒤로 갈수록 환불이 적다. */
+const STAGE_SEVERITY: Record<CancellationStage, number> = {
+  BEFORE_DISPATCH: 0,
+  AFTER_DISPATCH: 1,
+  AFTER_WORK_START: 2,
+};
+
+/**
+ * 실제로 적용할 취소 단계 — 클라이언트가 보낸 단계와 요청 상태로 본 단계 중 **더 엄격한 쪽**.
+ *
+ * 예전에는 클라이언트가 보낸 stage 를 그대로 믿었다. 그러면 작업이 이미 시작된(IN_PROGRESS)
+ * 건도 앱이 'BEFORE_DISPATCH' 를 보내면 전액 환불이 실행됐다. 요청 상태에는 "배차"를 나타내는
+ * 단계가 따로 없으므로 서버가 확실히 아는 것만 강제한다: 작업 시작 이후 상태면 취소 불가.
+ * 클라이언트가 더 엄격한 단계(AFTER_DISPATCH 등)를 보내면 그대로 따른다 — 낮출 수는 없다.
+ */
+export function effectiveCancellationStage(
+  claimed: CancellationStage,
+  requestStatus: MatchStatus | undefined,
+): CancellationStage {
+  const workStarted =
+    requestStatus === 'IN_PROGRESS' || requestStatus === 'COMPLETED' || requestStatus === 'SETTLED';
+  const derived: CancellationStage = workStarted ? 'AFTER_WORK_START' : 'BEFORE_DISPATCH';
+  return STAGE_SEVERITY[derived] > STAGE_SEVERITY[claimed] ? derived : claimed;
 }

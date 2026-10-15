@@ -2,7 +2,8 @@ import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { theme } from '../../theme';
 import { AppButton } from './AppButton';
-import { AppIcon, type IconName } from '../AppIcon';
+import { IconTile } from './IconTile';
+import type { IconName } from '../AppIcon';
 
 /**
  * 결과·상태 표시 — 오류 배너, 로딩, 빈 목록.
@@ -103,13 +104,13 @@ export function EmptyState({
   return (
     <View style={styles.centerFill}>
       {icon ? (
-        <View style={styles.emptyIconCircle}>
-          {isIconName ? (
-            <AppIcon name={(icon as IconName) || 'document'} size={28} color={colors.primary} />
-          ) : (
+        isIconName ? (
+          <IconTile icon={(icon as IconName) || 'document'} size="lg" style={styles.emptyTile} />
+        ) : (
+          <View style={styles.emptyIconCircle}>
             <Text style={styles.emptyIcon}>{icon}</Text>
-          )}
-        </View>
+          </View>
+        )
       ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {description ? <Text style={styles.emptyDescription}>{description}</Text> : null}
@@ -178,6 +179,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.md,
     width: 88,
+  },
+  emptyTile: {
+    marginBottom: spacing.md,
   },
   emptyIcon: {
     fontSize: 40,

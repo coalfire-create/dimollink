@@ -15,7 +15,11 @@ import {
   buildSettlementPlan,
   type BuildSettlementPlanInput,
 } from '../settlement/plan.js';
-import { CancellationNotAllowedError, calculateRefund } from '../settlement/refund.js';
+import {
+  CancellationNotAllowedError,
+  calculateRefund,
+  effectiveCancellationStage,
+} from '../settlement/refund.js';
 
 /** PortOneError 코드 → HTTP 상태 매핑. */
 const STATUS_BY_CODE: Record<string, number> = {
@@ -188,7 +192,10 @@ export function createPaymentsRouter(
     // 들고 오면 통과해 버린다(결제 1건으로 요청 2건 PAID + 기존 기록 덮어쓰기).
     // 같은 요청의 재호출(가상계좌 발급 후 재확인 등)만 허용하고, 취소된 결제는 되살리지 않는다.
     const existing = await paymentStore?.get(paymentId);
-    if (existing && (existing.matchRequestId !== matchRequestId || existing.status === 'CANCELLED')) {
+    if (
+      existing &&
+      (existing.matchRequestId !== matchRequestId || existing.status === 'CANCELLED')
+    ) {
       res.status(409).json({ error: '이미 사용된 결제입니다.', code: 'PAYMENT_ALREADY_USED' });
       return;
     }
@@ -415,6 +422,11 @@ export function createPaymentsRouter(
         res.status(403).json({ error: '본인 결제만 취소할 수 있어요.' });
         return;
       }
+      // 이미 환불된 결제를 다시 취소하지 않는다(같은 버튼을 두 번 누르는 경우 등).
+      if (payment.status === 'CANCELLED') {
+        res.status(409).json({ error: '이미 취소된 결제예요.', code: 'ALREADY_CANCELLED' });
+        return;
+      }
       paidAmount = payment.amount;
       matchRequestId = payment.matchRequestId;
     } else {
@@ -432,11 +444,18 @@ export function createPaymentsRouter(
 
     const reason = typeof body.reason === 'string' ? body.reason : undefined;
 
+    // 단계는 클라이언트 말만 믿지 않는다 — 요청 상태로 본 단계가 더 엄격하면 그걸 쓴다.
+    // 작업이 시작된 건을 '배차 전'으로 보내 전액 환불받는 길을 막는다([[effectiveCancellationStage]]).
+    const requestStatus = matchRequestId
+      ? (await requestStore?.get(matchRequestId))?.status
+      : undefined;
+    const effectiveStage = effectiveCancellationStage(stage as CancellationStage, requestStatus);
+
     try {
       const result = await service.cancel({
         paymentId,
         paidAmount,
-        stage: stage as CancellationStage,
+        stage: effectiveStage,
         reason,
       });
       await paymentStore?.markCancelled(paymentId);

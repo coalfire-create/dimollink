@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import {
   CALL_AVAILABILITY_LABELS,
   SUPPORT_PHONE,
+  canUseStore,
   SUPPORT_PHONE_TEL_URL,
   USER_APPROVAL_LABELS,
   isAdminUser,
@@ -98,12 +99,17 @@ export function MyPageScreen() {
           } as MenuItem,
         ]
       : []),
-    {
-      key: 'store',
-      icon: 'star',
-      label: '스토어 · 멤버십',
-      onPress: () => nav.push({ name: 'store' }),
-    },
+    // 스토어는 살 수 있는 상품이 있는 회원에게만(지금은 철거업체 멤버십뿐) — [[canUseStore]].
+    ...(canUseStore(user.userType)
+      ? [
+          {
+            key: 'store',
+            icon: 'star',
+            label: '멤버십',
+            onPress: () => nav.push({ name: 'store' }),
+          } as MenuItem,
+        ]
+      : []),
     // 관리자에게만 보인다. 백오피스에 로그인한 채로 들어가야 서버 감사 로그에
     // "누가" 했는지가 남는다 — 공유 토큰으로 들어가면 그게 안 남는다.
     ...(isAdminUser(user)
@@ -154,8 +160,13 @@ export function MyPageScreen() {
           <ProfileHero user={user} shortcuts={shortcuts} />
         </FadeInUp>
 
-        <SectionTitle>서비스</SectionTitle>
-        <MenuList items={activityItems} />
+        {/* 소비자는 타일로 다 올라가 남는 메뉴가 없다 — 빈 카드를 그리지 않는다. */}
+        {activityItems.length > 0 ? (
+          <>
+            <SectionTitle>서비스</SectionTitle>
+            <MenuList items={activityItems} />
+          </>
+        ) : null}
 
         <SectionTitle>계정</SectionTitle>
         <Card>

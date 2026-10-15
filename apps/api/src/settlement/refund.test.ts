@@ -1,6 +1,11 @@
 import { CANCELLATION_PENALTY_RATE } from '@dimol/shared';
 import { describe, expect, it } from 'vitest';
-import { CancellationNotAllowedError, assertCancellable, calculateRefund } from './refund.js';
+import {
+  CancellationNotAllowedError,
+  assertCancellable,
+  calculateRefund,
+  effectiveCancellationStage,
+} from './refund.js';
 
 describe('calculateRefund', () => {
   it('배차 전 → 전액 환불, 위약금 0', () => {
@@ -60,5 +65,29 @@ describe('assertCancellable', () => {
   it('작업 시작 후는 CancellationNotAllowedError', () => {
     const r = calculateRefund({ paidAmount: 100, stage: 'AFTER_WORK_START' });
     expect(() => assertCancellable(r)).toThrow(CancellationNotAllowedError);
+  });
+});
+
+describe('effectiveCancellationStage — 클라이언트가 단계를 낮춰 보낼 수 없다', () => {
+  it('작업이 시작된 건은 앱이 "배차 전"이라고 보내도 취소 불가 단계가 된다', () => {
+    for (const status of ['IN_PROGRESS', 'COMPLETED', 'SETTLED'] as const) {
+      expect(effectiveCancellationStage('BEFORE_DISPATCH', status)).toBe('AFTER_WORK_START');
+      expect(effectiveCancellationStage('AFTER_DISPATCH', status)).toBe('AFTER_WORK_START');
+    }
+  });
+
+  it('작업 전이면 클라이언트 단계를 따른다(더 엄격한 배차 후 신고도 존중)', () => {
+    expect(effectiveCancellationStage('BEFORE_DISPATCH', 'PAID')).toBe('BEFORE_DISPATCH');
+    expect(effectiveCancellationStage('AFTER_DISPATCH', 'PAID')).toBe('AFTER_DISPATCH');
+    expect(effectiveCancellationStage('AFTER_WORK_START', 'PAID')).toBe('AFTER_WORK_START');
+  });
+
+  it('요청을 못 찾으면 클라이언트 단계를 그대로 쓴다', () => {
+    expect(effectiveCancellationStage('BEFORE_DISPATCH', undefined)).toBe('BEFORE_DISPATCH');
+  });
+
+  it('작업 시작 후 단계의 환불액은 0 — 낮춰 보낸 단계로 전액이 나가지 않는다', () => {
+    const stage = effectiveCancellationStage('BEFORE_DISPATCH', 'IN_PROGRESS');
+    expect(calculateRefund({ paidAmount: 1_000_000, stage }).refundAmount).toBe(0);
   });
 });

@@ -16,7 +16,12 @@ import { Router } from 'express';
 import type { Geocoder } from '../geo/geocoder.js';
 import { NoopGeocoder } from '../geo/geocoder.js';
 import { authUserId } from '../middleware/auth.js';
-import { RequestStore, RequestValidationError, type CreateRequestInput } from '../requests/store.js';
+import { checkParticipantStatusChange } from '../requests/status-permission.js';
+import {
+  RequestStore,
+  RequestValidationError,
+  type CreateRequestInput,
+} from '../requests/store.js';
 import type { UserStore } from '../users/store.js';
 
 function isParticipant(request: ServiceRequest, userId: string): boolean {
@@ -158,7 +163,9 @@ export function createRequestsRouter(
         requesterId: authUserId(req),
         region: body.region,
         wasteCategory: body.wasteCategory,
-        wasteItems: Array.isArray(body.wasteItems) ? (body.wasteItems as CreateRequestInput['wasteItems']) : undefined,
+        wasteItems: Array.isArray(body.wasteItems)
+          ? (body.wasteItems as CreateRequestInput['wasteItems'])
+          : undefined,
         wasteTons: body.wasteTons !== undefined ? Number(body.wasteTons) : undefined,
         allbaroRequested: body.allbaroRequested === true,
         sitePhotoKeys: body.sitePhotoKeys,
@@ -168,7 +175,8 @@ export function createRequestsRouter(
         loadAddress: body.loadAddress,
         unloadAddress: body.unloadAddress,
         visitAt: body.visitAt,
-        linkedRequestId: typeof body.linkedRequestId === 'string' ? body.linkedRequestId : undefined,
+        linkedRequestId:
+          typeof body.linkedRequestId === 'string' ? body.linkedRequestId : undefined,
       } as CreateRequestInput);
       res.status(201).json(request);
     } catch (err) {
@@ -226,6 +234,18 @@ export function createRequestsRouter(
       if (existing && !isParticipant(existing, authUserId(req))) {
         res.status(403).json({ error: '이 요청을 변경할 권한이 없어요.' });
         return;
+      }
+      // 참여자라도 역할별로 바꿀 수 있는 상태가 정해져 있다([[checkParticipantStatusChange]]).
+      if (existing) {
+        const denial = checkParticipantStatusChange(
+          existing,
+          authUserId(req),
+          body.status as MatchStatus,
+        );
+        if (denial) {
+          res.status(denial.httpStatus).json({ error: denial.error, code: denial.code });
+          return;
+        }
       }
       const updated = await store.changeStatus(req.params.id, body.status as MatchStatus, {
         matchedProviderId:

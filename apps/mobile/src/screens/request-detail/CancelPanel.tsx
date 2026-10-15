@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { CANCELLATION_PENALTY_RATE } from '@dimol/shared';
 import { AppButton, Card, Field } from '../../components/ui';
 import { theme } from '../../theme';
 
@@ -34,7 +35,8 @@ export function CancelPanel({
     <Card style={styles.spaced}>
       <Text style={styles.title}>정말 취소하시겠어요?</Text>
       <Text style={styles.policy}>
-        업체 배차 후에 취소하면 위약금 10%를 뺀 금액이 환불돼요. 배차 전에는 전액 환불돼요.
+        업체 배차 후에 취소하면 위약금 {Math.round(CANCELLATION_PENALTY_RATE * 100)}%를 뺀 금액이
+        환불돼요. 배차 전에는 전액 환불돼요.
       </Text>
       <Field
         label="취소 사유 (선택)"

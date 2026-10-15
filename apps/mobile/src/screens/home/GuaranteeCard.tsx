@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CANCELLATION_PENALTY_RATE } from '@dimol/shared';
-import { AppIcon, type IconName } from '../../components/AppIcon';
-import { Card, SectionTitle } from '../../components/ui';
+import type { IconName } from '../../components/AppIcon';
+import { Card, IconTile, SectionTitle } from '../../components/ui';
 import { theme } from '../../theme';
 
 /**
@@ -38,9 +38,7 @@ export function GuaranteeCard() {
       <Card style={styles.card}>
         {GUARANTEES.map((item, index) => (
           <View key={item.title} style={[styles.row, index > 0 && styles.rowDivided]}>
-            <View style={styles.icon}>
-              <AppIcon name={item.icon} size={20} color={colors.primary} />
-            </View>
+            <IconTile icon={item.icon} size="sm" style={styles.icon} />
             <View style={styles.textBox}>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.body}>{item.body}</Text>
@@ -52,7 +50,7 @@ export function GuaranteeCard() {
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   card: {
@@ -67,13 +65,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   icon: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.badge,
-    height: 40,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 40,
   },
   textBox: {
     flex: 1,

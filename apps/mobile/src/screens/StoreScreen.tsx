@@ -2,8 +2,9 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as PortOne from '@portone/react-native-sdk';
 import { BuyerEmailModal } from '../components/BuyerEmailModal';
-import { Card, ErrorBanner, SectionTitle } from '../components/ui';
-import { ScreenHeader } from '../navigation';
+import { Card, EmptyState, ErrorBanner, SectionTitle } from '../components/ui';
+import { canUseStore } from '@dimol/shared';
+import { ScreenHeader, useSession } from '../navigation';
 import { ProductCard } from './store/ProductCard';
 import { useStoreCheckout } from './store/useStoreCheckout';
 import { theme } from '../theme';
@@ -18,6 +19,24 @@ import { theme } from '../theme';
  * 결제 흐름과 PG 심사 요건은 [[useStoreCheckout]] 과 [[ProductCard]] 에 있다.
  */
 export function StoreScreen() {
+  const user = useSession();
+  // 메뉴를 숨겨도 링크·뒤로가기로 들어올 수 있다 — 화면도 같은 기준으로 막는다([[canUseStore]]).
+  if (!canUseStore(user.userType)) {
+    return (
+      <View style={styles.screen}>
+        <ScreenHeader title="멤버십" canGoBack />
+        <EmptyState
+          icon="star"
+          title="철거업체 전용 메뉴예요"
+          description="지금은 철거업체 멤버십만 판매하고 있어요."
+        />
+      </View>
+    );
+  }
+  return <StoreContent />;
+}
+
+function StoreContent() {
   const store = useStoreCheckout();
 
   if (store.payRequest) {
@@ -42,7 +61,7 @@ export function StoreScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="스토어" canGoBack />
+      <ScreenHeader title="멤버십" canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
         <ErrorBanner message={store.error} />
         {store.notice ? <Text style={styles.notice}>{store.notice}</Text> : null}

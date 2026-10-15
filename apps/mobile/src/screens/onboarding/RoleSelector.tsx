@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { UserType } from '@dimol/shared';
-import { AppIcon, type IconName } from '../../components/AppIcon';
+import type { IconName } from '../../components/AppIcon';
+import { IconTile } from '../../components/ui';
 import { FadeInUp, PressableScale } from '../../components/motion';
 import { FEATURE_INTERIOR } from '../../featureFlags';
 import { theme } from '../../theme';
@@ -84,14 +85,11 @@ export function RoleSelector({
               onPress={() => onChange(option.type)}
               style={[styles.card, selected && styles.cardSelected]}
             >
-              <View style={[styles.iconCircle, selected && styles.iconCircleSelected]}>
-                <AppIcon
-                  name={option.iconName}
-                  size={22}
-                  color={selected ? colors.primary : colors.text}
-                  filled={selected}
-                />
-              </View>
+              <IconTile
+                icon={option.iconName}
+                tone={selected ? 'solid' : 'brand'}
+                style={styles.iconCircle}
+              />
               <View style={styles.info}>
                 <View style={styles.headerRow}>
                   <Text style={[styles.title, selected && styles.titleSelected]}>
@@ -141,19 +139,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: spacing.sm,
-  },
-  iconCircleSelected: {
-    backgroundColor: colors.background,
-    borderColor: colors.primary,
   },
   info: {
     flex: 1,

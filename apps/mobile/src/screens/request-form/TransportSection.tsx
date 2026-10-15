@@ -43,7 +43,7 @@ export function TransportPhotoButtons({ form }: { form: RequestFormState }) {
         disabled={form.photoBusy}
       >
         <Text style={styles.fillText}>
-          {form.photoBusy ? '사진 업로드 중…' : '📷 사진 첨부 (소재 자동분류)'}
+          {form.photoBusy ? '사진 업로드 중…' : '사진 첨부 (소재 자동분류)'}
         </Text>
       </Pressable>
       <Pressable

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppIcon } from '../components/AppIcon';
-import { ErrorBanner } from '../components/ui';
+import brandmark from '../../assets/brandmark.png';
+import { ErrorBanner, IconTile } from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
 import { UserGuideModal } from '../components/UserGuideModal';
 import { FadeInUp, PressableScale } from '../components/motion';
@@ -100,8 +100,9 @@ export function ConsumerHomeScreen() {
               </Text>
               <Text style={styles.ctaSubtitle}>사진 한 장이면 업체 견적까지 한 번에</Text>
             </View>
+            {/* 망치 아이콘 대신 비움 로고(집 + 굴착기) — 이 버튼이 이 앱의 대표 서비스다. */}
             <View style={styles.ctaIconWrap}>
-              <AppIcon name="hammer" size={40} color={colors.primary} />
+              <Image source={brandmark} style={styles.ctaLogo} resizeMode="contain" />
             </View>
           </PressableScale>
         </FadeInUp>
@@ -132,9 +133,7 @@ export function ConsumerHomeScreen() {
               style={styles.interiorCard}
               onPress={() => nav.push({ name: 'interiorForm' })}
             >
-              <View style={styles.interiorIcon}>
-                <AppIcon name="tools" size={24} color={colors.primary} />
-              </View>
+              <IconTile icon="tools" style={styles.interiorIcon} />
               <View style={styles.interiorTextBox}>
                 <Text style={styles.interiorTitle}>인테리어 시공 역경매 견적</Text>
                 <Text style={styles.interiorSubtitle} numberOfLines={2}>
@@ -240,10 +239,14 @@ const styles = StyleSheet.create({
   ctaIconWrap: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
-    borderRadius: radius.badge,
+    borderRadius: 20,
     height: 72,
     justifyContent: 'center',
     width: 72,
+  },
+  ctaLogo: {
+    height: 56,
+    width: 56,
   },
   interiorCard: {
     alignItems: 'center',
@@ -255,13 +258,7 @@ const styles = StyleSheet.create({
     ...theme.shadow.card,
   },
   interiorIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.badge,
-    height: 48,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 48,
   },
   interiorTextBox: {
     flex: 1,
