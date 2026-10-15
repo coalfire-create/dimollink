@@ -63,7 +63,7 @@ export function BuildingLedgerCard({
       ))}
       {risk === 'HIGH' || risk === 'POSSIBLE' ? (
         <View style={styles.warn}>
-          <Text style={styles.warnTitle}>⚠️ {ASBESTOS_RISK_LABELS[risk]}</Text>
+          <Text style={styles.warnTitle}>{ASBESTOS_RISK_LABELS[risk]}</Text>
           <Text style={styles.warnBody}>
             석면 함유 자재가 쓰였을 수 있는 시기·자재예요. 철거 전 석면 사전조사가 필요하며,
             디몰비전 분석에도 이 사실이 함께 반영돼요.

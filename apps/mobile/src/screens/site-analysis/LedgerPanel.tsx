@@ -57,7 +57,7 @@ export function LedgerPanel({
       ))}
       {risk === 'HIGH' || risk === 'POSSIBLE' ? (
         <View style={styles.warn}>
-          <Text style={styles.warnTitle}>⚠️ {ASBESTOS_RISK_LABELS[risk]}</Text>
+          <Text style={styles.warnTitle}>{ASBESTOS_RISK_LABELS[risk]}</Text>
           <Text style={styles.warnBody}>
             철거 전 석면 사전조사가 필요하며, 사진 분석에도 이 사실이 함께 반영돼요.
           </Text>

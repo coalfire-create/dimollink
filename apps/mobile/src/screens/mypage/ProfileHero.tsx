@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { USER_TYPE_LABELS, type UserProfile } from '@dimol/shared';
 import { AppIcon, type IconName } from '../../components/AppIcon';
+import { IconTile } from '../../components/ui';
 import { PressableScale } from '../../components/motion';
 import { theme } from '../../theme';
 
@@ -37,9 +38,7 @@ export function ProfileHero({
   return (
     <View style={styles.card}>
       <View style={styles.profileRow}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.name.trim().charAt(0) || '비'}</Text>
-        </View>
+        <IconTile label={user.name.trim().charAt(0) || '비'} size="lg" style={styles.avatar} />
         <View style={styles.profileInfo}>
           <Text style={styles.name} accessibilityRole="header">
             {user.name}
@@ -69,7 +68,7 @@ export function ProfileHero({
               onPress={s.onPress}
               style={styles.shortcut}
             >
-              <AppIcon name={s.icon} size={26} color={colors.primary} />
+              <IconTile icon={s.icon} size="sm" />
               <Text style={styles.shortcutLabel} numberOfLines={1}>
                 {s.label}
               </Text>
@@ -96,18 +95,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   avatar: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    height: 64,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 64,
-  },
-  avatarText: {
-    color: colors.primary,
-    fontSize: font.title,
-    fontWeight: '800',
   },
   profileInfo: {
     flex: 1,

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
-import { StatusBadge } from '../../components/ui';
-import { AppIcon, type IconName } from '../../components/AppIcon';
+import { IconTile, StatusBadge } from '../../components/ui';
+import type { IconName } from '../../components/AppIcon';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
 import { requestSubtitle, requestTons } from '../../lib/request-summary';
 import { theme } from '../../theme';
@@ -51,11 +51,8 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <View style={styles.accentBar} />
       <View style={styles.inner}>
-        <View style={styles.kindBadge}>
-          <AppIcon name={KIND_ICON[request.kind] ?? 'document'} size={24} color={colors.primary} />
-        </View>
+        <IconTile icon={KIND_ICON[request.kind] ?? 'document'} style={styles.kindBadge} />
         <View style={styles.body}>
           <View style={styles.topRow}>
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
@@ -101,10 +98,6 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.92,
   },
-  accentBar: {
-    backgroundColor: colors.primary,
-    width: 3,
-  },
   inner: {
     alignItems: 'center',
     flex: 1,
@@ -112,13 +105,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   kindBadge: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    height: 48,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 48,
   },
   body: {
     flex: 1,

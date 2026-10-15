@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SUPPORT_PHONE, SUPPORT_PHONE_TEL_URL } from '@dimol/shared';
+import { AppIcon } from '../AppIcon';
 import { theme } from '../../theme';
 import brandmark from '../../../assets/brandmark.png';
 
@@ -21,7 +22,8 @@ export function FloatingSupportButton({ onPress }: { onPress?: () => void }) {
       // 탭바(높이 ~64) + 기기 홈 인디케이터 위로 띄운다.
       style={[styles.fab, { bottom: insets.bottom + 96 }]}
     >
-      <Text style={styles.fabIcon}>💬</Text>
+      {/* 이모지는 기기마다 모양이 달라 앱 아이콘들과 따로 논다 — 같은 아이콘 세트로. */}
+      <AppIcon name="chat" size={28} color={theme.colors.background} filled />
     </Pressable>
   );
 }
@@ -63,9 +65,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 50,
     ...theme.shadow.primary,
-  },
-  fabIcon: {
-    fontSize: 26,
   },
   imagePlaceholder: {
     alignItems: 'center',

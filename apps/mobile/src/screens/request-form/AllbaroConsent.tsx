@@ -20,7 +20,7 @@ export function AllbaroConsent({ form }: { form: RequestFormState }) {
       {form.allbaroMandatory ? (
         <FadeInUp>
           <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>♻️ 올바로 신고 대상</Text>
+            <Text style={styles.noticeTitle}>올바로 신고 대상</Text>
             <Text style={styles.noticeBody}>
               {ALLBARO_MANDATORY_CONSTRUCTION_WASTE_TON}톤 이상은 전자인계서 의무 대상이에요. 켜
               두면 자동으로 처리해 드려요.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Card } from './ui';
-import { AppIcon, type IconName } from './AppIcon';
+import { Card, IconTile } from './ui';
+import type { IconName } from './AppIcon';
 import { theme } from '../theme';
 
 /**
@@ -38,9 +38,7 @@ export function MenuList({ items }: { items: MenuItem[] }) {
             onPress={item.onPress}
           >
             <View style={styles.left}>
-              <View style={styles.iconCircle}>
-                <AppIcon name={item.icon} size={18} color={theme.colors.primary} />
-              </View>
+              <IconTile icon={item.icon} size="sm" style={styles.iconCircle} />
               <View style={styles.labelBox}>
                 <Text style={styles.label}>{item.label}</Text>
                 {item.subLabel ? <Text style={styles.subLabel}>{item.subLabel}</Text> : null}
@@ -85,13 +83,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconCircle: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    height: 40,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 40,
   },
   label: {
     fontSize: font.body,

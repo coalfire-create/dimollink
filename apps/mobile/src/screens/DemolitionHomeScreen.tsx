@@ -1,7 +1,7 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppIcon, type IconName } from '../components/AppIcon';
-import { Card, InlineEmpty, SectionTitle } from '../components/ui';
+import type { IconName } from '../components/AppIcon';
+import { Card, IconTile, InlineEmpty, SectionTitle } from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { TabBar, useNavigation, useSession } from '../navigation';
@@ -112,9 +112,7 @@ function ActionRow({
       style={styles.row}
       onPress={onPress}
     >
-      <View style={styles.rowIcon}>
-        <AppIcon name={icon} size={24} color={colors.primary} />
-      </View>
+      <IconTile icon={icon} style={styles.rowIcon} />
       <View style={styles.rowText}>
         <Text style={styles.rowTitle}>{title}</Text>
         <Text style={styles.rowSubtitle}>{subtitle}</Text>
@@ -124,7 +122,7 @@ function ActionRow({
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
@@ -152,13 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   rowIcon: {
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.pill,
-    height: 48,
-    justifyContent: 'center',
     marginRight: spacing.sm,
-    width: 48,
   },
   rowText: {
     flex: 1,

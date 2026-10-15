@@ -56,20 +56,20 @@ export function DemolitionInfoRows({ request }: { request: DemolitionRequest }) 
       ))}
       {risk === 'HIGH' || risk === 'POSSIBLE' ? (
         <InfoRow
-          label="⚠️ 석면"
+          label="석면"
           value={`${ASBESTOS_RISK_LABELS[risk]} — 철거 전 석면 사전조사 필요`}
         />
       ) : null}
 
       {vision?.summary ? (
         <>
-          <InfoRow label="✨ 현장 분석 요약" value={vision.summary} />
+          <InfoRow label="현장 분석 요약" value={vision.summary} />
           {vision.hazards && vision.hazards.length > 0 ? (
-            <InfoRow label="⚠️ 위험요소" value={vision.hazards.join(', ')} />
+            <InfoRow label="위험요소" value={vision.hazards.join(', ')} />
           ) : null}
           {vision.materials && vision.materials.length > 0 ? (
             <InfoRow
-              label="🧱 감지된 소재"
+              label="감지된 소재"
               value={vision.materials
                 .map((m) => (isVisionMaterialCode(m) ? visionMaterialLabel(m) : m))
                 .join(', ')}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AppButton, StickyFooter } from '../../components/ui';
+import { AppButton, IconTile, StickyFooter } from '../../components/ui';
 import { FadeInUp } from '../../components/motion';
 import { ScreenHeader } from '../../navigation';
 import { theme } from '../../theme';
@@ -20,7 +20,7 @@ export function ReservationDone({ form }: { form: RequestFormState }) {
       <ScrollView contentContainerStyle={styles.content}>
         <FadeInUp>
           <View style={styles.card}>
-            <Text style={styles.emoji}>✅</Text>
+            <IconTile icon="check" size="lg" tone="solid" style={styles.doneIcon} />
             <Text style={styles.title}>처리장 예약이 접수됐어요</Text>
             <Text style={styles.body}>
               매칭된 처리장이 「운반요청 별도 필요」이면 폐기물을 처리장까지 옮길 운반이 따로
@@ -60,9 +60,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
   },
-  emoji: {
-    fontSize: 48,
-    marginBottom: spacing.sm,
+  doneIcon: {
+    marginBottom: theme.spacing.sm,
   },
   title: {
     color: colors.text,

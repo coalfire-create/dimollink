@@ -19,7 +19,7 @@ export function VisionResultCard({ vision }: { vision: DimolVisionSummary }) {
       <Text style={styles.summary}>&quot;{vision.summary}&quot;</Text>
       {vision.hazards && vision.hazards.length > 0 ? (
         <View style={styles.hazardBox}>
-          <Text style={styles.hazardTitle}>⚠️ 주의 필요 위험 요인:</Text>
+          <Text style={styles.hazardTitle}>주의가 필요한 위험 요인</Text>
           {vision.hazards.map((hazard) => (
             <Text key={hazard} style={styles.hazardItem}>
               • {hazard}
@@ -29,7 +29,7 @@ export function VisionResultCard({ vision }: { vision: DimolVisionSummary }) {
       ) : null}
       {vision.materials && vision.materials.length > 0 ? (
         <View style={styles.materialBox}>
-          <Text style={styles.materialTitle}>🔍 감지된 주요 구조 소재:</Text>
+          <Text style={styles.materialTitle}>사진에서 찾은 주요 소재</Text>
           <Text style={styles.materialText}>{vision.materials.join(', ')}</Text>
         </View>
       ) : null}

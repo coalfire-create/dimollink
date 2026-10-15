@@ -36,8 +36,8 @@ export function DisposalSection({ form }: { form: RequestFormState }) {
       </Pressable>
       <View style={styles.notice}>
         <Text style={styles.noticeText}>
-          🚚 처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이 「운반요청 별도
-          필요」면 운반요청을 함께 하도록 안내해 드려요.
+          처리장마다 운반요청 가능 여부가 달라요. 예약 후 매칭된 처리장이 「운반요청 별도 필요」면
+          운반요청을 함께 하도록 안내해 드려요.
         </Text>
       </View>
     </>
