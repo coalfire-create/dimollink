@@ -13,11 +13,13 @@ import { Card, InfoRow, KeyboardAwareScreen, SectionTitle } from '../components/
 import { MenuList, type MenuItem } from '../components/MenuList';
 import { FadeInUp } from '../components/motion';
 import { confirmDialog } from '../lib/dialog';
-import { ScreenHeader, TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
 import { CompanyInfoFooter } from '../components/CompanyInfoFooter';
 import { CompanySettings } from './mypage/CompanySettings';
-import { ProfileHero } from './mypage/ProfileHero';
+import { ProfileHero, type ProfileShortcut } from './mypage/ProfileHero';
 import { RatingCards } from './mypage/RatingCards';
+import { requestsTabLabel } from '../roleConfig';
 import { theme } from '../theme';
 
 /**
@@ -30,6 +32,7 @@ export function MyPageScreen() {
   const user = useSession();
   const nav = useNavigation();
   const { logout } = useAuthActions();
+  const insets = useSafeAreaInsets();
 
   // 로그아웃은 되돌릴 수 없고(자동 로그인 토큰이 지워진다) 바로 옆에 다른 링크가 있어
   // 잘못 누르기 쉽다 — 한 번 확인한다.
@@ -41,34 +44,57 @@ export function MyPageScreen() {
     if (ok) logout();
   }
 
-  const activityItems: MenuItem[] = [
-    {
-      key: 'requests',
-      icon: 'document',
-      label: '내 요청 목록',
-      onPress: () => nav.switchTab('requests'),
-    },
+  // 가장 자주 가는 세 곳은 프로필 카드의 타일로 올린다(목록에서 찾지 않게).
+  // 업체의 세 번째 칸은 정산 계좌 — 등록 전에는 정산금이 지급되지 않아 가입 직후 눈에 띄어야
+  // 한다. 소비자는 정산받을 일이 없어 그 자리에 물량 계산을 둔다.
+  const requestsLabel = requestsTabLabel(user.userType);
+  const isConsumer = user.userType === 'CONSUMER';
+  const shortcuts: ProfileShortcut[] = [
+    // 목록 탭이 없는 역할(운반·처리장·인테리어)은 이 타일을 빼고 물량 계산을 올린다.
+    requestsLabel
+      ? {
+          key: 'requests',
+          icon: 'document',
+          label: requestsLabel,
+          onPress: () => nav.switchTab('requests'),
+        }
+      : {
+          key: 'estimate',
+          icon: 'tools',
+          label: '물량 계산',
+          onPress: () => nav.push({ name: 'estimate' }),
+        },
     {
       key: 'notifications',
       icon: 'notifications',
       label: '알림',
       onPress: () => nav.switchTab('notifications'),
     },
-    {
-      key: 'estimate',
-      icon: 'tools',
-      label: '폐기물 양 계산',
-      onPress: () => nav.push({ name: 'estimate' }),
-    },
-    // 업체만 — 소비자는 정산받을 일이 없다. 등록 전에는 정산금이 지급되지 않으므로
-    // 가입 직후에 눈에 띄어야 한다.
-    ...(user.userType !== 'CONSUMER'
+    isConsumer
+      ? {
+          key: 'estimate',
+          icon: 'tools',
+          label: '물량 계산',
+          onPress: () => nav.push({ name: 'estimate' }),
+        }
+      : {
+          key: 'payout',
+          icon: 'card',
+          label: '정산 계좌',
+          onPress: () => nav.push({ name: 'payoutAccount' }),
+        },
+  ];
+  const estimateInShortcuts = shortcuts.some((s) => s.key === 'estimate');
+
+  const activityItems: MenuItem[] = [
+    // 물량 계산이 타일에 없으면(목록 탭이 있는 업체) 목록에 남긴다.
+    ...(!estimateInShortcuts
       ? [
           {
-            key: 'payout',
-            icon: 'card',
-            label: '정산 계좌',
-            onPress: () => nav.push({ name: 'payoutAccount' }),
+            key: 'estimate',
+            icon: 'tools',
+            label: '폐기물 양 계산',
+            onPress: () => nav.push({ name: 'estimate' }),
           } as MenuItem,
         ]
       : []),
@@ -117,15 +143,18 @@ export function MyPageScreen() {
 
   return (
     <KeyboardAwareScreen style={styles.screen}>
-      <ScreenHeader title="내 정보" />
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.pageTitle} accessibilityRole="header">
+          내 정보
+        </Text>
+        <FadeInUp delay={40}>
+          <ProfileHero user={user} shortcuts={shortcuts} />
+        </FadeInUp>
 
-      {/* 프로필은 스크롤 밖에 둔다 — 어느 설정을 보고 있든 "누구의 화면인지"가 남는다. */}
-      <FadeInUp delay={40}>
-        <ProfileHero user={user} />
-      </FadeInUp>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <SectionTitle>내 활동</SectionTitle>
+        <SectionTitle>서비스</SectionTitle>
         <MenuList items={activityItems} />
 
         <SectionTitle>계정</SectionTitle>
@@ -169,11 +198,17 @@ const styles = StyleSheet.create({
     height: theme.spacing.lg,
   },
   screen: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.appBackground,
     flex: 1,
   },
+  pageTitle: {
+    color: colors.text,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+  },
   content: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
     // 마지막 줄이 우하단 고객센터 버튼에 가리지 않게 밑단을 비운다.
     paddingBottom: theme.floatingButtonClearance + spacing.md,
   },
@@ -182,7 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   logoutText: {
-    color: colors.error,
+    color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
   },
