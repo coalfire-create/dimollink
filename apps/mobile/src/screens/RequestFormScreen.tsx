@@ -18,7 +18,8 @@ import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
 import { ROLE_CONFIG } from '../roleConfig';
 import { AllbaroConsent } from './request-form/AllbaroConsent';
-import { DemolitionSection } from './request-form/DemolitionSection';
+import { DemolitionStepFields } from './request-form/DemolitionStepFields';
+import { StepHeader, useDemolitionSteps } from './request-form/DemolitionStepper';
 import { DisposalSection } from './request-form/DisposalSection';
 import { ReservationDone } from './request-form/ReservationDone';
 import { TransportPhotoButtons, TransportSection } from './request-form/TransportSection';
@@ -52,6 +53,9 @@ export function RequestFormScreen({
   const nav = useNavigation();
   const user = useSession();
   const form = useRequestForm(kind, prefill);
+  // 철거는 한 화면에 한 질문씩 단계로 나눈다(운반·처리장 예약은 칸이 적어 한 화면).
+  const steps = useDemolitionSteps(form);
+  const stepped = kind === 'DEMOLITION';
 
   if (form.reservationDone) return <ReservationDone form={form} />;
 
@@ -65,15 +69,22 @@ export function RequestFormScreen({
           { label: KIND_TITLES[kind] },
         ]}
       />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.pilotChip}>
-          <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
-        </View>
+      <ScrollView
+        ref={steps.scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        {stepped ? <StepHeader index={steps.index} /> : null}
+        {!stepped || steps.isFirst ? (
+          <View style={styles.pilotChip}>
+            <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
+          </View>
+        ) : null}
         {/* 지역은 주소에서 자동으로 따라오므로 별도 입력칸이 없다 — 오류만 여기서 알린다. */}
         <FieldError message={form.fieldErrors.region} />
 
-        <FadeInUp delay={40}>
-          {kind === 'DEMOLITION' ? <DemolitionSection form={form} /> : null}
+        <FadeInUp key={stepped ? steps.step.key : kind} delay={40}>
+          {stepped ? <DemolitionStepFields form={form} step={steps.step.key} /> : null}
           {kind === 'TRANSPORT' ? <TransportSection form={form} /> : null}
           {kind === 'DISPOSAL_RESERVATION' ? <DisposalSection form={form} /> : null}
 
@@ -93,19 +104,39 @@ export function RequestFormScreen({
           ) : null}
         </FadeInUp>
 
-        <AllbaroConsent form={form} />
+        {!stepped || steps.isLast ? <AllbaroConsent form={form} /> : null}
       </ScrollView>
 
       <StickyFooter>
         {/* 오류를 스크롤 안쪽에 두면, 화면 위쪽에서 고정 CTA 를 눌렀을 때
             메시지가 화면 밖에 떠서 "눌러도 아무 일이 없다"로 보인다. */}
         <ErrorBanner message={form.error} />
-        <AppButton
-          label="접수하기"
-          onPress={form.submit}
-          loading={form.submitting}
-          disabled={form.submitting}
-        />
+        {stepped ? (
+          <View style={styles.stepButtons}>
+            {!steps.isFirst ? (
+              <AppButton
+                label="이전"
+                variant="outline"
+                onPress={steps.back}
+                style={styles.backButton}
+              />
+            ) : null}
+            <AppButton
+              label={steps.isLast ? '접수하기' : '다음'}
+              onPress={steps.next}
+              loading={form.submitting}
+              disabled={form.submitting}
+              style={styles.nextButton}
+            />
+          </View>
+        ) : (
+          <AppButton
+            label="접수하기"
+            onPress={form.submit}
+            loading={form.submitting}
+            disabled={form.submitting}
+          />
+        )}
       </StickyFooter>
 
       <ConfirmModal
@@ -168,6 +199,19 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.md,
     paddingBottom: FOOTER_CLEARANCE,
+  },
+  stepButtons: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  backButton: {
+    flex: 1,
+    // 옆의 주요 버튼(56)과 높이를 맞춘다 — 보조 버튼 기본은 48 이라 나란히 두면 키가 다르다.
+    height: theme.touch.primaryButtonHeight,
+  },
+  nextButton: {
+    flex: 2,
   },
   pilotChip: {
     alignSelf: 'flex-start',

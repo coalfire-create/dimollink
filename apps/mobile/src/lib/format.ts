@@ -15,3 +15,11 @@ export function won(value: number): string {
 export function tons(value: number): string {
   return `${value.toLocaleString('ko-KR')}톤`;
 }
+
+/**
+ * 큰 금액(원) → "1,230만 원". 철거비처럼 수백만~수천만 원대 금액은 "12,300,000원"보다
+ * 만 원 단위가 훨씬 빨리 읽힌다(고령 사용자). 만 원 미만은 반올림한다.
+ */
+export function manwon(value: number): string {
+  return `${Math.round(value / 10_000).toLocaleString('ko-KR')}만 원`;
+}

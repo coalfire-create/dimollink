@@ -21,6 +21,9 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      // ScrollView 는 기본이 flexShrink 1 이라, 아래 본문 ScrollView 가 자리를 차지하면
+      // 이 줄이 글자 높이보다 납작하게 눌려 본문이 경로 위로 겹쳐 그려진다.
+      style={styles.bar}
       contentContainerStyle={styles.row}
       accessibilityLabel={`현재 위치: ${items.map((i) => i.label).join(' 다음 ')}`}
     >
@@ -53,6 +56,10 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
+  bar: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -66,8 +73,8 @@ const styles = StyleSheet.create({
   linkHit: {
     // 터치 영역을 글자보다 넉넉하게 — 작은 글씨 링크를 누르기 어려우면 안 된다.
     justifyContent: 'center',
-    minHeight: 40,
-    paddingHorizontal: 4,
+    minHeight: theme.touch.minButtonHeight,
+    paddingHorizontal: spacing.xs,
   },
   link: {
     color: colors.primary,

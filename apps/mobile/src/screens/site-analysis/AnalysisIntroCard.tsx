@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs / 2,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs / 2,
   },
   chipText: {

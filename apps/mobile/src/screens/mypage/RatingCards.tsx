@@ -57,11 +57,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     flex: 1,
     paddingVertical: spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    ...theme.shadow.card,
   },
   number: {
     color: colors.text,

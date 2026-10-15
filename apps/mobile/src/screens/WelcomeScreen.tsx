@@ -113,11 +113,12 @@ export function WelcomeScreen({
 
           <FadeInUp delay={480}>
             <View style={styles.linksRow}>
-              <Pressable onPress={onGuest}>
+              <Pressable accessibilityRole="button" onPress={onGuest}>
                 <Text style={styles.linkText}>로그인 없이 둘러보기</Text>
               </Pressable>
               <Text style={styles.linkDivider}>|</Text>
               <Pressable
+                accessibilityRole="button"
                 onPress={() =>
                   scrollRef.current?.scrollTo({ y: productsY.current, animated: false })
                 }
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm, // 18px 글자 + 위아래 16 → 터치 높이 48 이상
     paddingHorizontal: spacing.xs,
   },
   linkDivider: {

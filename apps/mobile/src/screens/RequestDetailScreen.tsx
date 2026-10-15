@@ -12,6 +12,7 @@ import { ROLE_CONFIG } from '../roleConfig';
 import { CancelPanel } from './request-detail/CancelPanel';
 import { CounterpartyActions } from './request-detail/CounterpartyActions';
 import { PaidRefundCard } from './request-detail/PaidRefundCard';
+import { PaymentSummaryCard } from './request-detail/PaymentSummaryCard';
 import { ProviderWorkCard } from './request-detail/ProviderWorkCard';
 import { QuoteList } from './request-detail/QuoteList';
 import { RequestHeroCard } from './request-detail/RequestHeroCard';
@@ -40,6 +41,8 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   const user = useSession();
   const detail = useRequestDetail(requestId);
   const { request } = detail;
+  // 훅은 아래 로딩 분기(조기 return)보다 먼저 — 순서가 바뀌면 데이터가 도착하는 순간 렌더가 깨진다.
+  const [activeTab, setActiveTab] = React.useState<'STATUS' | 'PAYMENT'>('STATUS');
 
   const crumbs = (
     <Breadcrumbs
@@ -75,10 +78,6 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
       ? request.matchedProviderId
       : request.requesterId
     : null;
-  const awaitingPayment =
-    isRequester && request.status === 'MATCHED' && request.agreedFee !== undefined;
-
-  const [activeTab, setActiveTab] = React.useState<'STATUS' | 'PAYMENT'>('STATUS');
 
   return (
     <View style={styles.screen}>
@@ -102,133 +101,108 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
           onPress={() => setActiveTab('PAYMENT')}
         >
           <Text style={[styles.tabText, activeTab === 'PAYMENT' && styles.activeTabText]}>
-            결제 내역
+            결제 정보
           </Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         {activeTab === 'STATUS' ? (
           <>
-        <FadeInUp delay={0}>
-          <RequestHeroCard
-            request={request}
-            kindLabel={KIND_LABELS[request.kind]}
-            awaitingPayment={awaitingPayment}
-          />
-        </FadeInUp>
-
-        {cancelled ? (
-          <FadeInUp delay={40}>
-            <Card>
-              <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
-              {request.cancelReason ? (
-                <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
-              ) : null}
-            </Card>
-          </FadeInUp>
-        ) : (
-          <FadeInUp delay={40}>
-            <SectionTitle>진행 상황</SectionTitle>
-            <Card>
-              <StatusTimeline status={request.status} />
-            </Card>
-          </FadeInUp>
-        )}
-
-        <RequestInfoCard request={request} photoUrls={detail.photoUrls} />
-
-        {/* 철거는 현장을 봐야 금액이 정해진다 — 개산/실사/확정을 나눠 보여준다.
-            운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
-        {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
-          <>
-            <RemoteSurveyEntryCard requestId={request.id} />
-            <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
-          </>
-        ) : null}
-
-        {/* 영상통화 실사 — 업체가 현장에 오지 않고 영상으로 본다. 카드가 역할별로 알아서 숨는다. */}
-        {request.kind === 'DEMOLITION' && !cancelled ? (
-          <VideoSurveyCard requestId={request.id} isRequester={isRequester} />
-        ) : null}
-
-        <QuoteList
-          quotes={detail.quotes}
-          acceptingQuoteId={detail.acceptingQuoteId}
-          onAccept={detail.acceptQuoteAndMatch}
-        />
-
-        {isRequester && request.status === 'PAID' ? (
-          <PaidRefundCard
-            canRefund={!!request.paymentId}
-            refunding={detail.refunding}
-            onRefund={detail.confirmRefund}
-          />
-        ) : null}
-
-        {isProvider ? (
-          <ProviderWorkCard
-            request={request}
-            advancing={detail.advancing}
-            onAdvance={detail.advance}
-          />
-        ) : null}
-
-        <CounterpartyActions request={request} counterpartyId={counterpartyId} />
-
-        <ErrorBanner message={detail.errorMessage} />
-
-        {isRequestCancellable(request.status) ? (
-          <CancelPanel cancelling={detail.cancelling} onCancel={detail.confirmCancel} />
-        ) : null}
-
-        {isRequester && (
-          <View style={styles.newRequestContainer}>
-            <AppButton
-              label="+ 다른 철거 추가 요청하기"
-              variant="outline"
-              onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
-            />
-          </View>
-        )}
-          </>
-        ) : (
-          <View style={styles.paymentContainer}>
-            <SectionTitle>결제 및 정산 내역</SectionTitle>
-            <Card>
-              <Text style={styles.paymentTotal}>
-                {request.agreedFee ? `총 견적 금액: ${(request.agreedFee).toLocaleString()}원` : '결제 금액 미정'}
-              </Text>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>계약금 (10% 예치완료)</Text>
-                <Text style={styles.paymentValue}>
-                  {request.agreedFee ? `${(request.agreedFee * 0.1).toLocaleString()}원` : '0원'}
-                </Text>
-              </View>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>잔금 (90% 미납)</Text>
-                <Text style={[styles.paymentValue, { color: colors.primary }]}>
-                  {request.agreedFee ? `${(request.agreedFee * 0.9).toLocaleString()}원` : '0원'}
-                </Text>
-              </View>
-              <AppButton 
-                label="영수증 다운로드" 
-                variant="outline" 
-                style={{ marginTop: spacing.md }}
-                onPress={() => {}} 
+            <FadeInUp delay={0}>
+              <RequestHeroCard
+                request={request}
+                kindLabel={KIND_LABELS[request.kind]}
+                isRequester={isRequester}
               />
-            </Card>
-          </View>
+            </FadeInUp>
+
+            {cancelled ? (
+              <FadeInUp delay={40}>
+                <Card>
+                  <Text style={styles.cancelledTitle}>취소된 요청이에요</Text>
+                  {request.cancelReason ? (
+                    <Text style={styles.cancelledReason}>사유: {request.cancelReason}</Text>
+                  ) : null}
+                </Card>
+              </FadeInUp>
+            ) : (
+              <FadeInUp delay={40}>
+                <SectionTitle>진행 상황</SectionTitle>
+                <Card>
+                  <StatusTimeline status={request.status} />
+                </Card>
+              </FadeInUp>
+            )}
+
+            <RequestInfoCard request={request} photoUrls={detail.photoUrls} />
+
+            {/* 철거는 현장을 봐야 금액이 정해진다 — 개산/실사/확정을 나눠 보여준다.
+            운반·처리의 단발 견적(아래 '받은 견적')과는 다른 흐름이다. */}
+            {isRequester && request.kind === 'DEMOLITION' && request.status === 'REQUESTED' ? (
+              <>
+                <RemoteSurveyEntryCard requestId={request.id} />
+                <EstimateComparison requestId={request.id} onMatched={() => void detail.reload()} />
+              </>
+            ) : null}
+
+            {/* 영상통화 실사 — 업체가 현장에 오지 않고 영상으로 본다. 카드가 역할별로 알아서 숨는다. */}
+            {request.kind === 'DEMOLITION' && !cancelled ? (
+              <VideoSurveyCard requestId={request.id} isRequester={isRequester} />
+            ) : null}
+
+            <QuoteList
+              quotes={detail.quotes}
+              acceptingQuoteId={detail.acceptingQuoteId}
+              onAccept={detail.acceptQuoteAndMatch}
+            />
+
+            {isRequester && request.status === 'PAID' ? (
+              <PaidRefundCard
+                canRefund={!!request.paymentId}
+                refunding={detail.refunding}
+                onRefund={detail.confirmRefund}
+              />
+            ) : null}
+
+            {isProvider ? (
+              <ProviderWorkCard
+                request={request}
+                advancing={detail.advancing}
+                onAdvance={detail.advance}
+              />
+            ) : null}
+
+            <CounterpartyActions request={request} counterpartyId={counterpartyId} />
+
+            <ErrorBanner message={detail.errorMessage} />
+
+            {isRequestCancellable(request.status) ? (
+              <CancelPanel cancelling={detail.cancelling} onCancel={detail.confirmCancel} />
+            ) : null}
+
+            {isRequester && (
+              <View style={styles.newRequestContainer}>
+                <AppButton
+                  label="+ 다른 철거 추가 요청하기"
+                  variant="outline"
+                  onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+                />
+              </View>
+            )}
+          </>
+        ) : (
+          <PaymentSummaryCard request={request} isRequester={isRequester} />
         )}
       </ScrollView>
     </View>
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, touch } = theme;
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.appBackground,
     flex: 1,
   },
   content: {
@@ -245,7 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.sm + 2,
+    minHeight: touch.minButtonHeight,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
@@ -264,30 +238,6 @@ const styles = StyleSheet.create({
   newRequestContainer: {
     marginTop: spacing.md,
     marginBottom: spacing.sm,
-  },
-  paymentContainer: {
-    paddingTop: spacing.xs,
-  },
-  paymentTotal: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-    marginBottom: spacing.sm,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  paymentLabel: {
-    color: colors.textMuted,
-    fontSize: font.body,
-  },
-  paymentValue: {
-    color: colors.text,
-    fontSize: font.body,
-    fontWeight: '700',
   },
   cancelledTitle: {
     color: colors.error,

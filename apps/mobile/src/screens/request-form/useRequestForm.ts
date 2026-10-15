@@ -34,6 +34,7 @@ import {
   hasErrors,
   validateRequestForm,
   type RequestFormErrors,
+  type RequestFormField,
 } from '../../lib/request-form-validation';
 import {
   useLeaveGuard,
@@ -294,10 +295,9 @@ export function useRequestForm(kind: RequestKind, prefill?: RequestFormPrefill) 
     };
   }
 
-  async function submit() {
-    setError(null);
-    // 모든 필드를 한 번에 검사한다 — 고치고 누르기를 반복하지 않도록.
-    const errors = validateRequestForm({
+  /** 지금 값 전체를 검사한 결과(화면 상태는 건드리지 않는다). */
+  function allErrors(): RequestFormErrors {
+    return validateRequestForm({
       kind,
       region,
       siteAddress,
@@ -308,6 +308,29 @@ export function useRequestForm(kind: RequestKind, prefill?: RequestFormPrefill) 
       unloadAddress,
       visitAt,
     });
+  }
+
+  /**
+   * 단계별 신청([[demolition-form-steps]])에서 다음으로 넘어가기 전 — 이 단계 칸만 검사해
+   * 오류를 그 칸 아래에 붙인다. 다른 단계 칸은 아직 안 채웠을 수 있어 건드리지 않는다.
+   */
+  function checkFields(fields: RequestFormField[]): boolean {
+    const errors = allErrors();
+    const picked: RequestFormErrors = {};
+    for (const field of fields) if (errors[field]) picked[field] = errors[field];
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      for (const field of fields) next[field] = picked[field];
+      return next;
+    });
+    setError(errorSummary(picked));
+    return !hasErrors(picked);
+  }
+
+  async function submit() {
+    setError(null);
+    // 모든 필드를 한 번에 검사한다 — 고치고 누르기를 반복하지 않도록.
+    const errors = allErrors();
     setFieldErrors(errors);
     if (hasErrors(errors)) {
       setError(errorSummary(errors));
@@ -383,6 +406,8 @@ export function useRequestForm(kind: RequestKind, prefill?: RequestFormPrefill) 
 
   return {
     kind,
+    allErrors,
+    checkFields,
 
     // 값
     region,

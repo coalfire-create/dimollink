@@ -33,7 +33,10 @@ export function ConfirmModal({
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="닫기">
+      <Pressable style={styles.backdrop} onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel="닫기"
+      >
         {/* 바깥을 눌러 닫되, 안쪽 탭은 통과하지 않게 별도 Pressable 로 막는다. */}
         <Pressable style={styles.sheet} onPress={() => undefined}>
           <Text style={styles.title}>{title}</Text>

@@ -3,78 +3,59 @@ import { StyleSheet, Text, View } from 'react-native';
 import { REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { AppButton, Card, StatusBadge } from '../../components/ui';
 import { won } from '../../lib/format';
+import { payableAmount, requesterNextStep } from '../../lib/request-next-step';
 import { useNavigation } from '../../navigation';
 import { theme } from '../../theme';
 
 /**
- * 요약 카드 — 종류·지역·상태·합의 금액을 한눈에.
+ * 요약 카드 — 종류·상태·금액, 그리고 배출자에게는 **지금 할 일** 한 줄.
  *
- * 결제할 차례(MATCHED + 합의 금액 있음)면 카드를 강조하고 여기서 바로 결제한다.
- * 결제는 이 화면에서 사용자가 해야 할 유일한 일인데, 아래로 스크롤해야 찾을 수 있으면
- * "매칭됐다"는 것만 보고 나가 버린다.
+ * 결제할 차례면 카드를 강조하고 여기서 바로 결제한다. 결제는 이 화면에서 사용자가
+ * 해야 할 유일한 일인데, 아래로 스크롤해야 찾을 수 있으면 "매칭됐다"는 것만 보고 나가 버린다.
+ * 금액은 합의 금액 전액(선결제) — 계약금·잔금으로 나누지 않는다([[request-next-step]]).
+ * 위치 보기·후기 같은 나머지 행동은 아래 [[CounterpartyActions]] 가 맡는다.
  */
 export function RequestHeroCard({
   request,
   kindLabel,
-  awaitingPayment,
+  isRequester,
 }: {
   request: ServiceRequest;
   kindLabel: string;
-  awaitingPayment: boolean;
+  isRequester: boolean;
 }) {
   const nav = useNavigation();
-
+  const step = isRequester ? requesterNextStep(request) : null;
+  const payable = isRequester ? payableAmount(request) : null;
   return (
-    <Card style={awaitingPayment ? styles.cardHighlight : styles.card}>
+    <Card style={step?.needsAttention ? styles.cardHighlight : undefined}>
       <View style={styles.topRow}>
         <Text style={styles.kind}>{kindLabel}</Text>
         <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
       </View>
-      <Text style={styles.region}>{request.region}</Text>
-
+      {step ? (
+        <>
+          <Text style={styles.headline}>{step.headline}</Text>
+          <Text style={styles.hint}>{step.hint}</Text>
+        </>
+      ) : (
+        <Text style={styles.hint}>{request.region}</Text>
+      )}
       {request.agreedFee !== undefined ? (
         <>
           <View style={styles.divider} />
           <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>
-              {request.status === 'MATCHED' ? '총 견적 금액' : '합의 금액'}
-            </Text>
+            <Text style={styles.feeLabel}>{payable !== null ? '결제할 금액' : '합의 금액'}</Text>
             <Text style={styles.feeValue}>{won(request.agreedFee)}</Text>
           </View>
-          {request.status === 'MATCHED' && (
-            <View style={styles.feeSubRow}>
-              <Text style={styles.feeSubLabel}>계약금 (10%)</Text>
-              <Text style={styles.feePrimary}>{won(request.agreedFee * 0.1)}</Text>
-            </View>
-          )}
-          {request.status === 'COMPLETED' && (
-            <View style={styles.feeSubRow}>
-              <Text style={styles.feeSubLabel}>잔금 (90%)</Text>
-              <Text style={styles.feePrimary}>{won(request.agreedFee * 0.9)}</Text>
-            </View>
-          )}
         </>
       ) : null}
-
-      {awaitingPayment ? (
-        <>
-          <Text style={styles.actionHint}>계약금을 안전하게 에스크로에 예치합니다.</Text>
-          <AppButton
-            label="계약금 결제하기"
-            style={styles.button}
-            onPress={() => nav.push({ name: 'payment', requestId: request.id })}
-          />
-        </>
-      ) : null}
-      {request.status === 'COMPLETED' ? (
-        <>
-          <Text style={styles.actionHint}>공사가 완료되었습니다. 잔금을 결제해주세요.</Text>
-          <AppButton
-            label="잔금 결제 및 구매 확정"
-            style={styles.button}
-            onPress={() => nav.push({ name: 'payment', requestId: request.id })}
-          />
-        </>
+      {payable !== null ? (
+        <AppButton
+          label={`${won(payable)} 결제하기`}
+          style={styles.button}
+          onPress={() => nav.push({ name: 'payment', requestId: request.id })}
+        />
       ) : null}
     </Card>
   );
@@ -83,11 +64,7 @@ export function RequestHeroCard({
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.background,
-  },
   cardHighlight: {
-    backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
     borderWidth: 2,
   },
@@ -97,13 +74,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   kind: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  headline: {
     color: colors.text,
     fontSize: font.title,
     fontWeight: '800',
+    marginTop: spacing.sm,
   },
-  region: {
+  hint: {
     color: colors.textMuted,
     fontSize: font.body,
+    lineHeight: 26,
     marginTop: spacing.xs,
   },
   divider: {
@@ -125,27 +109,7 @@ const styles = StyleSheet.create({
     fontSize: font.titleLarge,
     fontWeight: '800',
   },
-  feeSubRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs / 2,
-  },
-  feeSubLabel: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-  },
-  feePrimary: {
-    color: colors.primary,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  actionHint: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.sm,
-  },
   button: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
 });

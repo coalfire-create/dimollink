@@ -94,6 +94,7 @@ export function AdminScreen({ onBack }: { onBack: () => void }) {
             <Pressable
               key={item.key}
               accessibilityRole="tab"
+              accessibilityLabel={item.label}
               accessibilityState={{ selected: tab === item.key }}
               onPress={() => setTab(item.key)}
               style={[styles.tab, tab === item.key && styles.tabActive]}

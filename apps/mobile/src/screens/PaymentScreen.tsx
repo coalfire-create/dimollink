@@ -17,11 +17,15 @@ import { usePaymentConfig } from '../lib/payment-config';
 import { useBuyerEmail } from '../lib/buyer-email';
 import { BuyerEmailModal } from '../components/BuyerEmailModal';
 import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
-import { TaxInvoiceModal } from '../components/TaxInvoiceModal';
-import { useToast } from '../components/Toast';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { AppIcon } from '../components/AppIcon';
+import { won } from '../lib/format';
+import {
+  requestWebRequestPayment,
+  takeRequestPaymentReturn,
+  type RequestPayMethod,
+} from '../lib/request-web-payment';
 import { theme } from '../theme';
 
 /** 결제 건 고유 식별자(앱에서 채번, PortOne·서버가 이 값으로 결제를 추적). */
@@ -33,8 +37,13 @@ function newPaymentId(): string {
  * 선결제 화면 — 매칭 확정(금액 합의)된 요청의 총액을 선결제한다.
  * 금액은 서버 확정 금액(request.agreedFee)이며 여기서 임의로 바꿀 수 없다.
  * 결제수단은 계좌이체(가상계좌) 기본 + 카드 병행(B2B 고액은 계좌이체 우선 유도).
+ *
+ * 결제창은 앱이면 React Native SDK(WebView), 웹이면 브라우저 SDK([[request-web-payment.web]]).
+ * 모바일 브라우저는 결제사 페이지에 갔다가 돌아오므로 화면이 열릴 때 돌아온 결과를 마저 검증한다.
  */
-type PayMethod = 'VBANK' | 'CARD';
+type PayMethod = RequestPayMethod;
+
+const isWeb = Platform.OS === 'web';
 
 function todayKST(): string {
   return new Date().toISOString().slice(0, 10);
@@ -60,27 +69,36 @@ export function PaymentScreen({
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [done, setDone] = useState(false);
-  const [showTaxModal, setShowTaxModal] = useState(false);
-  const toast = useToast();
   // PortOne 결제창(WebView)을 띄울 요청. null 이면 결제창 미표시.
   const [payRequest, setPayRequest] = useState<Omit<PaymentRequest, 'requestUrl'> | null>(null);
 
   useEffect(() => {
-    const fetchRequest = source === 'interior' ? getInteriorRequest(requestId) : getRequest(requestId);
+    const fetchRequest =
+      source === 'interior' ? getInteriorRequest(requestId) : getRequest(requestId);
     fetchRequest
       .then(setRequest)
-      .catch((err) => setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.'));
+      .catch((err) =>
+        setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.'),
+      );
   }, [requestId, source]);
 
-  /** 결제하기 → PortOne 결제창(WebView) 오픈. paymentId 를 채번해 결제를 시작한다. */
+  // 모바일 브라우저 결제는 결제사 페이지에 갔다가 돌아온다 — 돌아온 결과를 마저 검증한다.
+  useEffect(() => {
+    if (!isWeb) return;
+    const back = takeRequestPaymentReturn(requestId);
+    if (!back) return;
+    setPayMethod(back.payMethod);
+    void finishPayment(back, back.payMethod);
+    // 화면이 처음 열릴 때 한 번만 본다(주소창에서 이미 지웠다).
+  }, []);
+
+  /** 결제하기 → PortOne 결제창 오픈. paymentId 를 채번해 결제를 시작한다. */
   function pay() {
     setError(null);
     if (!request) return;
-    let total = request.agreedFee ?? 0;
-    if (request.kind === 'DEMOLITION') {
-      if (request.status === 'MATCHED') total = Math.floor(total * 0.1);
-      else if (request.status === 'COMPLETED') total = Math.floor(total * 0.9);
-    }
+    // 선결제 — 서버 확정 금액 전액. 서버가 포트원 결제 금액이 agreedFee 와 같은지 검증하므로
+    // 여기서 일부만 청구하면 돈은 빠져나가고 결제 확정은 실패한다.
+    const total = request.agreedFee ?? 0;
     if (total <= 0) {
       setError('결제 금액을 확인할 수 없습니다.');
       return;
@@ -93,6 +111,30 @@ export function PaymentScreen({
       const orderName = isInterior(request)
         ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
         : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
+      if (isWeb) {
+        setPaying(true);
+        requestWebRequestPayment({
+          storeId: portone.storeId,
+          channelKey: portone.channelKey,
+          paymentId: newPaymentId(),
+          orderName,
+          totalAmount: total,
+          payMethod,
+          customer,
+          requestId,
+          source,
+        })
+          .then((res) => {
+            setPaying(false);
+            // undefined = 결제사 페이지로 이동했다(돌아오면 위 effect 가 받는다).
+            if (res) void finishPayment(res, payMethod);
+          })
+          .catch((err: unknown) => {
+            setPaying(false);
+            setError(err instanceof Error ? err.message : '결제창을 열지 못했어요.');
+          });
+        return;
+      }
       setPayRequest({
         storeId: portone.storeId,
         channelKey: portone.channelKey,
@@ -111,10 +153,28 @@ export function PaymentScreen({
     });
   }
 
-  /** 결제창 완료 콜백 → 서버가 결제를 조회·검증(금액 일치)하고 선결제를 확정한다. */
-  async function onPaymentComplete(res: PaymentResponse) {
+  /** 앱 결제창(WebView) 완료 콜백. */
+  function onPaymentComplete(res: PaymentResponse) {
     setPayRequest(null);
-    if ('code' in res && res.code != null) {
+    void finishPayment(
+      {
+        paymentId: res.paymentId,
+        code: 'code' in res && res.code != null ? String(res.code) : undefined,
+        message: 'message' in res ? res.message : undefined,
+      },
+      payMethod,
+    );
+  }
+
+  /**
+   * 결제창 결과(앱·웹·리다이렉트 공통) → 서버가 결제를 조회·검증(금액 일치)하고 선결제를 확정한다.
+   * 결제수단은 인자로 받는다 — 리다이렉트로 돌아온 경우 화면 상태가 아직 기본값이다.
+   */
+  async function finishPayment(
+    res: { paymentId?: string; code?: string; message?: string },
+    method: PayMethod,
+  ) {
+    if (res.code) {
       setError(res.message || '결제에 실패했어요. 다시 시도해 주세요.');
       return;
     }
@@ -124,9 +184,13 @@ export function PaymentScreen({
     }
     setPaying(true);
     try {
-      await prepay({ matchRequestId: requestId, paymentId: res.paymentId, completedDate: todayKST(), payMethod });
+      await prepay({
+        matchRequestId: requestId,
+        paymentId: res.paymentId,
+        completedDate: todayKST(),
+        payMethod: method,
+      });
       setDone(true);
-      setShowTaxModal(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '결제 검증에 실패했습니다.');
     } finally {
@@ -149,11 +213,7 @@ export function PaymentScreen({
     );
   }
 
-  let amount = request.agreedFee ?? 0;
-  if (request.kind === 'DEMOLITION') {
-    if (request.status === 'MATCHED') amount = Math.floor(amount * 0.1);
-    else if (request.status === 'COMPLETED') amount = Math.floor(amount * 0.9);
-  }
+  const amount = request.agreedFee ?? 0;
   // 수수료 계산은 서버 정산과 같은 공유 함수를 쓴다 — 여기서 따로 계산하면
   // 반올림 규칙이 갈라져 화면 금액과 실제 정산액이 어긋난다([[marketplace]]).
   const deal = calculateDeal(amount);
@@ -179,39 +239,21 @@ export function PaymentScreen({
           </FadeInUp>
         </View>
         <StickyFooter>
-          <AppButton label="세금계산서/현금영수증 발행" variant="outline" style={{marginBottom: 8}} onPress={() => setShowTaxModal(true)} />
           <AppButton label="확인" onPress={() => nav.pop()} />
         </StickyFooter>
-        <TaxInvoiceModal
-          visible={showTaxModal}
-          onClose={() => setShowTaxModal(false)}
-          amount={amount}
-          onSubmit={() => {
-             toast.success('발행 요청이 접수되었습니다.');
-          }}
-        />
       </View>
     );
   }
 
   // 결제창 활성화 시 PortOne WebView 를 전체화면으로 띄운다.
   if (payRequest) {
-    if (Platform.OS === 'web') {
-      return (
-        <View style={styles.screen}>
-          <ScreenHeader title="결제 안내" canGoBack />
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: theme.spacing.md }}>
-            <AppIcon name="alert" size={48} color={theme.colors.error} />
-            <Text style={{ marginTop: theme.spacing.sm, fontSize: theme.font.title, fontWeight: 'bold', textAlign: 'center' }}>웹 환경에서는 결제를 지원하지 않습니다.</Text>
-            <Text style={{ marginTop: theme.spacing.xs, fontSize: theme.font.body, color: theme.colors.textMuted, textAlign: 'center' }}>현재 포트원 결제 모듈은 모바일 앱(iOS/Android) 환경에서만 동작합니다. 모바일 기기나 시뮬레이터에서 결제를 진행해 주세요.</Text>
-            <AppButton label="돌아가기" onPress={() => setPayRequest(null)} style={{ marginTop: theme.spacing.md, width: '100%' }} />
-          </View>
-        </View>
-      );
-    }
     return (
       <View style={styles.screen}>
-        <PortOne.Payment request={payRequest} onError={onPaymentError} onComplete={onPaymentComplete} />
+        <PortOne.Payment
+          request={payRequest}
+          onError={onPaymentError}
+          onComplete={onPaymentComplete}
+        />
       </View>
     );
   }
@@ -241,6 +283,7 @@ export function PaymentScreen({
             <FadeInUp key={m} delay={120 + i * 70}>
               <Pressable
                 accessibilityRole="radio"
+                accessibilityLabel={m === 'VBANK' ? '계좌이체(가상계좌)로 결제' : '카드로 결제'}
                 accessibilityState={{ checked: selected }}
                 onPress={() => setPayMethod(m)}
                 style={[styles.methodCard, selected && styles.methodSelected]}
@@ -271,19 +314,12 @@ export function PaymentScreen({
         <ErrorBanner message={error} />
       </ScrollView>
       <StickyFooter>
-        <View style={{ position: 'relative' }}>
-          {paying && (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10, borderRadius: 8, justifyContent: 'center', alignItems: 'center' }]}>
-              <Text style={{fontWeight: '700', color: theme.colors.primary}}>처리중...</Text>
-            </View>
-          )}
-          <AppButton
-            label={`${amount.toLocaleString('ko-KR')}원 결제하기`}
-            onPress={pay}
-            loading={paying}
-            disabled={amount <= 0 || paying}
-          />
-        </View>
+        <AppButton
+          label={`${won(amount)} 결제하기`}
+          onPress={pay}
+          loading={paying}
+          disabled={amount <= 0}
+        />
       </StickyFooter>
       <BuyerEmailModal {...buyer.prompt} />
     </View>
@@ -302,9 +338,20 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   amountLabel: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
-  amount: { color: colors.text, fontSize: font.titleLarge + 8, fontWeight: '800', marginTop: spacing.xs },
+  amount: {
+    color: colors.text,
+    fontSize: font.titleLarge + 8,
+    fontWeight: '800',
+    marginTop: spacing.xs,
+  },
   feeNote: { color: colors.textMuted, fontSize: font.caption, marginTop: spacing.sm },
-  methodTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800', marginBottom: spacing.sm, marginTop: spacing.xs },
+  methodTitle: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+  },
   methodCard: {
     backgroundColor: colors.background,
     borderColor: 'transparent',
@@ -339,6 +386,16 @@ const styles = StyleSheet.create({
     ...theme.shadow.primary,
   },
   doneCheckMark: { color: colors.background, fontSize: font.titleLarge + 12, fontWeight: '800' },
-  doneTitle: { color: colors.text, fontSize: font.titleLarge, fontWeight: '800', textAlign: 'center' },
-  doneDesc: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.sm, textAlign: 'center' },
+  doneTitle: {
+    color: colors.text,
+    fontSize: font.titleLarge,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  doneDesc: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
 });

@@ -6,6 +6,7 @@ import { AppIcon, type IconName } from '../../components/AppIcon';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
 import { requestSubtitle, requestTons } from '../../lib/request-summary';
 import { theme } from '../../theme';
+import { payableAmount } from '../../lib/request-next-step';
 
 /**
  * 대시보드 행 — 목록에서 한 건을 요약한다.
@@ -61,7 +62,7 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
             <View style={styles.topRowRight}>
               {/* 결제가 남은 단계면 먼저 보이게 둔다. 뱃지 모양은 상태 뱃지와 같은 것을 쓴다 —
                   여기서 크기·색을 따로 잡으면 목록에서 이 한 칸만 작고 빨갛게 튄다. */}
-              {(request.status === 'MATCHED' || request.status === 'COMPLETED') && (
+              {payableAmount(request) !== null && (
                 <StatusBadge status="PAYMENT_DUE" label="결제 대기" />
               )}
               <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
@@ -92,14 +93,10 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background,
     borderRadius: radius.card,
-    elevation: 3,
+    ...theme.shadow.card,
     flexDirection: 'row',
     marginBottom: spacing.sm,
     overflow: 'hidden',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
   },
   cardPressed: {
     opacity: 0.92,

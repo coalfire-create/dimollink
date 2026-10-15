@@ -8,13 +8,15 @@ import {
 import { AppIcon } from '../../components/AppIcon';
 import { AppButton } from '../../components/ui';
 import { useNavigation } from '../../navigation';
+import { CostReferenceBox } from './CostReferenceBox';
 import { theme } from '../../theme';
 
 /**
- * 추정 결과 — 톤수 · 차량 대수 · 계산 근거 · 한계 고지 · 다음 행동.
+ * 추정 결과 — 톤수 · 차량 대수 · 철거비 참고 · 계산 근거 · 한계 고지 · 다음 행동.
  *
- * 네 가지를 같이 보여주는 이유가 각각 다르다:
+ * 다섯 가지를 같이 보여주는 이유가 각각 다르다:
  *  - 차량 대수: 톤수만으로는 규모가 안 잡힌다("8톤"보다 "5톤 트럭 2대"가 읽힌다).
+ *  - 철거비 참고: 물량 다음 질문은 "얼마냐"다. 근거(공공 계약)와 한계를 함께 단다.
  *  - 계산 근거: 어떤 값으로 나온 숫자인지 알아야 신뢰하거나 고칠 수 있다.
  *  - 한계 고지(서버 disclaimer): 추정치를 견적으로 오해하면 분쟁이 된다. 반드시 노출한다.
  *  - 다음 행동: 계산만 하고 끝나면 이 화면은 아무것도 남기지 못한다.
@@ -77,6 +79,8 @@ export function EstimateResultCard({
           {structure ? ` · ${BUILDING_STRUCTURE_LABELS[structure]}` : ' · 구조 미지정'}
         </Text>
       </View>
+
+      <CostReferenceBox structure={structure} floorAreaM2={result.floorAreaM2} />
 
       <Text style={styles.disclaimer}>{result.disclaimer}</Text>
 

@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     backgroundColor: colors.primary,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     marginHorizontal: spacing.sm,
     marginBottom: spacing.sm,
     padding: spacing.md,
@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontSize: font.title,
     fontWeight: '800',
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   cardBox: {
     alignItems: 'center',
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     borderWidth: 1.5,
     // 높이를 200 으로 고정해 두면 내용이 위아래로 벌어져 가운데가 텅 빈다.
     flexDirection: 'row',
@@ -159,11 +159,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
     marginBottom: spacing.sm,
     padding: spacing.md,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    ...theme.shadow.card,
   },
   cardBoxText: {
     flex: 1,
@@ -177,7 +173,8 @@ const styles = StyleSheet.create({
   },
   cardBoxSubtitle: {
     color: colors.textMuted,
-    fontSize: font.caption,
+    fontSize: font.body,
+    lineHeight: font.body + 8,
     marginTop: spacing.xs,
   },
   cardBoxIconWrap: {
@@ -192,7 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
     borderColor: colors.border,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     borderWidth: 1,
     flexDirection: 'row',
     marginHorizontal: spacing.sm,
@@ -210,7 +207,7 @@ const styles = StyleSheet.create({
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.xs,
   },
   interiorChevron: {
     color: colors.primary,
