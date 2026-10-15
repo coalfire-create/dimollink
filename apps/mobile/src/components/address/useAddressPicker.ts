@@ -223,7 +223,16 @@ export function useAddressPicker(
     setQuery(picked);
     // 방금 고른 값으로 자동 재검색이 돌지 않도록 표시해 둔다.
     lastAppliedQueryRef.current = picked;
-    if (item.location) panMapTo(item.location.lat, item.location.lng);
+    if (item.location) {
+      // 검색 결과는 이미 확정된 주소다 — 지도가 옮겨진 뒤 알려 주기를 기다리지 않고 바로 고른다.
+      // 지도가 늦게 뜨거나(느린 망) 아예 못 뜨면(카카오 장애) 결과를 눌러도 "주소를 확인하지
+      // 못했어요"에 머물러 신청을 못 했다. 같은 좌표로 기록해 두어 지도가 그 자리에 도착했을 때
+      // 역지오코딩으로 덮어쓰지 않는다(검색 결과 쪽이 도로명·건물명까지 있어 더 정확하다).
+      // 사용자가 지도를 끌어 옮기면 그때는 새 좌표라 평소대로 다시 확인한다.
+      lastHandledCoordsRef.current = { lat: item.location.lat, lng: item.location.lng };
+      setPinResult(item);
+      panMapTo(item.location.lat, item.location.lng);
+    }
   }
 
   function changeQuery(text: string) {
