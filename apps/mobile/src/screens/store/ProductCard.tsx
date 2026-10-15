@@ -1,7 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { isAvailableTo, isPurchasable, type SalesProduct } from '@dimol/shared';
+import {
+  MEMBERSHIP_PASS_DAYS,
+  isAvailableTo,
+  isPurchasable,
+  type SalesProduct,
+} from '@dimol/shared';
 import { AppButton, Card } from '../../components/ui';
+import { won } from '../../lib/format';
 import { usePaymentConfig } from '../../lib/payment-config';
 import { useSession } from '../../navigation';
 import { theme } from '../../theme';
@@ -29,6 +35,8 @@ export function ProductCard({
   const eligible = isAvailableTo(product, user.userType);
   const purchasable = isPurchasable(product, { billingEnabled });
   const refundable = store.refundablePass(product.id);
+  const passDays =
+    (product.billingType === 'ONE_TIME' ? product.grantsDays : undefined) ?? MEMBERSHIP_PASS_DAYS;
 
   return (
     <Card>
@@ -46,11 +54,17 @@ export function ProductCard({
               <>
                 {store.passUntil(product.id) ? (
                   <Text style={styles.subState}>
-                    이용 중 · {store.passUntil(product.id)}까지 (다시 결제하면 30일이 이어져요)
+                    이용 중 · {store.passUntil(product.id)}까지 (다시 결제하면 {passDays}일이
+                    이어져요)
                   </Text>
                 ) : null}
                 <AppButton
-                  label="결제하기"
+                  // 무엇을 누르는지 버튼이 말한다 — 금액과 결과까지.
+                  label={
+                    store.passUntil(product.id)
+                      ? `${passDays}일 연장하기 (${won(product.price)})`
+                      : `${won(product.price)} 결제하고 바로 시작`
+                  }
                   loading={store.busyId === product.id}
                   onPress={() => store.startOneTime(product)}
                 />
