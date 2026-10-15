@@ -54,15 +54,25 @@ export function ProductDetails({
   return (
     <View>
       {/* 대표 영역 — 누구용·무엇·얼마. 한눈에 상품으로 읽히게 브랜드 색 바탕. */}
+      {/* 그림은 위 오른쪽 구석에 — 글자 옆에 두면 좁은 폰(390px)에서 상품명이 세 줄로 깨진다. */}
       <View style={styles.hero}>
-        <View style={styles.heroText}>
+        <View style={styles.heroTop}>
           {product.availableTo ? (
             <View style={styles.audienceChip}>
               <Text style={styles.audienceText}>
                 {product.availableTo.map((t) => USER_TYPE_LABELS[t]).join('·')} 전용
               </Text>
             </View>
-          ) : null}
+          ) : (
+            <View />
+          )}
+          <Image
+            source={{ uri: `${WEB_BASE_URL}${product.imagePath}` }}
+            style={styles.image}
+            resizeMode="cover"
+            accessibilityLabel={`${product.name} 상품 이미지`}
+          />
+        </View>
           <Text style={styles.name} accessibilityRole="header">
             {product.name}
           </Text>
@@ -75,13 +85,6 @@ export function ProductDetails({
               {days}일 · 하루 약 {won(dailyPrice(product.price, days))}
             </Text>
           ) : null}
-        </View>
-        <Image
-          source={{ uri: `${WEB_BASE_URL}${product.imagePath}` }}
-          style={styles.image}
-          resizeMode="cover"
-          accessibilityLabel={`${product.name} 상품 이미지`}
-        />
       </View>
 
       {/* 혜택을 내 돈으로 — 수수료 인하가 얼마인지 대신 계산해 준다([[membership-value]]). */}
@@ -155,23 +158,22 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   hero: {
-    alignItems: 'center',
     backgroundColor: colors.primary,
     borderRadius: radius.card,
-    flexDirection: 'row',
     marginBottom: spacing.sm,
     overflow: 'hidden',
     padding: spacing.md,
   },
-  heroText: {
-    flex: 1,
-    paddingRight: spacing.sm,
+  heroTop: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
   audienceChip: {
     alignSelf: 'flex-start',
     backgroundColor: colors.background,
     borderRadius: radius.pill,
-    marginBottom: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
@@ -202,8 +204,8 @@ const styles = StyleSheet.create({
   image: {
     backgroundColor: colors.primarySoft,
     borderRadius: radius.button,
-    height: 96,
-    width: 96,
+    height: 72,
+    width: 72,
   },
   value: {
     backgroundColor: colors.primarySoft,
