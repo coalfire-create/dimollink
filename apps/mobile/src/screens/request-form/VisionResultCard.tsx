@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DimolVisionSummary } from '@dimol/shared';
+import { IconTile } from '../../components/ui';
 import { theme } from '../../theme';
 
 /**
@@ -8,30 +9,48 @@ import { theme } from '../../theme';
  *
  * 신뢰도를 함께 적는 이유: 사진이 흐리거나 부위가 빠지면 분석이 흔들리는데,
  * 결과만 단정적으로 보여주면 사용자가 그대로 믿고 현장에서 어긋난다.
+ * 값은 서버의 영문 코드(HIGH/MEDIUM/LOW)라 화면에서는 말로 바꿔 보여준다.
  */
+const CONFIDENCE_LABELS: Record<string, string> = {
+  HIGH: '높음',
+  MEDIUM: '보통',
+  NORMAL: '보통',
+  LOW: '낮음',
+};
+
 export function VisionResultCard({ vision }: { vision: DimolVisionSummary }) {
+  const confidence = CONFIDENCE_LABELS[vision.confidence ?? ''] ?? '보통';
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.badge}>현장 분석</Text>
-        <Text style={styles.confidence}>신뢰도: {vision.confidence ?? 'NORMAL'}</Text>
+        <IconTile icon="sparkles" size="sm" style={styles.headerIcon} />
+        <Text style={styles.title}>사진 분석 결과</Text>
+        <View style={styles.confidence}>
+          <Text style={styles.confidenceText}>신뢰도 {confidence}</Text>
+        </View>
       </View>
-      <Text style={styles.summary}>&quot;{vision.summary}&quot;</Text>
+      {vision.summary ? <Text style={styles.summary}>{vision.summary}</Text> : null}
       {vision.hazards && vision.hazards.length > 0 ? (
         <View style={styles.hazardBox}>
           <Text style={styles.hazardTitle}>주의가 필요한 위험 요인</Text>
           {vision.hazards.map((hazard) => (
             <Text key={hazard} style={styles.hazardItem}>
-              • {hazard}
+              · {hazard}
             </Text>
           ))}
         </View>
       ) : null}
       {vision.materials && vision.materials.length > 0 ? (
-        <View style={styles.materialBox}>
-          <Text style={styles.materialTitle}>사진에서 찾은 주요 소재</Text>
-          <Text style={styles.materialText}>{vision.materials.join(', ')}</Text>
-        </View>
+        <>
+          <Text style={styles.sectionLabel}>사진에서 찾은 주요 소재</Text>
+          <View style={styles.chips}>
+            {vision.materials.map((m) => (
+              <View key={m} style={styles.chip}>
+                <Text style={styles.chipText}>{m}</Text>
+              </View>
+            ))}
+          </View>
+        </>
       ) : null}
     </View>
   );
@@ -41,64 +60,80 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
-    borderWidth: 1.5,
+    backgroundColor: colors.background,
     borderRadius: radius.card,
+    marginBottom: spacing.sm,
     padding: spacing.md,
-    marginBottom: spacing.md,
+    ...theme.shadow.card,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    flexDirection: 'row',
   },
-  badge: {
-    backgroundColor: colors.primary,
-    color: colors.background,
-    fontSize: font.caption,
+  headerIcon: {
+    marginRight: spacing.xs,
+  },
+  title: {
+    color: colors.text,
+    flex: 1,
+    fontSize: font.bodyLarge,
     fontWeight: '800',
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: 4,
   },
   confidence: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+  },
+  confidenceText: {
     color: colors.textMuted,
     fontSize: font.caption,
+    fontWeight: '700',
   },
   summary: {
     color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '700',
-    marginVertical: spacing.xs,
+    fontSize: font.body,
+    lineHeight: 28,
+    marginTop: spacing.sm,
   },
   hazardBox: {
-    backgroundColor: colors.errorSoft,
+    backgroundColor: theme.colors.warningSoft,
     borderRadius: radius.button,
+    marginTop: spacing.sm,
     padding: spacing.sm,
-    marginTop: spacing.xs,
   },
   hazardTitle: {
-    color: colors.error,
-    fontSize: font.caption,
-    fontWeight: '700',
-    marginBottom: spacing.xs / 2,
+    color: theme.colors.warning,
+    fontSize: font.body,
+    fontWeight: '800',
   },
   hazardItem: {
-    color: colors.error,
-    fontSize: font.caption,
+    color: colors.text,
+    fontSize: font.body,
+    lineHeight: 26,
+    marginTop: spacing.xs / 2,
   },
-  materialBox: {
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginTop: spacing.sm,
+  },
+  chips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  materialTitle: {
-    color: colors.text,
-    fontSize: font.caption,
-    fontWeight: '700',
+  chip: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
   },
-  materialText: {
-    color: colors.textMuted,
-    fontSize: font.caption,
+  chipText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
   },
 });

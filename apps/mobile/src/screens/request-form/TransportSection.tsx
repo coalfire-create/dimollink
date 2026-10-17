@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { AddressPickerField } from '../../components/AddressPickerField';
+import { ListGroup, ListRow } from '../../components/ui';
 import { theme } from '../../theme';
 import type { RequestFormState } from './useRequestForm';
 
@@ -36,60 +37,30 @@ export function TransportSection({ form }: { form: RequestFormState }) {
 export function TransportPhotoButtons({ form }: { form: RequestFormState }) {
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
-        style={styles.fillBtn}
-        onPress={() => form.setCameraOpen(true)}
-        disabled={form.photoBusy}
-      >
-        <Text style={styles.fillText}>
-          {form.photoBusy ? '사진 업로드 중…' : '사진 첨부 (소재 자동분류)'}
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        style={styles.altBtn}
-        onPress={form.fillFromPhoto}
-        disabled={form.photoBusy}
-      >
-        <Text style={styles.altText}>또는 앨범에서 선택</Text>
-      </Pressable>
+      <ListGroup>
+        <ListRow
+          icon="camera"
+          title="사진 찍어 첨부"
+          subtitle="폐기물 소재를 사진으로 자동 분류해요"
+          busy={form.photoBusy}
+          onPress={() => form.setCameraOpen(true)}
+        />
+        <ListRow
+          icon="image"
+          title="앨범에서 선택"
+          subtitle="이미 찍어 둔 사진을 올려요"
+          disabled={form.photoBusy}
+          onPress={form.fillFromPhoto}
+        />
+      </ListGroup>
       {form.photoSummary ? <Text style={styles.summary}>{form.photoSummary}</Text> : null}
     </>
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  fillBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: theme.touch.minButtonHeight,
-    borderRadius: radius.button,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-    backgroundColor: colors.primarySoft,
-    marginBottom: spacing.xs,
-  },
-  fillText: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '800',
-  },
-  altBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: theme.touch.minButtonHeight,
-    marginBottom: spacing.xs,
-  },
-  altText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
   summary: {
     color: colors.textMuted,
     fontSize: font.caption,
