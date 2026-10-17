@@ -41,8 +41,18 @@ export function WasteBreakdownCard({
       <SectionTitle>물량 브리핑</SectionTitle>
 
       <Card>
-        <Text style={styles.total}>{wasteTons.toLocaleString('ko-KR')}톤</Text>
-        <Text style={styles.totalNote}>신청 내용 기준 예상 폐기물량</Text>
+        {/* 실사·사진 분석 전 철거는 물량이 0 — "0톤"을 크게 띄우면 물량이 없는 현장으로 읽힌다. */}
+        {wasteTons > 0 ? (
+          <>
+            <Text style={styles.total}>{wasteTons.toLocaleString('ko-KR')}톤</Text>
+            <Text style={styles.totalNote}>신청 내용 기준 예상 폐기물량</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.pending}>물량 미정</Text>
+            <Text style={styles.totalNote}>사진 분석이나 현장 실사 후에 잡혀요</Text>
+          </>
+        )}
 
         {trucks.length > 0 ? (
           <View style={styles.truckRow}>
@@ -118,6 +128,11 @@ export function WasteBreakdownCard({
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
+  pending: {
+    color: theme.colors.textMuted,
+    fontSize: theme.font.title,
+    fontWeight: '800',
+  },
   total: {
     color: colors.text,
     fontSize: font.titleLarge,

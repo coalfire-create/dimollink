@@ -36,9 +36,9 @@ export function PartnerHomeHeader({
   const nav = useNavigation();
   const headline =
     openCount > 0
-      ? `${openLabel} ${openCount}건이 기다리고 있어요`
+      ? `${openLabel} ${openCount}건이\n기다리고 있어요`
       : activeCount > 0
-        ? `진행 중인 일 ${activeCount}건을 확인해 보세요`
+        ? `진행 중인 일 ${activeCount}건을\n확인해 보세요`
         : '지금은 새로 들어온 일이 없어요';
 
   return (

@@ -1,9 +1,8 @@
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { IconName } from '../components/AppIcon';
-import { Card, IconTile, InlineEmpty, SectionTitle } from '../components/ui';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { InlineEmpty, ListGroup, ListRow, SectionTitle } from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
-import { FadeInUp, PressableScale } from '../components/motion';
+import { FadeInUp } from '../components/motion';
 import { TabBar, useNavigation, useSession } from '../navigation';
 import { ROLE_CONFIG, requestsTabLabel } from '../roleConfig';
 import { AssignedJobList } from './home/JobCard';
@@ -65,22 +64,21 @@ export function DemolitionHomeScreen() {
           <AssignedJobList title="수주한 철거" jobs={assigned} emptyText="수주한 철거가 없어요." />
 
           <SectionTitle>이어서 맡기기</SectionTitle>
-          <Card style={styles.actions}>
-            <ActionRow
+          <ListGroup>
+            <ListRow
               icon="truck"
               title="운반 차량 부르기"
               subtitle="철거 후 반출까지 이어서 맡겨요"
               hint="상·하차 주소와 폐기물을 입력해 운반을 요청합니다"
               onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
             />
-            <View style={styles.divider} />
-            <ActionRow
+            <ListRow
               icon="recycle"
               title="처리장 예약하기"
               subtitle="폐기물 반입 일정을 미리 잡아요"
               onPress={() => nav.push({ name: 'requestForm', kind: 'DISPOSAL_RESERVATION' })}
             />
-          </Card>
+          </ListGroup>
 
           <MarketRateCard rate={rate} party={config.marketRateParty} />
         </View>
@@ -90,39 +88,7 @@ export function DemolitionHomeScreen() {
   );
 }
 
-/** 목록형 바로가기 한 줄 — 아이콘 + 제목/설명 + ›. */
-function ActionRow({
-  icon,
-  title,
-  subtitle,
-  hint,
-  onPress,
-}: {
-  icon: IconName;
-  title: string;
-  subtitle: string;
-  hint?: string;
-  onPress: () => void;
-}) {
-  return (
-    <PressableScale
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityHint={hint}
-      style={styles.row}
-      onPress={onPress}
-    >
-      <IconTile icon={icon} style={styles.rowIcon} />
-      <View style={styles.rowText}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowSubtitle}>{subtitle}</Text>
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </PressableScale>
-  );
-}
-
-const { colors, font, spacing } = theme;
+const { colors, spacing } = theme;
 
 const styles = StyleSheet.create({
   screen: {
@@ -135,39 +101,5 @@ const styles = StyleSheet.create({
   },
   body: {
     paddingHorizontal: spacing.sm,
-  },
-  actions: {
-    paddingVertical: spacing.xs,
-  },
-  divider: {
-    backgroundColor: colors.border,
-    height: 1,
-  },
-  row: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: theme.touch.primaryButtonHeight + spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  rowIcon: {
-    marginRight: spacing.sm,
-  },
-  rowText: {
-    flex: 1,
-  },
-  rowTitle: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  rowSubtitle: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginTop: spacing.xs / 2,
-  },
-  chevron: {
-    color: colors.textMuted,
-    fontSize: font.titleLarge,
-    marginLeft: spacing.xs,
   },
 });

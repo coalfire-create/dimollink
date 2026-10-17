@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   INTERIOR_CATEGORY_LABELS,
-  calculateDeal,
+  CANCELLATION_PENALTY_RATE,
   REQUEST_KIND_LABELS,
   VIRTUAL_ACCOUNT_VALID_HOURS,
   type InteriorRequest,
@@ -16,11 +16,12 @@ import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client'
 import { usePaymentConfig } from '../lib/payment-config';
 import { useBuyerEmail } from '../lib/buyer-email';
 import { BuyerEmailModal } from '../components/BuyerEmailModal';
-import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
+import { AppButton, ErrorBanner, IconTile, LoadingView, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
-import { AppIcon } from '../components/AppIcon';
+import { AppIcon, type IconName } from '../components/AppIcon';
 import { won } from '../lib/format';
+import { requestTons } from '../lib/request-summary';
 import {
   requestWebRequestPayment,
   takeRequestPaymentReturn,
@@ -214,12 +215,10 @@ export function PaymentScreen({
   }
 
   const amount = request.agreedFee ?? 0;
-  // 수수료 계산은 서버 정산과 같은 공유 함수를 쓴다 — 여기서 따로 계산하면
-  // 반올림 규칙이 갈라져 화면 금액과 실제 정산액이 어긋난다([[marketplace]]).
-  const deal = calculateDeal(amount);
+  // 철거는 실사 전까지 물량이 0 이라 "0톤"을 붙이지 않는다([[requestTons]]).
   const headline = isInterior(request)
     ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
-    : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
+    : [REQUEST_KIND_LABELS[request.kind], requestTons(request)].filter(Boolean).join(' · ');
 
   if (done) {
     return (
@@ -233,8 +232,8 @@ export function PaymentScreen({
             <Text style={styles.doneTitle}>결제가 완료됐어요</Text>
             <Text style={styles.doneDesc}>
               {payMethod === 'VBANK'
-                ? '가상계좌 입금 안내를 보냈어요. 입금되면 작업이 시작돼요.'
-                : '카드 결제 완료. 곧 작업이 시작돼요.'}
+                ? `가상계좌가 발급됐어요. ${VIRTUAL_ACCOUNT_VALID_HOURS}시간 안에 입금하면 일정이 확정돼요.`
+                : '카드 결제가 끝났어요. 작업일에 업체가 현장에 나가요.'}
             </Text>
           </FadeInUp>
         </View>
@@ -258,57 +257,79 @@ export function PaymentScreen({
     );
   }
 
+  const methods: { key: PayMethod; icon: IconName; title: string; hint: string; badge?: string }[] =
+    [
+      {
+        key: 'VBANK',
+        icon: 'building',
+        title: '계좌이체',
+        hint: `가상계좌 발급 · ${VIRTUAL_ACCOUNT_VALID_HOURS}시간 안에 입금`,
+        badge: '추천',
+      },
+      { key: 'CARD', icon: 'card', title: '카드 결제', hint: '바로 결제하고 바로 확정' },
+    ];
+
   return (
     <View style={styles.screen}>
       <ScreenHeader title="결제" canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
+        {/* 금액이 주인공 — 무엇에 얼마를 내는지 한 덩어리로 먼저 보여준다. */}
         <FadeInUp delay={40}>
-          <View style={styles.heroCard}>
-            <Text style={styles.amountLabel}>{headline}</Text>
-            <Text style={styles.amount}>{amount.toLocaleString('ko-KR')}원</Text>
-            <Text style={styles.feeNote}>
-              수수료 {Math.round(deal.feeRate * 100)}%(
-              {deal.platformFee.toLocaleString('ko-KR')}원)는 업체 정산 시 차감돼요
-            </Text>
-            <Text style={styles.feeNote}>
-              업체 수령액 {deal.sellerPayout.toLocaleString('ko-KR')}원
-            </Text>
+          <Text style={styles.amountLabel}>결제할 금액</Text>
+          <Text style={styles.amount}>{won(amount)}</Text>
+          <Text style={styles.headline}>{headline}</Text>
+        </FadeInUp>
+
+        <FadeInUp delay={90}>
+          <View style={styles.summary}>
+            <SummaryRow label="결제 방식" value="선결제 · 추가 비용 없음" />
+            <SummaryRow label="배차 전 취소" value="전액 환불" />
+            <SummaryRow
+              label="배차 후 ~ 작업 전"
+              value={`위약금 ${Math.round(CANCELLATION_PENALTY_RATE * 100)}% 제외 환불`}
+              last
+            />
           </View>
         </FadeInUp>
 
         <Text style={styles.methodTitle}>결제수단</Text>
-        {(['VBANK', 'CARD'] as PayMethod[]).map((m, i) => {
-          const selected = payMethod === m;
-          return (
-            <FadeInUp key={m} delay={120 + i * 70}>
+        <View style={styles.methods} accessibilityRole="radiogroup">
+          {methods.map((m, i) => {
+            const selected = payMethod === m.key;
+            return (
               <Pressable
+                key={m.key}
                 accessibilityRole="radio"
-                accessibilityLabel={m === 'VBANK' ? '계좌이체(가상계좌)로 결제' : '카드로 결제'}
+                accessibilityLabel={`${m.title}. ${m.hint}`}
                 accessibilityState={{ checked: selected }}
-                onPress={() => setPayMethod(m)}
-                style={[styles.methodCard, selected && styles.methodSelected]}
+                onPress={() => setPayMethod(m.key)}
+                style={[styles.method, i > 0 && styles.methodDivided]}
               >
-                <Text style={[styles.methodLabel, selected && { color: theme.colors.primary }]}>
-                  {selected ? '✓ ' : ''}
-                  {m === 'VBANK' ? '계좌이체 (가상계좌)' : '카드 결제'}
-                </Text>
-                {m === 'VBANK' ? (
-                  <Text style={styles.methodHint}>수수료 부담이 적어요 · 권장</Text>
-                ) : null}
+                <View style={[styles.radio, selected && styles.radioOn]}>
+                  {selected ? <View style={styles.radioDot} /> : null}
+                </View>
+                <IconTile icon={m.icon} size="sm" style={styles.methodIcon} />
+                <View style={styles.methodText}>
+                  <View style={styles.methodTitleRow}>
+                    <Text style={[styles.methodLabel, selected && styles.methodLabelOn]}>
+                      {m.title}
+                    </Text>
+                    {m.badge ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{m.badge}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.methodHint}>{m.hint}</Text>
+                </View>
               </Pressable>
-            </FadeInUp>
-          );
-        })}
+            );
+          })}
+        </View>
 
-        <View style={styles.trustBox}>
-          <View style={styles.trustRow}>
-            <AppIcon name="lock" size={18} color={theme.colors.textMuted} />
-            <Text style={styles.trustLine}>안전한 결제는 포트원(PortOne)이 처리해요</Text>
-          </View>
-          <View style={styles.trustRow}>
-            <AppIcon name="check" size={18} color={theme.colors.textMuted} />
-            <Text style={styles.trustLine}>배차 전 취소 시 전액 환불돼요</Text>
-          </View>
+        <View style={styles.trustRow}>
+          <AppIcon name="lock" size={18} color={theme.colors.textMuted} filled />
+          <Text style={styles.trustLine}>결제는 포트원(PortOne)이 안전하게 처리해요</Text>
         </View>
 
         <ErrorBanner message={error} />
@@ -326,52 +347,101 @@ export function PaymentScreen({
   );
 }
 
+function SummaryRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <View style={[styles.summaryRow, !last && styles.summaryRowDivided]}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={styles.summaryValue}>{value}</Text>
+    </View>
+  );
+}
+
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
-  heroCard: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.card,
-    marginBottom: spacing.md,
-    padding: spacing.lg,
-  },
-  amountLabel: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
+  amountLabel: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
   amount: {
     color: colors.text,
-    fontSize: font.titleLarge + 8,
+    fontSize: font.titleLarge + 12,
     fontWeight: '800',
-    marginTop: spacing.xs,
+    letterSpacing: -1,
+    marginTop: spacing.xs / 2,
   },
-  feeNote: { color: colors.textMuted, fontSize: font.caption, marginTop: spacing.sm },
+  headline: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
+  summary: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  summaryRowDivided: { borderBottomColor: colors.border, borderBottomWidth: 1 },
+  summaryLabel: { color: colors.textMuted, fontSize: font.body },
+  summaryValue: {
+    color: colors.text,
+    flexShrink: 1,
+    fontSize: font.body,
+    fontWeight: '700',
+    marginLeft: spacing.sm,
+    textAlign: 'right',
+  },
   methodTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '800',
     marginBottom: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: spacing.lg,
   },
-  methodCard: {
+  methods: {
     backgroundColor: colors.background,
-    borderColor: 'transparent',
     borderRadius: radius.card,
-    borderWidth: 2,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
+    paddingHorizontal: spacing.sm,
     ...theme.shadow.card,
   },
-  methodSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  methodLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
-  methodHint: { color: colors.textMuted, fontSize: font.caption, marginTop: spacing.xs / 2 },
-  trustBox: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.button,
-    gap: spacing.xs / 2,
-    marginTop: spacing.sm,
-    padding: spacing.md,
+  method: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    minHeight: theme.touch.primaryButtonHeight + spacing.md,
+    paddingVertical: spacing.sm,
   },
-  trustRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs / 2 },
+  methodDivided: { borderTopColor: colors.border, borderTopWidth: 1 },
+  radio: {
+    alignItems: 'center',
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    height: 24,
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    width: 24,
+  },
+  radioOn: { borderColor: colors.primary },
+  radioDot: { backgroundColor: colors.primary, borderRadius: radius.pill, height: 12, width: 12 },
+  methodIcon: { marginRight: spacing.sm },
+  methodText: { flex: 1 },
+  methodTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  methodLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
+  methodLabelOn: { color: colors.primary, fontWeight: '800' },
+  badge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs,
+  },
+  badgeText: { color: colors.background, fontSize: font.caption, fontWeight: '800' },
+  methodHint: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
+  trustRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    justifyContent: 'center',
+    marginTop: spacing.md,
+  },
   trustLine: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
   doneBox: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: spacing.lg },
   doneCheck: {

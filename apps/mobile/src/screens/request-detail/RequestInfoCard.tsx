@@ -25,7 +25,8 @@ export function RequestInfoCard({
         {request.kind !== 'DEMOLITION' ? (
           <InfoRow label="예상 무게" value={`${request.wasteTons}톤`} />
         ) : null}
-        <InfoRow label="올바로 신고" value={request.allbaroRequested ? '신청함' : '간이 확인서'} />
+        {/* 올바로 신고를 신청한 건은 위 [[AllbaroStatusCard]] 가 따로 설명한다. */}
+        {!request.allbaroRequested ? <InfoRow label="폐기물 확인" value="간이 확인서" /> : null}
 
         {request.kind === 'DEMOLITION' ? <DemolitionInfoRows request={request} /> : null}
 
