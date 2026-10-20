@@ -122,10 +122,15 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       return;
     }
 
+    const maxRadiusKm =
+      provider.userType === 'TRANSPORT_COMPANY'
+        ? (provider.matchRadiusKm ?? MATCH_RADIUS_KM)
+        : MATCH_RADIUS_KM;
+
     if (request.location && provider.location) {
       const dist = haversineDistanceKm(request.location, provider.location);
-      if (dist > MATCH_RADIUS_KM) {
-        res.status(400).json({ error: `매칭 반경(${MATCH_RADIUS_KM}km)을 벗어난 일감은 수락할 수 없어요.` });
+      if (dist > maxRadiusKm) {
+        res.status(400).json({ error: `매칭 반경(${maxRadiusKm}km)을 벗어난 일감은 수락할 수 없어요.` });
         return;
       }
     } else if (!regionMatches(request.region, provider.region)) {

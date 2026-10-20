@@ -1,7 +1,7 @@
 // 타입 전용 순환 참조(building-ledger 는 BuildingType 을 여기서 가져간다) — 컴파일 시 지워진다.
 import type { BuildingLedgerInfo } from './building-ledger.js';
 import type { GeoPoint } from './geo.js';
-import type { MatchStatus, WasteCategory } from './types.js';
+import type { ManifestResult, MatchStatus, WasteCategory } from './types.js';
 import type { UserType } from './user.js';
 import { isVisionMaterialCode, type VisionMaterialCode } from './vision-taxonomy.js';
 
@@ -118,6 +118,17 @@ interface ServiceRequestBase {
   location?: GeoPoint;
   /** "올바로 전자인계서 신고 필요" 체크박스 값. */
   allbaroRequested: boolean;
+  /**
+   * 올바로 전자인계서(또는 간이확인서) 발행 결과.
+   * 장애 폴백(RETRY_QUEUED) 후 재시도 큐에서 올바로 발행이 성공하면 ALLBARO_API 로 덮어써
+   * 폴백 간이확인서를 대체한다.
+   */
+  allbaroManifest?: ManifestResult;
+  /**
+   * 처리장 반입·계량(`/allbaro/disposal-info`)으로 확정된 실제 처리 중량(톤).
+   * 원격 견적 정합성(물량 오차) 대사 및 요청 상세 표시의 기준값.
+   */
+  actualWeighedTons?: number;
   /** 현장 사진 오브젝트 키 목록 (`isValidSitePhotoKey` 형식만 허용). */
   sitePhotoKeys: string[];
   status: MatchStatus;

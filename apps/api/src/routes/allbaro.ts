@@ -11,6 +11,7 @@ import {
   toSafeQueueView,
 } from '../allbaro/manifest-service.js';
 import type { RetryQueueItem } from '../allbaro/retry-queue.js';
+import type { RequestStore } from '../requests/store.js';
 
 /** AllbaroError 코드 → HTTP 상태 매핑. */
 const STATUS_BY_CODE: Record<string, number> = {
@@ -80,6 +81,7 @@ export function createAllbaroRouter(
   client: AllbaroClient = createAllbaroClient(),
   service: ManifestService = getDefaultManifestService(client),
   adminAlerter: AllbaroAdminAlerter = new ConsoleAllbaroAdminAlerter(),
+  requestStore?: Pick<RequestStore, 'recordActualWeighedTons'>,
 ): Router {
   const router = Router();
   const onExhausted = (item: RetryQueueItem) => adminAlerter.notifyExhausted(item);
@@ -164,16 +166,35 @@ export function createAllbaroRouter(
   // POST /api/allbaro/disposal-info  처리자 반입/계량 정보 등록 (T400_5001_01)
   router.post('/allbaro/disposal-info', async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
-    if (typeof b.manifestNo !== 'string' || typeof b.weighedTons !== 'number' || typeof b.receivedAt !== 'string') {
-      res.status(400).json({ error: 'manifestNo(문자열), weighedTons(숫자), receivedAt(문자열)이 필요합니다.' });
+    if (
+      typeof b.manifestNo !== 'string' ||
+      typeof b.weighedTons !== 'number' ||
+      !(b.weighedTons > 0) ||
+      typeof b.receivedAt !== 'string'
+    ) {
+      res.status(400).json({ error: 'manifestNo(문자열), weighedTons(양수), receivedAt(문자열)이 필요합니다.' });
       return;
     }
     try {
-      res.json(await client.registerDisposalInfo({
+      const result = await client.registerDisposalInfo({
         manifestNo: b.manifestNo,
         weighedTons: b.weighedTons,
         receivedAt: b.receivedAt,
-      }));
+      });
+      if (requestStore) {
+        try {
+          await requestStore.recordActualWeighedTons(
+            {
+              matchRequestId: typeof b.matchRequestId === 'string' ? b.matchRequestId : undefined,
+              manifestNo: b.manifestNo,
+            },
+            b.weighedTons,
+          );
+        } catch {
+          // 요청 레코드 부가 기록 실패가 올바로 반입 등록 성공 응답을 깨뜨리면 안 된다.
+        }
+      }
+      res.json(result);
     } catch (err) {
       sendAllbaroError(res, err, '반입/계량 정보 등록 중 오류가 발생했습니다.');
     }

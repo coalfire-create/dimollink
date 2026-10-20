@@ -14,8 +14,29 @@ import { theme } from '../../theme';
 const FLOW = ['배출자', '운반자', '처리자'];
 
 export function AllbaroStatusCard({ request }: { request: ServiceRequest }) {
-  if (!request.allbaroRequested || request.status === 'CANCELLED') return null;
+  const manifest = request.allbaroManifest;
+  if ((!request.allbaroRequested && !manifest) || request.status === 'CANCELLED') return null;
   const waiting = request.status === 'REQUESTED';
+
+  const docNumber =
+    manifest?.route === 'ALLBARO_API' ? manifest.manifestNo : manifest?.simpleConfirmNo;
+  const docLabel = manifest?.route === 'ALLBARO_API' ? '전자인계서 번호' : '간이확인서 번호';
+
+  let bodyText: string;
+  if (manifest?.route === 'ALLBARO_API') {
+    bodyText = '환경부 올바로시스템에 전자인계서가 정식 발행됐어요.';
+  } else if (manifest?.route === 'RETRY_QUEUED') {
+    bodyText =
+      '올바로 일시 지연으로 간이확인서를 먼저 발급했어요. 백그라운드에서 전자인계서 자동 재발행을 진행 중이에요.';
+  } else if (manifest?.route === 'SIMPLE_CONFIRM') {
+    bodyText = '자체 간이확인서가 발급됐어요.';
+  } else if (waiting) {
+    bodyText = '업체 매칭이 확정되면 인계서를 자동으로 발행해요.';
+  } else {
+    bodyText =
+      '매칭 확정과 함께 발행 절차가 시작됐어요. 올바로 장애 시에는 간이확인서로 대신하고 다시 시도해요.';
+  }
+
   return (
     <Card>
       <View style={styles.header}>
@@ -35,11 +56,23 @@ export function AllbaroStatusCard({ request }: { request: ServiceRequest }) {
           </React.Fragment>
         ))}
       </View>
-      <Text style={styles.body}>
-        {waiting
-          ? '업체 매칭이 확정되면 인계서를 자동으로 발행해요.'
-          : '매칭 확정과 함께 발행 절차가 시작됐어요. 올바로 장애 시에는 간이확인서로 대신하고 다시 시도해요.'}
-      </Text>
+      {docNumber || request.actualWeighedTons !== undefined ? (
+        <View style={styles.metaBox}>
+          {docNumber ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>{docLabel}</Text>
+              <Text style={styles.metaValue}>{docNumber}</Text>
+            </View>
+          ) : null}
+          {request.actualWeighedTons !== undefined ? (
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>처리장 실측 중량</Text>
+              <Text style={styles.metaValue}>{request.actualWeighedTons}톤</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      <Text style={styles.body}>{bodyText}</Text>
     </Card>
   );
 }
@@ -62,5 +95,19 @@ const styles = StyleSheet.create({
   },
   stepText: { color: colors.primary, fontSize: font.body, fontWeight: '800' },
   arrow: { color: colors.textMuted, fontSize: font.title },
+  metaBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.button,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+  },
+  metaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  metaLabel: { color: colors.textMuted, fontSize: font.body },
+  metaValue: { color: colors.text, fontSize: font.body, fontWeight: '700' },
   body: { color: colors.textMuted, fontSize: font.body, lineHeight: 26, marginTop: spacing.sm },
 });

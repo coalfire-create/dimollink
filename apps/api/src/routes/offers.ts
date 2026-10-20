@@ -1,5 +1,6 @@
 import type { MatchOfferStatus } from '@dimol/shared';
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
+import type { AuthedRequest } from '../middleware/auth.js';
 import { OfferStore, OfferValidationError } from '../offers/store.js';
 
 /**
@@ -17,6 +18,28 @@ export function createOffersRouter(store: OfferStore): Router {
       return;
     }
     res.status(500).json({ error: '매칭 제안 처리 오류' });
+  }
+
+  /** 제안 대상 업체 본인인지 확인(인증 미들웨어가 붙은 경우 authUser.id 대조). */
+  async function respondIfOwner(
+    offerId: string,
+    req: Request,
+    res: Response,
+    action: 'ACCEPT' | 'DECLINE',
+  ) {
+    try {
+      const actorId = (req as Partial<AuthedRequest>).authUser?.id;
+      if (actorId) {
+        const offer = await store.get(offerId);
+        if (offer && offer.providerId !== actorId) {
+          res.status(403).json({ error: '제안받은 업체 본인만 응답할 수 있어요.' });
+          return;
+        }
+      }
+      res.json(await store.respond(offerId, action));
+    } catch (err) {
+      handleError(err, res);
+    }
   }
 
   // POST /api/offers  { requestId, providerId, ttlMinutes? }
@@ -40,20 +63,8 @@ export function createOffersRouter(store: OfferStore): Router {
   });
 
   // POST /api/offers/:id/accept | /decline — 업체 응답
-  router.post('/offers/:id/accept', async (req, res) => {
-    try {
-      res.json(await store.respond(req.params.id, 'ACCEPT'));
-    } catch (err) {
-      handleError(err, res);
-    }
-  });
-  router.post('/offers/:id/decline', async (req, res) => {
-    try {
-      res.json(await store.respond(req.params.id, 'DECLINE'));
-    } catch (err) {
-      handleError(err, res);
-    }
-  });
+  router.post('/offers/:id/accept', (req, res) => respondIfOwner(req.params.id, req, res, 'ACCEPT'));
+  router.post('/offers/:id/decline', (req, res) => respondIfOwner(req.params.id, req, res, 'DECLINE'));
 
   // GET /api/offers?requestId=&providerId=&status=
   router.get('/offers', async (req, res) => {

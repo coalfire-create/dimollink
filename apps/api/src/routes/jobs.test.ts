@@ -233,6 +233,41 @@ describe('업체 일감 피드 (/api/jobs)', () => {
     expect(body.open[0].distanceKm).toBe(0);
     expect(body.open[1].distanceKm).toBeGreaterThan(0);
   });
+
+  it('운반업체가 설정한 매칭 반경(matchRadiusKm)이 피드 조회와 수락 모두에 동일하게 적용된다', async () => {
+    const t = await userStore.create({
+      userType: 'TRANSPORT_COMPANY',
+      name: '광역운반',
+      region: PILOT.region,
+      phone: '01020000018',
+      businessNumber: BIZ_A,
+      location: { lat: 37.49, lng: 127.49 },
+    });
+    await userStore.setApprovalStatus(t.id, 'APPROVED');
+    // 반경 50km 로 확대 설정
+    await userStore.setAvailability(t.id, 'ONLINE', 50);
+
+    // 약 36km 거리(기본 30km 밖이지만 50km 안)
+    const req36km = await requestStore.create({
+      kind: 'TRANSPORT',
+      requesterId: 'consumer-36',
+      region: PILOT.region,
+      wasteCategory: PILOT.wasteCategory,
+      wasteTons: 3,
+      allbaroRequested: false,
+      loadAddress: '36km 상차지',
+      unloadAddress: '하차지',
+      location: { lat: 37.7, lng: 127.8 },
+    });
+
+    const { body } = await getJobs(t.id);
+    expect(body.open.some((j: { id: string }) => j.id === req36km.id)).toBe(true);
+
+    // 피드에서 보인 일감은 수락도 200 으로 통과해야 한다
+    const accepted = await accept(req36km.id, t.id, 180_000);
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.status).toBe('MATCHED');
+  });
 });
 
 describe('철거는 선착순 수주가 막혀 있다', () => {

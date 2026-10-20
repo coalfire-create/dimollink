@@ -1,5 +1,6 @@
 import type { ManifestIssueRequest } from '@dimol/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { RequestStore } from '../requests/store.js';
 import { AllbaroClient, type AllbaroClientConfig } from './client.js';
 import { ManifestService, processRetryQueue } from './manifest-service.js';
 import { InMemoryRetryQueue } from './retry-queue.js';
@@ -200,5 +201,53 @@ describe('processRetryQueue', () => {
 
     expect(summary.processed).toBe(0);
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('폴백(RETRY_QUEUED) 후 재시도 성공 시 요청의 간이확인서를 정식 ALLBARO_API 인계서로 대체한다', async () => {
+    const requestStore = new RequestStore();
+    const created = await requestStore.create({
+      kind: 'TRANSPORT',
+      requesterId: 'd-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 6,
+      allbaroRequested: true,
+      loadAddress: '양평 상차지',
+      unloadAddress: '양평 하차지',
+    });
+
+    const queue = new InMemoryRetryQueue();
+    const record = (res: Parameters<RequestStore['recordManifestResult']>[0]) =>
+      requestStore.recordManifestResult(res);
+
+    // 1차 시도: 올바로 500 장애 → 폴백 간이확인서 기록 + 큐 적재
+    const failingService = new ManifestService(
+      makeClient(vi.fn().mockResolvedValue(httpErrorResponse(500))),
+      queue,
+      record,
+    );
+    const fallback = await failingService.issue({
+      ...makeRequest(true),
+      matchRequestId: created.id,
+    });
+    expect(fallback.route).toBe('RETRY_QUEUED');
+
+    const afterFallback = await requestStore.get(created.id);
+    expect(afterFallback?.allbaroManifest?.route).toBe('RETRY_QUEUED');
+    expect(afterFallback?.allbaroManifest?.simpleConfirmNo).toMatch(/^SC-/);
+    expect(afterFallback?.allbaroManifest?.retryQueued).toBe(true);
+
+    // 재시도 성공 → 정식 인계서 번호로 대체되고 임시 간이확인서 번호는 제거된다
+    const okClient = makeClient(vi.fn().mockResolvedValue(allbaroManifestResponse('ALB-REAL-001')));
+    await processRetryQueue(okClient, queue, {
+      now: Date.now() + 60_000,
+      onSucceeded: record,
+    });
+
+    const afterRetry = await requestStore.get(created.id);
+    expect(afterRetry?.allbaroManifest?.route).toBe('ALLBARO_API');
+    expect(afterRetry?.allbaroManifest?.manifestNo).toBe('ALB-REAL-001');
+    expect(afterRetry?.allbaroManifest?.simpleConfirmNo).toBeUndefined();
+    expect(afterRetry?.allbaroManifest?.retryQueued).toBe(false);
   });
 });

@@ -115,6 +115,7 @@ import { RemoteSurveyStore } from './remote-survey/store.js';
 import { RemoteSurveyShotRequestStore } from './remote-survey/shot-request-store.js';
 import { createRemoteSurveyRouter } from './routes/remote-surveys.js';
 import {
+  regionMatches,
   remoteSurveyProviderIds,
   type DemolitionEstimate,
   type ParitySample,
@@ -271,7 +272,10 @@ export function createApp(
   // 올바로 재시도 큐를 내구성 저장소에 붙인다. 인메모리면 재배포마다 통째로 사라지는데,
   // 여기 쌓이는 건 발행에 실패한 전자인계서라 유실이 곧 법정 미신고다.
   // 라우터가 getDefaultRetryQueue() 로 이 큐를 집어가므로 라우터 생성 전에 설정한다.
-  configureDefaultRetryQueue(persistence<RetryQueueItem>('allbaro-retry-queue'));
+  configureDefaultRetryQueue(
+    persistence<RetryQueueItem>('allbaro-retry-queue'),
+    (result) => requestStore.recordManifestResult(result),
+  );
 
   // 문자 발송기 하나를 인증코드와 매칭 알림이 함께 쓴다.
   const smsSender = createSmsSender();
@@ -298,7 +302,7 @@ export function createApp(
     (request) => {
       notificationService.notifyStatusChange(request);
     },
-    // 신규 운반요청 → 같은 지역·콜대기(ONLINE) 운반업체 중 반경 30km 이내에 "콜" 알림.
+    // 신규 운반요청 → 같은 지역(또는 좌표 보유)·콜대기(ONLINE) 운반업체 중 설정 반경 이내에 "콜" 알림.
     async (request) => {
       // 신규 철거 견적 요청 → 멤버십 철거업체에게 우선 알림(멤버십 혜택).
       if (request.kind === 'DEMOLITION') {
@@ -315,8 +319,10 @@ export function createApp(
       const companies = (await userStore.list({ userType: 'TRANSPORT_COMPANY' })).filter(
         (u) =>
           u.availability === 'ONLINE' &&
-          u.region === request.region &&
-          u.id !== request.requesterId,
+          u.id !== request.requesterId &&
+          (request.location
+            ? Boolean(u.location) || regionMatches(request.region, u.region)
+            : regionMatches(request.region, u.region)),
       );
       notificationService.notifyTransportCall(request, companies);
     },
@@ -414,12 +420,12 @@ export function createApp(
     surveyNotifier,
   );
   // 원격 vs 방문 견적 정합성(시범 측정). 철거 견적은 읽기만 한다.
-  // 실적 톤 조회(4번째 인자)는 비워 둔다 — 올바로 반입·계량 톤이 아직 요청에 저장되지 않아
-  // 직원이 입력한다([[estimate-parity/service]] ActualTonnageLookup 참고).
+  // 처리장 반입·계량(`/allbaro/disposal-info`)으로 기록된 실제 처리 톤수를 자동 조회한다.
   const estimateParityService = new EstimateParityService(
     new ParitySampleStore(persistence<ParitySample>('estimate-parity-samples')),
     demolitionEstimateStore,
     requestStore,
+    (requestId) => requestStore.lookupActualWeighedTons(requestId),
   );
   const offerStore = new OfferStore(requestStore, persistence<MatchOffer>('offers'));
   // 인테리어 밀봉 역경매(파일럿 밖) — FEATURE_INTERIOR 로 켤 때만 라우터를 마운트한다.
@@ -440,9 +446,19 @@ export function createApp(
   app.use('/api/incidents', requireAuth); // 노쇼/분쟁 신고 — 신고자는 인증된 본인
   app.use('/api/users/:id', requireAuth); // 프로필 수정·콜대기·인증서류 — 본인만(회원가입 POST /users 는 공개)
   app.get('/api/users', requireAuth); // 회원 목록(PII) — 최소 로그인 필요(추후 관리자 전용으로 제한)
-  // 올바로: 회원검증·전자인계서 발행은 로그인, 재시도 큐/실패 목록(스케줄러·운영)은 관리자 전용.
+  // 올바로: 회원검증·전자인계서 발행·운반/처리 실적 등록·인계서 상세조회는 로그인, 재시도 큐/실패 목록은 관리자 전용.
   app.post('/api/allbaro/verify-member', requireAuth);
   app.post('/api/allbaro/manifest', requireAuth);
+  app.post('/api/allbaro/transport-info', requireAuth);
+  app.post('/api/allbaro/disposal-info', requireAuth);
+  app.post('/api/allbaro/treatment-completion', requireAuth);
+  app.get('/api/allbaro/manifest/:manifestNo', (req, res, next) => {
+    if (req.params.manifestNo === 'queue' || req.params.manifestNo === 'failures') {
+      next();
+      return;
+    }
+    requireAuth(req, res, next);
+  });
   app.use('/api/quotes', requireAuth); // 견적 제출/조회·시세 — 로그인 필요
   // 철거 견적(개산·실사·확정) — 전 단계가 당사자 확인을 하므로 로그인 필수.
   app.use('/api/demolition-estimates', requireAuth);
@@ -493,7 +509,6 @@ export function createApp(
     scan3dGate(req, res, next);
   });
   app.use('/api/pricing', requireAuth); // 업체 단가 조회/설정 — 본인만
-  app.use('/api/offers', requireAuth); // 자동매칭 오퍼(Phase 3) — 로그인 필요(오퍼 생성/스윕의 관리자 전용화는 후속)
   if (env.features.interior) app.use('/api/interior', requireAuth); // 인테리어 요청/입찰 — 로그인 필요(밀봉 viewer 판정)
 
   // 결제/정산 — 금전 이동. 선결제·취소는 로그인, 지급대행은 관리자/스케줄러 전용.
@@ -507,6 +522,12 @@ export function createApp(
       return userId ? await userStore.get(userId) : undefined;
     },
   });
+  // 자동매칭 오퍼(Phase 3) — 오퍼 생성·만료 스윕은 운영/관리자 전용, 조회·수락·거절은 로그인(당사자 검증).
+  app.post('/api/offers', requireAdmin);
+  app.post('/api/offers/sweep', requireAdmin);
+  app.get('/api/offers', requireAuth);
+  app.post('/api/offers/:id/accept', requireAuth);
+  app.post('/api/offers/:id/decline', requireAuth);
   // 메트릭 노출 — 관리자 토큰(스크레이퍼)만. Prometheus 텍스트 형식.
   app.get('/api/metrics', requireAdmin, (_req, res) => {
     res.type('text/plain').send(metrics.render());
@@ -521,7 +542,7 @@ export function createApp(
   app.use('/api/allbaro/manifest/queue', requireAdmin);
   app.use('/api/allbaro/manifest/failures', requireAdmin);
 
-  app.use('/api', createAllbaroRouter());
+  app.use('/api', createAllbaroRouter(undefined, undefined, undefined, requestStore));
   // 결제/정산은 폐기물·인테리어 요청을 합친 창구로 처리(합의 금액=agreedFee 기준 선결제·정산).
   app.use(
     '/api',

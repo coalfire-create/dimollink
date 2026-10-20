@@ -29,49 +29,64 @@ function issueSimpleConfirmNo(matchRequestId: string): string {
   return `SC-${stamp}-${matchRequestId}`;
 }
 
+/** 발행 결과를 요청 저장소(ServiceRequest)에 반영하는 훅. */
+export type ManifestRecorder = (result: ManifestResult) => unknown;
+
 export class ManifestService {
   constructor(
     private readonly client: AllbaroClient,
     private readonly queue: RetryQueue,
+    private readonly onIssued?: ManifestRecorder,
   ) {}
+
+  private async recordIssued(result: ManifestResult): Promise<ManifestResult> {
+    if (this.onIssued) {
+      try {
+        await this.onIssued(result);
+      } catch {
+        // 요청 레코드 반영 실패가 이미 발행된 인계서 응답을 실패시키면 안 된다.
+      }
+    }
+    return result;
+  }
 
   async issue(request: ManifestIssueRequest): Promise<ManifestResult> {
     const issuedAt = new Date().toISOString();
 
     // OFF → 자체 간이확인서.
     if (!request.allbaroRequested) {
-      return {
+      return this.recordIssued({
         matchRequestId: request.matchRequestId,
         route: 'SIMPLE_CONFIRM',
         simpleConfirmNo: issueSimpleConfirmNo(request.matchRequestId),
         retryQueued: false,
         issuedAt,
-      };
+      });
     }
 
     // ON → 올바로 API 자동 발행 시도.
     try {
       const api = await this.client.issueManifest(request);
-      return {
+      return this.recordIssued({
         matchRequestId: request.matchRequestId,
         route: 'ALLBARO_API',
         manifestNo: api.manifestNo,
         retryQueued: false,
         environment: api.environment,
         issuedAt,
-      };
+      });
     } catch (err) {
       // 일시적 장애(타임아웃/업스트림)만 폴백+재시도. 그 외(설정 누락/운영차단/잘못된
       // 데이터)는 재시도해도 소용없으므로 그대로 던져 상위에서 표면화한다.
       if (err instanceof AllbaroError && isTransientAllbaroError(err.code)) {
         this.queue.enqueue(request, { reason: err.code });
-        return {
+        return this.recordIssued({
           matchRequestId: request.matchRequestId,
           route: 'RETRY_QUEUED',
           simpleConfirmNo: issueSimpleConfirmNo(request.matchRequestId),
           retryQueued: true,
           issuedAt,
-        };
+        });
       }
       throw err;
     }
@@ -81,6 +96,8 @@ export class ManifestService {
 export interface ProcessRetryOptions {
   now?: number;
   backoffMs?: (attempts: number) => number;
+  /** 재시도 발행 성공 시 매칭 요청의 폴백 간이확인서를 정식 ALLBARO_API 인계서로 대체하는 훅. */
+  onSucceeded?: ManifestRecorder;
   /** 재시도 소진(EXHAUSTED) 시 관리자 알림 훅 (Phase 6). 훅 오류는 큐 처리를 막지 않는다. */
   onExhausted?: (item: RetryQueueItem) => void;
 }
@@ -114,8 +131,21 @@ export async function processRetryQueue(
       const api = await client.issueManifest(item.request);
       queue.save({ ...item, attempts, status: 'SUCCEEDED', manifestNo: api.manifestNo });
       summary.succeeded += 1;
-      // TODO(persistence): 매칭 레코드를 ALLBARO_API 발행으로 갱신하고
-      //   폴백 간이확인서를 대체 처리하는 정합성 로직은 DB 연동 시 추가.
+      const record = opts.onSucceeded ?? defaultRecorder;
+      if (record) {
+        try {
+          await record({
+            matchRequestId: item.request.matchRequestId,
+            route: 'ALLBARO_API',
+            manifestNo: api.manifestNo,
+            retryQueued: false,
+            environment: api.environment,
+            issuedAt: new Date(now).toISOString(),
+          });
+        } catch {
+          // 요청 레코드 갱신 실패가 재시도 큐 완료 상태를 되돌리면 중복 발행이 된다.
+        }
+      }
     } catch (err) {
       const reason = err instanceof AllbaroError ? err.code : 'UNKNOWN';
       // 비일시적 오류거나 최대 시도 초과 → 소진 처리(수동 개입).
@@ -176,6 +206,7 @@ export function requeueForManualRetry(
 /** 앱 전역에서 공유하는 기본 서비스/큐 싱글턴. */
 let defaultQueue: RetryQueue | undefined;
 let defaultService: ManifestService | undefined;
+let defaultRecorder: ManifestRecorder | undefined;
 
 /**
  * 기본 큐를 내구성 있는 구현으로 교체한다. 앱 기동 시 **라우터를 만들기 전에** 부른다.
@@ -183,9 +214,13 @@ let defaultService: ManifestService | undefined;
  * 인메모리 큐는 재시작마다 통째로 사라지는데, 여기 쌓이는 건 발행에 실패한 전자인계서라
  * 유실이 곧 법정 미신고다. 저장소 구현(JSON/PostgreSQL)은 app.ts 가 정한다.
  */
-export function configureDefaultRetryQueue(persistence: RetryQueuePersistence): RetryQueue {
+export function configureDefaultRetryQueue(
+  persistence: RetryQueuePersistence,
+  recorder?: ManifestRecorder,
+): RetryQueue {
   defaultQueue = new PersistentRetryQueue(persistence);
-  defaultService = undefined; // 새 큐를 쓰도록 서비스도 다시 만든다.
+  defaultRecorder = recorder;
+  defaultService = undefined; // 새 큐/기록기를 쓰도록 서비스도 다시 만든다.
   return defaultQueue;
 }
 
@@ -196,7 +231,7 @@ export function getDefaultRetryQueue(): RetryQueue {
 }
 
 export function getDefaultManifestService(client: AllbaroClient): ManifestService {
-  defaultService ??= new ManifestService(client, getDefaultRetryQueue());
+  defaultService ??= new ManifestService(client, getDefaultRetryQueue(), defaultRecorder);
   return defaultService;
 }
 

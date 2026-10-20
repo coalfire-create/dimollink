@@ -12,6 +12,7 @@ import {
   wasteItemsToTons,
   type DemolitionDetails,
   type GeoPoint,
+  type ManifestResult,
   type MatchStatus,
   type RequestKind,
   type ServiceRequest,
@@ -331,5 +332,84 @@ export class RequestStore {
     };
     await this.saveInner(updated);
     return updated;
+  }
+
+  /**
+   * 전자인계서(또는 간이확인서) 발행 결과를 요청 레코드에 기록한다.
+   * 장애 폴백(RETRY_QUEUED) 후 재시도 큐에서 올바로 발행(ALLBARO_API)에 성공하면
+   * 임시 간이확인서 번호를 지우고 정식 인계서 번호로 대체한다.
+   */
+  async recordManifestResult(manifest: ManifestResult): Promise<ServiceRequest | undefined> {
+    const request = await this.getInner(manifest.matchRequestId);
+    if (!request) return undefined;
+
+    const normalized: ManifestResult =
+      manifest.route === 'ALLBARO_API'
+        ? {
+            matchRequestId: manifest.matchRequestId,
+            route: 'ALLBARO_API',
+            manifestNo: manifest.manifestNo,
+            retryQueued: false,
+            ...(manifest.environment ? { environment: manifest.environment } : {}),
+            issuedAt: manifest.issuedAt,
+          }
+        : manifest;
+
+    const updated: ServiceRequest = {
+      ...request,
+      allbaroManifest: normalized,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.saveInner(updated);
+    return updated;
+  }
+
+  /**
+   * 처리장 반입·계량(`/allbaro/disposal-info`)으로 확정된 실제 처리 중량(톤)을 요청에 기록한다.
+   * matchRequestId 가 주어지면 해당 요청을, 없으면 인계서 번호(`manifestNo`)로 연결된 요청을 찾는다.
+   */
+  async recordActualWeighedTons(
+    target: { matchRequestId?: string; manifestNo: string },
+    weighedTons: number,
+  ): Promise<ServiceRequest | undefined> {
+    if (!Number.isFinite(weighedTons) || weighedTons <= 0) {
+      throw new RequestValidationError('weighedTons 는 0보다 큰 숫자여야 합니다.');
+    }
+    let request = target.matchRequestId ? await this.getInner(target.matchRequestId) : undefined;
+    if (!request && target.manifestNo) {
+      const all = await this.listInner();
+      request = all.find((r) => r.allbaroManifest?.manifestNo === target.manifestNo);
+    }
+    if (!request) return undefined;
+
+    const updated: ServiceRequest = {
+      ...request,
+      actualWeighedTons: weighedTons,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.saveInner(updated);
+    return updated;
+  }
+
+  /**
+   * 요청 id 기준 실제 계량 톤수 조회(원격 견적 정합성 대사용).
+   * 본인 요청에 직접 기록된 값이 있으면 그것을 쓰고, 없으면 이 요청에 연결된(`linkedRequestId`)
+   * 운반/처리장 요청들의 실측 계량 합계를 돌려준다.
+   */
+  async lookupActualWeighedTons(requestId: string): Promise<number | undefined> {
+    const direct = await this.getInner(requestId);
+    if (direct?.actualWeighedTons !== undefined && direct.actualWeighedTons > 0) {
+      return direct.actualWeighedTons;
+    }
+    const all = await this.listInner();
+    const linked = all.filter(
+      (r) =>
+        r.linkedRequestId === requestId &&
+        r.actualWeighedTons !== undefined &&
+        r.actualWeighedTons > 0,
+    );
+    if (linked.length === 0) return undefined;
+    const sum = linked.reduce((acc, r) => acc + (r.actualWeighedTons ?? 0), 0);
+    return Math.round(sum * 1000) / 1000;
   }
 }

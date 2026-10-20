@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AllbaroClient } from '../allbaro/client.js';
+import { RequestStore } from '../requests/store.js';
 import { createAllbaroRouter } from './allbaro.js';
 
 /**
@@ -28,12 +29,13 @@ const throwingClient = {
   getManifestStatus: async (manifestNo: string) => {
     throw new Error(`올바로로 새어나감: ${manifestNo}`);
   },
+  registerDisposalInfo: async () => ({ success: true }),
 } as unknown as AllbaroClient;
 
-async function start(): Promise<string> {
+async function start(requestStore?: RequestStore): Promise<string> {
   const app = express();
   app.use(express.json());
-  app.use('/api', createAllbaroRouter(throwingClient));
+  app.use('/api', createAllbaroRouter(throwingClient, undefined, undefined, requestStore));
   await new Promise<void>((resolve) => {
     server = app.listen(0, resolve);
   });
@@ -60,5 +62,49 @@ describe('GET /api/allbaro/manifest/queue|failures — 관리자 조회', () => 
     // 던지는 클라이언트라 500 이 나야 정상 — :manifestNo 핸들러에 도달했다는 뜻.
     const res = await fetch(`${base}/api/allbaro/manifest/MN-2026-0001`);
     expect(res.status).toBeGreaterThanOrEqual(400);
+  });
+
+  it('POST /allbaro/disposal-info 는 인계서 번호로 연결된 요청에 weighedTons 를 기록하고 연결된 철거요청에서도 조회된다', async () => {
+    const requestStore = new RequestStore();
+    const demoReq = await requestStore.create({
+      kind: 'DEMOLITION',
+      requesterId: 'c-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 12,
+      allbaroRequested: true,
+      siteAddress: '양평읍 1',
+    });
+    const disposalReq = await requestStore.create({
+      kind: 'DISPOSAL_RESERVATION',
+      requesterId: 'd-1',
+      region: '양평',
+      wasteCategory: 'CONSTRUCTION',
+      wasteTons: 12,
+      allbaroRequested: true,
+      visitAt: '2026-10-25T09:00:00.000Z',
+      linkedRequestId: demoReq.id,
+    });
+    await requestStore.recordManifestResult({
+      matchRequestId: disposalReq.id,
+      route: 'ALLBARO_API',
+      manifestNo: 'MN-2026-7777',
+      retryQueued: false,
+      issuedAt: '2026-10-20T00:00:00.000Z',
+    });
+
+    const base = await start(requestStore);
+    const res = await fetch(`${base}/api/allbaro/disposal-info`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifestNo: 'MN-2026-7777',
+        weighedTons: 11.4,
+        receivedAt: '2026-10-25T10:30:00.000Z',
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect((await requestStore.get(disposalReq.id))?.actualWeighedTons).toBe(11.4);
+    expect(await requestStore.lookupActualWeighedTons(demoReq.id)).toBe(11.4);
   });
 });

@@ -145,6 +145,19 @@ describe('NotificationService — 신규 운반요청 콜 알림(반경 30km)', 
     });
     expect(sent).toHaveLength(0);
   });
+
+  it('업체별 설정 반경(matchRadiusKm)이 있으면 그 반경을 기준으로 콜 발송 여부를 판단한다', async () => {
+    const sent: AppNotification[] = [];
+    const service = new NotificationService({ send: (n) => sent.push(n) });
+    const requestStore = new RequestStore(undefined, undefined, (request) => {
+      service.notifyTransportCall(request, [
+        { id: 't-wide', location: { lat: 37.9, lng: 127.5 }, matchRadiusKm: 60 }, // ~44km 지만 반경 60km
+        { id: 't-narrow', location: { lat: 37.6, lng: 127.5 }, matchRadiusKm: 5 }, // ~11km 지만 반경 5km
+      ]);
+    });
+    await createTransport(requestStore, { lat: 37.5, lng: 127.5 });
+    expect(sent.map((n) => n.userId)).toEqual(['t-wide']);
+  });
 });
 
 describe('콜 알림 팬아웃 상한 — 업체가 늘어도 비용이 곱해지지 않는다', () => {

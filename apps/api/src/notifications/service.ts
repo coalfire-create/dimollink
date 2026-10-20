@@ -51,10 +51,11 @@ const TRANSPORT_CALL_MESSAGE = '가까운 곳에 새 운반 콜이 있어요. �
 const DEMOLITION_MEMBER_CALL_MESSAGE =
   '[멤버십 우선 알림] 새 철거 견적 요청이 들어왔어요. 지금 확인해 주세요.';
 
-/** 콜 알림 대상 운반업체 (거리 계산용 좌표를 가질 수 있음). */
+/** 콜 알림 대상 운반업체 (거리 계산용 좌표·개별 반경 설정을 가질 수 있음). */
 export interface TransportCallTarget {
   id: string;
   location?: GeoPoint;
+  matchRadiusKm?: number;
 }
 
 export class NotificationService {
@@ -113,16 +114,17 @@ export class NotificationService {
   ): AppNotification[] {
     if (request.kind !== 'TRANSPORT') return [];
 
-    const ranked = rankByDistance(request.location, [...companies], {
-      maxRadiusKm: MATCH_RADIUS_KM,
-    });
-    // 현장 좌표가 있으면 반경 밖(거리 null 인 좌표 미보유 업체 포함)은 제외, 없으면 후보 전체.
+    const ranked = rankByDistance(request.location, [...companies]);
+    // 현장 좌표가 있으면 각 업체 반경(설정값 ?? 기본 30km) 이내만, 없으면 후보 전체.
     // 가까운 순으로 상한까지만. 반경 안 전원에게 보내면 업체 수만큼 문자 비용이 곱해진다.
     // 일감 목록에는 전원에게 그대로 보이므로 매칭 기회는 줄지 않는다([[constants]]).
-    const targets = (request.location ? ranked.filter((c) => c.distanceKm !== null) : ranked).slice(
-      0,
-      TRANSPORT_CALL_FANOUT_LIMIT,
-    );
+    const targets = (
+      request.location
+        ? ranked.filter(
+            (c) => c.distanceKm !== null && c.distanceKm <= (c.matchRadiusKm ?? MATCH_RADIUS_KM),
+          )
+        : ranked
+    ).slice(0, TRANSPORT_CALL_FANOUT_LIMIT);
 
     const created = targets.map<AppNotification>((company) => ({
       id: randomUUID(),

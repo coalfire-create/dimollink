@@ -24,10 +24,9 @@ export class ParityValidationError extends Error {}
 /**
  * 요청 id → 실제 처리 톤수(올바로 처리 실적). 모르면 undefined.
  *
- * ⚠️ 2026-10 현재 반입·계량(`/allbaro/disposal-info` 의 weighedTons)은 올바로로
- * 보내기만 하고 요청에 남기지 않는다(manifest-service 의 TODO(persistence)).
- * 그래서 앱은 아직 이 조회를 주입하지 않고, 실적 톤은 직원이 입력한다. 올바로 실적이
- * 저장되기 시작하면 여기만 연결하면 된다 — 조회는 읽기 전용이어야 한다.
+ * 처리장 반입·계량(`/allbaro/disposal-info`)이 기록한 `actualWeighedTons`(또는 연결된
+ * 운반/처리장 요청의 실측 합계)를 조회해 자동으로 채운다. 직원이 수동 입력한 값이 있고
+ * 올바로 실적이 아직 없으면 기존 직원 입력값을 유지한다.
  */
 export type ActualTonnageLookup = (requestId: string) => Promise<number | undefined>;
 
