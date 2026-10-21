@@ -55,10 +55,28 @@ export function LoadingView() {
  * 이것을 쓴다. 예전에는 회색 글자 한 줄만 덩그러니 놓여서, 비어 있는 건지 아직 불러오는
  * 중인지 구분이 안 됐다.
  */
-export function InlineEmpty({ children }: { children: React.ReactNode }) {
+export function InlineEmpty({
+  children,
+  actionLabel,
+  onAction,
+}: {
+  children: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
   return (
     <View style={styles.inlineEmpty}>
       <Text style={styles.inlineEmptyText}>{children}</Text>
+      {actionLabel && onAction ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          onPress={onAction}
+          style={styles.inlineEmptyAction}
+        >
+          <Text style={styles.inlineEmptyActionText}>{actionLabel} ›</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -169,6 +187,18 @@ const styles = StyleSheet.create({
     fontSize: font.body,
     lineHeight: 26,
     textAlign: 'center',
+  },
+  inlineEmptyAction: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    minHeight: touch.minButtonHeight,
+    paddingHorizontal: spacing.sm,
+  },
+  inlineEmptyActionText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
   },
   emptyIconCircle: {
     alignItems: 'center',

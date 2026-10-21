@@ -6,9 +6,10 @@ import {
   type VolumeEstimate,
 } from '@dimol/shared';
 import { AppIcon } from '../../components/AppIcon';
-import { AppButton } from '../../components/ui';
+import { AppButton, AmountDisplay } from '../../components/ui';
 import { useNavigation } from '../../navigation';
 import { CostReferenceBox } from './CostReferenceBox';
+import { TABULAR_NUMS } from '../../lib/format';
 import { theme } from '../../theme';
 
 /**
@@ -53,7 +54,13 @@ export function EstimateResultCard({
         </View>
       </View>
 
-      <Text style={styles.tons}>약 {result.estimatedTons}톤</Text>
+      <AmountDisplay
+        value={result.estimatedTons}
+        unit="톤"
+        size="xl"
+        color="primary"
+        style={styles.tonsDisplay}
+      />
       <Text style={styles.range}>
         예상 범위 {result.rangeMinTons} ~ {result.rangeMaxTons}톤
       </Text>
@@ -141,13 +148,11 @@ const styles = StyleSheet.create({
     fontSize: font.caption,
     fontWeight: '700',
   },
-  tons: {
-    color: colors.text,
-    fontSize: 48,
-    fontWeight: '800',
-    marginTop: spacing.xs,
+  tonsDisplay: {
+    marginVertical: spacing.xs,
   },
   range: {
+    ...TABULAR_NUMS,
     color: colors.textMuted,
     fontSize: font.body,
     fontWeight: '600',

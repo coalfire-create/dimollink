@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
-import { AppButton, Card, StatusBadge } from '../../components/ui';
+import { AppButton, AmountDisplay, Card, StatusBadge } from '../../components/ui';
 import { won } from '../../lib/format';
 import { payableAmount, requesterNextStep } from '../../lib/request-next-step';
 import { useNavigation } from '../../navigation';
@@ -46,7 +46,11 @@ export function RequestHeroCard({
           <View style={styles.divider} />
           <View style={styles.feeRow}>
             <Text style={styles.feeLabel}>{payable !== null ? '결제할 금액' : '합의 금액'}</Text>
-            <Text style={styles.feeValue}>{won(request.agreedFee)}</Text>
+            <AmountDisplay
+              value={request.agreedFee}
+              size="lg"
+              color={payable !== null ? 'primary' : 'text'}
+            />
           </View>
         </>
       ) : null}

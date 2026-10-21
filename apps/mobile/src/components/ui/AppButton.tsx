@@ -5,10 +5,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { theme } from '../../theme';
+import { triggerHaptic } from '../../lib/haptics';
 import { usePressScale } from '../motion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -23,6 +25,8 @@ export interface AppButtonProps {
   /** primary: 핵심 동작(큰 버튼) / outline: 보조 동작 / danger: 취소·삭제 */
   variant?: 'primary' | 'outline' | 'danger';
   disabled?: boolean;
+  /** 버튼 비활성화 이유 — 고령 사용자가 왜 못 누르는지 알 수 있게 버튼 밑에 안내한다. */
+  disabledReason?: string;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 }
@@ -32,17 +36,26 @@ export function AppButton({
   onPress,
   variant = 'primary',
   disabled,
+  disabledReason,
   loading,
   style,
 }: AppButtonProps) {
   const isPrimary = variant === 'primary';
   const { scale, onPressIn, onPressOut } = usePressScale();
-  return (
+
+  const handlePress = () => {
+    if (disabled || loading) return;
+    triggerHaptic(isPrimary ? 'medium' : 'light');
+    onPress();
+  };
+
+  const buttonElement = (
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={disabled && disabledReason ? disabledReason : undefined}
       disabled={disabled || loading}
-      onPress={onPress}
+      onPress={handlePress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={[
@@ -72,11 +85,45 @@ export function AppButton({
       )}
     </AnimatedPressable>
   );
+
+  if (disabled && disabledReason) {
+    return (
+      <View style={styles.disabledContainer}>
+        {buttonElement}
+        <View style={styles.reasonWrap}>
+          <Text style={styles.reasonIcon}>ℹ️</Text>
+          <Text style={styles.reasonText}>{disabledReason}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return buttonElement;
 }
 
 const { colors, font, spacing, radius, touch } = theme;
 
 const styles = StyleSheet.create({
+  disabledContainer: {
+    width: '100%',
+  },
+  reasonWrap: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  reasonIcon: {
+    fontSize: theme.glyph.small,
+    marginRight: spacing.xs / 2,
+  },
+  reasonText: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   button: {
     alignItems: 'center',
     borderRadius: radius.button,
@@ -99,10 +146,14 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    opacity: 0.8,
   },
   buttonLabel: {
     fontSize: font.bodyLarge,
     fontWeight: '700',
   },
 });
+

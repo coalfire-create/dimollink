@@ -57,7 +57,12 @@ export function DemolitionHomeScreen() {
                 />
               ))
             ) : (
-              <InlineEmpty>지금 들어온 철거 요청이 없어요.</InlineEmpty>
+              <InlineEmpty
+                actionLabel="내 활동 지역 및 알림 설정"
+                onAction={() => nav.switchTab('mypage')}
+              >
+                지금 들어온 철거 요청이 없어요.
+              </InlineEmpty>
             )}
           </FadeInUp>
 

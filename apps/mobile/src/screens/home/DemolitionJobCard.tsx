@@ -9,6 +9,7 @@ import {
 } from '@dimol/shared';
 import { Card } from '../../components/ui';
 import { theme } from '../../theme';
+import { TABULAR_NUMS } from '../../lib/format';
 import { requestSubtitle, requestTons } from '../../lib/request-summary';
 
 /**
@@ -86,6 +87,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   distance: {
+    ...TABULAR_NUMS,
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
@@ -106,6 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.warningSoft,
   },
   signalText: {
+    ...TABULAR_NUMS,
     color: theme.colors.textMuted,
     fontSize: theme.font.caption,
     fontWeight: '700',

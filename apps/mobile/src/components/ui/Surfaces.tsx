@@ -36,10 +36,42 @@ export function Card({
   );
 }
 
-export function StatusBadge({ status, label }: { status: string; label: string }) {
+export function statusIcon(status: string): string {
+  switch (status) {
+    case 'REQUESTED':
+      return '⏳';
+    case 'MATCHED':
+      return '🤝';
+    case 'PAYMENT_DUE':
+    case 'PAID':
+      return '💳';
+    case 'IN_PROGRESS':
+      return '⚡';
+    case 'COMPLETED':
+      return '✅';
+    case 'SETTLED':
+      return '🎉';
+    case 'CANCELLED':
+      return '✕';
+    default:
+      return '•';
+  }
+}
+
+export function StatusBadge({
+  status,
+  label,
+  showIcon = true,
+}: {
+  status: string;
+  label: string;
+  showIcon?: boolean;
+}) {
   const palette = statusColor(status);
+  const icon = statusIcon(status);
   return (
     <View style={[styles.badge, { backgroundColor: palette.background }]}>
+      {showIcon ? <Text style={[styles.badgeIcon, { color: palette.text }]}>{icon} </Text> : null}
       <Text style={[styles.badgeText, { color: palette.text }]}>{label}</Text>
     </View>
   );
@@ -102,21 +134,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   card: {
-    // 테두리 없이 그림자만 — 회색 바닥 위 흰 카드가 테두리보다 덜 복잡해 보인다.
-    // 강조가 필요한 카드(결제할 차례 등)는 화면에서 테두리를 직접 얹는다.
+    // 옅은 테두리와 그림자를 결합하여 야외 직사광선 환경에서도 카드의 경계가 또렷하게 보이도록 함.
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: radius.card,
-    borderWidth: 0,
+    borderWidth: 1,
     marginBottom: spacing.sm,
     padding: spacing.md,
     ...theme.shadow.card,
   },
   badge: {
+    alignItems: 'center',
     alignSelf: 'flex-start',
     borderRadius: radius.badge,
+    flexDirection: 'row',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
+  },
+  badgeIcon: {
+    fontSize: theme.glyph.small,
+    marginRight: spacing.xs / 2,
   },
   badgeText: {
     fontSize: font.body,

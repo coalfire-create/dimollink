@@ -6,14 +6,37 @@
  * 표기가 흔들리면 숫자 자체를 의심하게 된다.
  */
 
+import type { TextStyle } from 'react-native';
+
+/** 고정폭 숫자 렌더링 스타일 — 자릿수가 달라져도 숫자가 흔들리지 않게 고정한다. */
+export const TABULAR_NUMS: Pick<TextStyle, 'fontVariant'> = {
+  fontVariant: ['tabular-nums'],
+};
+
 /** 금액(원) — 천 단위 구분 + "원". */
 export function won(value: number): string {
   return `${value.toLocaleString('ko-KR')}원`;
 }
 
+/** 금액 숫자부와 단위 분리 — 숫자만 크게(bold) 강조하고 단위는 regular 로 작게 표시할 때 쓴다. */
+export function splitWon(value: number): { value: string; unit: string } {
+  return {
+    value: value.toLocaleString('ko-KR'),
+    unit: '원',
+  };
+}
+
 /** 중량(톤). */
 export function tons(value: number): string {
   return `${value.toLocaleString('ko-KR')}톤`;
+}
+
+/** 중량 숫자부와 단위 분리. */
+export function splitTons(value: number): { value: string; unit: string } {
+  return {
+    value: value.toLocaleString('ko-KR'),
+    unit: '톤',
+  };
 }
 
 /**
@@ -42,3 +65,4 @@ export function amountReadout(raw: string): string | undefined {
   const manText = `${man.toLocaleString('ko-KR')}만`;
   return rest === 0 ? `${manText} 원` : `${manText} ${rest.toLocaleString('ko-KR')}원`;
 }
+

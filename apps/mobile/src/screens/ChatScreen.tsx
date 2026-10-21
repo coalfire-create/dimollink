@@ -84,7 +84,15 @@ export function ChatScreen({ requestId }: { requestId: string }) {
         keyExtractor={(item) => item.id}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
-          <EmptyState title="대화를 시작해 보세요" description="일정·현장 상황을 편하게 물어보세요." />
+          <EmptyState
+            icon="chat"
+            title="대화를 시작해 보세요"
+            description="일정·현장 상황을 편하게 물어보세요."
+            actionLabel="안녕하세요, 현장 관련 문의드립니다 👋"
+            onAction={() => {
+              setDraft('안녕하세요, 현장 관련 문의드립니다.');
+            }}
+          />
         }
         renderItem={({ item }) => {
           const mine = item.senderId === user.id;

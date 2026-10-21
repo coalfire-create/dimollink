@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { suggestedQuoteAmount, type ProviderPricing, type RankedJob } from '@dimol/shared';
 import { acceptJob, getPricing } from '../../api/client';
 import { AppButton, ErrorBanner, Field, InlineEmpty, SectionTitle } from '../../components/ui';
-import { useSession } from '../../navigation';
+import { useNavigation, useSession } from '../../navigation';
 import { OpenJobCard } from './JobCard';
 import { amountReadout } from '../../lib/format';
 
@@ -14,6 +14,7 @@ import { amountReadout } from '../../lib/format';
  * 물론 채워진 값은 그대로 고칠 수 있다 — 현장 조건은 건마다 다르다.
  */
 export function OpenCallList({ jobs, onAccepted }: { jobs: RankedJob[]; onAccepted: () => void }) {
+  const nav = useNavigation();
   const user = useSession();
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
@@ -84,7 +85,12 @@ export function OpenCallList({ jobs, onAccepted }: { jobs: RankedJob[]; onAccept
           </OpenJobCard>
         ))
       ) : (
-        <InlineEmpty>아직 들어온 콜이 없어요. 콜대기를 켜두면 요청이 들어와요.</InlineEmpty>
+        <InlineEmpty
+          actionLabel="내 활동 지역 및 콜대기 설정"
+          onAction={() => nav.switchTab('mypage')}
+        >
+          아직 들어온 콜이 없어요. 콜대기를 켜두면 요청이 들어와요.
+        </InlineEmpty>
       )}
     </>
   );

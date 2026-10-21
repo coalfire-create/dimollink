@@ -15,7 +15,7 @@ import { ApiError, getInteriorRequest, getRequest, prepay } from '../api/client'
 import { usePaymentConfig } from '../lib/payment-config';
 import { useBuyerEmail } from '../lib/buyer-email';
 import { BuyerEmailModal } from '../components/BuyerEmailModal';
-import { AppButton, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
+import { AppButton, AmountDisplay, ErrorBanner, LoadingView, StickyFooter } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
 import { won } from '../lib/format';
@@ -245,7 +245,12 @@ export function PaymentScreen({
         {/* 금액이 주인공 — 무엇에 얼마를 내는지 한 덩어리로 먼저 보여준다. */}
         <FadeInUp delay={40}>
           <Text style={styles.amountLabel}>결제할 금액</Text>
-          <Text style={styles.amount}>{won(amount)}</Text>
+          <AmountDisplay
+            value={amount}
+            size="xl"
+            color="primary"
+            style={styles.amountDisplay}
+          />
           <Text style={styles.headline}>{headline}</Text>
         </FadeInUp>
 
@@ -263,6 +268,7 @@ export function PaymentScreen({
           onPress={pay}
           loading={paying}
           disabled={amount <= 0}
+          disabledReason={amount <= 0 ? '결제할 확정 금액이 아직 산정되지 않았습니다' : undefined}
         />
       </StickyFooter>
       <BuyerEmailModal {...buyer.prompt} />
@@ -276,12 +282,6 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { padding: spacing.md, paddingBottom: spacing.lg },
   amountLabel: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
-  amount: {
-    color: colors.text,
-    fontSize: font.titleLarge + 12,
-    fontWeight: '800',
-    letterSpacing: -1,
-    marginTop: spacing.xs / 2,
-  },
+  amountDisplay: { marginVertical: spacing.xs / 2 },
   headline: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
 });

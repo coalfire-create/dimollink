@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { manwon, amountReadout } from './format';
+import { manwon, amountReadout, splitWon, splitTons, TABULAR_NUMS } from './format';
+
+describe('splitWon & splitTons', () => {
+  it('숫자와 단위를 분리하여 반환한다', () => {
+    expect(splitWon(1250000)).toEqual({ value: '1,250,000', unit: '원' });
+    expect(splitTons(3.5)).toEqual({ value: '3.5', unit: '톤' });
+  });
+
+  it('TABULAR_NUMS 스타일 속성을 정의한다', () => {
+    expect(TABULAR_NUMS.fontVariant).toContain('tabular-nums');
+  });
+});
 
 describe('manwon', () => {
   it('만 원 단위로 반올림하고 천 단위 구분을 붙인다', () => {

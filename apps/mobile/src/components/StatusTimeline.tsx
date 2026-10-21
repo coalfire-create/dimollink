@@ -70,16 +70,29 @@ export function StatusTimeline({
               </View>
               {!isLast ? <View style={[styles.line, reached && styles.lineReached]} /> : null}
             </View>
-            <View style={[styles.labelWrap, isLast && styles.labelWrapLast]}>
-              <Text
-                style={[
-                  styles.label,
-                  reached && styles.labelReached,
-                  isCurrent && styles.labelCurrent,
-                ]}
-              >
-                {REQUEST_STATUS_LABELS[step]}
-              </Text>
+            <View
+              style={[
+                styles.labelWrap,
+                isCurrent && styles.labelWrapCurrent,
+                isLast && styles.labelWrapLast,
+              ]}
+            >
+              <View style={styles.labelHeaderRow}>
+                <Text
+                  style={[
+                    styles.label,
+                    reached && styles.labelReached,
+                    isCurrent && styles.labelCurrent,
+                  ]}
+                >
+                  {REQUEST_STATUS_LABELS[step]}
+                </Text>
+                {isCurrent ? (
+                  <View style={styles.currentBadge}>
+                    <Text style={styles.currentBadgeText}>현재 진행</Text>
+                  </View>
+                ) : null}
+              </View>
               {isCurrent ? <Text style={styles.hint}>{STEP_HINTS[step]}</Text> : null}
             </View>
           </View>
@@ -156,6 +169,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: spacing.sm,
     paddingLeft: spacing.xs,
+  },
+  labelWrapCurrent: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.border,
+    borderRadius: radius.card / 2,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
+    marginLeft: spacing.xs,
+    padding: spacing.xs + 2,
+  },
+  labelHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  currentBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs / 2,
+  },
+  currentBadgeText: {
+    color: colors.background,
+    fontSize: font.caption,
+    fontWeight: '800',
   },
   labelWrapLast: {
     paddingBottom: 0,

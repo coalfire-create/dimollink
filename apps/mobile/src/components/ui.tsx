@@ -13,6 +13,7 @@
  * 화면에서 RN 기본 Button/TextInput 을 직접 쓰지 않는다.
  */
 export { AppButton, type AppButtonProps } from './ui/AppButton';
+export { AmountDisplay, type AmountDisplayProps } from './ui/AmountDisplay';
 export {
   Card,
   InfoRow,
