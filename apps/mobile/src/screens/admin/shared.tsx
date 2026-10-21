@@ -37,7 +37,9 @@ export function useAdminList<T>(
   const reload = useCallback(() => {
     setLoading(true);
     void load()
-      .then(setItems)
+      .then((data) => {
+        if (Array.isArray(data)) setItems(data);
+      })
       .catch((err: unknown) => onError(errorMessage(err, fallbackMessage)))
       .finally(() => setLoading(false));
     // load 는 호출부에서 useCallback 으로 고정한다.

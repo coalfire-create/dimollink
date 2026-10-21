@@ -45,9 +45,11 @@ export function useConsumerHome() {
       featuredRes.status === 'fulfilled' ? featuredRes.value.providerIds : [],
     );
 
-    if (reqsRes.status === 'fulfilled') setRequests(reqsRes.value);
+    if (reqsRes.status === 'fulfilled' && Array.isArray(reqsRes.value)) {
+      setRequests(reqsRes.value);
+    }
 
-    if (usersRes.status === 'fulfilled' && usersRes.value) {
+    if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
       // 평점은 업체별로 따로 불러온다. 하나가 실패해도 목록 자체는 뜨게 한다.
       const ratings = await Promise.all(
         usersRes.value.map((u) => getRatingSummary(u.id).catch(() => null)),
@@ -75,7 +77,7 @@ export function useConsumerHome() {
   return {
     requests,
     /** 홈에서는 지금 신경 써야 하는 건만 — 끝났거나 취소된 건 뺀다. */
-    activeRequests: requests.filter(
+    activeRequests: (Array.isArray(requests) ? requests : []).filter(
       (r) => r.status !== 'COMPLETED' && r.status !== 'SETTLED' && r.status !== 'CANCELLED',
     ),
     partners,

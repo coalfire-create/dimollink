@@ -186,12 +186,20 @@ function AppRoot() {
 
   const handleDevRoleSelect = useCallback(
     (roleKey: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR') => {
+      setAuthToken('dev-token-' + roleKey);
+      setToken('dev-token-' + roleKey);
       setSession(DEV_USERS[roleKey]);
       setStack([]);
       setTab('home');
     },
     [],
   );
+
+  const isDev =
+    __DEV__ ||
+    (Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      (window.location.search.includes('dev=true') || window.location.hash.includes('dev')));
 
   // 자동 로그인 — 저장된 토큰으로 세션 복원. 실패/만료 시 게이트로.
   useEffect(() => {
@@ -301,6 +309,41 @@ function AppRoot() {
     }),
     [],
   );
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      (window as unknown as { __DIMOL_APP__: unknown }).__DIMOL_APP__ = {
+        setRole: (role: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR' | 'guest' | null) => {
+          if (role === 'guest') {
+            setAuthToken(null);
+            setToken(null);
+            setSession('guest');
+          } else if (role === null) {
+            setAuthToken(null);
+            setToken(null);
+            setSession(null);
+          } else if (DEV_USERS[role]) {
+            setAuthToken('dev-token-' + role);
+            setToken('dev-token-' + role);
+            setSession(DEV_USERS[role]);
+            setStack([]);
+            setTab('home');
+          }
+        },
+        setAuthRoute: (r: AuthRoute) => {
+          setSession(null);
+          setAuthRoute(r);
+        },
+        setTab: (t: TabName) => {
+          setStack([]);
+          setTab(t);
+        },
+        pushRoute: (r: Route) => navigation.push(r),
+        popRoute: () => navigation.pop(),
+        getState: () => ({ session, tab, stack, authRoute }),
+      };
+    }
+  }, [navigation, session, tab, stack, authRoute]);
 
   const authActions = useMemo<AuthActions>(
     () => ({
@@ -528,7 +571,7 @@ function AppRoot() {
             onGuest={() => setSession('guest')}
             onBuy={goBuy}
             onAdmin={() => setAuthRoute('admin')}
-            onDevRoleSelect={__DEV__ ? handleDevRoleSelect : undefined}
+            onDevRoleSelect={isDev ? handleDevRoleSelect : undefined}
           />
         );
     }
@@ -544,7 +587,7 @@ function AppRoot() {
         />
         <View style={styles.viewport}>
           {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
-          {__DEV__ ? (
+          {isDev ? (
             <View style={styles.devHeaderBar}>
               <Text style={styles.devHeaderTitle}>⚡️ UI 개발검증 스위처:</Text>
               <Pressable
