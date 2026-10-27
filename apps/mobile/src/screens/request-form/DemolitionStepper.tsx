@@ -154,11 +154,6 @@ const styles = StyleSheet.create({
   stepCircleCurrent: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-    elevation: 3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
   },
   stepCircleText: {
     color: colors.textMuted,

@@ -32,7 +32,7 @@ export function SiteAnalysisScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="현장 AI 분석 (소재·공정)" canGoBack />
+      <ScreenHeader title="현장 사진 분석" canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
         <FadeInUp delay={40}>
           <AnalysisIntroCard

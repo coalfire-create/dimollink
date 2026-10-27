@@ -126,7 +126,7 @@ export function OnboardingScreen({
             <View style={styles.loginCard}>
               <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
               <PressableScale accessibilityRole="button" onPress={onLogin} style={styles.loginBtn}>
-                <Text style={styles.loginBtnText}>로그인 화면으로 이동 ➔</Text>
+                <Text style={styles.loginBtnText}>로그인 화면으로 이동</Text>
               </PressableScale>
             </View>
           </FadeInUp>

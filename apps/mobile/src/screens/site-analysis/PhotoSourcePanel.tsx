@@ -188,11 +188,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     gap: spacing.xs,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
   },
   samplePillBtnText: {
     color: colors.background,

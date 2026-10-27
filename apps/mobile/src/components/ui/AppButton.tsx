@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { theme } from '../../theme';
+import { AppIcon } from '../AppIcon';
 import { triggerHaptic } from '../../lib/haptics';
 import { usePressScale } from '../motion';
 
@@ -61,7 +62,6 @@ export function AppButton({
       style={[
         styles.button,
         isPrimary && styles.buttonPrimary,
-        isPrimary && theme.shadow.primary,
         variant === 'outline' && styles.buttonOutline,
         variant === 'danger' && styles.buttonDanger,
         (disabled || loading) && styles.buttonDisabled,
@@ -91,7 +91,7 @@ export function AppButton({
       <View style={styles.disabledContainer}>
         {buttonElement}
         <View style={styles.reasonWrap}>
-          <Text style={styles.reasonIcon}>ℹ️</Text>
+          <AppIcon name="info" size={18} color={colors.textMuted} style={styles.reasonIcon} />
           <Text style={styles.reasonText}>{disabledReason}</Text>
         </View>
       </View>
@@ -115,7 +115,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   reasonIcon: {
-    fontSize: theme.glyph.small,
     marginRight: spacing.xs / 2,
   },
   reasonText: {

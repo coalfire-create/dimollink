@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   markerBadge: {
     backgroundColor: theme.colors.background,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     padding: theme.spacing.xs,
     borderWidth: 2,
     borderColor: theme.colors.primary,

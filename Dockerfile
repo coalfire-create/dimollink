@@ -1,6 +1,6 @@
 # 디몰링크 API — Railway 배포용 컨테이너.
 # 빌더(Nixpacks/Railpack) 자동감지에 흔들리지 않도록 Dockerfile 로 빌드를 고정한다.
-FROM node:20-slim
+FROM node:24-slim
 
 WORKDIR /app
 

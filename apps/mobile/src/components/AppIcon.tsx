@@ -29,7 +29,9 @@ export type IconName =
   | 'image'
   | 'lightbulb'
   | 'shield'
-  | 'card';
+  | 'card'
+  | 'close'
+  | 'info';
 
 /**
  * 아이콘 하나의 정의. 기본은 Ionicons 이고, Ionicons 에 없는 글리프만 `material` 로 뺀다.
@@ -73,6 +75,8 @@ const ICON_MAP: Record<IconName, IconGlyph> = {
   lightbulb: { outline: 'bulb-outline', filled: 'bulb' },
   shield: { outline: 'shield-checkmark-outline', filled: 'shield-checkmark' },
   card: { outline: 'card-outline', filled: 'card' },
+  close: { outline: 'close', filled: 'close' },
+  info: { outline: 'information-circle-outline', filled: 'information-circle' },
 };
 
 export function AppIcon({

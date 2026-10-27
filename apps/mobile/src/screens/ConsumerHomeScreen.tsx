@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   ctaIconWrap: {
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     height: 72,
     justifyContent: 'center',
     width: 72,

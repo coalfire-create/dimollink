@@ -57,12 +57,13 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
           <View style={styles.topRow}>
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
             <View style={styles.topRowRight}>
-              {/* 결제가 남은 단계면 먼저 보이게 둔다. 뱃지 모양은 상태 뱃지와 같은 것을 쓴다 —
-                  여기서 크기·색을 따로 잡으면 목록에서 이 한 칸만 작고 빨갛게 튄다. */}
-              {payableAmount(request) !== null && (
+              {/* 결제가 남았으면 그게 지금 할 일이라 상태 배지 대신 "결제 대기" 하나만 보인다.
+                  예전엔 둘을 나란히 붙여 좁은 폰에서 오른쪽 배지가 잘렸다. */}
+              {payableAmount(request) !== null ? (
                 <StatusBadge status="PAYMENT_DUE" label="결제 대기" />
+              ) : (
+                <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               )}
-              <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               <Text style={styles.chevron}>›</Text>
             </View>
           </View>
@@ -89,8 +90,9 @@ const { colors, font, spacing, radius } = theme;
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: radius.card,
-    ...theme.shadow.card,
+    borderWidth: 1,
     flexDirection: 'row',
     marginBottom: spacing.sm,
     overflow: 'hidden',

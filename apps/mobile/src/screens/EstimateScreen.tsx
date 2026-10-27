@@ -34,7 +34,7 @@ export function EstimateScreen() {
       >
         <FadeInUp delay={20}>
           <View style={styles.introCard}>
-            <AppIcon name="sparkles" size={22} color={colors.primary} />
+            <AppIcon name="document" size={22} color={colors.primary} />
             <Text style={styles.introText}>
               면적과 구조만 입력하면 예상 폐기물 양과{'\n'}필요한 운반 차량 대수를 알려드려요.
             </Text>

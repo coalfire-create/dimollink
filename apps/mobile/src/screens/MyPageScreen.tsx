@@ -8,6 +8,7 @@ import {
   USER_APPROVAL_LABELS,
   isAdminUser,
   isCompanyType,
+  formatPhoneForDisplay,
 } from '@dimol/shared';
 import { WEB_BASE_URL } from '../api/client';
 import { Card, InfoRow, KeyboardAwareScreen, SectionTitle } from '../components/ui';
@@ -174,7 +175,7 @@ export function MyPageScreen() {
           {user.availability ? (
             <InfoRow label="콜대기" value={CALL_AVAILABILITY_LABELS[user.availability]} />
           ) : null}
-          {user.phone ? <InfoRow label="연락처" value={user.phone} /> : null}
+          {user.phone ? <InfoRow label="연락처" value={formatPhoneForDisplay(user.phone)} /> : null}
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 

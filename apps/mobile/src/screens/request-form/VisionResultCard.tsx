@@ -23,7 +23,7 @@ export function VisionResultCard({ vision }: { vision: DimolVisionSummary }) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <IconTile icon="sparkles" size="sm" style={styles.headerIcon} />
+        <IconTile icon="image" size="sm" style={styles.headerIcon} />
         <Text style={styles.title}>사진 분석 결과</Text>
         <View style={styles.confidence}>
           <Text style={styles.confidenceText}>신뢰도 {confidence}</Text>
