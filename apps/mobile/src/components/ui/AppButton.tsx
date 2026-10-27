@@ -78,6 +78,8 @@ export function AppButton({
             isPrimary && { color: colors.background },
             variant === 'outline' && { color: colors.primary },
             variant === 'danger' && { color: colors.error },
+            // 비활성 배경은 옅은 회색이라 흰 글자를 그대로 두면 거의 안 보였다.
+            (disabled || loading) && { color: colors.textMuted },
           ]}
         >
           {label}
@@ -153,6 +155,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: font.bodyLarge,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });
-

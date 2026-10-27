@@ -2,13 +2,11 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isRequestCancellable, type ServiceRequest } from '@dimol/shared';
 import { AppButton, Card, ErrorBanner, SectionTitle } from '../components/ui';
-import { Breadcrumbs } from '../components/Breadcrumbs';
 import { RequestDetailSkeleton } from '../components/Skeleton';
 import { StatusTimeline } from '../components/StatusTimeline';
 import { FadeInUp } from '../components/motion';
 import { EstimateComparison } from '../components/demolition/EstimateComparison';
 import { ScreenHeader, useNavigation, useSession } from '../navigation';
-import { ROLE_CONFIG, requestsTabLabel } from '../roleConfig';
 import { AllbaroStatusCard } from './request-detail/AllbaroStatusCard';
 import { CancelPanel } from './request-detail/CancelPanel';
 import { CounterpartyActions } from './request-detail/CounterpartyActions';
@@ -45,34 +43,12 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   // 훅은 아래 로딩 분기(조기 return)보다 먼저 — 순서가 바뀌면 데이터가 도착하는 순간 렌더가 깨진다.
   const [activeTab, setActiveTab] = React.useState<'STATUS' | 'PAYMENT'>('STATUS');
 
-  const crumbs = (
-    <Breadcrumbs
-      items={[
-        { label: '홈', onPress: () => nav.switchTab('home') },
-        // 이 탭의 이름은 역할마다 다르다(배출자 "내 요청", 운반 "콜 내역"…).
-        // 빵부스러기에 '요청 관리'라고 박아 두면 눌러서 도착한 화면의 제목과 달라
-        // 다른 곳으로 온 것처럼 읽힌다.
-        // 목록 탭이 없는 역할(운반·처리장)은 이 칸을 뺀다 — 없는 탭으로 보내면 눌러도 그대로다.
-        ...(requestsTabLabel(user.userType)
-          ? [
-              {
-                label: ROLE_CONFIG[user.userType].listTitle,
-                onPress: () => nav.switchTab('requests'),
-              },
-            ]
-          : []),
-        { label: '진행 상태 상세' },
-      ]}
-    />
-  );
-
   // 아직 보여줄 데이터가 없는 동안에는 스피너 대신 들어올 화면의 뼈대를 그린다.
   // 데이터가 도착해도 레이아웃이 통째로 바뀌지 않아 화면이 튀지 않는다.
   if (!request) {
     return (
       <View style={styles.screen}>
         <ScreenHeader title="요청 상세" canGoBack />
-        {crumbs}
         <ErrorBanner message={detail.errorMessage} onRetry={() => void detail.refetch()} />
         {detail.isLoading ? <RequestDetailSkeleton /> : null}
       </View>
@@ -91,7 +67,6 @@ export function RequestDetailScreen({ requestId }: { requestId: string }) {
   return (
     <View style={styles.screen}>
       <ScreenHeader title={KIND_LABELS[request.kind]} canGoBack />
-      {crumbs}
       <View style={styles.tabContainer}>
         <Pressable
           accessibilityRole="tab"

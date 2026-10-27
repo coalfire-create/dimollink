@@ -145,14 +145,17 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
         </MapView>
       )}
 
-      <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>{isProvider ? '위치 공유 중' : '실시간 트래킹 중'}</Text>
-        <Text style={styles.infoSubtitle}>
-          {isProvider
-            ? '고객에게 차량의 실시간 위치를 전송하고 있습니다.'
-            : '트럭의 실시간 위치를 지도에서 확인할 수 있습니다.'}
-        </Text>
-      </View>
+      {/* 위치가 아직 없으면(차량 출발 전) "실시간 트래킹 중"이라고 쓰지 않는다 — 위 안내가 대신한다. */}
+      {location ? (
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>{isProvider ? '위치 공유 중' : '차량 위치'}</Text>
+          <Text style={styles.infoSubtitle}>
+            {isProvider
+              ? '고객에게 차량의 실시간 위치를 전송하고 있습니다.'
+              : '운반 차량의 현재 위치입니다.'}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }

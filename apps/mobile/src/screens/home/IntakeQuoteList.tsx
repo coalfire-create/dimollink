@@ -71,7 +71,7 @@ export function IntakeQuoteList({ jobs }: { jobs: RankedJob[] }) {
         jobs.map((job) => (
           <OpenJobCard key={job.id} job={job}>
             {submittedIds.includes(job.id) ? (
-              <Text style={styles.done}>✓ 견적 제출됨 · 요청자 선택 대기</Text>
+              <Text style={styles.done}>견적 제출됨 · 요청자 선택 대기</Text>
             ) : (
               <>
                 <Field

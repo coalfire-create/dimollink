@@ -23,7 +23,7 @@ export function PaidRefundCard({
 
   return (
     <Card>
-      <Text style={styles.paidBadge}>✓ 결제가 완료됐어요</Text>
+      <Text style={styles.paidBadge}>결제가 완료됐어요</Text>
       {canRefund ? (
         confirming ? (
           <View style={styles.confirmBlock}>

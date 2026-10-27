@@ -55,7 +55,7 @@ export function SignupFields({ signup }: { signup: SignupState }) {
         <View style={styles.codeBlock}>
           <View style={styles.noticeBox}>
             <Text style={styles.noticeBoxText}>
-              ✓ 인증코드를 발송했어요. 문자로 받은 6자리를 입력하세요.
+              인증코드를 발송했어요. 문자로 받은 6자리를 입력하세요.
             </Text>
           </View>
           <Field

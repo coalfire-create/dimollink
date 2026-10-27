@@ -72,7 +72,7 @@ export function MatchResult({ request }: { request: InteriorRequest }) {
           </>
         ) : request.status === 'PAID' ? (
           <>
-            <Text style={styles.paidBadge}>✓ 결제 완료</Text>
+            <Text style={styles.paidBadge}>결제 완료</Text>
             <Text style={styles.hint}>업체가 곧 시공을 시작해요.</Text>
           </>
         ) : (

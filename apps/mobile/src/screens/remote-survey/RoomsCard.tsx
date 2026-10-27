@@ -134,10 +134,7 @@ function RoomRow({
   const filled = REQUIRED_ROOM_SLOTS.filter((s) => (room.photoKeys[s]?.length ?? 0) > 0).length;
   return (
     <View style={styles.room}>
-      <Text style={styles.roomName}>
-        {done ? '✓ ' : ''}
-        {room.name}
-      </Text>
+      <Text style={styles.roomName}>{room.name}</Text>
       <Text style={styles.muted}>
         {done ? '다 찍었어요' : `${filled} / ${REQUIRED_ROOM_SLOTS.length} 찍음`}
       </Text>
