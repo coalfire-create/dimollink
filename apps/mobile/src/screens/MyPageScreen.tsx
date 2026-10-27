@@ -8,6 +8,7 @@ import {
   USER_APPROVAL_LABELS,
   isAdminUser,
   isCompanyType,
+  formatPhoneForDisplay,
 } from '@dimol/shared';
 import { WEB_BASE_URL } from '../api/client';
 import { Card, InfoRow, KeyboardAwareScreen, SectionTitle } from '../components/ui';
@@ -18,9 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBar, useAuthActions, useNavigation, useSession } from '../navigation';
 import { CompanyInfoFooter } from '../components/CompanyInfoFooter';
 import { CompanySettings } from './mypage/CompanySettings';
-import { ProfileHero, type ProfileShortcut } from './mypage/ProfileHero';
+import { ProfileHero } from './mypage/ProfileHero';
 import { RatingCards } from './mypage/RatingCards';
-import { requestsTabLabel } from '../roleConfig';
 import { theme } from '../theme';
 
 /**
@@ -45,57 +45,25 @@ export function MyPageScreen() {
     if (ok) logout();
   }
 
-  // 가장 자주 가는 세 곳은 프로필 카드의 타일로 올린다(목록에서 찾지 않게).
-  // 업체의 세 번째 칸은 정산 계좌 — 등록 전에는 정산금이 지급되지 않아 가입 직후 눈에 띄어야
-  // 한다. 소비자는 정산받을 일이 없어 그 자리에 물량 계산을 둔다.
-  const requestsLabel = requestsTabLabel(user.userType);
+  // 예전엔 프로필 아래에 이용내역·알림 타일을 뒀는데 하단 탭과 같은 곳으로 가는 중복이라 뺐다.
+  // 탭에 없는 곳(물량 계산·정산 계좌)만 아래 목록에 둔다.
   const isConsumer = user.userType === 'CONSUMER';
-  const shortcuts: ProfileShortcut[] = [
-    // 목록 탭이 없는 역할(운반·처리장·인테리어)은 이 타일을 빼고 물량 계산을 올린다.
-    requestsLabel
-      ? {
-          key: 'requests',
-          icon: 'document',
-          label: requestsLabel,
-          onPress: () => nav.switchTab('requests'),
-        }
-      : {
-          key: 'estimate',
-          icon: 'tools',
-          label: '물량 계산',
-          onPress: () => nav.push({ name: 'estimate' }),
-        },
-    {
-      key: 'notifications',
-      icon: 'notifications',
-      label: '알림',
-      onPress: () => nav.switchTab('notifications'),
-    },
-    isConsumer
-      ? {
-          key: 'estimate',
-          icon: 'tools',
-          label: '물량 계산',
-          onPress: () => nav.push({ name: 'estimate' }),
-        }
-      : {
-          key: 'payout',
-          icon: 'card',
-          label: '정산 계좌',
-          onPress: () => nav.push({ name: 'payoutAccount' }),
-        },
-  ];
-  const estimateInShortcuts = shortcuts.some((s) => s.key === 'estimate');
 
   const activityItems: MenuItem[] = [
-    // 물량 계산이 타일에 없으면(목록 탭이 있는 업체) 목록에 남긴다.
-    ...(!estimateInShortcuts
+    {
+      key: 'estimate',
+      icon: 'tools',
+      label: '폐기물 양 계산',
+      onPress: () => nav.push({ name: 'estimate' }),
+    },
+    // 소비자는 정산받을 일이 없다.
+    ...(!isConsumer
       ? [
           {
-            key: 'estimate',
-            icon: 'tools',
-            label: '폐기물 양 계산',
-            onPress: () => nav.push({ name: 'estimate' }),
+            key: 'payout',
+            icon: 'card',
+            label: '정산 계좌',
+            onPress: () => nav.push({ name: 'payoutAccount' }),
           } as MenuItem,
         ]
       : []),
@@ -157,7 +125,7 @@ export function MyPageScreen() {
           내 정보
         </Text>
         <FadeInUp delay={40}>
-          <ProfileHero user={user} shortcuts={shortcuts} />
+          <ProfileHero user={user} />
         </FadeInUp>
 
         {/* 소비자는 타일로 다 올라가 남는 메뉴가 없다 — 빈 카드를 그리지 않는다. */}
@@ -174,7 +142,7 @@ export function MyPageScreen() {
           {user.availability ? (
             <InfoRow label="콜대기" value={CALL_AVAILABILITY_LABELS[user.availability]} />
           ) : null}
-          {user.phone ? <InfoRow label="연락처" value={user.phone} /> : null}
+          {user.phone ? <InfoRow label="연락처" value={formatPhoneForDisplay(user.phone)} /> : null}
           <InfoRow label="가입일" value={new Date(user.createdAt).toLocaleDateString('ko-KR')} />
         </Card>
 

@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from './AppIcon';
 import { AppButton } from './ui';
-import { FadeInUp, PressableScale } from './motion';
+import { PressableScale } from './motion';
 import { GuideStepCard } from './guide/GuideStepCard';
 import { CONSUMER_STEPS } from './guide/guideSteps';
 import { theme } from '../theme';
@@ -38,45 +38,42 @@ export function UserGuideModal({
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.overlay}>
-        {/* 전체 화면 모달이라 노치·홈 인디케이터를 직접 피해야 한다
-            (예전엔 상단 여백을 60 으로 박아 둬서 기기마다 여백이 틀어졌다). */}
+        {/* 전체 화면 모달이라 노치·홈 인디케이터를 직접 피해야 한다. */}
         <View
           style={[
             styles.modalCard,
-            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.lg },
+            { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.md },
           ]}
         >
-          <FadeInUp delay={20}>
+          {/* 제목과 닫기 버튼을 한 줄에 둔다 — 예전엔 닫기가 절대 배치라 긴 제목과 겹쳤다. */}
+          <View style={styles.headerRow}>
+            <Text style={styles.counter}>
+              {activeStep} / {CONSUMER_STEPS.length}
+            </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="가이드 닫기"
               onPress={onClose}
-              style={[styles.closeBtn, { top: insets.top + spacing.sm }]}
+              style={styles.closeBtn}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <AppIcon name="close" size={24} color={colors.text} />
             </Pressable>
-          </FadeInUp>
+          </View>
 
-          <FadeInUp delay={100} style={styles.header}>
-            <Text style={styles.mainTitle}>
-              {isNewUser ? '비움과 함께 시작해볼까요?' : '철거 · 원상복구 이용 방법'}
-            </Text>
-            <Text style={styles.mainSubtitle}>
-              복잡하고 어려운 철거와 폐기물, 3단계로 안전하고 간편하게 끝내세요.
-            </Text>
-          </FadeInUp>
+          <Text style={styles.mainTitle}>{isNewUser ? '처음 오셨나요?' : '이용 방법'}</Text>
+          <Text style={styles.mainSubtitle}>신청부터 결제까지 순서대로 안내합니다.</Text>
 
-          <FadeInUp delay={200} style={styles.dotIndicatorContainer}>
+          <View style={styles.progressTrack}>
             {CONSUMER_STEPS.map((step) => (
               <Pressable
                 key={step.step}
                 accessibilityRole="button"
                 accessibilityLabel={`${step.step}단계 보기`}
                 onPress={() => setActiveStep(step.step)}
-                style={[styles.dot, step.step === activeStep && styles.dotSelected]}
+                style={[styles.progressSeg, step.step <= activeStep && styles.progressSegOn]}
               />
             ))}
-          </FadeInUp>
+          </View>
 
           <ScrollView
             style={styles.bodyScroll}
@@ -84,24 +81,12 @@ export function UserGuideModal({
             showsVerticalScrollIndicator={false}
           >
             <GuideStepCard step={current} />
-
-            <FadeInUp delay={100} style={styles.guaranteeRow}>
-              <View style={styles.guaranteeItem}>
-                <AppIcon name="shield" size={20} color={colors.primary} filled />
-                <Text style={styles.guaranteeText}>사업자 검증 완료 업체</Text>
-              </View>
-              <View style={styles.guaranteeItem}>
-                <AppIcon name="document" size={20} color={colors.primary} filled />
-                <Text style={styles.guaranteeText}>올바로 전자인계서 자동</Text>
-              </View>
-            </FadeInUp>
           </ScrollView>
 
-          <FadeInUp delay={300} style={styles.footer}>
+          <View style={styles.footer}>
             <AppButton
-              label={isLast ? '비움 시작하기 ➔' : '다음으로 ➔'}
+              label={isLast ? '시작하기' : '다음'}
               onPress={() => (isLast ? onClose() : setActiveStep((prev) => prev + 1))}
-              style={styles.actionButton}
             />
             {onNeverShowAgain ? (
               <PressableScale
@@ -112,134 +97,90 @@ export function UserGuideModal({
                 <Text style={styles.neverBtnText}>다시 보지 않기</Text>
               </PressableScale>
             ) : null}
-          </FadeInUp>
+          </View>
         </View>
       </View>
     </Modal>
   );
 }
 
-const { colors, font, spacing, radius, touch } = theme;
+const { colors, font, spacing, touch } = theme;
 
 const styles = StyleSheet.create({
   overlay: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     flex: 1,
   },
   modalCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     flex: 1,
     // paddingTop / paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  headerRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  counter: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '600',
   },
   closeBtn: {
     alignItems: 'center',
-    // 카드 배경(surface)과 같은 색이면 테두리 1px 말고는 구분되지 않아 거의 안 보였다.
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: radius.badge,
-    borderWidth: 1,
     // 손가락으로 정확히 누를 수 있게 48px 터치 영역을 확보한다.
     height: touch.minButtonHeight,
     justifyContent: 'center',
-    position: 'absolute',
-    right: spacing.lg,
-    // top 은 안전영역에 맞춰 런타임에 정한다.
+    marginRight: -spacing.xs,
     width: touch.minButtonHeight,
-    zIndex: 10,
-  },
-  closeBtnText: {
-    color: colors.textMuted,
-    fontSize: font.bodyLarge,
-    fontWeight: '800',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-    marginTop: spacing.lg,
   },
   mainTitle: {
-    // 닫기 버튼(우상단 48px)이 절대 배치라, 가운데 정렬된 제목이 그 밑으로 들어갔다.
-    // 좌우로 버튼 폭만큼 비워 두면 어느 길이의 제목이든 겹치지 않는다.
-    paddingHorizontal: touch.minButtonHeight,
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '900',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
+    fontWeight: '800',
+    marginBottom: spacing.xs,
   },
   mainSubtitle: {
     color: colors.textMuted,
-    fontSize: font.bodyLarge,
-    lineHeight: 24,
-    textAlign: 'center',
-    paddingHorizontal: spacing.md,
+    fontSize: font.body,
+    lineHeight: 28,
+    marginBottom: spacing.md,
   },
-  dotIndicatorContainer: {
+  progressTrack: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: spacing.lg,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  progressSeg: {
     backgroundColor: colors.border,
+    borderRadius: 2,
+    flex: 1,
+    height: 4,
   },
-  dotSelected: {
-    width: 32,
+  progressSegOn: {
     backgroundColor: colors.primary,
   },
   bodyScroll: {
     flex: 1,
   },
   bodyContent: {
-    paddingBottom: 64,
-  },
-  guaranteeRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  guaranteeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  guaranteeText: {
-    color: colors.text,
-    fontSize: font.body,
-    fontWeight: '800',
+    paddingBottom: spacing.md,
   },
   footer: {
-    marginTop: spacing.md,
     paddingTop: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  actionButton: {
-    borderRadius: radius.pill,
-    height: 64,
   },
   neverBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
     // "다시 보지 않기"도 버튼이다 — 터치 영역을 48px 로 맞춘다.
     minHeight: touch.minButtonHeight,
-    paddingVertical: spacing.xs,
   },
   neverBtnText: {
     color: colors.textMuted,
-    fontSize: font.bodyLarge,
+    fontSize: font.body,
     fontWeight: '600',
-    textDecorationLine: 'underline',
   },
 });

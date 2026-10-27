@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     marginHorizontal: spacing.sm,
     padding: spacing.lg,
-    borderRadius: 20,
+    borderRadius: theme.radius.card,
     backgroundColor: colors.background,
   },
   cardOn: {

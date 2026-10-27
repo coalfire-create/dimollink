@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { RequestKind } from '@dimol/shared';
 import {
@@ -9,14 +9,12 @@ import {
   KeyboardAwareScreen,
   StickyFooter,
 } from '../components/ui';
-import { Breadcrumbs } from '../components/Breadcrumbs';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { GuidedSiteCaptureModal } from '../components/GuidedSiteCaptureModal';
 import { WasteItemsInput } from '../components/WasteItemsInput';
 import { FadeInUp } from '../components/motion';
-import { ScreenHeader, useNavigation, useSession, type RequestFormPrefill } from '../navigation';
-import { ROLE_CONFIG } from '../roleConfig';
+import { ScreenHeader, type RequestFormPrefill } from '../navigation';
 import { AllbaroConsent } from './request-form/AllbaroConsent';
 import { DemolitionStepFields } from './request-form/DemolitionStepFields';
 import { StepHeader, useDemolitionSteps } from './request-form/DemolitionStepper';
@@ -50,8 +48,6 @@ export function RequestFormScreen({
   kind: RequestKind;
   prefill?: RequestFormPrefill;
 }) {
-  const nav = useNavigation();
-  const user = useSession();
   const form = useRequestForm(kind, prefill);
   // 철거는 한 화면에 한 질문씩 단계로 나눈다(운반·처리장 예약은 칸이 적어 한 화면).
   const steps = useDemolitionSteps(form);
@@ -62,24 +58,12 @@ export function RequestFormScreen({
   return (
     <KeyboardAwareScreen style={styles.screen}>
       <ScreenHeader title={KIND_TITLES[kind]} canGoBack />
-      <Breadcrumbs
-        items={[
-          { label: '홈', onPress: () => nav.switchTab('home') },
-          { label: ROLE_CONFIG[user.userType].listTitle, onPress: () => nav.switchTab('requests') },
-          { label: KIND_TITLES[kind] },
-        ]}
-      />
       <ScrollView
         ref={steps.scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         {stepped ? <StepHeader index={steps.index} /> : null}
-        {!stepped || steps.isFirst ? (
-          <View style={styles.pilotChip}>
-            <Text style={styles.pilotChipText}>전국 · 건설폐기물</Text>
-          </View>
-        ) : null}
         {/* 지역은 주소에서 자동으로 따라오므로 별도 입력칸이 없다 — 오류만 여기서 알린다. */}
         <FieldError message={form.fieldErrors.region} />
 
@@ -182,7 +166,7 @@ export function RequestFormScreen({
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, spacing } = theme;
 
 /**
  * 스크롤 내용 맨 아래에 비워두는 높이.
@@ -212,18 +196,5 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 2,
-  },
-  pilotChip: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 999,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  pilotChipText: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
   },
 });

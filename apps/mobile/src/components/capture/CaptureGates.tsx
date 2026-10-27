@@ -36,7 +36,7 @@ export function CaptureCompleteView({ count, onNext }: { count: number; onNext: 
   return (
     <View style={styles.centerFill}>
       <View style={styles.completeCircle}>
-        <AppIcon name="sparkles" size={40} color={colors.background} />
+        <AppIcon name="camera" size={40} color={colors.background} />
       </View>
       <Text style={styles.completeTitle}>{SITE_CAPTURE_COPY.complete}</Text>
       <Text style={styles.completeSub}>현장 사진 {count}장을 정리했어요.</Text>

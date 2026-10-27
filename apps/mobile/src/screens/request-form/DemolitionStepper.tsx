@@ -49,16 +49,21 @@ export function useDemolitionSteps(form: RequestFormState) {
   };
 }
 
-/** 단계 머리 — 상단 스텝 인디케이터(① 위치 → ② 공간 → ③ 일정 → ④ 사진), 진행 막대, 질문. */
+/**
+ * 단계 머리 — 상단 스텝 인디케이터(① 위치 → ② 공간 → ③ 일정 → ④ 사진)와 질문.
+ * 번호 인디케이터가 이미 진행을 보여 줘서 퍼센트 막대는 뺐다(같은 정보가 두 번 나왔다).
+ */
 export function StepHeader({ index }: { index: number }) {
   const step = DEMOLITION_STEPS[index]!;
   const total = DEMOLITION_STEPS.length;
-  const progressPercent = Math.round(((index + 1) / total) * 100);
 
   return (
     <View style={styles.wrap}>
       {/* 4단계 스텝 인디케이터 */}
-      <View style={styles.stepperRow} accessibilityLabel={`현재 ${total}단계 중 ${index + 1}단계: ${step.label}`}>
+      <View
+        style={styles.stepperRow}
+        accessibilityLabel={`현재 ${total}단계 중 ${index + 1}단계: ${step.label}`}
+      >
         {DEMOLITION_STEPS.map((s, i) => {
           const isDone = i < index;
           const isCurrent = i === index;
@@ -101,18 +106,6 @@ export function StepHeader({ index }: { index: number }) {
         })}
       </View>
 
-      {/* 진행 상태 바 & 퍼센트 */}
-      <View style={styles.progressRow}>
-        <View
-          style={styles.track}
-          accessibilityRole="progressbar"
-          accessibilityLabel={`전체 ${total}단계 중 ${index + 1}단계 (${progressPercent}%)`}
-        >
-          <View style={[styles.fill, { width: `${progressPercent}%` }]} />
-        </View>
-        <Text style={styles.percentText}>{progressPercent}%</Text>
-      </View>
-
       <Text style={styles.question} accessibilityRole="header">
         {step.question}
       </Text>
@@ -120,7 +113,7 @@ export function StepHeader({ index }: { index: number }) {
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   wrap: {
@@ -154,11 +147,6 @@ const styles = StyleSheet.create({
   stepCircleCurrent: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-    elevation: 3,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
   },
   stepCircleText: {
     color: colors.textMuted,
@@ -195,31 +183,6 @@ const styles = StyleSheet.create({
   },
   stepLineDone: {
     backgroundColor: colors.primary,
-  },
-  progressRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  track: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    flex: 1,
-    height: 8,
-    overflow: 'hidden',
-  },
-  fill: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    height: 8,
-  },
-  percentText: {
-    color: colors.primary,
-    fontSize: font.caption,
-    fontWeight: '700',
-    minWidth: 40,
-    textAlign: 'right',
   },
   question: {
     color: colors.text,

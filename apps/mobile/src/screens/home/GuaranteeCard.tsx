@@ -34,7 +34,7 @@ const GUARANTEES: Array<{ icon: IconName; title: string; body: string }> = [
 export function GuaranteeCard() {
   return (
     <>
-      <SectionTitle>비움이 지키는 것</SectionTitle>
+      <SectionTitle>이용 전에 알아두세요</SectionTitle>
       <Card style={styles.card}>
         {GUARANTEES.map((item, index) => (
           <View key={item.title} style={[styles.row, index > 0 && styles.rowDivided]}>

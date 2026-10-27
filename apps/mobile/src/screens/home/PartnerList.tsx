@@ -73,9 +73,9 @@ export function PartnerList({
 
 function PartnerCard({ partner }: { partner: DemolitionPartner }) {
   const verifications = [
-    partner.allbaroCertified ? '✓ 올바로 연동' : null,
-    partner.insuranceRegistered ? '✓ 배상책임보험' : null,
-    partner.permitRegistered ? '✓ 허가증 등록' : null,
+    partner.allbaroCertified ? '올바로 연동' : null,
+    partner.insuranceRegistered ? '배상책임보험' : null,
+    partner.permitRegistered ? '허가증 등록' : null,
   ].filter((item): item is string => item !== null);
 
   return (

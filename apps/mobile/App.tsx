@@ -195,11 +195,9 @@ function AppRoot() {
     [],
   );
 
-  const isDev =
-    __DEV__ ||
-    (Platform.OS === 'web' &&
-      typeof window !== 'undefined' &&
-      (window.location.search.includes('dev=true') || window.location.hash.includes('dev')));
+  // 역할 스위처·로그인 없는 진입은 개발 빌드에서만. 예전엔 운영 웹에서도 `?dev=true` 나
+  // 주소 해시에 'dev' 가 들어가면 열렸다 — 운영 사용자에게 보일 이유가 없다.
+  const isDev = __DEV__;
 
   // 자동 로그인 — 저장된 토큰으로 세션 복원. 실패/만료 시 게이트로.
   useEffect(() => {

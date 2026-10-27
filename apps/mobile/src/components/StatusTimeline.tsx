@@ -87,11 +87,6 @@ export function StatusTimeline({
                 >
                   {REQUEST_STATUS_LABELS[step]}
                 </Text>
-                {isCurrent ? (
-                  <View style={styles.currentBadge}>
-                    <Text style={styles.currentBadgeText}>현재 진행</Text>
-                  </View>
-                ) : null}
               </View>
               {isCurrent ? <Text style={styles.hint}>{STEP_HINTS[step]}</Text> : null}
             </View>
@@ -183,17 +178,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
-  },
-  currentBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs / 2,
-  },
-  currentBadgeText: {
-    color: colors.background,
-    fontSize: font.caption,
-    fontWeight: '800',
   },
   labelWrapLast: {
     paddingBottom: 0,

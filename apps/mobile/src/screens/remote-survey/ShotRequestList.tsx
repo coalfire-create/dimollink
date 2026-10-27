@@ -47,7 +47,7 @@ export function ShotRequestList({
       })}
       {done.map((row) => (
         <Card key={row.id}>
-          <Text style={styles.done}>✓ 보냈어요 · 사진 {row.photoKeys.length}장</Text>
+          <Text style={styles.done}>보냈어요 · 사진 {row.photoKeys.length}장</Text>
           <Text style={styles.doneMessage}>{row.message}</Text>
         </Card>
       ))}

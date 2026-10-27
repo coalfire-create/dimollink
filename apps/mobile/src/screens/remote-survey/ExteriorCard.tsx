@@ -53,7 +53,7 @@ export function ExteriorCard({
       <Text style={styles.instruction}>{item.instruction}</Text>
 
       {survey.scanJobId && !scan.job ? (
-        <Text style={styles.note}>✓ 한 바퀴 영상을 보냈어요.</Text>
+        <Text style={styles.note}>한 바퀴 영상을 보냈어요.</Text>
       ) : null}
       {scan.busy && !scan.job ? <Text style={styles.note}>영상을 올리는 중이에요…</Text> : null}
       {scan.job ? <Scan3DProgressCard job={scan.job} /> : null}

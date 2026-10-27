@@ -45,9 +45,9 @@ export function PhotoSourcePanel({
       <View style={styles.iconCircle}>
         <Image source={brandmark} style={styles.dropzoneLogo} resizeMode="contain" />
       </View>
-      <Text style={styles.dropzoneTitle}>철거 현장 사진을 업로드해 주세요</Text>
+      <Text style={styles.dropzoneTitle}>현장 사진을 올려 주세요</Text>
       <Text style={styles.dropzoneSub}>
-        건물 내부, 지붕, 자재가 잘 보이게 찍으면{'\n'}소재 인식과 공정 가이드가 더욱 정확해집니다
+        건물 안쪽, 지붕, 자재가 잘 보이게 찍을수록 결과가 정확합니다.
       </Text>
       <PressableScale
         accessibilityRole="button"
@@ -55,7 +55,7 @@ export function PhotoSourcePanel({
         onPress={onTrySample}
       >
         <AppIcon name="image" size={18} color={colors.background} />
-        <Text style={styles.samplePillBtnText}>샘플 사진으로 기능 체험하기</Text>
+        <Text style={styles.samplePillBtnText}>예시 사진으로 먼저 보기</Text>
       </PressableScale>
     </View>
   );
@@ -188,11 +188,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     gap: spacing.xs,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
   },
   samplePillBtnText: {
     color: colors.background,

@@ -40,7 +40,7 @@ export function VisionPanel({ form }: { form: RequestFormState }) {
   return (
     <View>
       <View style={styles.intro}>
-        <IconTile icon="sparkles" tone="solid" style={styles.introIcon} />
+        <IconTile icon="camera" tone="solid" style={styles.introIcon} />
         <View style={styles.introText}>
           <Text style={styles.introTitle}>디몰비전 AI 사진 분석</Text>
           <Text style={styles.introBody}>사진으로 폐기물 양과 위험 요소를 먼저 살펴봐요.</Text>

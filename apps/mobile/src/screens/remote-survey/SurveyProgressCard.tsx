@@ -15,7 +15,7 @@ export function SurveyProgressCard({ survey }: { survey: RemoteSurvey }) {
     <Card>
       <Text style={styles.title}>
         {submitted
-          ? '✓ 업체에 보냈어요'
+          ? '업체에 보냈어요'
           : `꼭 필요한 것 ${totalRequired}개 중 ${doneRequired}개 했어요`}
       </Text>
       <View

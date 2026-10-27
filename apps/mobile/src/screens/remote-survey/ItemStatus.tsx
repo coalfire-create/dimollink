@@ -15,7 +15,7 @@ export function ItemStatus({
   done: boolean;
   required: boolean;
 }) {
-  const label = done ? '✓ 다 찍음' : required ? '꼭 필요' : '있으면 좋아요';
+  const label = done ? '다 찍음' : required ? '꼭 필요' : '있으면 좋아요';
   return (
     <View style={styles.row}>
       <Text style={styles.title}>{title}</Text>

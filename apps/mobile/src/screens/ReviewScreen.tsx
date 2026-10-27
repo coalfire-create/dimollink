@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: theme.colors.background,
-    borderRadius: 16,
+    borderRadius: theme.radius.card,
     padding: theme.spacing.md,
     ...theme.shadow.card,
     alignItems: 'center',

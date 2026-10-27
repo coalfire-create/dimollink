@@ -21,11 +21,11 @@ const GUIDE_TIPS = [
  * 마지막 항목은 계속 반복 노출된다 — 정해진 컷을 다 찍은 뒤에도 보강 촬영을 열어 둔다.
  */
 const SHOT_GUIDE = [
-  { emoji: '🏠', label: '① 현장 전경', hint: '건물·현장 전체가 한 화면에 들어오게' },
-  { emoji: '🧱', label: '② 벽·바닥 근접', hint: '주요 벽체·바닥 마감재가 잘 보이게 가까이' },
-  { emoji: '🔺', label: '③ 지붕·천장', hint: '지붕재·천장 구조를 위로 향해 촬영' },
-  { emoji: '⚠️', label: '④ 위험·특이 부위', hint: '석면 의심 슬레이트·배관·설비 등 우려 부위' },
-  { emoji: '📸', label: '추가 각도', hint: '놓친 부분을 다른 각도로 보강 촬영' },
+  { label: '① 현장 전경', hint: '건물·현장 전체가 한 화면에 들어오게' },
+  { label: '② 벽·바닥 근접', hint: '주요 벽체·바닥 마감재가 잘 보이게 가까이' },
+  { label: '③ 지붕·천장', hint: '지붕재·천장 구조를 위로 향해 촬영' },
+  { label: '④ 위험·특이 부위', hint: '석면 의심 슬레이트·배관·설비 등 우려 부위' },
+  { label: '추가 각도', hint: '놓친 부분을 다른 각도로 보강 촬영' },
 ];
 
 export function ShotGuidePanel({
@@ -41,7 +41,7 @@ export function ShotGuidePanel({
   return (
     <View style={styles.topBar} pointerEvents="box-none">
       <View style={styles.topRow}>
-        <Text style={styles.topTitle}>📷 현장 촬영 가이드</Text>
+        <Text style={styles.topTitle}>현장 촬영 가이드</Text>
         <Pressable
           style={styles.closeBtn}
           onPress={onClose}
@@ -54,7 +54,7 @@ export function ShotGuidePanel({
 
       <View style={styles.nextGuideCard}>
         <Text style={styles.nextGuideLabel}>
-          {next.emoji} 다음 촬영: {next.label}
+          다음 촬영: {next.label}
         </Text>
         <Text style={styles.nextGuideHint}>{next.hint}</Text>
       </View>

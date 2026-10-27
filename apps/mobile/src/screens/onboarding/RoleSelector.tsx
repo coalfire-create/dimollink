@@ -19,7 +19,6 @@ interface RoleOption {
   title: string;
   description: string;
   iconName: IconName;
-  badge?: string;
 }
 
 const TYPE_OPTIONS: RoleOption[] = [
@@ -28,35 +27,30 @@ const TYPE_OPTIONS: RoleOption[] = [
     title: '소비자',
     description: '철거·폐기물 처리를 맡기고 싶어요',
     iconName: 'home',
-    badge: '개인/기업',
   },
   {
     type: 'DEMOLITION_COMPANY',
     title: '철거업체',
     description: '철거 작업을 수주하고 싶어요',
     iconName: 'hammer',
-    badge: '파트너',
   },
   {
     type: 'TRANSPORT_COMPANY',
     title: '운반업체',
     description: '폐기물 운반 콜을 받고 싶어요',
     iconName: 'truck',
-    badge: '파트너',
   },
   {
     type: 'WASTE_TREATMENT_PLANT',
     title: '처리장',
     description: '폐기물 반입 예약을 받고 싶어요',
     iconName: 'building',
-    badge: '파트너',
   },
   {
     type: 'INTERIOR_COMPANY',
     title: '인테리어 업체',
     description: '인테리어 시공 견적을 넣고 싶어요',
     iconName: 'palette',
-    badge: '파트너',
   },
 ];
 
@@ -95,13 +89,6 @@ export function RoleSelector({
                   <Text style={[styles.title, selected && styles.titleSelected]}>
                     {option.title}
                   </Text>
-                  {option.badge ? (
-                    <View style={[styles.tagBadge, selected && styles.tagBadgeSelected]}>
-                      <Text style={[styles.tagBadgeText, selected && styles.titleSelected]}>
-                        {option.badge}
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
                 <Text style={styles.description}>{option.description}</Text>
               </View>
@@ -153,20 +140,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '800',
-  },
-  tagBadge: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: spacing.xs / 2,
-  },
-  tagBadgeSelected: {
-    backgroundColor: colors.background,
-  },
-  tagBadgeText: {
-    color: colors.textMuted,
-    fontSize: font.caption,
-    fontWeight: '700',
   },
   description: {
     color: colors.textMuted,

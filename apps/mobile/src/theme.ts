@@ -29,29 +29,36 @@ export const theme = {
    * 스크롤 영역 맨 아래에 확보해야 하는 여백(버튼 56 + 아래 여백).
    */
   floatingButtonClearance: 88,
+  /**
+   * 모서리 — 20/16 처럼 크게 굴리면 템플릿 앱처럼 보여서 8~12 로 낮췄다.
+   * 배지는 알약(999) 대신 살짝 각진 태그(6)로 둔다.
+   */
   radius: {
-    card: 20,
-    button: 16,
-    badge: 999,
+    card: 12,
+    button: 10,
+    badge: 6,
     pill: 999,
   },
-  /** 그림자 프리셋 — 하드한 테두리 대신 은은한 입체감(대기업 앱 톤). */
+  /**
+   * 그림자 — 카드는 테두리로 경계를 잡고 그림자는 거의 쓰지 않는다(야외 시인성은
+   * 테두리가 더 낫다). 버튼에 브랜드 색 번짐(glow)을 주던 것은 뺐다.
+   */
   shadow: {
-    /** 카드·시트 기본 그림자. */
+    /** 카드·시트 기본 그림자 — 테두리 보조용으로 아주 옅게. */
     card: {
       shadowColor: STATUS_COLORS.shadow,
-      shadowOpacity: 0.06,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 2,
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
     },
-    /** 주요 버튼 강조 그림자(브랜드 색). */
+    /** 주요 버튼 — 평면. 키는 남겨 두어 기존 호출부가 깨지지 않게 한다. */
     primary: {
-      shadowColor: COLORS.primary,
-      shadowOpacity: 0.3,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 6,
+      shadowColor: 'transparent',
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
     },
   },
 } as const;

@@ -126,7 +126,7 @@ export function OnboardingScreen({
             <View style={styles.loginCard}>
               <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
               <PressableScale accessibilityRole="button" onPress={onLogin} style={styles.loginBtn}>
-                <Text style={styles.loginBtnText}>로그인 화면으로 이동 ➔</Text>
+                <Text style={styles.loginBtnText}>로그인 화면으로 이동</Text>
               </PressableScale>
             </View>
           </FadeInUp>
@@ -140,9 +140,7 @@ export function OnboardingScreen({
 function SectionStep({ label, title, spaced }: { label: string; title: string; spaced?: boolean }) {
   return (
     <View style={[styles.sectionHeader, spaced && styles.sectionHeaderSpaced]}>
-      <View style={styles.stepBadge}>
-        <Text style={styles.stepBadgeText}>{label}</Text>
-      </View>
+      <Text style={styles.stepLabel}>{label}</Text>
       <Text style={styles.stepTitle}>{title}</Text>
     </View>
   );
@@ -198,21 +196,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: spacing.sm,
-    gap: spacing.xs,
   },
-  stepBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xs / 2,
-  },
-  stepBadgeText: {
-    color: colors.background,
+  stepLabel: {
+    color: colors.primary,
     fontSize: font.caption,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepTitle: {
     color: colors.text,

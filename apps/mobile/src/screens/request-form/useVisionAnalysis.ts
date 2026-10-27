@@ -75,7 +75,7 @@ export function useVisionAnalysis({
         return;
       }
       onWasteItems(wasteItems);
-      const method = analysis.method === 'AI_VISION' ? 'AI 분석' : '참고(목) 분석';
+      const method = analysis.method === 'AI_VISION' ? '사진 분석' : '예시 분석';
       setSummary(
         `${method}으로 소재 ${wasteItems.length}종을 채웠어요. 무게(kg)는 확인·수정해 주세요.`,
       );

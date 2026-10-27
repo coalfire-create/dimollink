@@ -32,13 +32,12 @@ export function SiteAnalysisScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="현장 AI 분석 (소재·공정)" canGoBack />
+      <ScreenHeader title="현장 사진 분석" canGoBack />
       <ScrollView contentContainerStyle={styles.content}>
         <FadeInUp delay={40}>
           <AnalysisIntroCard
-            badge="스마트 현장 분석"
-            engineTag="자동화 리포트"
-            title={`현장 사진 한 장으로\n소재와 철거 공정을 확인하세요`}
+            title="현장 사진으로 미리 확인하기"
+            description="주소를 정하고 사진을 올리면 석면 등 위험 자재, 폐기물 종류, 작업할 때 주의할 점을 정리해 드립니다."
           />
         </FadeInUp>
 

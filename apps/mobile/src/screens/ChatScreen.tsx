@@ -39,7 +39,7 @@ export function ChatScreen({ requestId }: { requestId: string }) {
         setMessages((prev) => [...prev, ...fresh]);
       }
       // If there are fresh messages and we are viewing them, mark them as read
-      if (fresh.some(m => m.senderId !== user.id && !m.readAt)) {
+      if (fresh.some((m) => m.senderId !== user.id && !m.readAt)) {
         await markMessagesAsRead(requestId).catch(() => {});
       }
       setError(null);
@@ -88,7 +88,7 @@ export function ChatScreen({ requestId }: { requestId: string }) {
             icon="chat"
             title="대화를 시작해 보세요"
             description="일정·현장 상황을 편하게 물어보세요."
-            actionLabel="안녕하세요, 현장 관련 문의드립니다 👋"
+            actionLabel="인사말 넣기"
             onAction={() => {
               setDraft('안녕하세요, 현장 관련 문의드립니다.');
             }}
@@ -131,10 +131,7 @@ export function ChatScreen({ requestId }: { requestId: string }) {
           accessibilityLabel="보내기"
           onPress={submit}
           disabled={sending || draft.trim().length === 0}
-          style={[
-            styles.sendButton,
-            (sending || draft.trim().length === 0) && { opacity: 0.4 },
-          ]}
+          style={[styles.sendButton, (sending || draft.trim().length === 0) && { opacity: 0.4 }]}
         >
           <Text style={styles.sendLabel}>↑</Text>
         </PressableScale>

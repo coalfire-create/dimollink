@@ -36,28 +36,10 @@ export function Card({
   );
 }
 
-export function statusIcon(status: string): string {
-  switch (status) {
-    case 'REQUESTED':
-      return '⏳';
-    case 'MATCHED':
-      return '🤝';
-    case 'PAYMENT_DUE':
-    case 'PAID':
-      return '💳';
-    case 'IN_PROGRESS':
-      return '⚡';
-    case 'COMPLETED':
-      return '✅';
-    case 'SETTLED':
-      return '🎉';
-    case 'CANCELLED':
-      return '✕';
-    default:
-      return '•';
-  }
-}
-
+/**
+ * 상태 배지 — 색 점 + 글자. 예전엔 상태마다 이모지(⏳🤝💳⚡✅🎉)를 붙였는데
+ * 기기마다 모양이 달라 줄이 어긋나고, 화면이 장난스럽게 보였다.
+ */
 export function StatusBadge({
   status,
   label,
@@ -68,10 +50,9 @@ export function StatusBadge({
   showIcon?: boolean;
 }) {
   const palette = statusColor(status);
-  const icon = statusIcon(status);
   return (
     <View style={[styles.badge, { backgroundColor: palette.background }]}>
-      {showIcon ? <Text style={[styles.badgeIcon, { color: palette.text }]}>{icon} </Text> : null}
+      {showIcon ? <View style={[styles.badgeDot, { backgroundColor: palette.text }]} /> : null}
       <Text style={[styles.badgeText, { color: palette.text }]}>{label}</Text>
     </View>
   );
@@ -151,9 +132,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
-  badgeIcon: {
-    fontSize: theme.glyph.small,
-    marginRight: spacing.xs / 2,
+  badgeDot: {
+    borderRadius: 4,
+    height: 8,
+    marginRight: spacing.xs,
+    width: 8,
   },
   badgeText: {
     fontSize: font.body,

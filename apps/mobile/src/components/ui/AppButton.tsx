@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { theme } from '../../theme';
+import { AppIcon } from '../AppIcon';
 import { triggerHaptic } from '../../lib/haptics';
 import { usePressScale } from '../motion';
 
@@ -61,7 +62,6 @@ export function AppButton({
       style={[
         styles.button,
         isPrimary && styles.buttonPrimary,
-        isPrimary && theme.shadow.primary,
         variant === 'outline' && styles.buttonOutline,
         variant === 'danger' && styles.buttonDanger,
         (disabled || loading) && styles.buttonDisabled,
@@ -78,6 +78,8 @@ export function AppButton({
             isPrimary && { color: colors.background },
             variant === 'outline' && { color: colors.primary },
             variant === 'danger' && { color: colors.error },
+            // 비활성 배경은 옅은 회색이라 흰 글자를 그대로 두면 거의 안 보였다.
+            (disabled || loading) && { color: colors.textMuted },
           ]}
         >
           {label}
@@ -91,7 +93,7 @@ export function AppButton({
       <View style={styles.disabledContainer}>
         {buttonElement}
         <View style={styles.reasonWrap}>
-          <Text style={styles.reasonIcon}>ℹ️</Text>
+          <AppIcon name="info" size={18} color={colors.textMuted} style={styles.reasonIcon} />
           <Text style={styles.reasonText}>{disabledReason}</Text>
         </View>
       </View>
@@ -115,7 +117,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   reasonIcon: {
-    fontSize: theme.glyph.small,
     marginRight: spacing.xs / 2,
   },
   reasonText: {
@@ -154,6 +155,6 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: font.bodyLarge,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });
-
