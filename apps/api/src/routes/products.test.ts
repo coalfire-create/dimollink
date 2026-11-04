@@ -148,7 +148,7 @@ describe('상품 카탈로그 — 심사 요건', () => {
     expect(membership.availableTo).toEqual(['DEMOLITION_COMPANY']);
     const benefits = membership.benefits.join('\n');
     expect(benefits).toContain('우선 알림');
-    expect(benefits).toContain('7% → 5%');
+    expect(benefits).toContain('5% → 3%');
     expect(benefits).toContain('상단 노출');
     expect(membership.servicePeriod.label).toContain('자동 결제 없음');
   });

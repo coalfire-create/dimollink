@@ -10,7 +10,7 @@ describe('membership value', () => {
   it('아끼는 수수료는 실제 요율 차이로 계산한다', () => {
     const expected = Math.round(10_000_000 * (PLATFORM_FEE_RATE - MEMBER_PLATFORM_FEE_RATE));
     expect(feeSavings(10_000_000)).toBe(expected);
-    // 지금 요율(7% → 5%)이면 1,000만 원 정산에 20만 원.
+    // 지금 요율(5% → 3%)이면 1,000만 원 정산에 20만 원.
     expect(feeSavings(10_000_000)).toBe(200_000);
   });
 

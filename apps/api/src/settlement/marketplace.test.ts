@@ -35,10 +35,10 @@ describe('calculateDeal — 수수료는 수취인 지급액에서 차감한다'
     expect(deal.payerAmount).toBe(10_000_000);
   });
 
-  it('수수료 7% 를 떼고 나머지를 수취인에게 준다', () => {
+  it('수수료 5% 를 떼고 나머지를 수취인에게 준다', () => {
     const deal = calculateDeal(10_000_000);
-    expect(deal.platformFee).toBe(700_000);
-    expect(deal.sellerPayout).toBe(9_300_000);
+    expect(deal.platformFee).toBe(500_000);
+    expect(deal.sellerPayout).toBe(9_500_000);
     // 반올림 오차로 돈이 새면 안 된다.
     expect(deal.platformFee + deal.sellerPayout).toBe(deal.payerAmount);
   });
@@ -77,7 +77,7 @@ describe('buildDealSettlementPlan — 수취인이 한 명인 거래', () => {
     const result = plan('DEMOLITION');
     expect(result.payouts).toHaveLength(1);
     expect(result.payouts[0]?.party).toBe('DEMOLITION');
-    expect(result.payouts[0]?.amount).toBe(9_300_000);
+    expect(result.payouts[0]?.amount).toBe(9_500_000);
   });
 
   it('철거 거래의 party 가 DEMOLITION 이다 — 예전엔 TRANSPORT 로 찍혔다', () => {
@@ -108,8 +108,8 @@ describe('describeDealFee — 수수료를 숨기지 않는다', () => {
   it('결제 금액·수수료율·수수료액을 모두 밝힌다', () => {
     const text = describeDealFee(calculateDeal(10_000_000));
     expect(text).toContain('10,000,000원');
-    expect(text).toContain('7%');
-    expect(text).toContain('700,000원');
+    expect(text).toContain('5%');
+    expect(text).toContain('500,000원');
     expect(text).toContain('정산액에서 차감');
   });
 });

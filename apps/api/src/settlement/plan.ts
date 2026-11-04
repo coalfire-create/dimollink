@@ -8,7 +8,7 @@ import { calculateSettlement } from './calculate.js';
 import { calculateSettlementDate } from './settlement-date.js';
 
 /**
- * 정산 플랜 빌더 — 금액 분해(수수료 7% 차감) + 지급일(D+1 영업일) + 셀러별 지급 지시를
+ * 정산 플랜 빌더 — 금액 분해(수수료 5% 차감) + 지급일(D+1 영업일) + 셀러별 지급 지시를
  * 하나로 묶어 포트원 지급대행 실행에 필요한 정보를 만든다.
  *
  * 선결제 금액(prepaymentAmount)은 기존 calculate.ts 모델을 따른다:

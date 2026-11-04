@@ -20,7 +20,7 @@ npm workspaces 모노레포, TS strict. `apps/mobile`(React Native) · `apps/api
 ## 비즈니스 규칙 (임의 변경 금지)
 - 결제: 선결제(에스크로 아님). 매칭 확정 시 배출자가 운반비+처리비+수수료 결제. 가상계좌 기본 노출 + 카드 병행.
 - PG: 포트원 지급대행 + **KG이니시스**(토스는 채널 해제·보류). PG 선택은 채널 키(`PORTONE_CHANNEL_KEY`·`PORTONE_BILLING_CHANNEL_KEY`)로만, 특정 PG 분기 금지. 이니시스는 구매자 이름(PC는 연락처·이메일), 가상계좌 입금기한, 빌링키 `issueId` 필수.
-- 수수료 7% (`packages/shared` 상수).
+- 수수료 5%, 철거업체 멤버십 회원 3% (`packages/shared` 상수: `PLATFORM_FEE_RATE = 0.05`, `MEMBER_PLATFORM_FEE_RATE = 0.03`).
 - 정산: 수수료 제외 금액 D+1 영업일(공휴일 순연) 지급, 정산 확정 시 포트원 전자세금계산서 자동 발행.
 - 취소: 배차 전 전액 환불 / 배차 후~작업 전 위약금 10% / 작업 시작 후 불가.
 - 올바로 전자인계서: 신청 화면 체크박스, 의무 대상(건설폐기물 5톤↑ 등)이면 안내 팝업. ON=API 발행, OFF=자체 간이확인서. API 장애 시 OFF로 폴백 + 재시도 큐.
