@@ -51,6 +51,16 @@ export const GLYPH_SIZES = {
  */
 export const MAX_CONTENT_WIDTH = 520;
 
+/**
+ * 데스크톱 웹 레이아웃 — 브라우저 폭이 이 값 이상이면 폰 폭 칸 대신 웹 화면으로 그린다
+ * (상단 메뉴바 + 넓은 본문 + 카드 그리드). 태블릿 세로(768~)는 모바일 레이아웃이 더 낫다.
+ */
+export const WIDE_LAYOUT_BREAKPOINT = 1024;
+/** 웹 화면 본문 최대 폭 — 홈·목록처럼 카드를 여러 칸으로 펼치는 화면. */
+export const WIDE_CONTENT_WIDTH = 1200;
+/** 웹 화면 폼·상세 최대 폭 — 입력칸·버튼이 화면 끝까지 늘어나면 읽기 어렵다. */
+export const WIDE_FORM_WIDTH = 880;
+
 /** 터치 영역(px). 버튼 높이 최소 48. */
 export const TOUCH = {
   minButtonHeight: 48,

@@ -8,6 +8,8 @@ import {
   STATUS_COLORS,
   TAB_LABEL_FONT_SIZE,
   TOUCH,
+  WIDE_CONTENT_WIDTH,
+  WIDE_FORM_WIDTH,
 } from '@dimol/shared';
 
 /**
@@ -24,6 +26,9 @@ export const theme = {
   touch: TOUCH,
   /** 웹에서 데스크톱 폭으로 늘어나지 않게 잡아주는 본문 최대 폭. */
   maxContentWidth: MAX_CONTENT_WIDTH,
+  /** 데스크톱 웹 화면 폭 — 홈·목록(wideContent) / 폼·상세(wideForm). [[useWideLayout]] */
+  wideContentWidth: WIDE_CONTENT_WIDTH,
+  wideFormWidth: WIDE_FORM_WIDTH,
   /**
    * 우하단 고객센터 플로팅 버튼이 마지막 콘텐츠를 가리지 않도록
    * 스크롤 영역 맨 아래에 확보해야 하는 여백(버튼 56 + 아래 여백).

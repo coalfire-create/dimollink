@@ -1,6 +1,13 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { InlineEmpty, ListGroup, ListRow, SectionTitle } from '../components/ui';
+import {
+  InlineEmpty,
+  ListGroup,
+  ListRow,
+  ResponsiveGrid,
+  SectionTitle,
+  WideColumns,
+} from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
 import { FadeInUp } from '../components/motion';
 import { TabBar, useNavigation, useSession } from '../navigation';
@@ -46,46 +53,60 @@ export function DemolitionHomeScreen() {
         />
 
         <View style={styles.body}>
-          <FadeInUp delay={40}>
-            <SectionTitle>새 철거 요청</SectionTitle>
-            {open.length > 0 ? (
-              open.map((job) => (
-                <DemolitionJobCard
-                  key={job.id}
-                  job={job}
-                  onPress={() => nav.push({ name: 'estimateWorksheet', requestId: job.id })}
+          {/* 데스크톱 웹: 새 요청 카드 그리드(왼쪽) | 수주·이어서 맡기기·시세(오른쪽). */}
+          <WideColumns
+            main={
+              <FadeInUp delay={40}>
+                <SectionTitle>새 철거 요청</SectionTitle>
+                {open.length > 0 ? (
+                  <ResponsiveGrid>
+                    {open.map((job) => (
+                      <DemolitionJobCard
+                        key={job.id}
+                        job={job}
+                        onPress={() => nav.push({ name: 'estimateWorksheet', requestId: job.id })}
+                      />
+                    ))}
+                  </ResponsiveGrid>
+                ) : (
+                  <InlineEmpty
+                    actionLabel="내 활동 지역 및 알림 설정"
+                    onAction={() => nav.switchTab('mypage')}
+                  >
+                    지금 들어온 철거 요청이 없어요.
+                  </InlineEmpty>
+                )}
+              </FadeInUp>
+            }
+            side={
+              <>
+                <AssignedJobList
+                  title="수주한 철거"
+                  jobs={assigned}
+                  emptyText="수주한 철거가 없어요."
                 />
-              ))
-            ) : (
-              <InlineEmpty
-                actionLabel="내 활동 지역 및 알림 설정"
-                onAction={() => nav.switchTab('mypage')}
-              >
-                지금 들어온 철거 요청이 없어요.
-              </InlineEmpty>
-            )}
-          </FadeInUp>
 
-          <AssignedJobList title="수주한 철거" jobs={assigned} emptyText="수주한 철거가 없어요." />
+                <SectionTitle>이어서 맡기기</SectionTitle>
+                <ListGroup>
+                  <ListRow
+                    icon="truck"
+                    title="운반 차량 부르기"
+                    subtitle="철거 후 반출까지 이어서 맡겨요"
+                    hint="상·하차 주소와 폐기물을 입력해 운반을 요청합니다"
+                    onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
+                  />
+                  <ListRow
+                    icon="recycle"
+                    title="처리장 예약하기"
+                    subtitle="폐기물 반입 일정을 미리 잡아요"
+                    onPress={() => nav.push({ name: 'requestForm', kind: 'DISPOSAL_RESERVATION' })}
+                  />
+                </ListGroup>
 
-          <SectionTitle>이어서 맡기기</SectionTitle>
-          <ListGroup>
-            <ListRow
-              icon="truck"
-              title="운반 차량 부르기"
-              subtitle="철거 후 반출까지 이어서 맡겨요"
-              hint="상·하차 주소와 폐기물을 입력해 운반을 요청합니다"
-              onPress={() => nav.push({ name: 'requestForm', kind: 'TRANSPORT' })}
-            />
-            <ListRow
-              icon="recycle"
-              title="처리장 예약하기"
-              subtitle="폐기물 반입 일정을 미리 잡아요"
-              onPress={() => nav.push({ name: 'requestForm', kind: 'DISPOSAL_RESERVATION' })}
-            />
-          </ListGroup>
-
-          <MarketRateCard rate={rate} party={config.marketRateParty} />
+                <MarketRateCard rate={rate} party={config.marketRateParty} />
+              </>
+            }
+          />
         </View>
       </ScrollView>
       <TabBar active="home" />

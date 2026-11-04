@@ -14,6 +14,7 @@ import { FadeInUp } from '../components/motion';
 import { ProductShowcase } from './store/ProductShowcase';
 import { DevRoleShortcuts, type DevRoleKey } from './welcome/DevRoleShortcuts';
 import { ServiceIntro } from './welcome/ServiceIntro';
+import { useWideLayout } from '../lib/layout';
 import { theme } from '../theme';
 
 /**
@@ -43,26 +44,41 @@ export function WelcomeScreen({
 }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  // 데스크톱 웹: 소개(왼쪽) + 로그인 카드(오른쪽)를 한 화면에 나란히.
+  const wide = useWideLayout();
   const scrollRef = useRef<ScrollView>(null);
   const productsY = useRef(0);
   return (
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.scroll}>
       <View
-        style={{ minHeight: height }}
+        style={[{ minHeight: height }, wide && styles.firstViewWide]}
         onLayout={(e) => {
           // 상품 안내는 이 첫 뷰포트 바로 아래에서 시작한다 — 자기 높이가 곧 스크롤 목표다.
           productsY.current = e.nativeEvent.layout.height;
         }}
       >
         {/* 상단: 로고 + 한 줄 소개 + 이용 순서. 흰 바탕에 글로 설명한다. */}
-        <View style={[styles.heroSection, { paddingTop: insets.top + spacing.md }]}>
+        <View
+          style={[
+            styles.heroSection,
+            wide && styles.heroSectionWide,
+            { paddingTop: insets.top + spacing.md },
+          ]}
+        >
           <FadeInUp delay={40}>
             <ServiceIntro onLogoLongPress={onAdmin} />
           </FadeInUp>
         </View>
 
         {/* 하단 버튼 — 홈 인디케이터 위로 띄운다. */}
-        <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <View
+          style={[
+            styles.bottomSheet,
+            wide && styles.authCard,
+            { paddingBottom: insets.bottom + spacing.lg },
+          ]}
+        >
+          {wide ? <Text style={styles.authCardTitle}>시작하기</Text> : null}
           <FadeInUp delay={420}>
             <AppButton label="로그인" onPress={onLogin} />
             <View style={{ height: theme.spacing.sm }} />
@@ -100,7 +116,7 @@ export function WelcomeScreen({
 
       {/* 첫 뷰포트 아래 — 상품·요금 안내와 사업자 정보(홈페이지 하단). */}
       <View style={[styles.publicInfo, { paddingBottom: insets.bottom + spacing.lg }]}>
-        <View style={styles.publicInner}>
+        <View style={[styles.publicInner, wide && styles.publicInnerWide]}>
           <ProductShowcase onBuy={onBuy} />
           <CompanyInfoFooter />
         </View>
@@ -128,6 +144,36 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     maxWidth: theme.maxContentWidth,
     width: '100%',
+  },
+  publicInnerWide: {
+    maxWidth: theme.wideFormWidth,
+  },
+  firstViewWide: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    maxWidth: theme.wideContentWidth,
+    width: '100%',
+    flexDirection: 'row',
+    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
+  heroSectionWide: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  authCard: {
+    borderColor: colors.border,
+    borderRadius: theme.radius.card,
+    borderWidth: 1,
+    padding: spacing.lg,
+    width: 440,
+    ...theme.shadow.card,
+  },
+  authCardTitle: {
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+    marginBottom: spacing.md,
   },
   heroSection: {
     flex: 1,

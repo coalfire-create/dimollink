@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { MarketRateCard } from '../components/MarketRateCard';
+import { WideColumns } from '../components/ui';
 import { FadeInUp } from '../components/motion';
 import { TabBar, useSession } from '../navigation';
 import { ROLE_CONFIG, requestsTabLabel } from '../roleConfig';
@@ -10,6 +11,7 @@ import { OpenCallList } from './home/OpenCallList';
 import { PartnerHomeHeader } from './home/PartnerHomeHeader';
 import { useMarketRate } from './home/useMarketRate';
 import { useProviderJobs } from './home/useProviderJobs';
+import { useWideLayout } from '../lib/layout';
 import { theme } from '../theme';
 
 /**
@@ -25,6 +27,9 @@ export function TransportHomeScreen() {
   const { open, assigned, isFetching, refetch } = useProviderJobs(user.id);
   const rate = useMarketRate(config.marketRateParty);
   const reload = () => void refetch();
+  const wide = useWideLayout();
+  // 모바일은 콜대기 바로 아래, 데스크톱 웹은 오른쪽 칸 맨 위.
+  const marketRate = <MarketRateCard rate={rate} party={config.marketRateParty} />;
 
   return (
     <View style={styles.screen}>
@@ -41,15 +46,28 @@ export function TransportHomeScreen() {
           activeLabel="수락한 콜"
         />
         <View style={styles.body}>
-          <FadeInUp delay={60}>
-            <AvailabilityCard onChanged={reload} />
-          </FadeInUp>
-
-          <MarketRateCard rate={rate} party={config.marketRateParty} />
-
-          <OpenCallList jobs={open} onAccepted={reload} />
-
-          <AssignedJobList title="수락한 콜" jobs={assigned} emptyText="수락한 콜이 없어요." />
+          {/* 데스크톱 웹: 콜대기·들어온 콜(왼쪽) | 시세·수락한 콜(오른쪽). 모바일 순서는 그대로. */}
+          <WideColumns
+            main={
+              <>
+                <FadeInUp delay={60}>
+                  <AvailabilityCard onChanged={reload} />
+                </FadeInUp>
+                {wide ? null : marketRate}
+                <OpenCallList jobs={open} onAccepted={reload} />
+              </>
+            }
+            side={
+              <>
+                {wide ? marketRate : null}
+                <AssignedJobList
+                  title="수락한 콜"
+                  jobs={assigned}
+                  emptyText="수락한 콜이 없어요."
+                />
+              </>
+            }
+          />
         </View>
       </ScrollView>
       <TabBar active="home" />

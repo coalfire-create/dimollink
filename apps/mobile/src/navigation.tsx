@@ -1,8 +1,10 @@
 import React, { createContext, useContext } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeoPoint, RequestKind, UserProfile, WasteItem } from '@dimol/shared';
+import brandmark from '../assets/brandmark.png';
 import { AppIcon } from './components/AppIcon';
+import { useWideLayout } from './lib/layout';
 import { ROLE_CONFIG } from './roleConfig';
 import { theme } from './theme';
 
@@ -137,7 +139,10 @@ export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
   const user = useSession();
   const insets = useSafeAreaInsets();
+  const wide = useWideLayout();
   const tabs = ROLE_CONFIG[user.userType]?.tabs ?? ROLE_CONFIG.CONSUMER.tabs;
+  // 데스크톱 웹은 하단 탭 대신 상단 메뉴바([[WebTopNav]])를 쓴다.
+  if (wide) return null;
   return (
     // 홈 인디케이터(아이폰) / 제스처 바(안드로이드) 위로 탭을 띄운다.
     // 고정값으로 두면 기기에 따라 탭 라벨이 인디케이터에 깔린다.
@@ -172,6 +177,65 @@ export function TabBar({ active }: { active: TabName }) {
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * 데스크톱 웹 상단 메뉴바 — 하단 탭과 같은 탭 구성을 가로로 펼친다.
+ * active 가 null 이면(푸시된 화면) 어느 탭도 강조하지 않는다. 탭을 누르면 스택을 비우고
+ * 그 탭으로 간다(이탈 가드는 switchTab 이 그대로 지나간다).
+ */
+export function WebTopNav({ active }: { active: TabName | null }) {
+  const nav = useNavigation();
+  const user = useSession();
+  const { logout } = useAuthActions();
+  const tabs = ROLE_CONFIG[user.userType]?.tabs ?? ROLE_CONFIG.CONSUMER.tabs;
+  return (
+    <View style={styles.topNav}>
+      <View style={styles.topNavInner}>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel="비움 홈"
+          onPress={() => nav.switchTab('home')}
+          style={styles.topNavBrand}
+        >
+          <Image source={brandmark} style={styles.topNavLogo} resizeMode="contain" />
+          <Text style={styles.topNavBrandText}>비움</Text>
+        </Pressable>
+        <View style={styles.topNavTabs} accessibilityRole="tablist">
+          {tabs.map(({ tab, label }) => {
+            const isActive = tab === active;
+            return (
+              <Pressable
+                key={tab}
+                accessibilityRole="tab"
+                accessibilityLabel={label}
+                accessibilityState={{ selected: isActive }}
+                onPress={() => nav.switchTab(tab)}
+                style={[styles.topNavTab, isActive && styles.topNavTabActive]}
+              >
+                <Text style={[styles.topNavTabLabel, isActive && styles.topNavTabLabelActive]}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.topNavUser}>
+          <Text numberOfLines={1} style={styles.topNavUserName}>
+            {user.name}님
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="로그아웃"
+            onPress={logout}
+            style={styles.topNavLogout}
+          >
+            <Text style={styles.topNavLogoutLabel}>로그아웃</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
@@ -262,6 +326,85 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: colors.primary,
+    fontWeight: '700',
+  },
+  topNav: {
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    width: '100%',
+  },
+  topNavInner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    maxWidth: theme.wideContentWidth,
+    minHeight: 72,
+    paddingHorizontal: spacing.md,
+    width: '100%',
+  },
+  topNavBrand: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginRight: spacing.lg,
+    minHeight: touch.minButtonHeight,
+  },
+  topNavLogo: {
+    height: 36,
+    width: 36,
+  },
+  topNavBrandText: {
+    color: colors.text,
+    fontSize: font.title,
+    fontWeight: '800',
+  },
+  topNavTabs: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  topNavTab: {
+    borderBottomColor: 'transparent',
+    borderBottomWidth: 3,
+    justifyContent: 'center',
+    minHeight: 72,
+    paddingHorizontal: spacing.sm,
+  },
+  topNavTabActive: {
+    borderBottomColor: colors.primary,
+  },
+  topNavTabLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  topNavTabLabelActive: {
+    color: colors.primary,
+  },
+  topNavUser: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginLeft: spacing.md,
+  },
+  topNavUserName: {
+    color: colors.text,
+    fontSize: font.body,
+    fontWeight: '700',
+    maxWidth: 240,
+  },
+  topNavLogout: {
+    borderColor: colors.border,
+    borderRadius: theme.radius.button,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: touch.minButtonHeight,
+    paddingHorizontal: spacing.sm,
+  },
+  topNavLogoutLabel: {
+    color: colors.textMuted,
+    fontSize: font.body,
     fontWeight: '700',
   },
   header: {

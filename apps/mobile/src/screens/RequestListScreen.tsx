@@ -17,6 +17,7 @@ import { ROLE_CONFIG } from '../roleConfig';
 import { RequestFilterBar } from './requests/RequestFilterBar';
 import { RequestRow } from './requests/RequestRow';
 import { Pagination } from './requests/Pagination';
+import { useWideLayout } from '../lib/layout';
 import { theme } from '../theme';
 
 /**
@@ -37,6 +38,7 @@ export function RequestListScreen() {
   const user = useSession();
   const config = ROLE_CONFIG[user.userType];
   const primaryAction = config.primaryAction;
+  const wide = useWideLayout();
 
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [period, setPeriod] = useState<PeriodFilter>('ALL');
@@ -80,6 +82,9 @@ export function RequestListScreen() {
         <RequestListSkeleton />
       ) : (
         <FlatList
+          // 데스크톱 웹은 카드 2칸. numColumns 는 마운트 후 못 바꾸므로 key 로 다시 그린다.
+          key={wide ? 'grid' : 'list'}
+          numColumns={wide ? 2 : 1}
           contentContainerStyle={styles.content}
           data={view.items}
           keyExtractor={(item) => item.id}
@@ -110,10 +115,12 @@ export function RequestListScreen() {
             />
           }
           renderItem={({ item }) => (
-            <RequestRow
-              request={item}
-              onPress={() => nav.push({ name: 'requestDetail', requestId: item.id })}
-            />
+            <View style={wide ? styles.gridCell : undefined}>
+              <RequestRow
+                request={item}
+                onPress={() => nav.push({ name: 'requestDetail', requestId: item.id })}
+              />
+            </View>
           )}
         />
       )}
@@ -129,6 +136,10 @@ export function RequestListScreen() {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
+  gridCell: {
+    paddingHorizontal: spacing.xs,
+    width: '50%',
+  },
   screen: {
     backgroundColor: colors.appBackground,
     flex: 1,
