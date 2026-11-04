@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import brandmark from '../../assets/brandmark.png';
-import { ErrorBanner, IconTile } from '../components/ui';
+import { ErrorBanner, IconTile, WideColumns } from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
 import { UserGuideModal } from '../components/UserGuideModal';
 import { FadeInUp, PressableScale } from '../components/motion';
@@ -64,66 +64,76 @@ export function ConsumerHomeScreen() {
           <ErrorBanner message={home.loadError} onRetry={() => void home.load()} />
         </View>
 
-        {shown.length > 0 ? (
-          <FadeInUp delay={40}>
-            <View style={styles.gutter}>
-              <View style={styles.sectionRow}>
-                <Text style={styles.sectionTitle}>지금 할 일</Text>
-                {active.length > shown.length ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`진행 중인 요청 ${active.length}건 모두 보기`}
-                    onPress={() => nav.switchTab('requests')}
-                    style={styles.moreLink}
-                  >
-                    <Text style={styles.moreLabel}>{active.length}건 모두 보기 ›</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              {shown.map((request) => (
-                <NextStepCard key={request.id} request={request} />
-              ))}
-            </View>
-          </FadeInUp>
-        ) : null}
+        {/* 데스크톱 웹: 할 일·신청(왼쪽) | 업체·보장·시세(오른쪽). 모바일은 그대로 세로. */}
+        <WideColumns
+          main={
+            <>
+              {shown.length > 0 ? (
+                <FadeInUp delay={40}>
+                  <View style={styles.gutter}>
+                    <View style={styles.sectionRow}>
+                      <Text style={styles.sectionTitle}>지금 할 일</Text>
+                      {active.length > shown.length ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`진행 중인 요청 ${active.length}건 모두 보기`}
+                          onPress={() => nav.switchTab('requests')}
+                          style={styles.moreLink}
+                        >
+                          <Text style={styles.moreLabel}>{active.length}건 모두 보기 ›</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    {shown.map((request) => (
+                      <NextStepCard key={request.id} request={request} />
+                    ))}
+                  </View>
+                </FadeInUp>
+              ) : null}
 
-        <FadeInUp delay={100}>
-          <PressableScale
-            accessibilityLabel="철거 · 원상복구 신청하기"
-            accessibilityHint="현장 사진과 주소를 입력해 견적을 요청합니다"
-            style={styles.ctaCard}
-            onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
-          >
-            <View style={styles.ctaTextBox}>
-              <Text style={styles.ctaTitle}>
-                {active.length > 0 ? '다른 현장도 신청하기' : '철거 · 원상복구\n신청하기'}
-              </Text>
-              <Text style={styles.ctaSubtitle}>사진 한 장이면 업체 견적까지 한 번에</Text>
-            </View>
-            {/* 망치 아이콘 대신 비움 로고(집 + 굴착기) — 이 버튼이 이 앱의 대표 서비스다. */}
-            <View style={styles.ctaIconWrap}>
-              <Image source={brandmark} style={styles.ctaLogo} resizeMode="contain" />
-            </View>
-          </PressableScale>
-        </FadeInUp>
+              <FadeInUp delay={100}>
+                <PressableScale
+                  accessibilityLabel="철거 · 원상복구 신청하기"
+                  accessibilityHint="현장 사진과 주소를 입력해 견적을 요청합니다"
+                  style={styles.ctaCard}
+                  onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
+                >
+                  <View style={styles.ctaTextBox}>
+                    <Text style={styles.ctaTitle}>
+                      {active.length > 0 ? '다른 현장도 신청하기' : '철거 · 원상복구\n신청하기'}
+                    </Text>
+                    <Text style={styles.ctaSubtitle}>사진 한 장이면 업체 견적까지 한 번에</Text>
+                  </View>
+                  {/* 망치 아이콘 대신 비움 로고(집 + 굴착기) — 이 버튼이 이 앱의 대표 서비스다. */}
+                  <View style={styles.ctaIconWrap}>
+                    <Image source={brandmark} style={styles.ctaLogo} resizeMode="contain" />
+                  </View>
+                </PressableScale>
+              </FadeInUp>
+            </>
+          }
+          side={
+            <>
+              <FadeInUp delay={180}>
+                <View style={styles.gutter}>
+                  <PartnerList partners={home.partners} loaded={home.partnersLoaded} />
+                </View>
+              </FadeInUp>
 
-        <FadeInUp delay={180}>
-          <View style={styles.gutter}>
-            <PartnerList partners={home.partners} loaded={home.partnersLoaded} />
-          </View>
-        </FadeInUp>
+              <FadeInUp delay={220}>
+                <View style={styles.gutter}>
+                  <GuaranteeCard />
+                </View>
+              </FadeInUp>
 
-        <FadeInUp delay={220}>
-          <View style={styles.gutter}>
-            <GuaranteeCard />
-          </View>
-        </FadeInUp>
-
-        <FadeInUp delay={260}>
-          <View style={styles.gutter}>
-            <MarketRateCard rate={rate} party={config.marketRateParty} />
-          </View>
-        </FadeInUp>
+              <FadeInUp delay={260}>
+                <View style={styles.gutter}>
+                  <MarketRateCard rate={rate} party={config.marketRateParty} />
+                </View>
+              </FadeInUp>
+            </>
+          }
+        />
 
         {/* 인테리어(밀봉 역경매)는 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출한다. */}
         {FEATURE_INTERIOR ? (

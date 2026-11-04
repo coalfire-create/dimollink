@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSettlementPlan } from './plan.js';
 import { reconcileSettlement, type ActualPayout } from './reconcile.js';
 
-// 운반비 300만 + 처리비 700만 = 총 1,000만, 수수료 7% = 70만
-// 지급: 운반 279만, 처리 651만 / 완료일 2026-07-01(수) → 정산일 2026-07-02(목)
+// 운반비 300만 + 처리비 700만 = 총 1,000만, 수수료 5% = 50만
+// 지급: 운반 285만, 처리 665만 / 완료일 2026-07-01(수) → 정산일 2026-07-02(목)
 function plan() {
   return buildSettlementPlan({
     transportFee: 3_000_000,
@@ -45,8 +45,8 @@ describe('reconcileSettlement — 정산 대사', () => {
       expect.objectContaining({
         kind: 'AMOUNT_MISMATCH',
         party: 'TRANSPORT',
-        expectedAmount: 2_790_000,
-        actualAmount: 2_789_000,
+        expectedAmount: 2_850_000,
+        actualAmount: 2_849_000,
       }),
     ]);
   });

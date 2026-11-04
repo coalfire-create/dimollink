@@ -24,7 +24,9 @@ import {
   type Navigation,
   type Route,
   type TabName,
+  WebTopNav,
 } from './src/navigation';
+import { useWideLayout } from './src/lib/layout';
 import { theme } from './src/theme';
 import { FEATURE_INTERIOR } from './src/featureFlags';
 import { FloatingSupportButton, LoadingView } from './src/components/ui';
@@ -165,6 +167,7 @@ function AppRoot() {
   const [booting, setBooting] = useState(true);
   const [tab, setTab] = useState<TabName>('home');
   const [stack, setStack] = useState<Route[]>([]);
+  const wide = useWideLayout();
   /**
    * 디몰비전에서 링크로 넘어온 분석 결과. 로그인 전에 도착할 수 있어서(대부분 그렇다)
    * 바로 화면을 열지 않고 들고 있다가, 회원 세션이 잡히면 그때 요청 폼으로 넘긴다.
@@ -485,7 +488,36 @@ function AppRoot() {
     }
   }
 
+  /**
+   * 데스크톱 웹에서 화면을 가운데 칸에 담는다. 모바일에서는 그냥 화면 전체.
+   * 홈·목록·관리자는 넓게(카드 그리드), 폼·상세·로그인은 읽기 좋은 폭으로.
+   */
+  function wideFrame(maxWidth: number | '100%') {
+    return wide ? [styles.frame, styles.frameWide, { maxWidth }] : styles.frame;
+  }
+
+  function memberRouteWidth(route: Route): number {
+    const roomy = route.name === 'home' || route.name === 'requests' || route.name === 'admin';
+    return roomy ? theme.wideContentWidth : theme.wideFormWidth;
+  }
+
   function renderBody() {
+    if (isMember) return renderMemberBody();
+    // 첫 화면은 웹에서 곧 홈페이지라 흰 바탕을 브라우저 끝까지 깐다(본문 폭은 화면이 잡는다).
+    const width =
+      session !== 'guest' && authRoute === 'welcome'
+        ? '100%'
+        : session === 'guest' || authRoute === 'admin'
+          ? theme.wideContentWidth
+          : theme.wideFormWidth;
+    return (
+      <View style={wideFrame(width)}>
+        {renderGateBody()}
+      </View>
+    );
+  }
+
+  function renderMemberBody() {
     // 로그인 회원 — 전체 서비스 접근.
     if (isMember) {
       const route: Route = stack[stack.length - 1] ?? { name: tab };
@@ -497,12 +529,15 @@ function AppRoot() {
                 화면 렌더 중 예외가 나도 흰 화면 대신 복구 UI 를 보여준다.
                 resetKey 를 라우트로 두어 다른 화면으로 이동하면 오류 상태가 풀린다.
               */}
-              <ErrorBoundary
-                resetKey={`${route.name}:${stack.length}`}
-                onGoHome={() => navigation.switchTab('home')}
-              >
-                {renderScreen()}
-              </ErrorBoundary>
+              {wide ? <WebTopNav active={stack.length === 0 ? tab : null} /> : null}
+              <View style={wideFrame(memberRouteWidth(route))}>
+                <ErrorBoundary
+                  resetKey={`${route.name}:${stack.length}`}
+                  onGoHome={() => navigation.switchTab('home')}
+                >
+                  {renderScreen()}
+                </ErrorBoundary>
+              </View>
               {/*
                 우하단 고객센터 버튼은 **탭 루트 화면에서만** 띄운다.
                 푸시된 화면(요청 폼·결제·채팅 등)에는 하단에 고정 CTA가 있어서
@@ -516,6 +551,10 @@ function AppRoot() {
       );
     }
 
+    return null;
+  }
+
+  function renderGateBody() {
     // 게스트 — 둘러보기 전용 화면.
     if (session === 'guest') {
       return (
@@ -583,7 +622,7 @@ function AppRoot() {
           backgroundColor={theme.colors.background}
           translucent={false}
         />
-        <View style={styles.viewport}>
+        <View style={[styles.viewport, wide && styles.viewportWide]}>
           {/* 개발 / UI 검증용 상단 빠른 스위처 바 — 프로덕션 빌드(__DEV__=false)에서는 렌더링되지 않는다. */}
           {isDev ? (
             <View style={styles.devHeaderBar}>
@@ -662,6 +701,18 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: theme.maxContentWidth,
     width: '100%',
+  },
+  /** 데스크톱 웹 — 폰 폭 칸을 풀고 브라우저 전체를 쓴다(본문 폭은 frame 이 잡는다). */
+  viewportWide: {
+    backgroundColor: theme.colors.appBackground,
+    maxWidth: '100%',
+  },
+  frame: {
+    flex: 1,
+    width: '100%',
+  },
+  frameWide: {
+    alignSelf: 'center',
   },
   devHeaderBar: {
     backgroundColor: '#1E293B',

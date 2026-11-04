@@ -5,17 +5,17 @@
  * 수수료율 등은 반드시 이 파일에서만 관리하고 코드 곳곳에 하드코딩하지 않는다.
  */
 
-/** 플랫폼 수수료율 7% (Phase 0에서 확정한 초기값). */
-export const PLATFORM_FEE_RATE = 0.07;
+/** 플랫폼 수수료율 5% (기본 수수료율). */
+export const PLATFORM_FEE_RATE = 0.05;
 
 /**
- * 철거업체 멤버십(월 정기결제) 회원의 플랫폼 수수료율 5%.
+ * 철거업체 멤버십(30일 이용권/월 정기결제) 회원의 플랫폼 수수료율 3%.
  *
  * 멤버십 혜택 중 하나다([[sales-product]] demolition-membership). 회원이 받는 거래의
  * 정산 시 PLATFORM_FEE_RATE 대신 이 값을 쓴다 — 결제자가 내는 금액은 같고, 업체
  * 수령액만 늘어난다. 적용 여부는 서버가 처리완료일 기준 멤버십 기간으로 판단한다.
  */
-export const MEMBER_PLATFORM_FEE_RATE = 0.05;
+export const MEMBER_PLATFORM_FEE_RATE = 0.03;
 
 /**
  * 취소 위약금율 10%.

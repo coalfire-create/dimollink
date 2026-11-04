@@ -112,8 +112,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalCard: {
+    // 데스크톱 웹에서 안내 문구가 브라우저 끝까지 늘어나지 않게(폰에서는 영향 없음).
+    alignSelf: 'center',
     backgroundColor: colors.background,
     flex: 1,
+    maxWidth: theme.wideFormWidth,
+    width: '100%',
     // paddingTop / paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
     paddingHorizontal: spacing.md,
   },

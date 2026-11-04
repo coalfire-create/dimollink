@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { offersTransportLabel } from '@dimol/shared';
 import { MarketRateCard } from '../components/MarketRateCard';
+import { WideColumns } from '../components/ui';
 import { TabBar, useSession } from '../navigation';
 import { ROLE_CONFIG, requestsTabLabel } from '../roleConfig';
 import { AssignedJobList } from './home/JobCard';
@@ -9,6 +10,7 @@ import { IntakeQuoteList } from './home/IntakeQuoteList';
 import { PartnerHomeHeader } from './home/PartnerHomeHeader';
 import { useMarketRate } from './home/useMarketRate';
 import { useProviderJobs } from './home/useProviderJobs';
+import { useWideLayout } from '../lib/layout';
 import { theme } from '../theme';
 
 /**
@@ -24,6 +26,8 @@ export function TreatmentPlantHomeScreen() {
 
   const { open, assigned, isFetching, refetch } = useProviderJobs(user.id);
   const rate = useMarketRate(config.marketRateParty);
+  const wide = useWideLayout();
+  const marketRate = <MarketRateCard rate={rate} party={config.marketRateParty} />;
 
   return (
     <View style={styles.screen}>
@@ -41,11 +45,25 @@ export function TreatmentPlantHomeScreen() {
           badge={offersTransportLabel(user.offersTransport)}
         />
         <View style={styles.body}>
-          <MarketRateCard rate={rate} party={config.marketRateParty} />
-
-          <IntakeQuoteList jobs={open} />
-
-          <AssignedJobList title="확정된 반입" jobs={assigned} emptyText="확정된 반입이 없어요." />
+          {/* 데스크톱 웹: 새 반입 예약(왼쪽) | 시세·확정된 반입(오른쪽). 모바일은 시세가 맨 위. */}
+          <WideColumns
+            main={
+              <>
+                {wide ? null : marketRate}
+                <IntakeQuoteList jobs={open} />
+              </>
+            }
+            side={
+              <>
+                {wide ? marketRate : null}
+                <AssignedJobList
+                  title="확정된 반입"
+                  jobs={assigned}
+                  emptyText="확정된 반입이 없어요."
+                />
+              </>
+            }
+          />
         </View>
       </ScrollView>
       <TabBar active="home" />

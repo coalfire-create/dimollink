@@ -97,7 +97,7 @@ describe('30일 이용권 — 기간 계산', () => {
     expect(await store.listByUser('u')).toHaveLength(2);
   });
 
-  it('이용권 기간 안이면 회원(5% 수수료), 밖이면 비회원(7%)', async () => {
+  it('이용권 기간 안이면 회원(3% 수수료), 밖이면 비회원(5%)', async () => {
     const passes = new PassStore();
     await passes.grant({
       userId: 'demo-co',
@@ -165,42 +165,42 @@ describe('MembershipService', () => {
     expect(await m.memberIdsOn('2026-10-15')).toEqual(['co-a']);
   });
 
-  it('수수료율: 회원 5%, 비회원 7% — 처리완료일 기준', async () => {
+  it('수수료율: 회원 3%, 비회원 5% — 처리완료일 기준', async () => {
     const m = withSubs(await storeWith(sub()));
     expect(await m.feeRateFor('demo-co', '2026-10-15')).toBe(MEMBER_PLATFORM_FEE_RATE);
     expect(await m.feeRateFor('demo-co', '2026-11-15')).toBe(PLATFORM_FEE_RATE);
     expect(await m.feeRateFor('other', '2026-10-15')).toBe(PLATFORM_FEE_RATE);
-    expect(MEMBER_PLATFORM_FEE_RATE).toBe(0.05);
-    expect(PLATFORM_FEE_RATE).toBe(0.07);
+    expect(MEMBER_PLATFORM_FEE_RATE).toBe(0.03);
+    expect(PLATFORM_FEE_RATE).toBe(0.05);
   });
 });
 
 describe('인하 수수료 정산 금액', () => {
   const base = { amount: 1_000_000, party: 'DEMOLITION' as const, completedDate: '2026-10-15' };
 
-  it('회원(5%): 수수료 50,000원 · 업체 지급 950,000원', () => {
+  it('회원(3%): 수수료 30,000원 · 업체 지급 970,000원', () => {
     const plan = buildDealSettlementPlan({ ...base, feeRate: MEMBER_PLATFORM_FEE_RATE });
-    expect(plan.breakdown.platformFee).toBe(50_000);
+    expect(plan.breakdown.platformFee).toBe(30_000);
     expect(plan.payouts).toEqual([
-      { party: 'DEMOLITION', amount: 950_000, businessNumber: undefined },
+      { party: 'DEMOLITION', amount: 970_000, businessNumber: undefined },
     ]);
     // 결제자가 낸 금액은 회원 여부와 무관하게 같다.
     expect(plan.prepaymentAmount).toBe(1_000_000);
   });
 
-  it('비회원(기본 7%): 수수료 70,000원 · 업체 지급 930,000원', () => {
+  it('비회원(기본 5%): 수수료 50,000원 · 업체 지급 950,000원', () => {
     const plan = buildDealSettlementPlan(base);
-    expect(plan.breakdown.platformFee).toBe(70_000);
-    expect(plan.payouts[0]!.amount).toBe(930_000);
+    expect(plan.breakdown.platformFee).toBe(50_000);
+    expect(plan.payouts[0]!.amount).toBe(950_000);
   });
 
-  it('반올림: 1,234,567원 × 5% = 61,728원, 지급 + 수수료 = 결제액', () => {
+  it('반올림: 1,234,567원 × 3% = 37,037원, 지급 + 수수료 = 결제액', () => {
     const plan = buildDealSettlementPlan({
       ...base,
       amount: 1_234_567,
       feeRate: MEMBER_PLATFORM_FEE_RATE,
     });
-    expect(plan.breakdown.platformFee).toBe(61_728);
+    expect(plan.breakdown.platformFee).toBe(37_037);
     expect(plan.payouts[0]!.amount + plan.breakdown.platformFee).toBe(1_234_567);
   });
 });

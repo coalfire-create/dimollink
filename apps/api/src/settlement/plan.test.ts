@@ -25,7 +25,7 @@ describe('calculateSettlementDate (D+1 영업일)', () => {
 });
 
 describe('buildSettlementPlan', () => {
-  it('수수료 7% 차감 + 정산일 + 셀러별 지급 지시를 묶는다', () => {
+  it('수수료 5% 차감 + 정산일 + 셀러별 지급 지시를 묶는다', () => {
     const plan = buildSettlementPlan({
       transportFee: 100_000,
       disposalFee: 50_000,
@@ -34,14 +34,14 @@ describe('buildSettlementPlan', () => {
       disposalBusinessNumber: '220-81-62517',
     });
 
-    expect(plan.breakdown.platformFee).toBe(10_500); // 150,000 * 0.07
+    expect(plan.breakdown.platformFee).toBe(7_500); // 150,000 * 0.05
     expect(plan.prepaymentAmount).toBe(150_000); // 선결제 = 운반비 + 처리비
     expect(plan.settlementDate).toBe('2026-01-09'); // 목 → 익영업일 금
 
     const transport = plan.payouts.find((p) => p.party === 'TRANSPORT');
     const disposal = plan.payouts.find((p) => p.party === 'DISPOSAL');
-    expect(transport?.amount).toBe(93_000);
-    expect(disposal?.amount).toBe(46_500);
+    expect(transport?.amount).toBe(95_000);
+    expect(disposal?.amount).toBe(47_500);
     expect(transport?.businessNumber).toBe('220-81-62517');
   });
 

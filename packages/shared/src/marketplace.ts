@@ -42,7 +42,7 @@ export interface DealBreakdown {
   platformFee: number;
   /** 수취인이 받는 금액. */
   sellerPayout: number;
-  /** 적용된 수수료율. 화면에 "7%"로 표시할 때 쓴다. */
+  /** 적용된 수수료율. 화면에 "5%"로 표시할 때 쓴다. */
   feeRate: number;
 }
 
