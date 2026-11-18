@@ -87,12 +87,12 @@ const styles = StyleSheet.create({
   },
   fieldRequired: {
     color: colors.error,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   fieldInput: {
     backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.button,
     borderWidth: 1.5,
     color: colors.text,
     fontSize: font.bodyLarge,
@@ -101,7 +101,6 @@ const styles = StyleSheet.create({
   },
   fieldInputFocused: {
     borderColor: colors.primary,
-    ...theme.shadow.card,
   },
   fieldInputError: {
     borderColor: colors.error,

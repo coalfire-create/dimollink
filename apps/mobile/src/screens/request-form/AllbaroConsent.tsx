@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.sm,
   },
-  noticeTitle: { color: theme.colors.warning, fontSize: font.body, fontWeight: '800' },
+  noticeTitle: { color: theme.colors.warning, fontSize: font.body, fontWeight: '700' },
   noticeBody: {
     color: colors.text,
     fontSize: font.body,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   rowOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   icon: { marginRight: spacing.sm },
   body: { flex: 1 },
-  label: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  label: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
   track: {
     backgroundColor: colors.border,

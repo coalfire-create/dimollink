@@ -223,7 +223,8 @@ const styles = StyleSheet.create({
   sendLabel: {
     color: colors.background,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: font.titleLarge + 2,
   },
 });

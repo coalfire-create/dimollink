@@ -40,8 +40,9 @@ describe('renderLandingPage — 심사 항목', () => {
     expect(noBilling).not.toContain('정기결제 준비 중');
   });
 
-  it('비어 있는 사업자 항목(통신판매업 신고번호 등)은 줄째 숨긴다', () => {
-    if (!COMPANY_INFO.mailOrderNumber) expect(html).not.toContain('통신판매업신고');
+  it('통신판매업 신고번호를 하단에 표시한다(비어 있으면 줄째 숨긴다)', () => {
+    if (COMPANY_INFO.mailOrderNumber) expect(html).toContain(COMPANY_INFO.mailOrderNumber);
+    else expect(html).not.toContain('통신판매업신고');
   });
 });
 

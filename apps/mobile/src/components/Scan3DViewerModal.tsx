@@ -83,5 +83,5 @@ const styles = StyleSheet.create({
     margin: spacing.md,
     minHeight: 48,
   },
-  closeLabel: { color: colors.background, fontSize: font.body, fontWeight: '800' },
+  closeLabel: { color: colors.background, fontSize: font.body, fontWeight: '700' },
 });

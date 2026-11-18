@@ -63,6 +63,6 @@ export function PhotosTab({ requestId }: { requestId: string }) {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  limitTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800', marginBottom: spacing.xs },
+  limitTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700', marginBottom: spacing.xs },
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: 28 },
 });

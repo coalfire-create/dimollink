@@ -50,12 +50,12 @@ const styles = StyleSheet.create({
   badgeText: {
     color: colors.background,
     fontSize: font.caption,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   title: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   optional: {
     color: colors.textMuted,

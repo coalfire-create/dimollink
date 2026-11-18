@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   body: {
     color: colors.textMuted,

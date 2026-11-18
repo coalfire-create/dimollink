@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   range: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   note: {

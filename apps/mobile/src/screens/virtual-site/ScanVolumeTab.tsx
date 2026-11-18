@@ -107,6 +107,6 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: 28 },
-  range: { color: colors.primary, fontSize: font.title, fontWeight: '800' },
+  range: { color: colors.primary, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700' },
   disclaimer: { color: colors.textMuted, fontSize: font.caption, lineHeight: 26, marginTop: spacing.xs },
 });

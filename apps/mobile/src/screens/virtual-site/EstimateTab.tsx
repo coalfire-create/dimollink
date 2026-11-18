@@ -90,7 +90,7 @@ export function EstimateTab({ requestId }: { requestId: string }) {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  mode: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  mode: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: 28, marginTop: spacing.xs },
   button: { marginTop: spacing.sm },
 });

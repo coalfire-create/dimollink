@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   warn: { borderColor: colors.secondary },
   failed: { borderColor: colors.error },
   headRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  title: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '800' },
+  title: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '700' },
   remaining: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   body: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs },
   track: {

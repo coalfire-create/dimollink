@@ -3,7 +3,9 @@ import {
   COLORS,
   FONT_SIZES,
   GLYPH_SIZES,
+  LETTER_SPACING,
   MAX_CONTENT_WIDTH,
+  ON_DARK,
   SPACING,
   STATUS_COLORS,
   TAB_LABEL_FONT_SIZE,
@@ -19,7 +21,11 @@ import {
  */
 export const theme = {
   colors: { ...COLORS, ...STATUS_COLORS, appBackground: APP_BACKGROUND },
+  /** 먹색 띠(홈페이지 푸터 등) 위 글자색 — 바탕은 colors.text. */
+  onDark: ON_DARK,
   font: { ...FONT_SIZES, tabLabel: TAB_LABEL_FONT_SIZE },
+  /** 제목 자간 — 24px 이상 제목에만. 본문에는 쓰지 않는다. */
+  tracking: LETTER_SPACING,
   /** 기호(✓ × ▾) 전용 크기 — 읽는 글자에는 쓰지 않는다. */
   glyph: GLYPH_SIZES,
   spacing: SPACING,
@@ -56,6 +62,17 @@ export const theme = {
       shadowRadius: 4,
       shadowOffset: { width: 0, height: 1 },
       elevation: 1,
+    },
+    /**
+     * 떠 있는 판 — 데스크톱 웹에서 마우스를 올린 카드, 첫 화면의 화면 예시 카드.
+     * 넓게 퍼지고 옅어서 테두리를 대신하지 않고 "한 칸 위에 있다"만 알려 준다.
+     */
+    raised: {
+      shadowColor: STATUS_COLORS.shadow,
+      shadowOpacity: 0.08,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 4,
     },
     /** 주요 버튼 — 평면. 키는 남겨 두어 기존 호출부가 깨지지 않게 한다. */
     primary: {

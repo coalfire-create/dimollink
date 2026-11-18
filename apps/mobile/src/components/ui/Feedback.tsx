@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { theme } from '../../theme';
 import { AppButton } from './AppButton';
 import { IconTile } from './IconTile';
-import type { IconName } from '../AppIcon';
+import { AppIcon, type IconName } from '../AppIcon';
 
 /**
  * 결과·상태 표시 — 오류 배너, 로딩, 빈 목록.
@@ -74,7 +74,8 @@ export function InlineEmpty({
           onPress={onAction}
           style={styles.inlineEmptyAction}
         >
-          <Text style={styles.inlineEmptyActionText}>{actionLabel} ›</Text>
+          <Text style={styles.inlineEmptyActionText}>{actionLabel}</Text>
+          <AppIcon name="chevronRight" size={18} color={colors.primary} />
         </Pressable>
       ) : null}
     </View>
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   errorRetryText: {
     color: colors.error,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
     textDecorationLine: 'underline',
   },
   centerFill: {
@@ -173,10 +174,9 @@ const styles = StyleSheet.create({
   },
   inlineEmpty: {
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderColor: colors.border,
     borderRadius: radius.card,
-    borderStyle: 'dashed',
     borderWidth: 1,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -190,6 +190,8 @@ const styles = StyleSheet.create({
   },
   inlineEmptyAction: {
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs / 2,
     justifyContent: 'center',
     marginTop: spacing.xs,
     minHeight: touch.minButtonHeight,
@@ -219,7 +221,8 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginBottom: spacing.xs,
     textAlign: 'center',
   },

@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   dropzoneTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     textAlign: 'center',
     marginBottom: spacing.xs / 2,
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   samplePillBtnText: {
     color: colors.background,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   previewContainer: {
     position: 'relative',
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   actionCardTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   actionCardSub: {
     color: colors.textMuted,

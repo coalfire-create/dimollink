@@ -71,7 +71,7 @@ export function SurveySummaryCard({ survey }: { survey: RemoteSurvey }) {
 const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
-  progress: { color: colors.text, fontSize: font.title, fontWeight: '800' },
+  progress: { color: colors.text, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: 28, marginTop: spacing.xs },
   missing: { color: colors.error, fontSize: font.body, fontWeight: '700', marginTop: spacing.xs },
   notes: {

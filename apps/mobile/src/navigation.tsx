@@ -1,7 +1,16 @@
 import React, { createContext, useContext } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GeoPoint, RequestKind, UserProfile, WasteItem } from '@dimol/shared';
+import { USER_TYPE_LABELS } from '@dimol/shared';
 import brandmark from '../assets/brandmark.png';
 import { AppIcon } from './components/AppIcon';
 import { useWideLayout } from './lib/layout';
@@ -135,6 +144,11 @@ export function useAuthActions(): AuthActions {
 }
 
 // ── 하단 탭바 (가입 유형별 탭 구성이 다르다 — roleConfig 참조)
+/**
+ * 큰 서비스 앱들처럼 아이콘 + 글자만 둔다. 지금 탭은 꽉 찬 아이콘 + 먹색 굵은 글자,
+ * 나머지는 빈 아이콘 + 회색 글자. 예전에는 위쪽 파란 막대 + 아이콘 뒤 파란 알약까지
+ * 세 겹으로 강조해서 탭바가 화면 내용보다 더 시끄러웠다.
+ */
 export function TabBar({ active }: { active: TabName }) {
   const nav = useNavigation();
   const user = useSession();
@@ -146,7 +160,10 @@ export function TabBar({ active }: { active: TabName }) {
   return (
     // 홈 인디케이터(아이폰) / 제스처 바(안드로이드) 위로 탭을 띄운다.
     // 고정값으로 두면 기기에 따라 탭 라벨이 인디케이터에 깔린다.
-    <View style={[styles.tabBar, { paddingBottom: insets.bottom + spacing.xs }]}>
+    <View
+      accessibilityRole="tablist"
+      style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]}
+    >
       {tabs.map(({ tab, label, icon }) => {
         const isActive = tab === active;
         return (
@@ -158,19 +175,12 @@ export function TabBar({ active }: { active: TabName }) {
             onPress={() => nav.switchTab(tab)}
             style={styles.tabItem}
           >
-            {isActive ? (
-              <View style={styles.tabIndicator} />
-            ) : (
-              <View style={styles.tabIndicatorPlaceholder} />
-            )}
-            <View style={[styles.tabIconWrap, isActive && styles.tabIconWrapActive]}>
-              <AppIcon
-                name={icon}
-                size={22}
-                color={isActive ? colors.primary : colors.textMuted}
-                filled={isActive}
-              />
-            </View>
+            <AppIcon
+              name={icon}
+              size={26}
+              color={isActive ? colors.text : colors.textMuted}
+              filled={isActive}
+            />
             <Text numberOfLines={1} style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {label}
             </Text>
@@ -185,12 +195,17 @@ export function TabBar({ active }: { active: TabName }) {
  * 데스크톱 웹 상단 메뉴바 — 하단 탭과 같은 탭 구성을 가로로 펼친다.
  * active 가 null 이면(푸시된 화면) 어느 탭도 강조하지 않는다. 탭을 누르면 스택을 비우고
  * 그 탭으로 간다(이탈 가드는 switchTab 이 그대로 지나간다).
+ *
+ * 오른쪽은 회사 사이트 머리처럼 [알림 아이콘 · 이름(내 정보로) · 로그아웃]. 알림·내 정보는
+ * 탭에도 있지만, 웹 사용자는 오른쪽 위에서 계정을 찾는다.
  */
 export function WebTopNav({ active }: { active: TabName | null }) {
   const nav = useNavigation();
   const user = useSession();
   const { logout } = useAuthActions();
   const tabs = ROLE_CONFIG[user.userType]?.tabs ?? ROLE_CONFIG.CONSUMER.tabs;
+  const hasNoti = tabs.some((t) => t.tab === 'notifications');
+  const roleLabel = USER_TYPE_LABELS[user.userType] ?? '';
   return (
     <View style={styles.topNav}>
       <View style={styles.topNavInner}>
@@ -204,55 +219,139 @@ export function WebTopNav({ active }: { active: TabName | null }) {
           <Text style={styles.topNavBrandText}>비움</Text>
         </Pressable>
         <View style={styles.topNavTabs} accessibilityRole="tablist">
-          {tabs.map(({ tab, label }) => {
-            const isActive = tab === active;
-            return (
-              <Pressable
-                key={tab}
-                accessibilityRole="tab"
-                accessibilityLabel={label}
-                accessibilityState={{ selected: isActive }}
-                onPress={() => nav.switchTab(tab)}
-                style={[styles.topNavTab, isActive && styles.topNavTabActive]}
-              >
-                <Text style={[styles.topNavTabLabel, isActive && styles.topNavTabLabelActive]}>
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {tabs.map(({ tab, label }) => (
+            <TopNavTab
+              key={tab}
+              label={label}
+              active={tab === active}
+              onPress={() => nav.switchTab(tab)}
+            />
+          ))}
         </View>
         <View style={styles.topNavUser}>
-          <Text numberOfLines={1} style={styles.topNavUserName}>
-            {user.name}님
-          </Text>
-          <Pressable
+          {hasNoti ? (
+            <HoverPressable
+              accessibilityRole="button"
+              accessibilityLabel="알림"
+              onPress={() => nav.switchTab('notifications')}
+              style={styles.topNavIconButton}
+              hoverStyle={styles.topNavHover}
+            >
+              <AppIcon
+                name="notifications"
+                size={24}
+                color={active === 'notifications' ? colors.text : colors.textMuted}
+                filled={active === 'notifications'}
+              />
+            </HoverPressable>
+          ) : null}
+          <HoverPressable
+            accessibilityRole="link"
+            accessibilityLabel={`${user.name}님, 내 정보`}
+            onPress={() => nav.switchTab('mypage')}
+            style={styles.topNavAccount}
+            hoverStyle={styles.topNavHover}
+          >
+            <View style={styles.topNavAvatar}>
+              <Text style={styles.topNavAvatarText}>{user.name.slice(0, 1)}</Text>
+            </View>
+            <View style={styles.topNavAccountText}>
+              <Text numberOfLines={1} style={styles.topNavUserName}>
+                {user.name}님
+              </Text>
+              {roleLabel ? <Text style={styles.topNavUserRole}>{roleLabel}</Text> : null}
+            </View>
+          </HoverPressable>
+          <View style={styles.topNavDivider} />
+          <HoverPressable
             accessibilityRole="button"
             accessibilityLabel="로그아웃"
             onPress={logout}
             style={styles.topNavLogout}
+            hoverStyle={styles.topNavHover}
           >
             <Text style={styles.topNavLogoutLabel}>로그아웃</Text>
-          </Pressable>
+          </HoverPressable>
         </View>
       </View>
     </View>
   );
 }
 
+function TopNavTab({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[styles.topNavTab, active && styles.topNavTabActive]}
+    >
+      <Text
+        style={[
+          styles.topNavTabLabel,
+          (active || hovered) && styles.topNavTabLabelActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** 마우스를 올리면 hoverStyle 이 얹히는 Pressable — 웹 메뉴바의 작은 버튼들용. */
+function HoverPressable({
+  hoverStyle,
+  style,
+  children,
+  ...rest
+}: React.ComponentProps<typeof Pressable> & {
+  hoverStyle: StyleProp<ViewStyle>;
+  style: StyleProp<ViewStyle>;
+  children: React.ReactNode;
+}) {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <Pressable
+      {...rest}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[style, hovered && hoverStyle]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 // ── 화면 헤더 (푸시 화면은 뒤로가기 노출)
+/**
+ * 앱: 뒤로 가는 화면은 흰 띠 위에 [‹ 뒤로] + 제목, 탭 첫 화면은 바닥색 위 왼쪽 큰 제목.
+ * 데스크톱 웹: 흰 띠 없이 본문 칸 위에 "페이지 제목"으로 놓는다 — 상단 메뉴바가 이미
+ * 흰 띠라 그 아래 또 흰 띠가 겹치면 머리가 두 줄로 보였다.
+ */
 export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: boolean }) {
   const nav = useNavigation();
   const insets = useSafeAreaInsets();
+  const wide = useWideLayout();
   return (
     // 노치·상태바 아래로 제목을 내린다(고정 8px 이면 상태바에 제목이 깔린다).
-    // 탭 첫 화면(뒤로 없음)은 홈들과 같은 왼쪽 큰 제목 — 화면 바닥색 위에 바로 얹는다.
-    // 뒤로 가는 화면은 흰 띠 위에 "← 뒤로" + 제목.
     <View
       style={[
         styles.header,
         !canGoBack && styles.headerRoot,
-        { paddingTop: insets.top + (canGoBack ? spacing.xs : spacing.md) },
+        wide && styles.headerWide,
+        { paddingTop: wide ? spacing.lg : insets.top + (canGoBack ? spacing.xs : spacing.md) },
       ]}
     >
       {canGoBack ? (
@@ -260,15 +359,20 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
           accessibilityRole="button"
           accessibilityLabel="뒤로 가기"
           onPress={() => nav.pop()}
-          style={styles.backButton}
+          style={[styles.backButton, wide && styles.backButtonWide]}
         >
-          <Text style={styles.backLabel}>← 뒤로</Text>
+          <AppIcon name="chevronLeft" size={26} color={colors.text} />
+          <Text style={styles.backLabel}>뒤로</Text>
         </Pressable>
       ) : null}
       <Text
         numberOfLines={1}
         accessibilityRole="header"
-        style={[styles.headerTitle, !canGoBack && styles.headerTitleRoot]}
+        style={[
+          styles.headerTitle,
+          !canGoBack && styles.headerTitleRoot,
+          wide && styles.headerTitleWide,
+        ]}
       >
         {title}
       </Text>
@@ -284,48 +388,24 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
+    paddingTop: spacing.xs / 2,
     // paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
-    // Subtle upward shadow
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: -2 },
-    elevation: 8,
   },
   tabItem: {
     alignItems: 'center',
     flex: 1,
+    gap: spacing.xs / 2,
     justifyContent: 'center',
     minHeight: touch.primaryButtonHeight + spacing.xs,
-    paddingVertical: spacing.xs,
-  },
-  tabIndicator: {
-    backgroundColor: colors.primary,
-    borderRadius: 999,
-    height: 3,
-    width: 24,
-  },
-  tabIndicatorPlaceholder: {
-    height: 3,
-    width: 24,
-  },
-  tabIconWrap: {
-    alignItems: 'center',
-    borderRadius: 12,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xs / 2,
-  },
-  tabIconWrapActive: {
-    backgroundColor: colors.primarySoft,
   },
   tabLabel: {
     color: colors.textMuted,
     fontSize: font.tabLabel,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   tabLabelActive: {
-    color: colors.primary,
+    color: colors.text,
     fontWeight: '700',
   },
   topNav: {
@@ -334,12 +414,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
     width: '100%',
+    zIndex: 10,
   },
   topNavInner: {
     alignItems: 'center',
     flexDirection: 'row',
+    height: 72,
     maxWidth: theme.wideContentWidth,
-    minHeight: 72,
     paddingHorizontal: spacing.md,
     width: '100%',
   },
@@ -347,57 +428,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
-    marginRight: spacing.lg,
+    marginRight: spacing.lg + spacing.sm,
     minHeight: touch.minButtonHeight,
   },
   topNavLogo: {
-    height: 36,
-    width: 36,
+    height: 32,
+    width: 32,
   },
   topNavBrandText: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: theme.tracking.title,
   },
   topNavTabs: {
+    alignSelf: 'stretch',
     flex: 1,
     flexDirection: 'row',
     gap: spacing.xs,
   },
   topNavTab: {
     borderBottomColor: 'transparent',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     justifyContent: 'center',
-    minHeight: 72,
     paddingHorizontal: spacing.sm,
   },
   topNavTabActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.text,
   },
   topNavTabLabel: {
     color: colors.textMuted,
     fontSize: font.body,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   topNavTabLabelActive: {
-    color: colors.primary,
+    color: colors.text,
+    fontWeight: '700',
   },
   topNavUser: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginLeft: spacing.md,
+  },
+  topNavHover: {
+    backgroundColor: colors.appBackground,
+  },
+  topNavIconButton: {
+    alignItems: 'center',
+    borderRadius: theme.radius.button,
+    height: touch.minButtonHeight,
+    justifyContent: 'center',
+    width: touch.minButtonHeight,
+  },
+  topNavAccount: {
+    alignItems: 'center',
+    borderRadius: theme.radius.button,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    minHeight: touch.minButtonHeight,
+    paddingHorizontal: spacing.xs,
+  },
+  topNavAvatar: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: theme.radius.pill,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  topNavAvatarText: {
+    color: colors.primary,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  topNavAccountText: {
+    maxWidth: 240,
   },
   topNavUserName: {
     color: colors.text,
     fontSize: font.body,
     fontWeight: '700',
-    maxWidth: 240,
+  },
+  topNavUserRole: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+  },
+  topNavDivider: {
+    backgroundColor: colors.border,
+    height: spacing.md,
+    marginHorizontal: spacing.xs,
+    width: 1,
   },
   topNavLogout: {
-    borderColor: colors.border,
     borderRadius: theme.radius.button,
-    borderWidth: 1,
     justifyContent: 'center',
     minHeight: touch.minButtonHeight,
     paddingHorizontal: spacing.sm,
@@ -405,7 +529,7 @@ const styles = StyleSheet.create({
   topNavLogoutLabel: {
     color: colors.textMuted,
     fontSize: font.body,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   header: {
     alignItems: 'center',
@@ -415,7 +539,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     minHeight: touch.primaryButtonHeight + spacing.xs,
     paddingBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xs,
     // paddingTop 은 안전영역에 맞춰 런타임에 정한다.
   },
   headerRoot: {
@@ -423,27 +547,48 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     paddingHorizontal: spacing.sm,
   },
+  headerWide: {
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
   backButton: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: theme.radius.button,
+    flexDirection: 'row',
     height: touch.minButtonHeight,
     justifyContent: 'center',
-    marginRight: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    marginRight: spacing.xs,
+    paddingRight: spacing.xs,
+  },
+  backButtonWide: {
+    marginBottom: spacing.xs,
+    marginLeft: -spacing.xs,
   },
   backLabel: {
-    color: colors.primary,
+    color: colors.text,
     fontSize: font.body,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   headerTitle: {
     color: colors.text,
     flexShrink: 1,
     fontSize: font.title,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: theme.tracking.title,
   },
   headerTitleRoot: {
     flex: 1,
     fontSize: font.titleLarge,
+  },
+  // 세로 배치(column)라 flex 를 주면 높이가 0 으로 접힌다 — 내용 크기 그대로 둔다.
+  headerTitleWide: {
+    flexBasis: 'auto',
+    flexGrow: 0,
+    flexShrink: 0,
+    fontSize: font.titleLarge + 4,
   },
 });

@@ -59,7 +59,7 @@ export function InteriorHomeScreen() {
               <Text style={styles.interiorTitle}>들어온 시공 요청 보기</Text>
               <Text style={styles.interiorSubtitle}>요청을 보고 비밀 견적을 넣어요</Text>
             </View>
-            <Text style={styles.interiorChevron}>›</Text>
+            <AppIcon name="chevronRight" size={24} color={colors.primary} />
           </Pressable>
         </FadeInUp>
 
@@ -105,7 +105,8 @@ const styles = StyleSheet.create({
   bannerSubtitle: {
     color: colors.background,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs,
   },
   interiorCard: {
@@ -132,16 +133,11 @@ const styles = StyleSheet.create({
   interiorTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs,
-  },
-  interiorChevron: {
-    color: colors.primary,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
   },
 });

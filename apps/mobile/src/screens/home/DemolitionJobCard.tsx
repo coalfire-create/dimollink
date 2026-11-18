@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   jobCta: {
     color: theme.colors.primary,
     fontSize: theme.font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   jobDate: {
     color: theme.colors.textMuted,

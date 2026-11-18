@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   methodTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.sm,
     marginTop: spacing.lg,
   },
@@ -186,13 +186,13 @@ const styles = StyleSheet.create({
   methodText: { flex: 1 },
   methodTitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   methodLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
-  methodLabelOn: { color: colors.primary, fontWeight: '800' },
+  methodLabelOn: { color: colors.primary, fontWeight: '700' },
   badge: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
   },
-  badgeText: { color: colors.background, fontSize: font.caption, fontWeight: '800' },
+  badgeText: { color: colors.background, fontSize: font.caption, fontWeight: '700' },
   methodHint: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
   trustRow: {
     alignItems: 'center',
@@ -214,11 +214,12 @@ const styles = StyleSheet.create({
     width: 88,
     ...theme.shadow.primary,
   },
-  doneCheckMark: { color: colors.background, fontSize: font.titleLarge + 12, fontWeight: '800' },
+  doneCheckMark: { color: colors.background, fontSize: font.titleLarge + 12, fontWeight: '700' },
   doneTitle: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     textAlign: 'center',
   },
   doneDesc: {

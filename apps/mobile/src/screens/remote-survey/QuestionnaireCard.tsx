@@ -150,7 +150,8 @@ const styles = StyleSheet.create({
   floors: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     minWidth: 96,
     textAlign: 'center',
   },

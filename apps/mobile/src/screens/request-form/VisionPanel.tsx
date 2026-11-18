@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   introTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   introBody: {
     color: colors.textMuted,

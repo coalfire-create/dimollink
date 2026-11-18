@@ -131,12 +131,14 @@ const styles = StyleSheet.create({
   pending: {
     color: theme.colors.textMuted,
     fontSize: theme.font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   total: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   totalNote: {
     color: colors.textMuted,
@@ -206,7 +208,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   cardHint: {
     color: colors.textMuted,
@@ -246,7 +248,7 @@ const styles = StyleSheet.create({
   hazardTitle: {
     color: colors.warning,
     fontSize: font.caption,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   hazardItem: {
     color: colors.warning,

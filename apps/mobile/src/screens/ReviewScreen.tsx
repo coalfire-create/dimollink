@@ -153,6 +153,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: theme.font.title,
+    letterSpacing: theme.tracking.title,
     fontWeight: '700',
     color: theme.colors.text,
     marginBottom: theme.spacing.xs,

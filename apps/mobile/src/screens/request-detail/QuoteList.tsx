@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   bestBadgeText: {
     color: colors.background,
     fontSize: font.caption,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   header: {
     alignItems: 'center',
@@ -107,7 +107,8 @@ const styles = StyleSheet.create({
   amount: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   time: {
     color: colors.textMuted,

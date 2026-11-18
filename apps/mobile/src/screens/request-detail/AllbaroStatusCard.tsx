@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppIcon } from '../../components/AppIcon';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ServiceRequest } from '@dimol/shared';
 import { Card, IconTile } from '../../components/ui';
@@ -52,7 +53,7 @@ export function AllbaroStatusCard({ request }: { request: ServiceRequest }) {
             <View style={styles.step}>
               <Text style={styles.stepText}>{step}</Text>
             </View>
-            {i < FLOW.length - 1 ? <Text style={styles.arrow}>›</Text> : null}
+            {i < FLOW.length - 1 ? <AppIcon name="chevronRight" size={20} color={colors.textMuted} /> : null}
           </React.Fragment>
         ))}
       </View>
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', flexDirection: 'row' },
   icon: { marginRight: spacing.sm },
   flex: { flex: 1 },
-  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   sub: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
   flow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm },
   step: {
@@ -93,8 +94,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.xs,
   },
-  stepText: { color: colors.primary, fontSize: font.body, fontWeight: '800' },
-  arrow: { color: colors.textMuted, fontSize: font.title },
+  stepText: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   metaBox: {
     backgroundColor: colors.surface,
     borderRadius: radius.button,

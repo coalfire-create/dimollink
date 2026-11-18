@@ -166,10 +166,11 @@ const styles = StyleSheet.create({
   backChevron: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: font.title + 2,
   },
-  headerTitle: { color: colors.text, fontSize: font.title, fontWeight: '800' },
+  headerTitle: { color: colors.text, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700' },
   tabBarWrap: { flexGrow: 0, flexShrink: 0 },
   tabBar: { paddingHorizontal: spacing.md, paddingBottom: spacing.xs },
   tab: {

@@ -155,11 +155,11 @@ const styles = StyleSheet.create({
   },
   stepCircleTextDone: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepCircleTextCurrent: {
     color: colors.background,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepLabel: {
     color: colors.textMuted,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   stepLabelCurrent: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepLine: {
     backgroundColor: colors.border,
@@ -187,7 +187,8 @@ const styles = StyleSheet.create({
   question: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 38,
     marginTop: spacing.md,
   },

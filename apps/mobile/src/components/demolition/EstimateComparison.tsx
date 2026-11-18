@@ -155,14 +155,14 @@ const styles = StyleSheet.create({
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: font.body * 1.5 },
   emptyCard: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   emptyIcon: {},
-  emptyTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  emptyTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   notice: {
     backgroundColor: theme.colors.warningSoft,
     borderRadius: radius.card,
     marginBottom: spacing.sm,
     padding: spacing.sm,
   },
-  noticeTitle: { color: theme.colors.warning, fontSize: font.body, fontWeight: '800' },
+  noticeTitle: { color: theme.colors.warning, fontSize: font.body, fontWeight: '700' },
   noticeBody: {
     color: colors.text,
     fontSize: font.body,

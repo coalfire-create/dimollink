@@ -74,7 +74,8 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 32,
     marginBottom: spacing.xs,
   },
@@ -98,7 +99,7 @@ const styles = StyleSheet.create({
   detailIndex: {
     color: colors.primary,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 28,
     width: spacing.md,
   },

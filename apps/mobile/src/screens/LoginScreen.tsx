@@ -102,7 +102,7 @@ export function LoginScreen({
             />
             <Text
               accessibilityRole="header"
-              style={[s.title, { color: colors.text, fontSize: font.titleLarge }]}
+              style={[s.title, { color: colors.text, fontSize: font.titleLarge, letterSpacing: theme.tracking.title }]}
             >
               {'휴대폰 번호로\n로그인해 주세요'}
             </Text>
@@ -155,7 +155,7 @@ export function LoginScreen({
           >
             <Text style={[s.signupText, { color: colors.textMuted, fontSize: font.body }]}>
               처음이신가요?{' '}
-              <Text style={{ color: colors.primary, fontWeight: '800' }}>회원가입</Text>
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>회원가입</Text>
             </Text>
           </PressableScale>
         </FadeInUp>
@@ -177,7 +177,7 @@ const s = StyleSheet.create({
     paddingRight: theme.spacing.sm,
   },
   backLabel: {
-    fontWeight: '800',
+    fontWeight: '700',
   },
   header: {
     marginBottom: theme.spacing.lg,
@@ -189,7 +189,7 @@ const s = StyleSheet.create({
     width: 56,
   },
   title: {
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 38,
   },
   signupLink: {

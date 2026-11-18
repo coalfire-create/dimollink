@@ -170,12 +170,13 @@ const styles = StyleSheet.create({
   bidAmount: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   paidBadge: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.xs / 2,
   },
   bidMemo: {

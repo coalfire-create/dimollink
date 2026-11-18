@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   progressText: {
     color: colors.background,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
     flex: 1,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowRadius: 4,

@@ -31,7 +31,13 @@ export type IconName =
   | 'shield'
   | 'card'
   | 'close'
-  | 'info';
+  | 'info'
+  | 'chevronRight'
+  | 'chevronLeft'
+  | 'arrowRight'
+  | 'logout'
+  | 'time'
+  | 'wallet';
 
 /**
  * 아이콘 하나의 정의. 기본은 Ionicons 이고, Ionicons 에 없는 글리프만 `material` 로 뺀다.
@@ -77,6 +83,12 @@ const ICON_MAP: Record<IconName, IconGlyph> = {
   card: { outline: 'card-outline', filled: 'card' },
   close: { outline: 'close', filled: 'close' },
   info: { outline: 'information-circle-outline', filled: 'information-circle' },
+  chevronRight: { outline: 'chevron-forward', filled: 'chevron-forward' },
+  chevronLeft: { outline: 'chevron-back', filled: 'chevron-back' },
+  arrowRight: { outline: 'arrow-forward', filled: 'arrow-forward' },
+  logout: { outline: 'log-out-outline', filled: 'log-out' },
+  time: { outline: 'time-outline', filled: 'time' },
+  wallet: { outline: 'wallet-outline', filled: 'wallet' },
 };
 
 export function AppIcon({

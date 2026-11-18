@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
   mark: {
     color: colors.background,
     fontSize: theme.glyph.inline,
-    fontWeight: '900',
+    fontWeight: '700',
   },
   text: {
     flex: 1,

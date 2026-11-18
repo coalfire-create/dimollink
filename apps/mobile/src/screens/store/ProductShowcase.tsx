@@ -3,8 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SALES_PRODUCTS, isPurchasable, type SalesProduct } from '@dimol/shared';
 import { listProducts } from '../../api/client';
 import { AppButton, Card } from '../../components/ui';
+import { useWideLayout } from '../../lib/layout';
 import { usePaymentConfig } from '../../lib/payment-config';
 import { theme } from '../../theme';
+import { SectionHeading } from '../welcome/LandingSections';
 import { ProductDetails } from './ProductDetails';
 
 /**
@@ -20,6 +22,7 @@ import { ProductDetails } from './ProductDetails';
 export function ProductShowcase({ onBuy }: { onBuy: () => void }) {
   const [products, setProducts] = useState<SalesProduct[]>(() => [...SALES_PRODUCTS]);
   const billingEnabled = Boolean(usePaymentConfig().billingChannelKey);
+  const wide = useWideLayout();
 
   useEffect(() => {
     let alive = true;
@@ -37,29 +40,36 @@ export function ProductShowcase({ onBuy }: { onBuy: () => void }) {
 
   return (
     <View>
-      <Text style={styles.title}>상품·요금 안내</Text>
-      <Text style={styles.lead}>대상 회원은 가입 후 앱·웹에서 바로 결제할 수 있습니다.</Text>
-      {products.map((product) => (
-        <Card key={product.id}>
-          <ProductDetails product={product} />
-          <View style={styles.action}>
-            {isPurchasable(product, { billingEnabled }) ? (
-              <AppButton
-                label={
-                  product.billingType === 'MONTHLY_SUBSCRIPTION'
-                    ? '로그인하고 구독하기'
-                    : '로그인하고 구매하기'
-                }
-                onPress={onBuy}
-              />
-            ) : (
-              <Text style={styles.pending}>
-                정기결제 준비 중입니다. 결제가 열리면 앱에서 바로 구독할 수 있어요.
-              </Text>
-            )}
-          </View>
-        </Card>
-      ))}
+      <SectionHeading
+        eyebrow="요금 안내"
+        title="상품·요금 안내"
+        description="대상 회원은 가입 후 앱·웹에서 바로 결제할 수 있습니다."
+        center={wide}
+      />
+      {/* 넓은 화면에서 카드가 1200px 로 늘어나면 혜택 줄이 한 줄로 길게 퍼진다 — 칸 폭을 잡는다. */}
+      <View style={wide ? styles.gridWide : undefined}>
+        {products.map((product) => (
+          <Card key={product.id} style={wide ? styles.cardWide : undefined}>
+            <ProductDetails product={product} />
+            <View style={styles.action}>
+              {isPurchasable(product, { billingEnabled }) ? (
+                <AppButton
+                  label={
+                    product.billingType === 'MONTHLY_SUBSCRIPTION'
+                      ? '로그인하고 구독하기'
+                      : '로그인하고 구매하기'
+                  }
+                  onPress={onBuy}
+                />
+              ) : (
+                <Text style={styles.pending}>
+                  정기결제 준비 중입니다. 결제가 열리면 앱에서 바로 구독할 수 있어요.
+                </Text>
+              )}
+            </View>
+          </Card>
+        ))}
+      </View>
     </View>
   );
 }
@@ -67,13 +77,13 @@ export function ProductShowcase({ onBuy }: { onBuy: () => void }) {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  title: { color: colors.text, fontSize: font.title, fontWeight: '800' },
-  lead: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    marginBottom: spacing.sm,
-    marginTop: spacing.xs / 2,
+  gridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    justifyContent: 'center',
   },
+  cardWide: { marginBottom: 0, maxWidth: 560, width: '100%' },
   action: { marginTop: spacing.sm },
   pending: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
 });

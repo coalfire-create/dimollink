@@ -87,7 +87,7 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: 28 },
-  volume: { color: colors.primary, fontSize: font.title, fontWeight: '800', marginBottom: spacing.xs },
+  volume: { color: colors.primary, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700', marginBottom: spacing.xs },
   reason: { color: colors.error, fontSize: font.body, lineHeight: 28 },
   button: { marginTop: spacing.sm },
 });

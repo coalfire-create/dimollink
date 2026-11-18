@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   asbestosTitle: {
     color: colors.warning,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   asbestosBody: {
     color: colors.warning,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   address: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   distanceRow: {
     alignItems: 'center',
@@ -188,7 +188,8 @@ const styles = StyleSheet.create({
   areaValue: {
     color: colors.primary,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   areaNote: {
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   cardHint: {
     color: colors.textMuted,

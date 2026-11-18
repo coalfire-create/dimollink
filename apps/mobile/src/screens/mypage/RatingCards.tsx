@@ -62,7 +62,8 @@ const styles = StyleSheet.create({
   number: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   label: {
     color: colors.textMuted,

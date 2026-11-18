@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   name: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   region: {
     color: colors.textMuted,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   ratingScore: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   ratingCount: {
     color: colors.textMuted,

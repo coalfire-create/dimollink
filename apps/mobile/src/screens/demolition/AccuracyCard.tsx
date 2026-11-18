@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   value: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   hint: {

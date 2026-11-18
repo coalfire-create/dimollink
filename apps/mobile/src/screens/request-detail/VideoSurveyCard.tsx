@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  badgeText: { color: colors.primary, fontSize: font.body, fontWeight: '800' },
+  badgeText: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: font.body * 1.5 },
   privacy: { color: colors.text, fontSize: font.body, fontWeight: '700', marginTop: spacing.xs },
   info: { color: colors.primary, fontSize: font.body, fontWeight: '700', marginTop: spacing.sm },
@@ -165,6 +165,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
   },
-  rowTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  rowTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   when: { color: colors.primary, fontSize: font.bodyLarge, fontWeight: '700' },
 });

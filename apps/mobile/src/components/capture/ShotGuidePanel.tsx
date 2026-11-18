@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   topTitle: {
     color: colors.background,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowRadius: 4,
   },
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   nextGuideLabel: {
     color: colors.background,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   nextGuideHint: {
     color: colors.primarySoft,
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   tipCheck: {
     color: colors.successOnDark,
     fontSize: font.body,
-    fontWeight: '900',
+    fontWeight: '700',
     width: 16,
     textAlign: 'center',
   },

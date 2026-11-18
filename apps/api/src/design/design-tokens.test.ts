@@ -1,7 +1,9 @@
 import {
+  APP_BACKGROUND,
   COLORS,
   FONT_SIZES,
   GLYPH_SIZES,
+  ON_DARK,
   SPACING,
   STATUS_COLORS,
   TAB_LABEL_FONT_SIZE,
@@ -72,6 +74,15 @@ describe('색 명암비 — WCAG AA(4.5:1)', () => {
     expect(contrast(COLORS.text, COLORS.background)).toBeGreaterThanOrEqual(AA);
     expect(contrast(COLORS.textMuted, COLORS.background)).toBeGreaterThanOrEqual(AA);
     expect(contrast(COLORS.textMuted, COLORS.surface)).toBeGreaterThanOrEqual(AA);
+  });
+
+  it('먹색 띠(홈페이지 푸터) 위 글자가 읽힌다', () => {
+    expect(contrast(ON_DARK.text, COLORS.text)).toBeGreaterThanOrEqual(AA);
+    expect(contrast(ON_DARK.textMuted, COLORS.text)).toBeGreaterThanOrEqual(AA);
+  });
+
+  it('보조 텍스트가 화면 바닥색(회색) 위에서도 읽힌다', () => {
+    expect(contrast(COLORS.textMuted, APP_BACKGROUND)).toBeGreaterThanOrEqual(AA);
   });
 
   it('주요 버튼(흰 글자 + 메인 배경)이 읽힌다', () => {
