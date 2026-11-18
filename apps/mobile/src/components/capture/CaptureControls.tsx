@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   statusOk: { backgroundColor: 'rgba(22,163,74,0.92)' },
   statusWarn: { backgroundColor: 'rgba(202,138,4,0.92)' },
-  statusText: { color: colors.background, fontSize: font.body, fontWeight: '800' },
+  statusText: { color: colors.background, fontSize: font.body, fontWeight: '700' },
   turnHint: {
     color: colors.warningSoft,
     fontSize: font.caption,
@@ -166,6 +166,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   doneBtnGhost: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  doneBtnText: { color: colors.background, fontSize: font.body, fontWeight: '800' },
+  doneBtnText: { color: colors.background, fontSize: font.body, fontWeight: '700' },
   doneBtnCount: { color: colors.primarySoft, fontSize: font.caption, fontWeight: '700' },
 });

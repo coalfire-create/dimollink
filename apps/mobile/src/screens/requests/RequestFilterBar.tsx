@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   tabCount: {
     backgroundColor: colors.surface,
@@ -228,6 +228,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

@@ -180,18 +180,20 @@ const styles = StyleSheet.create({
   audienceText: {
     color: colors.primary,
     fontSize: font.caption,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   name: {
     color: colors.background,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 32,
   },
   price: {
     color: colors.background,
     fontSize: font.titleLarge + 4,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs,
   },
   perDay: {
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
   valueTitle: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   valueBody: {
     color: colors.text,
@@ -226,12 +228,12 @@ const styles = StyleSheet.create({
   },
   valueStrong: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   sectionLabel: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.xs,
     marginTop: spacing.xs,
   },
@@ -264,7 +266,7 @@ const styles = StyleSheet.create({
   termsTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.xs / 2,
   },
   termsLabel: {

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   description: {
     color: colors.textMuted,
@@ -163,6 +163,6 @@ const styles = StyleSheet.create({
   checkMark: {
     color: colors.background,
     fontSize: theme.glyph.inline,
-    fontWeight: '900',
+    fontWeight: '700',
   },
 });

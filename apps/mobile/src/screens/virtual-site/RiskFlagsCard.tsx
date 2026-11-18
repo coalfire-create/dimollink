@@ -61,10 +61,10 @@ const styles = StyleSheet.create({
   },
   danger: { backgroundColor: colors.errorSoft },
   check: { backgroundColor: colors.warningSoft },
-  badgeText: { fontSize: font.caption, fontWeight: '800' },
+  badgeText: { fontSize: font.caption, fontWeight: '700' },
   dangerText: { color: colors.error },
   checkText: { color: colors.warning },
   body: { flex: 1 },
-  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   detail: { color: colors.textMuted, fontSize: font.body, lineHeight: 28 },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import type { IconName } from '../AppIcon';
+import { AppIcon, type IconName } from '../AppIcon';
 import { PressableScale } from '../motion';
 import { theme } from '../../theme';
 import { IconTile } from './IconTile';
@@ -33,6 +33,7 @@ export function ListRow({
   busy?: boolean;
   onPress: () => void;
 }) {
+  const [hovered, setHovered] = React.useState(false);
   return (
     <PressableScale
       accessibilityRole="button"
@@ -41,7 +42,10 @@ export function ListRow({
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       disabled={disabled || busy}
       onPress={onPress}
-      style={[styles.row, disabled && styles.disabled]}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      scaleTo={0.99}
+      style={[styles.row, hovered && !disabled && styles.rowHovered, disabled && styles.disabled]}
     >
       <IconTile icon={icon} style={styles.icon} />
       <View style={styles.text}>
@@ -55,7 +59,11 @@ export function ListRow({
         </View>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      {busy ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.chevron}>›</Text>}
+      {busy ? (
+        <ActivityIndicator color={colors.primary} />
+      ) : (
+        <AppIcon name="chevronRight" size={22} color={colors.textMuted} style={styles.chevron} />
+      )}
     </PressableScale>
   );
 }
@@ -80,30 +88,35 @@ const { colors, font, spacing, radius } = theme;
 const styles = StyleSheet.create({
   group: {
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: radius.card,
+    borderWidth: 1,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    overflow: 'hidden',
+    paddingVertical: spacing.xs / 2,
     ...theme.shadow.card,
   },
-  divider: { backgroundColor: colors.border, height: 1 },
+  // 구분선은 아이콘 오른쪽부터 — 줄마다 아이콘이 같은 칸에 서 있다는 게 보인다.
+  divider: { backgroundColor: colors.border, height: 1, marginLeft: spacing.sm + 48 + spacing.sm },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
     minHeight: theme.touch.primaryButtonHeight + spacing.sm,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
+  rowHovered: { backgroundColor: colors.surface },
   disabled: { opacity: 0.5 },
   icon: { marginRight: spacing.sm },
   text: { flex: 1 },
   titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
-  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  title: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   badge: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.xs,
   },
-  badgeText: { color: colors.background, fontSize: font.caption, fontWeight: '800' },
+  badgeText: { color: colors.background, fontSize: font.caption, fontWeight: '700' },
   subtitle: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs / 2 },
-  chevron: { color: colors.textMuted, fontSize: font.titleLarge, marginLeft: spacing.xs },
+  chevron: { marginLeft: spacing.xs },
 });

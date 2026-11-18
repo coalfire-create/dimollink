@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppIcon } from '../../components/AppIcon';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { asbestosRisk, estimateChecklist, resolveFloorArea, structureCodeOf } from '@dimol/shared';
 import { Card, ErrorBanner, KeyboardAwareScreen, LoadingView } from '../../components/ui';
@@ -82,7 +83,7 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
               <Text style={styles.linkText}>가상 현장 열기</Text>
               <Text style={styles.linkHint}>원격 실사 사진·3D·영상통화로 실사하기</Text>
             </View>
-            <Text style={styles.chevron}>›</Text>
+            <AppIcon name="chevronRight" size={22} color={colors.primary} />
           </Card>
         </FadeInUp>
 
@@ -126,7 +127,7 @@ export function EstimateWorksheetScreen({ requestId }: { requestId: string }) {
             onPress={() => nav.push({ name: 'requestDetail', requestId })}
           >
             <Text style={styles.linkText}>요청 상세 전체 보기</Text>
-            <Text style={styles.chevron}>›</Text>
+            <AppIcon name="chevronRight" size={22} color={colors.primary} />
           </Card>
         </FadeInUp>
       </ScrollView>
@@ -164,10 +165,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: font.body,
     fontWeight: '700',
-  },
-  chevron: {
-    color: colors.primary,
-    fontSize: font.title,
-    fontWeight: '800',
   },
 });

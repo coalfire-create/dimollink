@@ -28,9 +28,17 @@ export function Card({
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
+  const [hovered, setHovered] = React.useState(false);
   if (!onPress) return <View style={[styles.card, style]}>{children}</View>;
+  // 누를 수 있는 카드는 웹에서 마우스를 올리면 한 칸 떠오른다(테두리 진하게 + 넓은 그림자).
   return (
-    <PressableScale accessibilityRole="button" onPress={onPress} style={[styles.card, style]}>
+    <PressableScale
+      accessibilityRole="button"
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[styles.card, hovered && styles.cardHovered, style]}
+    >
       {children}
     </PressableScale>
   );
@@ -124,6 +132,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     ...theme.shadow.card,
   },
+  cardHovered: {
+    borderColor: colors.borderStrong,
+    ...theme.shadow.raised,
+  },
   badge: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -145,7 +157,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: theme.tracking.title / 2,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },

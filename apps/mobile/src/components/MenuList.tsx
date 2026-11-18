@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card, IconTile } from './ui';
-import type { IconName } from './AppIcon';
+import { AppIcon, type IconName } from './AppIcon';
 import { theme } from '../theme';
 
 /**
@@ -44,7 +44,7 @@ export function MenuList({ items }: { items: MenuItem[] }) {
                 {item.subLabel ? <Text style={styles.subLabel}>{item.subLabel}</Text> : null}
               </View>
             </View>
-            <Text style={styles.arrow}>›</Text>
+            <AppIcon name="chevronRight" size={22} color={colors.textMuted} />
           </Pressable>
         </React.Fragment>
       ))}
@@ -99,9 +99,5 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginHorizontal: spacing.md,
-  },
-  arrow: {
-    fontSize: font.titleLarge,
-    color: colors.textMuted,
   },
 });

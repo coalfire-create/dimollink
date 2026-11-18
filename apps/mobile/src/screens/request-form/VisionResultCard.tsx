@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   confidence: {
     backgroundColor: colors.surface,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   hazardTitle: {
     color: theme.colors.warning,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   hazardItem: {
     color: colors.text,

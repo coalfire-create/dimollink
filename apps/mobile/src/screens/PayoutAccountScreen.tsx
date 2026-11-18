@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   hint: { color: colors.textMuted, fontSize: font.body, lineHeight: font.body * 1.5 },
-  strong: { color: colors.text, fontWeight: '800' },
+  strong: { color: colors.text, fontWeight: '700' },
   label: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.sm },
   value: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   verification: {

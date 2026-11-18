@@ -159,7 +159,7 @@ function verdictStyle(verdict: ParityVerdict) {
 const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  verdict: { fontSize: font.title, fontWeight: '800', marginBottom: spacing.xs },
+  verdict: { fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700', marginBottom: spacing.xs },
   pass: { color: colors.primary },
   fail: { color: colors.error },
   pending: { color: colors.textMuted },

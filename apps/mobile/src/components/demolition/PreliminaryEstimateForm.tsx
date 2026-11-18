@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   strong: {
     color: colors.text,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   suggestion: {
     backgroundColor: colors.primarySoft,
@@ -168,7 +168,8 @@ const styles = StyleSheet.create({
   suggestionRange: {
     color: colors.primary,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   suggestionNote: {

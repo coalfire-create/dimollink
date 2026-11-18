@@ -172,6 +172,6 @@ const styles = StyleSheet.create({
   pwSectionLabel: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

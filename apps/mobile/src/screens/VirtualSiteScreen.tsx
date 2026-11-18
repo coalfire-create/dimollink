@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.primarySoft },
   tabLabel: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
-  tabLabelActive: { color: colors.primary, fontWeight: '800' },
+  tabLabelActive: { color: colors.primary, fontWeight: '700' },
   content: {
     padding: spacing.sm,
     paddingBottom: spacing.lg + theme.floatingButtonClearance,

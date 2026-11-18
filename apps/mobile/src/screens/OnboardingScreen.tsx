@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   backLabel: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   // 로그인 화면과 같은 머리 — 왼쪽 정렬 큰 제목(가운데 정렬 로고 배너는 뺐다).
   headerWrap: {
@@ -188,7 +188,8 @@ const styles = StyleSheet.create({
   appName: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   appSubtitle: {
     color: colors.textMuted,
@@ -206,7 +207,8 @@ const styles = StyleSheet.create({
   stepTitle: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   noticeBox: {
     backgroundColor: colors.primarySoft,
@@ -245,6 +247,6 @@ const styles = StyleSheet.create({
   loginBtnText: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

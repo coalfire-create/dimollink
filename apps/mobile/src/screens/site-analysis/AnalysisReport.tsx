@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   summaryLabel: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   methodChip: {
     backgroundColor: colors.background,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: font.title - 4,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },
@@ -186,12 +186,12 @@ const styles = StyleSheet.create({
   stepNumText: {
     color: colors.background,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   stepDesc: {
     color: colors.textMuted,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   hazardTitle: {
     color: colors.error,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   hazardItem: {
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   coverageTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   coverageItem: {

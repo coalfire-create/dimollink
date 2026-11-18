@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { IconTile, StatusBadge } from '../../components/ui';
-import type { IconName } from '../../components/AppIcon';
+import { AppIcon, type IconName } from '../../components/AppIcon';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
 import { requestSubtitle, requestTons } from '../../lib/request-summary';
 import { theme } from '../../theme';
@@ -64,7 +64,7 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
               ) : (
                 <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               )}
-              <Text style={styles.chevron}>›</Text>
+              <AppIcon name="chevronRight" size={22} color={colors.textMuted} />
             </View>
           </View>
           <Text style={styles.headline} numberOfLines={1}>
@@ -127,14 +127,10 @@ const styles = StyleSheet.create({
     fontSize: font.bodyLarge,
     fontWeight: '700',
   },
-  chevron: {
-    color: colors.textMuted,
-    fontSize: font.title,
-  },
   headline: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   meta: {

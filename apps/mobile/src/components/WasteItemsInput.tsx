@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   removeText: {
     color: colors.error,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   removeDisabled: {
     color: colors.border,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   addBtn: {
     alignSelf: 'flex-start',
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   addText: {
     color: colors.primary,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   total: {
     marginTop: spacing.xs,

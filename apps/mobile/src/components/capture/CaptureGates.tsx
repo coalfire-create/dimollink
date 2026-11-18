@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   permTitle: {
     color: colors.background,
     fontSize: font.title - 4,
-    fontWeight: '800',
+    fontWeight: '700',
     marginTop: spacing.md,
     textAlign: 'center',
   },
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     justifyContent: 'center',
   },
-  permBtnText: { color: colors.background, fontSize: font.bodyLarge, fontWeight: '800' },
+  permBtnText: { color: colors.background, fontSize: font.bodyLarge, fontWeight: '700' },
   permClose: { marginTop: spacing.md, padding: spacing.sm },
   permCloseText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
   completeCircle: {
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   completeTitle: {
     color: colors.background,
     fontSize: font.title - 2,
-    fontWeight: '800',
+    fontWeight: '700',
     textAlign: 'center',
   },
   completeSub: {

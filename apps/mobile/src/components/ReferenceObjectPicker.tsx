@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     padding: spacing.md,
   },
-  title: { color: colors.text, fontSize: font.title, fontWeight: '800' },
+  title: { color: colors.text, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700' },
   subtitle: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs },
   list: { marginTop: spacing.md },
   item: {

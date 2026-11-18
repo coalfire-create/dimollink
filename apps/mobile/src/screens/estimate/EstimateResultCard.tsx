@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   truckCount: {
     color: colors.primary,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   basisBox: {
     backgroundColor: colors.background,

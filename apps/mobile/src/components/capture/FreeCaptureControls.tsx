@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   thumbRemoveText: {
     color: colors.background,
     fontSize: theme.glyph.small,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   bottomBar: {
     flexDirection: 'row',
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   doneBtnText: {
     color: colors.background,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   doneBtnCount: {
     color: colors.primarySoft,

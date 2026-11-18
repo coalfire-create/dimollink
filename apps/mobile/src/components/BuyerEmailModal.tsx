@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     width: '100%',
   },
-  title: { color: colors.text, fontSize: font.title, fontWeight: '700', marginBottom: spacing.sm },
+  title: { color: colors.text, fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700', marginBottom: spacing.sm },
   desc: { color: colors.textMuted, fontSize: font.body, marginBottom: spacing.md },
   cancel: { marginTop: spacing.sm },
 });

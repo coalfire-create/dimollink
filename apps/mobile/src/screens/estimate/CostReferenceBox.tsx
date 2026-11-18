@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   range: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   note: {
     color: colors.textMuted,

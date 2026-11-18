@@ -87,8 +87,8 @@ const { colors, font, spacing, radius } = theme;
 const styles = StyleSheet.create({
   missingCard: { borderColor: colors.error, borderWidth: 2 },
   head: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  title: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '800' },
-  state: { color: colors.textMuted, fontSize: font.body, fontWeight: '800' },
+  title: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '700' },
+  state: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
   stateDone: { color: colors.primary },
   stateMissing: { color: colors.error },
   why: { color: colors.textMuted, fontSize: font.body, lineHeight: 28, marginVertical: spacing.xs },
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     padding: spacing.sm,
   },
-  requestState: { color: colors.primary, fontSize: font.body, fontWeight: '800' },
+  requestState: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   requestMessage: { color: colors.text, fontSize: font.body, lineHeight: 28 },
   action: { marginTop: spacing.sm },
 });

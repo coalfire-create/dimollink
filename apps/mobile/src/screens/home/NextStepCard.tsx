@@ -96,7 +96,8 @@ const styles = StyleSheet.create({
   headline: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.sm,
   },
   hint: {

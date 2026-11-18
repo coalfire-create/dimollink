@@ -143,7 +143,8 @@ const styles = StyleSheet.create({
   mainTitle: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
   mainSubtitle: {

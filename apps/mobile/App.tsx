@@ -59,6 +59,7 @@ import { InteriorFormScreen } from './src/screens/InteriorFormScreen';
 import { InteriorListScreen } from './src/screens/InteriorListScreen';
 import { InteriorDetailScreen } from './src/screens/InteriorDetailScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { LandingNav } from './src/screens/welcome/LandingNav';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 
 /** 세션: 로그인 회원(UserProfile) / 게스트('guest') / 미진입(null). */
@@ -503,13 +504,23 @@ function AppRoot() {
 
   function renderBody() {
     if (isMember) return renderMemberBody();
-    // 첫 화면은 웹에서 곧 홈페이지라 흰 바탕을 브라우저 끝까지 깐다(본문 폭은 화면이 잡는다).
+    // 첫 화면·둘러보기는 웹에서 곧 홈페이지라 바탕을 브라우저 끝까지 깐다(본문 폭은 화면이 잡는다).
     const width =
-      session !== 'guest' && authRoute === 'welcome'
+      session === 'guest' || authRoute === 'welcome'
         ? '100%'
-        : session === 'guest' || authRoute === 'admin'
+        : authRoute === 'admin'
           ? theme.wideContentWidth
           : theme.wideFormWidth;
+    // 데스크톱 웹 로그인·회원가입 — 회사 사이트처럼 회색 바탕 위 가운데 카드 + 위쪽 브랜드 막대.
+    // 넓은 흰 칸에 입력칸만 왼쪽에 붙어 있으면 미완성 페이지처럼 보였다.
+    if (wide && session !== 'guest' && (authRoute === 'login' || authRoute === 'signup')) {
+      return (
+        <View style={styles.frame}>
+          <LandingNav onLogoPress={() => setAuthRoute('welcome')} />
+          <View style={styles.authCard}>{renderGateBody()}</View>
+        </View>
+      );
+    }
     return (
       <View style={wideFrame(width)}>
         {renderGateBody()}
@@ -713,6 +724,19 @@ const styles = StyleSheet.create({
   },
   frameWide: {
     alignSelf: 'center',
+  },
+  authCard: {
+    alignSelf: 'center',
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.card + 4,
+    borderWidth: 1,
+    flex: 1,
+    marginVertical: theme.spacing.lg,
+    maxWidth: 560,
+    overflow: 'hidden',
+    width: '100%',
+    ...theme.shadow.raised,
   },
   devHeaderBar: {
     backgroundColor: '#1E293B',

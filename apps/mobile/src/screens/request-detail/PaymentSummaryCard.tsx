@@ -77,7 +77,8 @@ const styles = StyleSheet.create({
   amount: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs,
   },
   rows: {

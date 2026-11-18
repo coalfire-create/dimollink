@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     color: colors.background,
     // 체크 표시는 읽는 글자가 아니라 점 안에 들어가는 기호라 glyph 토큰을 쓴다.
     fontSize: theme.glyph.small,
-    fontWeight: '900',
+    fontWeight: '700',
     lineHeight: 16,
   },
   line: {
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   labelCurrent: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   hint: {
     color: colors.textMuted,

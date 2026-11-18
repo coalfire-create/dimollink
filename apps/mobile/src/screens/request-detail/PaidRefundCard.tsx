@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   paidBadge: {
     color: colors.primary,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   policy: {
     color: colors.textMuted,

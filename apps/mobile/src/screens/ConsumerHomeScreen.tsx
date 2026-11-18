@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppIcon } from '../components/AppIcon';
 import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import brandmark from '../../assets/brandmark.png';
@@ -15,6 +16,7 @@ import { PartnerList } from './home/PartnerList';
 import { useConsumerHome } from './home/useConsumerHome';
 import { useMarketRate } from './home/useMarketRate';
 import { requesterNextStep } from '../lib/request-next-step';
+import { useWideLayout } from '../lib/layout';
 import { theme } from '../theme';
 
 /**
@@ -35,6 +37,8 @@ export function ConsumerHomeScreen() {
   const rate = useMarketRate(config.marketRateParty);
 
   const insets = useSafeAreaInsets();
+  // 데스크톱 웹은 넓은 화면에 맞춰 인사 제목을 한 단계 키운다(앱 크기 그대로면 본문처럼 묻힌다).
+  const wide = useWideLayout();
   // 손을 써야 하는 건(결제 등)을 위로. 같은 그룹 안에서는 서버 순서를 지킨다.
   const active = [...home.activeRequests].sort(
     (a, b) =>
@@ -55,7 +59,7 @@ export function ConsumerHomeScreen() {
             {user.name}
             {config.homeGreetingSuffix}
           </Text>
-          <Text style={styles.greetingTitle}>
+          <Text style={[styles.greetingTitle, wide && styles.greetingTitleWide]}>
             {active.length > 0 ? '진행 중인 일을 확인해 보세요' : '무엇을 비워 드릴까요?'}
           </Text>
         </View>
@@ -150,7 +154,7 @@ export function ConsumerHomeScreen() {
                   여러 검증 업체의 밀봉 견적을 비교하고 선택하세요
                 </Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+              <AppIcon name="chevronRight" size={24} color={colors.primary} />
             </PressableScale>
           </FadeInUp>
         ) : null}
@@ -196,9 +200,15 @@ const styles = StyleSheet.create({
   greetingTitle: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 38,
     marginTop: spacing.xs,
+  },
+  greetingTitleWide: {
+    fontSize: font.display,
+    letterSpacing: theme.tracking.display,
+    lineHeight: 48,
   },
   sectionRow: {
     alignItems: 'center',
@@ -209,7 +219,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   moreLink: {
     justifyContent: 'center',
@@ -238,7 +248,8 @@ const styles = StyleSheet.create({
   ctaTitle: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 32,
   },
   ctaSubtitle: {
@@ -276,17 +287,11 @@ const styles = StyleSheet.create({
   interiorTitle: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   interiorSubtitle: {
     color: colors.textMuted,
     fontSize: font.caption,
     marginTop: spacing.xs / 2,
-  },
-  chevron: {
-    color: colors.primary,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginLeft: spacing.xs,
   },
 });

@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   providerRow: { alignItems: 'center', flexDirection: 'row' },
   providerIcon: { marginRight: spacing.sm },
   flex: { flex: 1 },
-  provider: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  provider: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   accuracy: {
     color: colors.primary,
     fontSize: font.body,
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs / 2,
   },
-  lowestText: { color: colors.primary, fontSize: font.caption, fontWeight: '800' },
+  lowestText: { color: colors.primary, fontSize: font.caption, fontWeight: '700' },
   rangeBox: {
     backgroundColor: colors.surface,
     borderRadius: radius.button,
@@ -167,7 +167,8 @@ const styles = StyleSheet.create({
     ...TABULAR_NUMS,
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.xs / 2,
   },
   finalBox: {

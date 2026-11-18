@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
   },
   closeBtn: {
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
   },
   closeBtnText: {
     fontSize: font.titleLarge,
+    letterSpacing: theme.tracking.title,
     color: colors.textMuted,
   },
   mapViewport: {

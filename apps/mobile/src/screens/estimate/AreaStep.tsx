@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   totalAreaValue: {
     color: colors.text,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   totalAreaSub: {
     color: colors.textMuted,

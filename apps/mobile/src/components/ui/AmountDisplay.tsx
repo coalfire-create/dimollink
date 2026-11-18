@@ -73,12 +73,12 @@ const sizeStyles = {
     unit: { fontSize: font.body, fontWeight: '500', marginLeft: spacing.xs / 2 },
   }),
   lg: StyleSheet.create({
-    number: { fontSize: font.title, fontWeight: '800' },
+    number: { fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700' },
     unit: { fontSize: font.bodyLarge, fontWeight: '600', marginLeft: spacing.xs / 2 },
   }),
   xl: StyleSheet.create({
-    number: { fontSize: 32, fontWeight: '900' },
-    unit: { fontSize: font.title, fontWeight: '700', marginLeft: spacing.xs / 2 },
+    number: { fontSize: 32, fontWeight: '700' },
+    unit: { fontSize: font.title, letterSpacing: theme.tracking.title, fontWeight: '700', marginLeft: spacing.xs / 2 },
   }),
 };
 

@@ -154,13 +154,15 @@ const styles = StyleSheet.create({
   roadAddress: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: font.title + 8,
   },
   building: {
     color: colors.primary,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   addressPending: {
     opacity: 0.35,
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     color: colors.background,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   confirmBtnTextDisabled: {
     color: colors.textMuted,

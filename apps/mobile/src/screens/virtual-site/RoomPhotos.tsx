@@ -61,6 +61,6 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   room: { marginTop: spacing.sm },
-  roomName: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800' },
+  roomName: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
   missing: { color: colors.error, fontSize: font.body, fontWeight: '700', marginTop: spacing.xs },
 });

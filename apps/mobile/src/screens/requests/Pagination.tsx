@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   pageIndicator: {
     color: colors.text,
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
     minWidth: 64,
     textAlign: 'center',
   },

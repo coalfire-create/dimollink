@@ -127,7 +127,8 @@ const styles = StyleSheet.create({
   status: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   description: {
     color: colors.textMuted,

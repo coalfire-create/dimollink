@@ -84,5 +84,5 @@ const styles = StyleSheet.create({
   },
   chipOn: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: font.body, fontWeight: '700' },
-  chipTextOn: { color: colors.primary, fontWeight: '800' },
+  chipTextOn: { color: colors.primary, fontWeight: '700' },
 });

@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: font.body,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   description: {
     color: colors.textMuted,

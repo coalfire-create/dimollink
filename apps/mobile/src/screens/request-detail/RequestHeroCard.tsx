@@ -85,7 +85,8 @@ const styles = StyleSheet.create({
   headline: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     marginTop: spacing.sm,
   },
   hint: {
@@ -111,7 +112,8 @@ const styles = StyleSheet.create({
   feeValue: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
   },
   button: {
     marginTop: spacing.sm,

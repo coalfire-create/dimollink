@@ -19,12 +19,20 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 /**
  * 주요 버튼 — 고령 사용자 기준(48px 이상, 큰 글씨)을 컴포넌트가 강제한다.
  * 화면에서 RN 기본 Button 을 쓰지 않고 이것만 쓴다.
+ *
+ * 생김새는 큰 서비스들의 버튼 체계를 따른다 — 한 화면의 핵심 동작 하나만 파란 면(primary),
+ * 나머지는 회색 테두리(outline)나 옅은 파란 면(secondary)으로 한 단계 물러선다.
+ * 예전 outline 은 파란 2px 테두리여서 "로그인/회원가입"처럼 두 버튼이 나란히 서면
+ * 둘 다 주인공처럼 보였다.
  */
 export interface AppButtonProps {
   label: string;
   onPress: () => void;
-  /** primary: 핵심 동작(큰 버튼) / outline: 보조 동작 / danger: 취소·삭제 */
-  variant?: 'primary' | 'outline' | 'danger';
+  /**
+   * primary: 핵심 동작(파란 면) / outline: 보조 동작(흰 바탕 + 회색 테두리)
+   * secondary: 같은 화면의 두 번째 권장 동작(옅은 파란 면) / danger: 취소·삭제
+   */
+  variant?: 'primary' | 'outline' | 'secondary' | 'danger';
   disabled?: boolean;
   /** 버튼 비활성화 이유 — 고령 사용자가 왜 못 누르는지 알 수 있게 버튼 밑에 안내한다. */
   disabledReason?: string;
@@ -42,29 +50,36 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const isPrimary = variant === 'primary';
-  const { scale, onPressIn, onPressOut } = usePressScale();
+  const inactive = !!disabled || !!loading;
+  const { scale, onPressIn, onPressOut } = usePressScale(0.98);
+  // 웹에서 마우스를 올리면 한 톤 진해진다 — 누를 수 있다는 걸 커서 말고도 보여 준다.
+  const [hovered, setHovered] = React.useState(false);
 
   const handlePress = () => {
-    if (disabled || loading) return;
+    if (inactive) return;
     triggerHaptic(isPrimary ? 'medium' : 'light');
     onPress();
   };
 
+  const tone = TONES[variant];
   const buttonElement = (
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={disabled && disabledReason ? disabledReason : undefined}
-      disabled={disabled || loading}
+      accessibilityState={{ disabled: inactive, busy: !!loading }}
+      disabled={inactive}
       onPress={handlePress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       style={[
         styles.button,
         isPrimary && styles.buttonPrimary,
-        variant === 'outline' && styles.buttonOutline,
-        variant === 'danger' && styles.buttonDanger,
-        (disabled || loading) && styles.buttonDisabled,
+        tone.box,
+        hovered && !inactive && tone.hover,
+        inactive && styles.buttonDisabled,
         { transform: [{ scale }] },
         style,
       ]}
@@ -75,11 +90,9 @@ export function AppButton({
         <Text
           style={[
             styles.buttonLabel,
-            isPrimary && { color: colors.background },
-            variant === 'outline' && { color: colors.primary },
-            variant === 'danger' && { color: colors.error },
+            tone.label,
             // 비활성 배경은 옅은 회색이라 흰 글자를 그대로 두면 거의 안 보였다.
-            (disabled || loading) && { color: colors.textMuted },
+            inactive && { color: colors.textMuted },
           ]}
         >
           {label}
@@ -104,6 +117,30 @@ export function AppButton({
 }
 
 const { colors, font, spacing, radius, touch } = theme;
+
+/** 변형별 바탕·글자·마우스 올림 색. 화면에서 버튼 색을 따로 칠하지 않게 여기서만 정한다. */
+const TONES = {
+  primary: StyleSheet.create({
+    box: { backgroundColor: colors.primary },
+    hover: { backgroundColor: colors.primaryDark },
+    label: { color: colors.background },
+  }),
+  outline: StyleSheet.create({
+    box: { backgroundColor: colors.background, borderColor: colors.borderStrong, borderWidth: 1 },
+    hover: { backgroundColor: colors.surface },
+    label: { color: colors.text },
+  }),
+  secondary: StyleSheet.create({
+    box: { backgroundColor: colors.primarySoft },
+    hover: { borderColor: colors.primary, borderWidth: 1 },
+    label: { color: colors.primary },
+  }),
+  danger: StyleSheet.create({
+    box: { backgroundColor: colors.errorSoft },
+    hover: { borderColor: colors.error, borderWidth: 1 },
+    label: { color: colors.error },
+  }),
+} as const;
 
 const styles = StyleSheet.create({
   disabledContainer: {
@@ -133,24 +170,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   buttonPrimary: {
-    backgroundColor: colors.primary,
     height: touch.primaryButtonHeight,
   },
-  buttonOutline: {
-    backgroundColor: colors.background,
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  buttonDanger: {
-    backgroundColor: colors.background,
-    borderColor: colors.error,
-    borderWidth: 2,
-  },
   buttonDisabled: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.appBackground,
     borderColor: colors.border,
     borderWidth: 1,
-    opacity: 0.8,
   },
   buttonLabel: {
     fontSize: font.bodyLarge,

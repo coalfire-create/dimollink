@@ -1,6 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppIcon } from '../../components/AppIcon';
+import { TABULAR_NUMS } from '../../lib/format';
+import { useWideLayout } from '../../lib/layout';
 import { useNavigation } from '../../navigation';
 import { theme } from '../../theme';
 
@@ -34,6 +37,8 @@ export function PartnerHomeHeader({
 }) {
   const insets = useSafeAreaInsets();
   const nav = useNavigation();
+  // 데스크톱 웹은 넓은 화면에 맞춰 제목을 한 단계 키운다.
+  const wide = useWideLayout();
   const headline =
     openCount > 0
       ? `${openLabel} ${openCount}건이\n기다리고 있어요`
@@ -44,7 +49,7 @@ export function PartnerHomeHeader({
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + spacing.md }]}>
       <Text style={styles.name}>{name}</Text>
-      <Text style={styles.headline} accessibilityRole="header">
+      <Text style={[styles.headline, wide && styles.headlineWide]} accessibilityRole="header">
         {headline}
       </Text>
       {badge ? (
@@ -52,13 +57,16 @@ export function PartnerHomeHeader({
           <Text style={styles.badgeText}>{badge}</Text>
         </View>
       ) : null}
+      {/* 숫자 두 개를 한 장의 요약 카드에 — 칸 두 개를 따로 띄우면 버튼처럼 보였다. */}
       <View style={styles.stats}>
         <View style={styles.stat} accessibilityLabel={`${openLabel} ${openCount}건`}>
           <Text style={styles.statLabel}>{openLabel}</Text>
           <Text style={[styles.statValue, openCount > 0 && styles.statValueStrong]}>
-            {openCount}건
+            {openCount}
+            <Text style={styles.statUnit}>건</Text>
           </Text>
         </View>
+        <View style={styles.statDivider} />
         {canOpenList ? (
           <Pressable
             accessibilityRole="button"
@@ -66,13 +74,22 @@ export function PartnerHomeHeader({
             onPress={() => nav.switchTab('requests')}
             style={styles.stat}
           >
-            <Text style={styles.statLabel}>{activeLabel} ›</Text>
-            <Text style={styles.statValue}>{activeCount}건</Text>
+            <View style={styles.statLabelRow}>
+              <Text style={styles.statLabel}>{activeLabel}</Text>
+              <AppIcon name="chevronRight" size={18} color={colors.textMuted} />
+            </View>
+            <Text style={styles.statValue}>
+              {activeCount}
+              <Text style={styles.statUnit}>건</Text>
+            </Text>
           </Pressable>
         ) : (
           <View style={styles.stat} accessibilityLabel={`${activeLabel} ${activeCount}건`}>
             <Text style={styles.statLabel}>{activeLabel}</Text>
-            <Text style={styles.statValue}>{activeCount}건</Text>
+            <Text style={styles.statValue}>
+              {activeCount}
+              <Text style={styles.statUnit}>건</Text>
+            </Text>
           </View>
         )}
       </View>
@@ -95,9 +112,15 @@ const styles = StyleSheet.create({
   headline: {
     color: colors.text,
     fontSize: font.titleLarge,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 38,
     marginTop: spacing.xs,
+  },
+  headlineWide: {
+    fontSize: font.display,
+    letterSpacing: theme.tracking.display,
+    lineHeight: 48,
   },
   badge: {
     alignSelf: 'flex-start',
@@ -113,18 +136,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   stats: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  stat: {
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: radius.card,
-    flex: 1,
-    minHeight: theme.touch.primaryButtonHeight + spacing.lg,
-    padding: spacing.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
     ...theme.shadow.card,
   },
+  stat: {
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: theme.touch.primaryButtonHeight + spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  statDivider: { backgroundColor: colors.border, width: 1 },
+  statLabelRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs / 2 },
   statLabel: {
     color: colors.textMuted,
     fontSize: font.body,
@@ -132,9 +160,16 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: colors.text,
-    fontSize: font.titleLarge,
-    fontWeight: '800',
-    marginTop: spacing.xs,
+    fontSize: font.titleLarge + 4,
+    fontWeight: '700',
+    letterSpacing: theme.tracking.title,
+    marginTop: spacing.xs / 2,
+    ...TABULAR_NUMS,
+  },
+  statUnit: {
+    color: colors.textMuted,
+    fontSize: font.bodyLarge,
+    fontWeight: '600',
   },
   statValueStrong: {
     color: colors.primary,

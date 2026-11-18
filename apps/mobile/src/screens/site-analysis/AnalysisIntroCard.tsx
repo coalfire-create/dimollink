@@ -27,7 +27,8 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontSize: font.title,
-    fontWeight: '800',
+    letterSpacing: theme.tracking.title,
+    fontWeight: '700',
     lineHeight: 32,
   },
   description: {

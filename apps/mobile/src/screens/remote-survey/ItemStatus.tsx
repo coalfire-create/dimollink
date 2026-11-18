@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     fontSize: font.bodyLarge,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   badge: {
     borderRadius: radius.badge,
