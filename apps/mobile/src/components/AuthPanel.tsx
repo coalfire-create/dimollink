@@ -1,67 +1,49 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import editorialSite from '../../assets/editorial-site.png';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { theme } from '../theme';
-
-const FACTS = [
-  '전국 현장 접수 · 사업자 확인 업체 매칭',
-  '올바로 전자인계서 자동 발행',
-  '배차 전 취소 전액 환불 · 정산은 다음 영업일',
-] as const;
+import { HeroObject3D } from './three/HeroObject3D';
 
 /**
  * 로그인·가입 화면(데스크톱 웹 좌우 분할) 왼쪽 패널.
- * 움직이는 장식 없이 현장 사진 위에 문구만 얹는다 — 사진은 먹색으로 눌러 글자 대비를 확보.
+ * 첫 화면과 같은 3D 오브젝트 하나 + 큰 문장 하나. 옅은 회색 바탕이라 오른쪽 흰 폼과 자연스럽게 나뉜다.
  */
 export function AuthPanel({ mode }: { mode: 'login' | 'signup' }) {
   return (
     <View style={styles.root}>
-      <Image source={editorialSite} style={styles.photo} resizeMode="cover" />
-      <View style={styles.shade} />
       <View style={styles.copy}>
-        <Text style={styles.eyebrow}>
-          {mode === 'login' ? '건설폐기물 · 철거 중개' : '전국 현장 · 업체 가입'}
-        </Text>
         <Text style={styles.headline}>
-          {mode === 'login'
-            ? '철거 현장과 확인된 업체를\n한 곳에서 잇습니다'
-            : '견적 비교부터\n올바로 인계서까지'}
+          {mode === 'login' ? '다시 오셨네요,\n반가워요' : '사진 한 장으로\n시작해 보세요'}
         </Text>
-        <View style={styles.facts}>
-          {FACTS.map((text) => (
-            <Text key={text} style={styles.fact}>
-              {text}
-            </Text>
-          ))}
-        </View>
+        <Text style={styles.sub}>
+          {mode === 'login'
+            ? '진행 중인 현장을 이어서 확인하세요.'
+            : '확인된 업체 견적 비교부터 올바로 인계서까지.'}
+        </Text>
       </View>
+      {Platform.OS === 'web' ? <HeroObject3D style={styles.object} /> : null}
     </View>
   );
 }
 
-const { colors, font, spacing, onDark } = theme;
+const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
-  root: { backgroundColor: onDark.canvas, flex: 1, justifyContent: 'flex-end', minHeight: 640, overflow: 'hidden' },
-  photo: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: onDark.canvas, opacity: 0.72 },
-  copy: { maxWidth: 460, padding: spacing.lg + spacing.sm },
-  eyebrow: { color: onDark.textMuted, fontSize: font.caption, fontWeight: '700', marginBottom: spacing.xs },
+  root: {
+    backgroundColor: colors.appBackground,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 640,
+    overflow: 'hidden',
+    padding: spacing.lg + spacing.sm,
+  },
+  copy: { maxWidth: 480 },
   headline: {
-    color: colors.background,
-    fontSize: font.titleLarge,
-    fontWeight: '700',
-    letterSpacing: theme.tracking.title,
-    lineHeight: 40,
-    marginBottom: spacing.lg,
+    color: colors.text,
+    fontSize: font.display,
+    fontWeight: '800',
+    letterSpacing: theme.tracking.display,
+    lineHeight: 48,
   },
-  facts: { borderTopColor: onDark.border, borderTopWidth: 1 },
-  fact: {
-    borderBottomColor: onDark.border,
-    borderBottomWidth: 1,
-    color: onDark.text,
-    fontSize: font.caption,
-    fontWeight: '500',
-    paddingVertical: spacing.xs,
-  },
+  sub: { color: colors.textMuted, fontSize: font.bodyLarge, lineHeight: 30, marginTop: spacing.sm },
+  object: { height: 400, marginTop: spacing.md, width: '100%' },
 });

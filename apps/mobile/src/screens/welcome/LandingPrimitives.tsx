@@ -44,14 +44,14 @@ export function TextLink({
   );
 }
 
-/** 본문 구획 하나 — 바탕색 띠(white / stone / dark) + 가운데 본문 칸. */
+/** 본문 구획 하나 — 바탕색 띠(흰 / 옅은 회색) + 가운데 본문 칸. */
 export function Band({
   tone,
   wide,
   onLayout,
   children,
 }: {
-  tone: 'white' | 'stone' | 'dark';
+  tone: 'white' | 'grey';
   wide: boolean;
   onLayout?: (e: LayoutChangeEvent) => void;
   children: React.ReactNode;
@@ -61,8 +61,7 @@ export function Band({
       onLayout={onLayout}
       style={[
         styles.band,
-        tone === 'stone' && styles.bandStone,
-        tone === 'dark' && styles.bandDark,
+        tone === 'grey' && styles.bandGrey,
         wide && styles.bandWide,
       ]}
     >
@@ -108,14 +107,8 @@ const styles = StyleSheet.create({
   },
   band: {
     backgroundColor: colors.background,
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.lg + spacing.sm,
   },
-  bandStone: { backgroundColor: colors.appBackground },
-  bandDark: {
-    backgroundColor: onDark.canvas,
-    borderBottomColor: onDark.border,
-  },
-  bandWide: { paddingVertical: spacing.lg * 3 },
+  bandGrey: { backgroundColor: colors.appBackground },
+  bandWide: { paddingVertical: spacing.lg * 4 },
 });

@@ -107,24 +107,24 @@ export function isValidSpacing(px: number): boolean {
  */
 export const COLORS = {
   /** 메인 — 주요 버튼, 활성 상태. 깊은 블루프린트 코발트(흰 글씨 대비 6.7:1). */
-  primary: '#0B3B75',
+  primary: '#1B64DA',
   /** 메인 진한 톤 — 웹 호버/눌림. */
-  primaryDark: '#082A55',
+  primaryDark: '#1957C2',
   /** 메인 연한 톤 — 선택 배경·아주 옅은 강조 틴트. */
-  primarySoft: '#EDF1F7',
+  primarySoft: '#E8F3FF',
   /** 보조 — 현장 안전 테라코타 오렌지. 긴급/핵심 주의 포인트에만 절제 사용. */
   secondary: '#D44A1A',
   /** 본문 텍스트 — 따뜻한 숯 먹색(흰 배경 대비 17.5:1). */
-  text: '#17191C',
+  text: '#191F28',
   /** 보조 텍스트 — 흰 배경 7.16:1, 스톤 바닥(#F4F3EE) 6.45:1. */
-  textMuted: '#54575E',
+  textMuted: '#4E5968',
   background: '#FFFFFF',
   /** 카드 안 묶음·입력창 기본 배경 — 웜 아이보리 스톤. */
-  surface: '#F9F8F5',
+  surface: '#F9FAFB',
   /** 카드·구분선 — 차가운 회색 대신 따뜻한 스톤 보더. */
-  border: '#E6E3DC',
+  border: '#E5E8EB',
   /** 입력칸·보조 버튼 테두리 — 누르는 경계를 또렷하게 잡는 스톤 그레이. */
-  borderStrong: '#C9C4BA',
+  borderStrong: '#D1D6DB',
   /** 오류/필수 경고 전용. */
   error: '#B91C1C',
 } as const;
@@ -135,23 +135,23 @@ export const COLORS = {
  */
 export const ON_DARK = {
   /** 다크 아키텍처 캔버스 바닥 — 깊은 옵시디언 슬레이트. */
-  canvas: '#0C2447',
+  canvas: '#191F28',
   /** 다크 캔버스 위 카드·패널 표면. */
-  surface: '#12305C',
+  surface: '#212833',
   /** 다크 표면 외곽선·헤어라인. */
-  border: '#27446F',
+  border: '#333D4B',
   /** 먹색 바탕 위 본문(14.1:1). */
-  text: '#E8EDF5',
+  text: '#E5E8EB',
   /** 먹색 바탕 위 보조 글자(7.5:1). */
-  textMuted: '#AEBBD0',
+  textMuted: '#B0B8C1',
   /** 먹색 바탕 위 구분선. */
-  divider: '#2F4D7A',
+  divider: '#333D4B',
 } as const;
 
 /**
  * 화면 배경(카드가 떠 있는 바닥) — 웜 스톤(#F4F3EE) 바닥 위에 순백 카드가 단정하게 얹힌다.
  */
-export const APP_BACKGROUND = '#F3F5F8';
+export const APP_BACKGROUND = '#F2F4F6';
 
 /**
  * 상태 전용 색 — 장식으로 쓰지 않고 성공/주의/오류 신호에만 사용한다.

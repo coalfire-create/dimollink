@@ -45,9 +45,9 @@ export const theme = {
    * 배지는 알약(999) 대신 살짝 각진 태그(6)로 둔다.
    */
   radius: {
-    card: 4,
-    button: 4,
-    badge: 2,
+    card: 20,
+    button: 14,
+    badge: 8,
     pill: 999,
   },
   /**

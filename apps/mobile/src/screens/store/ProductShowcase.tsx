@@ -41,14 +41,14 @@ export function ProductShowcase({ onBuy }: { onBuy: () => void }) {
   return (
     <View>
       <SectionHeading
-        eyebrow="요금"
-        title="상품·요금 안내"
-        description="대상 회원은 가입 후 앱·웹에서 바로 결제할 수 있습니다."
+        eyebrow="요금 안내"
+        title="수수료는 낮추고, 일감은 먼저"
+        description="철거업체 이용권 — 가입 후 앱·웹에서 바로 결제할 수 있어요."
       />
       {/* 넓은 화면에서 카드가 1200px 로 늘어나면 혜택 줄이 한 줄로 길게 퍼진다 — 칸 폭을 잡는다. */}
       <View style={wide ? styles.gridWide : undefined}>
         {products.map((product) => (
-          <Card key={product.id} style={wide ? styles.cardWide : undefined}>
+          <Card key={product.id} style={[styles.card, wide && styles.cardWide]}>
             <ProductDetails
               product={product}
               actions={
@@ -86,6 +86,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.md,
   },
+  // 흰 띠 위 옅은 회색 면 — 테두리 없이 면으로만 구분한다.
+  card: { backgroundColor: colors.appBackground, borderWidth: 0, padding: spacing.lg },
   cardWide: { flex: 1, marginBottom: 0, minWidth: 320 },
   action: { marginBottom: spacing.xs },
   pending: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },

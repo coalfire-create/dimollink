@@ -1,12 +1,13 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import {
   DEMOLITION_MEMBERSHIP_ID,
+  MEMBER_PLATFORM_FEE_RATE,
   PASS_REFUND_WINDOW_DAYS,
+  PLATFORM_FEE_RATE,
   USER_TYPE_LABELS,
   type SalesProduct,
 } from '@dimol/shared';
-import { WEB_BASE_URL } from '../../api/client';
 import { TABULAR_NUMS, manwon, won } from '../../lib/format';
 import { useWideLayout } from '../../lib/layout';
 import { breakEvenSettlement, dailyPrice, feeSavings } from '../../lib/membership-value';
@@ -16,25 +17,24 @@ import { theme } from '../../theme';
  * 상품 정보 본문 — 스토어(결제)와 로그인 전 첫 화면(소개)이 같이 쓴다.
  *
  * PG 심사 필수 항목이라 장식이 아니다. 빼거나 접어 두지 않는다:
- *  - 상품 **이미지·금액·상세**
+ *  - 상품 **이미지(아래 멤버십 카드 그림)·금액·상세**
  *  - **서비스 제공기간**, 제공 방식(배송 규정), **환불 정책**
  *  - 정기결제: 결제 주기(월 1회)와 **해지 방법**
  *
- * 순서는 "사고 싶게" 짰다 — 무엇·얼마(대표 영역) → 내 돈으로 얼마나 이득인지 → 혜택 →
- * 결제 버튼 → 안심 문구 → 꼭 확인할 약관. 예전에는 큰 그림 아래 긴 설명 문단이 먼저 나와
- * 정작 "왜 사야 하는지"가 문단 속에 묻혀 있었다.
+ * "사고 싶게": 왼쪽은 카드 그림·가격·구매 버튼(넓은 화면에서는 스크롤을 따라온다),
+ * 오른쪽은 내 돈으로 얼마 아끼는지(비교표) → 혜택 → 꼭 확인할 약관 순서.
  */
 const EXAMPLE_SETTLEMENT = 10_000_000;
+
+const pct = (rate: number) => `${Math.round(rate * 100)}%`;
+const fee = (amount: number, rate: number) => Math.round(amount * rate);
 
 export function ProductDetails({
   product,
   actions,
 }: {
   product: SalesProduct;
-  /**
-   * 결제 버튼 자리 — 혜택 바로 아래, 약관 위. 약관(제공기간·환불)은 PG 심사상 상품
-   * 화면에 늘 보여야 해서 접지 않는 대신, 버튼을 약관 아래 끝에서 위로 올렸다.
-   */
+  /** 결제 버튼 자리 — 가격 바로 아래. */
   actions?: React.ReactNode;
 }) {
   const monthly = product.billingType === 'MONTHLY_SUBSCRIPTION';
@@ -42,21 +42,20 @@ export function ProductDetails({
   const isMembership = product.id === DEMOLITION_MEMBERSHIP_ID;
   const breakEven = isMembership ? breakEvenSettlement(product.price) : null;
   const wide = useWideLayout();
+  const audience = product.availableTo
+    ? `${product.availableTo.map((t) => USER_TYPE_LABELS[t]).join('·')} 전용`
+    : null;
 
   return (
     <View style={wide ? styles.cols : undefined}>
-      <View style={wide ? styles.colMain : undefined}>
-        <Image
-          source={{ uri: `${WEB_BASE_URL}${product.imagePath}` }}
-          style={styles.image}
-          resizeMode="cover"
-          accessibilityLabel={`${product.name} 상품 이미지`}
+      <View style={wide ? [styles.colBuy, Platform.OS === 'web' && WEB_STICKY] : undefined}>
+        <ProductVisual
+          name={product.name}
+          audience={audience}
+          headline={isMembership ? `수수료 ${pct(MEMBER_PLATFORM_FEE_RATE)}` : product.name}
+          period={days ? `${days}일` : monthly ? '매월' : null}
         />
-        {product.availableTo ? (
-          <Text style={styles.audience}>
-            {product.availableTo.map((t) => USER_TYPE_LABELS[t]).join('·')} 전용
-          </Text>
-        ) : null}
+
         <Text style={styles.name} accessibilityRole="header">
           {product.name}
         </Text>
@@ -65,7 +64,7 @@ export function ProductDetails({
           <Text style={styles.perDay}>매월 결제</Text>
         ) : days ? (
           <Text style={styles.perDay}>
-            {days}일 이용 · 하루 약 {won(dailyPrice(product.price, days))}
+            {days}일 이용 · 하루 {won(dailyPrice(product.price, days))}꼴
           </Text>
         ) : null}
 
@@ -73,42 +72,118 @@ export function ProductDetails({
 
         {!monthly ? (
           <Text style={styles.reassure}>
-            자동 결제 없음 · {PASS_REFUND_WINDOW_DAYS}일 안에 혜택을 안 쓰면 전액 환불
+            자동 결제 없음 · {PASS_REFUND_WINDOW_DAYS}일 안에 안 쓰면 전액 환불
           </Text>
         ) : null}
       </View>
 
-      <View style={[styles.table, wide && styles.tableWide]}>
-        <Row label="이용권 혜택">
-          {product.benefits.map((benefit) => `· ${benefit}`).join('\n')}
-        </Row>
+      <View style={wide ? styles.colInfo : styles.infoNarrow}>
         {breakEven !== null ? (
-          <Row label="수수료 절감">
-            {`정산 ${manwon(EXAMPLE_SETTLEMENT)} 기준 ${manwon(feeSavings(EXAMPLE_SETTLEMENT))} 절감 (정산 ${manwonExact(breakEven)}만 이상이면 이용권 값 이상)`}
+          <View style={styles.box}>
+            <Text style={styles.boxCaption}>정산 {manwon(EXAMPLE_SETTLEMENT)}이면</Text>
+            <CompareRow
+              label={`일반 수수료 ${pct(PLATFORM_FEE_RATE)}`}
+              value={won(fee(EXAMPLE_SETTLEMENT, PLATFORM_FEE_RATE))}
+              muted
+            />
+            <CompareRow
+              label={`멤버십 수수료 ${pct(MEMBER_PLATFORM_FEE_RATE)}`}
+              value={won(fee(EXAMPLE_SETTLEMENT, MEMBER_PLATFORM_FEE_RATE))}
+            />
+            <View style={styles.divider} />
+            <View style={styles.saveRow}>
+              <Text style={styles.saveLabel}>아끼는 돈</Text>
+              <Text style={[styles.saveValue, TABULAR_NUMS]}>
+                {won(feeSavings(EXAMPLE_SETTLEMENT))}
+              </Text>
+            </View>
+            <Text style={styles.boxNote}>
+              정산 {manwonExact(breakEven)}만 넘어도 이용권 값은 뽑아요.
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.box}>
+          <Text style={styles.boxTitle}>이용권 혜택</Text>
+          {product.benefits.map((benefit, i) => (
+            <View key={benefit} style={styles.benefitRow}>
+              <Text style={[styles.benefitNo, TABULAR_NUMS]}>{i + 1}</Text>
+              <Text style={styles.benefitText}>{benefit}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.box}>
+          <Text style={styles.boxTitle}>꼭 확인해 주세요</Text>
+          <Row label="상품 설명">{product.description}</Row>
+          <Row label="서비스 제공기간">{product.servicePeriod.label}</Row>
+          {monthly ? (
+            <>
+              <Row label="결제 주기">매월 1회 자동결제 (월 단위)</Row>
+              <Row label="해지 방법">{product.cancellationNotice}</Row>
+            </>
+          ) : null}
+          <Row label="제공 방식">{product.delivery}</Row>
+          <Row label="환불 정책" last>
+            {product.refundPolicy.map((rule) => `· ${rule}`).join('\n')}
           </Row>
-        ) : null}
-        <Row label="상품 설명">{product.description}</Row>
-        <Row label="서비스 제공기간">{product.servicePeriod.label}</Row>
-        {monthly ? (
-          <>
-            <Row label="결제 주기">매월 1회 자동결제 (월 단위)</Row>
-            <Row label="해지 방법">{product.cancellationNotice}</Row>
-          </>
-        ) : null}
-        <Row label="제공 방식">{product.delivery}</Row>
-        <Row label="환불 정책">
-          {product.refundPolicy.map((rule) => `· ${rule}`).join('\n')}
-        </Row>
+        </View>
       </View>
     </View>
   );
 }
 
-/** 안내표 한 줄 — 왼쪽 라벨 칸 | 오른쪽 내용. 좁은 화면에서는 위아래로 쌓인다. */
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * 상품 그림 — 사진 대신 화면에서 그린 멤버십 카드. 파란 면 위에 핵심 숫자 하나만.
+ * PG 심사의 "상품 이미지" 자리라 이미지 역할(accessibilityRole)을 준다.
+ */
+function ProductVisual({
+  name,
+  audience,
+  headline,
+  period,
+}: {
+  name: string;
+  audience: string | null;
+  headline: string;
+  period: string | null;
+}) {
+  return (
+    <View style={styles.visual} accessibilityRole="image" accessibilityLabel={`${name} 상품 이미지`}>
+      <Text style={styles.visualBrand}>비움 멤버십</Text>
+      <Text style={styles.visualHeadline}>{headline}</Text>
+      <View style={styles.visualFoot}>
+        <Text style={styles.visualMeta}>{audience ?? ''}</Text>
+        {period ? <Text style={styles.visualPeriod}>{period}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function CompareRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <View style={styles.compareRow}>
+      <Text style={[styles.compareLabel, muted && styles.mutedText]}>{label}</Text>
+      <Text style={[styles.compareValue, TABULAR_NUMS, muted && styles.compareValueMuted]}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** 약관 한 줄 — 넓은 화면은 라벨 | 내용, 좁은 화면은 위아래. */
+function Row({
+  label,
+  last,
+  children,
+}: {
+  label: string;
+  last?: boolean;
+  children: React.ReactNode;
+}) {
   const wide = useWideLayout();
   return (
-    <View style={[styles.row, wide && styles.rowWide]}>
+    <View style={[styles.row, wide && styles.rowWide, last && styles.rowLast]}>
       <Text style={[styles.label, wide && styles.labelWide]}>{label}</Text>
       <Text style={styles.value}>{children}</Text>
     </View>
@@ -127,74 +202,98 @@ function manwonExact(value: number): string {
   return won(value);
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, radius } = theme;
+
+/** 넓은 화면에서 구매 영역이 스크롤을 따라오게 — 약관을 읽는 동안에도 버튼이 보인다. */
+const WEB_STICKY = { position: 'sticky', top: spacing.lg * 3 } as unknown as ViewStyle;
 
 const styles = StyleSheet.create({
-  cols: { flexDirection: 'row', gap: spacing.lg },
-  colMain: { flex: 4 },
-  image: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    height: 160,
-    marginBottom: spacing.sm,
-    width: 160,
+  cols: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.lg },
+  colBuy: { flex: 5 },
+  colInfo: { flex: 7, gap: spacing.sm },
+  infoNarrow: { gap: spacing.sm, marginTop: spacing.lg },
+
+  visual: {
+    aspectRatio: 1.6,
+    backgroundColor: colors.primary,
+    borderRadius: radius.card,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    width: '100%',
   },
-  audience: {
-    color: colors.primary,
-    fontSize: font.body,
-    fontWeight: '700',
+  visualBrand: { color: colors.primarySoft, fontSize: font.body, fontWeight: '700' },
+  visualHeadline: {
+    color: colors.background,
+    fontSize: font.hero,
+    fontWeight: '800',
+    letterSpacing: theme.tracking.display * 1.5,
   },
+  visualFoot: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
+  visualMeta: { color: colors.primarySoft, fontSize: font.body, fontWeight: '600' },
+  visualPeriod: { color: colors.background, fontSize: font.title, fontWeight: '800' },
+
   name: {
     color: colors.text,
     fontSize: font.title,
-    letterSpacing: theme.tracking.title,
     fontWeight: '700',
+    letterSpacing: theme.tracking.title,
     lineHeight: 32,
-    marginTop: spacing.xs / 2,
+    marginTop: spacing.md,
   },
   price: {
     color: colors.text,
-    fontSize: font.display,
+    fontSize: font.display + 4,
+    fontWeight: '800',
     letterSpacing: theme.tracking.display,
-    fontWeight: '700',
-    marginTop: spacing.xs,
-  },
-  perDay: {
-    color: colors.textMuted,
-    fontSize: font.body,
     marginTop: spacing.xs / 2,
   },
+  perDay: { color: colors.primary, fontSize: font.body, fontWeight: '700', marginTop: spacing.xs / 2 },
   actions: { marginTop: spacing.md },
-  reassure: {
-    color: colors.textMuted,
+  reassure: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.xs, textAlign: 'center' },
+
+  box: { backgroundColor: colors.background, borderRadius: radius.card, padding: spacing.md },
+  boxCaption: { color: colors.textMuted, fontSize: font.body, fontWeight: '600', marginBottom: spacing.xs },
+  boxTitle: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '800', marginBottom: spacing.xs },
+  boxNote: { color: colors.textMuted, fontSize: font.body, marginTop: spacing.sm },
+
+  compareRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs / 2,
+  },
+  compareLabel: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '600' },
+  compareValue: { color: colors.text, fontSize: font.bodyLarge, fontWeight: '700' },
+  compareValueMuted: { color: colors.textMuted, fontWeight: '500', textDecorationLine: 'line-through' },
+  mutedText: { color: colors.textMuted },
+  divider: { backgroundColor: colors.border, height: 1, marginVertical: spacing.xs },
+  saveRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  saveLabel: { color: colors.text, fontSize: font.title, fontWeight: '800' },
+  saveValue: {
+    color: colors.primary,
+    fontSize: font.display,
+    fontWeight: '800',
+    letterSpacing: theme.tracking.display,
+  },
+
+  benefitRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.xs },
+  benefitNo: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    color: colors.primary,
     fontSize: font.body,
-    marginTop: spacing.xs,
+    fontWeight: '800',
+    height: 32,
+    lineHeight: 32,
+    textAlign: 'center',
+    width: 32,
   },
-  // 공문서 안내표 — 위는 진한 선, 줄마다 옅은 선.
-  table: {
-    borderTopColor: colors.text,
-    borderTopWidth: 2,
-    marginTop: spacing.md,
-  },
-  tableWide: { flex: 7, marginTop: 0 },
-  row: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    paddingVertical: spacing.sm,
-  },
+  benefitText: { color: colors.text, flex: 1, fontSize: font.bodyLarge, fontWeight: '600' },
+
+  row: { borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: spacing.sm },
   rowWide: { flexDirection: 'row' },
-  label: {
-    color: colors.text,
-    fontSize: font.body,
-    fontWeight: '700',
-    marginBottom: spacing.xs / 2,
-  },
-  labelWide: { marginBottom: 0, width: 160 },
-  value: {
-    color: colors.text,
-    flex: 1,
-    fontSize: font.body,
-    lineHeight: font.body * 1.5,
-  },
+  rowLast: { borderBottomWidth: 0, paddingBottom: 0 },
+  label: { color: colors.textMuted, fontSize: font.body, fontWeight: '700', marginBottom: spacing.xs / 2 },
+  labelWide: { marginBottom: 0, width: 144 },
+  value: { color: colors.text, flex: 1, fontSize: font.body, lineHeight: font.body * 1.5 },
 });
