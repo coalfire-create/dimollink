@@ -12,7 +12,7 @@ import {
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { AuthSession, RequestPrefillPayload, UserProfile } from '@dimol/shared';
 import { canUseStore, parsePrefillFromUrl } from '@dimol/shared';
-import { getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
+import { ApiError, getMe, logoutServer, setAuthToken, setOnUnauthorized } from './src/api/client';
 import { parseAuthDeepLink } from './src/lib/social-auth';
 import { clearToken, loadToken, saveToken } from './src/lib/session-storage';
 import {
@@ -60,6 +60,7 @@ import { InteriorListScreen } from './src/screens/InteriorListScreen';
 import { InteriorDetailScreen } from './src/screens/InteriorDetailScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { LandingNav } from './src/screens/welcome/LandingNav';
+import { AuthPanel } from './src/components/AuthPanel';
 import { ReviewScreen } from './src/screens/ReviewScreen';
 
 /** 세션: 로그인 회원(UserProfile) / 게스트('guest') / 미진입(null). */
@@ -216,8 +217,11 @@ function AppRoot() {
             setToken(saved);
             setSession(user);
           }
-        } catch {
-          await clearToken();
+        } catch (err) {
+          // 네트워크 장애·일시적 5xx에서는 토큰을 지우지 않고, 401/403 인증 실패일 때만 정리.
+          if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+            await clearToken();
+          }
         }
       }
       if (active) setBooting(false);
@@ -311,41 +315,6 @@ function AppRoot() {
     }),
     [],
   );
-
-  useEffect(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      (window as unknown as { __DIMOL_APP__: unknown }).__DIMOL_APP__ = {
-        setRole: (role: 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR' | 'guest' | null) => {
-          if (role === 'guest') {
-            setAuthToken(null);
-            setToken(null);
-            setSession('guest');
-          } else if (role === null) {
-            setAuthToken(null);
-            setToken(null);
-            setSession(null);
-          } else if (DEV_USERS[role]) {
-            setAuthToken('dev-token-' + role);
-            setToken('dev-token-' + role);
-            setSession(DEV_USERS[role]);
-            setStack([]);
-            setTab('home');
-          }
-        },
-        setAuthRoute: (r: AuthRoute) => {
-          setSession(null);
-          setAuthRoute(r);
-        },
-        setTab: (t: TabName) => {
-          setStack([]);
-          setTab(t);
-        },
-        pushRoute: (r: Route) => navigation.push(r),
-        popRoute: () => navigation.pop(),
-        getState: () => ({ session, tab, stack, authRoute }),
-      };
-    }
-  }, [navigation, session, tab, stack, authRoute]);
 
   const authActions = useMemo<AuthActions>(
     () => ({
@@ -511,13 +480,17 @@ function AppRoot() {
         : authRoute === 'admin'
           ? theme.wideContentWidth
           : theme.wideFormWidth;
-    // 데스크톱 웹 로그인·회원가입 — 회사 사이트처럼 회색 바탕 위 가운데 카드 + 위쪽 브랜드 막대.
-    // 넓은 흰 칸에 입력칸만 왼쪽에 붙어 있으면 미완성 페이지처럼 보였다.
+    // 데스크톱 웹 로그인·회원가입 — 50:50 다크 Three.js 3D 스플릿 스크린 + 화이트 폼 캔버스.
     if (wide && session !== 'guest' && (authRoute === 'login' || authRoute === 'signup')) {
       return (
-        <View style={styles.frame}>
+        <View style={styles.authSplitRoot}>
           <LandingNav onLogoPress={() => setAuthRoute('welcome')} />
-          <View style={styles.authCard}>{renderGateBody()}</View>
+          <View style={styles.authSplitBody}>
+            <AuthPanel mode={authRoute} />
+            <View style={styles.authSplitFormCol}>
+              <View style={styles.authSplitFormInner}>{renderGateBody()}</View>
+            </View>
+          </View>
         </View>
       );
     }
@@ -725,44 +698,54 @@ const styles = StyleSheet.create({
   frameWide: {
     alignSelf: 'center',
   },
-  authCard: {
-    alignSelf: 'center',
+  authSplitRoot: {
     backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.card + 4,
-    borderWidth: 1,
     flex: 1,
-    marginVertical: theme.spacing.lg,
-    maxWidth: 560,
-    overflow: 'hidden',
     width: '100%',
-    ...theme.shadow.raised,
+  },
+  authSplitBody: {
+    flex: 1,
+    flexDirection: 'row',
+    width: '100%',
+  },
+  authSplitFormCol: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
+    borderLeftColor: theme.colors.border,
+    borderLeftWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  authSplitFormInner: {
+    flex: 1,
+    maxWidth: 480,
+    width: '100%',
   },
   devHeaderBar: {
-    backgroundColor: '#1E293B',
+    backgroundColor: theme.colors.text,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    gap: 4,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    gap: theme.spacing.xs / 2,
     flexWrap: 'wrap',
     zIndex: 9999,
   },
   devHeaderTitle: {
-    color: '#94A3B8',
-    fontSize: 11,
+    color: theme.onDark.textMuted,
+    fontSize: theme.font.caption,
     fontWeight: '700',
-    marginRight: 2,
+    marginRight: theme.spacing.xs,
   },
   devHeaderBtn: {
-    backgroundColor: '#334155',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    backgroundColor: theme.onDark.divider,
+    borderRadius: theme.radius.badge,
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 4,
   },
   devHeaderBtnText: {
-    color: '#F8FAFC',
-    fontSize: 11,
+    color: theme.onDark.text,
+    fontSize: theme.font.caption,
     fontWeight: '700',
   },
 });

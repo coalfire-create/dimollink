@@ -53,6 +53,16 @@ let authToken: string | null = null;
 export function setAuthToken(token: string | null): void {
   authToken = token;
 }
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+export interface ApiRequestInit extends RequestInit {
+  /** 401 응답 시 전역 로그아웃 콜백을 건너뛴다(자동 로그인 검증·로그아웃 등). */
+  skipUnauthorizedHandler?: boolean;
+  /** 요청 타임아웃(ms). 기본 20초. */
+  timeoutMs?: number;
+}
 
 /**
  * 세션 만료(401) 처리 콜백 — 로그인 상태에서 인증 실패 시 호출된다.
@@ -63,11 +73,16 @@ export function setOnUnauthorized(handler: (() => void) | null): void {
   onUnauthorized = handler;
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+export async function api<T>(path: string, init?: ApiRequestInit): Promise<T> {
+  const timeoutMs = init?.timeoutMs ?? 20_000;
+  const controller =
+    typeof AbortController !== 'undefined' && !init?.signal ? new AbortController() : undefined;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
+      signal: init?.signal ?? controller?.signal,
       headers: {
         'content-type': 'application/json',
         // 토큰이 있으면 자동 첨부(개별 호출이 명시한 헤더가 우선).
@@ -75,13 +90,18 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
         ...init?.headers,
       },
     });
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError('요청 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.', 0);
+    }
     throw new ApiError('서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.', 0);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     // 로그인 상태에서 401 → 세션 만료로 보고 로그아웃 유도.
-    if (res.status === 401 && authToken) onUnauthorized?.();
+    if (res.status === 401 && authToken && !init?.skipUnauthorizedHandler) onUnauthorized?.();
     const message = typeof body.error === 'string' ? body.error : '요청 처리에 실패했습니다.';
     throw new ApiError(message, res.status);
   }

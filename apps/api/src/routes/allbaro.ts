@@ -1,5 +1,6 @@
 import type { ManifestIssueRequest, ManifestParty } from '@dimol/shared';
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import type { AuthedRequest } from '../middleware/auth.js';
 import { ConsoleAllbaroAdminAlerter, type AllbaroAdminAlerter } from '../allbaro/admin-alert.js';
 import { AllbaroClient, AllbaroError, createAllbaroClient } from '../allbaro/client.js';
 import {
@@ -10,7 +11,7 @@ import {
   requeueForManualRetry,
   toSafeQueueView,
 } from '../allbaro/manifest-service.js';
-import type { RetryQueueItem } from '../allbaro/retry-queue.js';
+import { PersistentRetryQueue, type RetryQueueItem } from '../allbaro/retry-queue.js';
 import type { RequestStore } from '../requests/store.js';
 
 /** AllbaroError 코드 → HTTP 상태 매핑. */
@@ -81,10 +82,39 @@ export function createAllbaroRouter(
   client: AllbaroClient = createAllbaroClient(),
   service: ManifestService = getDefaultManifestService(client),
   adminAlerter: AllbaroAdminAlerter = new ConsoleAllbaroAdminAlerter(),
-  requestStore?: Pick<RequestStore, 'recordActualWeighedTons'>,
+  requestStore?: Pick<RequestStore, 'get' | 'recordActualWeighedTons'>,
 ): Router {
   const router = Router();
   const onExhausted = (item: RetryQueueItem) => adminAlerter.notifyExhausted(item);
+
+  async function ensureQueueReady() {
+    const queue = getDefaultRetryQueue();
+    if (queue instanceof PersistentRetryQueue) await queue.ready;
+    return queue;
+  }
+
+  /** authUser 가 붙은 실서버 경로에서 미승인 계정·제3자의 올바로 write 호출을 차단한다. */
+  async function assertWriteAccess(
+    req: Request,
+    res: import('express').Response,
+    matchRequestId?: string,
+  ): Promise<boolean> {
+    const user = (req as Partial<AuthedRequest>).authUser;
+    if (!user) return true;
+    if (user.role === 'ADMIN') return true;
+    if (user.approvalStatus !== 'APPROVED') {
+      res.status(403).json({ error: '승인 완료된 업체만 올바로 등록을 요청할 수 있습니다.' });
+      return false;
+    }
+    if (matchRequestId && requestStore) {
+      const target = await requestStore.get(matchRequestId);
+      if (target && target.requesterId !== user.id && target.matchedProviderId !== user.id) {
+        res.status(403).json({ error: '해당 요청의 당사자만 올바로 등록을 요청할 수 있습니다.' });
+        return false;
+      }
+    }
+    return true;
+  }
 
   // POST /api/allbaro/verify-member  { businessNumber: string, roleType?: 'DISCHARGER'|'TRANSPORT'|'DISPOSAL' }
   router.post('/allbaro/verify-member', async (req, res) => {
@@ -116,14 +146,16 @@ export function createAllbaroRouter(
   // Express 는 등록 순서로 매칭하므로, 뒤에 두면 "queue"/"failures" 가 인계서 번호로
   // 해석돼 올바로에 조회를 날린다 — 관리자 화면이 통째로 죽는다(실제로 그랬다).
   // GET /api/allbaro/manifest/queue  재시도 큐 상태 조회 (PII 제외 요약)
-  router.get('/allbaro/manifest/queue', (_req, res) => {
-    res.json(getDefaultRetryQueue().all().map(toSafeQueueView));
+  router.get('/allbaro/manifest/queue', async (_req, res) => {
+    const queue = await ensureQueueReady();
+    res.json(queue.all().map(toSafeQueueView));
   });
 
   // GET /api/allbaro/manifest/failures  재시도 소진 건 목록 (수동 재처리 대상, Phase 6)
-  router.get('/allbaro/manifest/failures', (_req, res) => {
+  router.get('/allbaro/manifest/failures', async (_req, res) => {
+    const queue = await ensureQueueReady();
     res.json(
-      getDefaultRetryQueue()
+      queue
         .all()
         .filter((item) => item.status === 'EXHAUSTED')
         .map(toSafeQueueView),
@@ -147,6 +179,9 @@ export function createAllbaroRouter(
   // POST /api/allbaro/transport-info  운반자 인수/차량 정보 등록 (T300_5001_01)
   router.post('/allbaro/transport-info', async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
+    if (!(await assertWriteAccess(req, res, typeof b.matchRequestId === 'string' ? b.matchRequestId : undefined))) {
+      return;
+    }
     if (typeof b.manifestNo !== 'string' || typeof b.vehicleNo !== 'string' || typeof b.transportedTons !== 'number' || typeof b.pickupAt !== 'string') {
       res.status(400).json({ error: 'manifestNo(문자열), vehicleNo(문자열), transportedTons(숫자), pickupAt(문자열)이 필요합니다.' });
       return;
@@ -166,6 +201,9 @@ export function createAllbaroRouter(
   // POST /api/allbaro/disposal-info  처리자 반입/계량 정보 등록 (T400_5001_01)
   router.post('/allbaro/disposal-info', async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
+    if (!(await assertWriteAccess(req, res, typeof b.matchRequestId === 'string' ? b.matchRequestId : undefined))) {
+      return;
+    }
     if (
       typeof b.manifestNo !== 'string' ||
       typeof b.weighedTons !== 'number' ||
@@ -203,6 +241,9 @@ export function createAllbaroRouter(
   // POST /api/allbaro/treatment-completion  처리자 최종 처리완료 등록 (T400_5001_02)
   router.post('/allbaro/treatment-completion', async (req, res) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
+    if (!(await assertWriteAccess(req, res, typeof b.matchRequestId === 'string' ? b.matchRequestId : undefined))) {
+      return;
+    }
     if (typeof b.manifestNo !== 'string' || typeof b.completedAt !== 'string') {
       res.status(400).json({ error: 'manifestNo(문자열), completedAt(문자열)이 필요합니다.' });
       return;
@@ -225,6 +266,9 @@ export function createAllbaroRouter(
       res.status(400).json({ error: parsed });
       return;
     }
+    if (!(await assertWriteAccess(req, res, parsed.matchRequestId))) {
+      return;
+    }
 
     try {
       res.json(await service.issue(parsed));
@@ -236,7 +280,8 @@ export function createAllbaroRouter(
   // POST /api/allbaro/manifest/retry  재시도 큐 처리(스케줄러/운영자 트리거)
   router.post('/allbaro/manifest/retry', async (_req, res) => {
     try {
-      const summary = await processRetryQueue(client, getDefaultRetryQueue(), { onExhausted });
+      const queue = await ensureQueueReady();
+      const summary = await processRetryQueue(client, queue, { onExhausted });
       res.json(summary);
     } catch (err) {
       sendAllbaroError(res, err, '재시도 큐 처리 중 오류가 발생했습니다.');
@@ -254,7 +299,7 @@ export function createAllbaroRouter(
 
   // POST /api/allbaro/manifest/failures/:id/retry  소진 건 수동 재처리 (재적재 + 즉시 1회 시도)
   router.post('/allbaro/manifest/failures/:id/retry', async (req, res) => {
-    const queue = getDefaultRetryQueue();
+    const queue = await ensureQueueReady();
     try {
       requeueForManualRetry(queue, req.params.id);
     } catch (err) {

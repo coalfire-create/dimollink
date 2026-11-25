@@ -2,7 +2,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { PILOT, type CancellationStage } from '@dimol/shared';
 import express from 'express';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionTokenStore } from '../auth/session-store.js';
 import { createRequireAuth } from '../middleware/auth.js';
 import { PaymentStore } from '../payment/payment-store.js';
@@ -37,11 +37,12 @@ const fakeService = {
     assertCancellable(breakdown);
     return { breakdown };
   },
-  executePayouts: async () => [],
+  executePayouts: vi.fn(async () => []),
   issueTaxInvoices: async () => [],
 } as unknown as PaymentService;
 
 beforeEach(async () => {
+  (fakeService.executePayouts as ReturnType<typeof vi.fn>).mockClear();
   requestStore = new RequestStore();
   userStore = new UserStore();
   sessionStore = new SessionTokenStore();
@@ -288,6 +289,71 @@ describe('정산 지급(payouts) — 금액 권위 + SETTLED 전이', () => {
     });
     expect(res.status).toBe(200);
     expect((await requestStore.get(request.id))?.status).toBe('SETTLED');
+
+    const second = await fetch(`${base}/api/payments/payouts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ matchRequestId: request.id, completedDate: '2026-07-10' }),
+    });
+    expect(second.status).toBe(409);
+    expect(((await second.json()) as { code?: string }).code).toBe('ALREADY_SETTLED');
+    expect(fakeService.executePayouts).toHaveBeenCalledTimes(1);
+  });
+
+  it('COMPLETED 외 상태(PAID 등)의 요청은 정산하지 않는다(409 INVALID_STATUS)', async () => {
+    const owner = await makeUser('01060000012');
+    const request = await makeRequest(owner.id);
+    await requestStore.changeStatus(request.id, 'MATCHED', {
+      matchedProviderId: 'p',
+      agreedFee: 100000,
+    });
+    await requestStore.changeStatus(request.id, 'PAID', { paymentId: 'x' });
+
+    const res = await fetch(`${base}/api/payments/payouts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ matchRequestId: request.id, completedDate: '2026-07-10' }),
+    });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { code?: string }).code).toBe('INVALID_STATUS');
+    expect(fakeService.executePayouts).not.toHaveBeenCalled();
+  });
+
+  it('COMPLETED 또는 CANCELLED 상태 요청은 선결제를 차단한다(409 INVALID_STATUS)', async () => {
+    const owner = await makeUser('01060000013');
+    const token = await sessionStore.issue(owner.id);
+
+    const completedReq = await makeRequest(owner.id);
+    await requestStore.changeStatus(completedReq.id, 'MATCHED', {
+      matchedProviderId: 'p',
+      agreedFee: 120000,
+    });
+    await requestStore.changeStatus(completedReq.id, 'PAID', { paymentId: 'p1' });
+    await requestStore.changeStatus(completedReq.id, 'IN_PROGRESS');
+    await requestStore.changeStatus(completedReq.id, 'COMPLETED');
+
+    const resCompleted = await post('/api/payments/prepay', token, {
+      matchRequestId: completedReq.id,
+      paymentId: 'pay-new',
+      completedDate: '2026-07-10',
+    });
+    expect(resCompleted.status).toBe(409);
+    expect(resCompleted.body.code).toBe('INVALID_STATUS');
+
+    const cancelledReq = await makeRequest(owner.id);
+    await requestStore.changeStatus(cancelledReq.id, 'MATCHED', {
+      matchedProviderId: 'p',
+      agreedFee: 120000,
+    });
+    await requestStore.changeStatus(cancelledReq.id, 'CANCELLED', { cancelReason: '단순 변심' });
+
+    const resCancelled = await post('/api/payments/prepay', token, {
+      matchRequestId: cancelledReq.id,
+      paymentId: 'pay-new-2',
+      completedDate: '2026-07-10',
+    });
+    expect(resCancelled.status).toBe(409);
+    expect(resCancelled.body.code).toBe('INVALID_STATUS');
   });
 });
 

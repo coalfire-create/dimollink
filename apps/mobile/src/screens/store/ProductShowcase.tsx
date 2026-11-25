@@ -41,32 +41,35 @@ export function ProductShowcase({ onBuy }: { onBuy: () => void }) {
   return (
     <View>
       <SectionHeading
-        eyebrow="요금 안내"
+        eyebrow="요금"
         title="상품·요금 안내"
         description="대상 회원은 가입 후 앱·웹에서 바로 결제할 수 있습니다."
-        center={wide}
       />
       {/* 넓은 화면에서 카드가 1200px 로 늘어나면 혜택 줄이 한 줄로 길게 퍼진다 — 칸 폭을 잡는다. */}
       <View style={wide ? styles.gridWide : undefined}>
         {products.map((product) => (
           <Card key={product.id} style={wide ? styles.cardWide : undefined}>
-            <ProductDetails product={product} />
-            <View style={styles.action}>
-              {isPurchasable(product, { billingEnabled }) ? (
-                <AppButton
-                  label={
-                    product.billingType === 'MONTHLY_SUBSCRIPTION'
-                      ? '로그인하고 구독하기'
-                      : '로그인하고 구매하기'
-                  }
-                  onPress={onBuy}
-                />
-              ) : (
-                <Text style={styles.pending}>
-                  정기결제 준비 중입니다. 결제가 열리면 앱에서 바로 구독할 수 있어요.
-                </Text>
-              )}
-            </View>
+            <ProductDetails
+              product={product}
+              actions={
+                <View style={styles.action}>
+                  {isPurchasable(product, { billingEnabled }) ? (
+                    <AppButton
+                      label={
+                        product.billingType === 'MONTHLY_SUBSCRIPTION'
+                          ? '로그인하고 구독하기'
+                          : '로그인하고 구매하기'
+                      }
+                      onPress={onBuy}
+                    />
+                  ) : (
+                    <Text style={styles.pending}>
+                      정기결제 준비 중입니다. 결제가 열리면 앱에서 바로 구독할 수 있어요.
+                    </Text>
+                  )}
+                </View>
+              }
+            />
           </Card>
         ))}
       </View>
@@ -78,12 +81,12 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   gridWide: {
+    alignItems: 'stretch',
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    justifyContent: 'center',
   },
-  cardWide: { marginBottom: 0, maxWidth: 560, width: '100%' },
-  action: { marginTop: spacing.sm },
+  cardWide: { flex: 1, marginBottom: 0, minWidth: 320 },
+  action: { marginBottom: spacing.xs },
   pending: { color: colors.textMuted, fontSize: font.body, fontWeight: '700' },
 });

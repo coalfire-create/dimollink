@@ -3,7 +3,7 @@ import type { CollectionPersistence } from '../lib/json-collection.js';
 
 export interface SiteAnalysisRecord {
   id: string; // Job ID
-  photoKey: string; // S3 Key for the uploaded photo
+  photoKey?: string; // S3 Key for the uploaded photo (S3 미설정·실패 시 생략)
   result?: SiteAnalysis;
   error?: string;
   buildingLedger?: BuildingLedgerInfo;

@@ -74,6 +74,9 @@ export class QuoteStore {
     if (request.requesterId !== accepterId) {
       throw new QuoteValidationError('본인 요청의 견적만 수락할 수 있습니다.');
     }
+    if (request.status !== 'REQUESTED' && request.status !== 'MATCHED') {
+      throw new QuoteValidationError('이미 진행 중이거나 종료된 요청의 견적은 수락할 수 없습니다.');
+    }
     
     const allQuotes = await this.listInner();
     for (const q of allQuotes) {

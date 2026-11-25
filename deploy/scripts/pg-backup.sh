@@ -10,18 +10,26 @@
 #
 # 크론 예: 0 3 * * *  /opt/dimol/deploy/scripts/pg-backup.sh >> /var/log/dimol-backup.log 2>&1
 set -euo pipefail
+umask 077
 
 : "${DATABASE_URL:?DATABASE_URL 필요}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/dimol}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 TS="$(date +%Y%m%d-%H%M%S)"
 FILE="${BACKUP_DIR}/dimol-${TS}.dump"
+TMP_FILE="${FILE}.tmp"
+
+cleanup() {
+  rm -f "$TMP_FILE"
+}
+trap cleanup EXIT
 
 mkdir -p "$BACKUP_DIR"
 
-# 커스텀 포맷(-Fc): 압축 + 병렬 복원 가능.
+# 커스텀 포맷(-Fc): 압축 + 병렬 복원 가능. 임시 파일 완성 후 원자적 이동.
 echo "[backup] pg_dump 시작 → ${FILE}"
-pg_dump "$DATABASE_URL" -Fc -f "$FILE"
+pg_dump "$DATABASE_URL" -Fc -f "$TMP_FILE"
+mv "$TMP_FILE" "$FILE"
 echo "[backup] 완료: $(du -h "$FILE" | cut -f1)"
 
 # 오프사이트 업로드(선택).

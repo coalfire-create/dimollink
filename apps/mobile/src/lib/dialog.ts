@@ -23,10 +23,15 @@ export function confirmDialog(title: string, message: string): Promise<boolean> 
     return Promise.resolve(window.confirm(message ? `${title}\n\n${message}` : title));
   }
   return new Promise((resolve) => {
-    Alert.alert(title, message, [
-      { text: '취소', style: 'cancel', onPress: () => resolve(false) },
-      { text: '확인', style: 'destructive', onPress: () => resolve(true) },
-    ]);
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+        { text: '확인', style: 'destructive', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
   });
 }
 

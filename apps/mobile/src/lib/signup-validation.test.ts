@@ -54,4 +54,28 @@ describe('validateSignup', () => {
     expect(validateSignup({ ...valid, password: '123', passwordConfirm: '123' })).toContain('6자');
     expect(validateSignup({ ...valid, passwordConfirm: 'other' })).toContain('일치');
   });
+
+  it('업체 가입 시 사업자등록번호를 입력했다면 체크섬까지 검증하고 비워두면 통과한다', () => {
+    expect(
+      validateSignup({
+        ...valid,
+        userType: 'DEMOLITION_COMPANY',
+        businessNumber: '123-45-67890',
+      }),
+    ).toContain('사업자등록번호');
+    expect(
+      validateSignup({
+        ...valid,
+        userType: 'DEMOLITION_COMPANY',
+        businessNumber: '220-81-62517',
+      }),
+    ).toBeNull();
+    expect(
+      validateSignup({
+        ...valid,
+        userType: 'DEMOLITION_COMPANY',
+        businessNumber: '',
+      }),
+    ).toBeNull();
+  });
 });

@@ -1,6 +1,5 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import type { RequestKind } from '@dimol/shared';
 import {
   AppButton,
@@ -144,24 +143,6 @@ export function RequestFormScreen({
         onClose={() => form.setGuidedOpen(false)}
         onComplete={form.handleGuidedComplete}
       />
-
-      {form.showDatePicker ? (
-        <DateTimePicker
-          value={
-            form.datePickerTarget === 'visitAt' && form.visitAt
-              ? new Date(form.visitAt)
-              : new Date()
-          }
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            form.setShowDatePicker(false);
-            if (event.type === 'set' && selectedDate && form.datePickerTarget === 'visitAt') {
-              form.setVisitAt(selectedDate.toISOString().split('T')[0]);
-            }
-          }}
-        />
-      ) : null}
     </KeyboardAwareScreen>
   );
 }

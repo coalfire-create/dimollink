@@ -102,6 +102,8 @@ export function createPaymentsRouter(
   membership?: Pick<MembershipService, 'feeRateFor'>,
 ): Router {
   const router = Router();
+  const inflightPayments = new Set<string>();
+  const inflightPayouts = new Set<string>();
 
   /** completedDate + 공휴일(음력·대체공휴일)을 파싱해 공휴일 셋을 만든다. */
   function parseSettlementDate(
@@ -175,9 +177,9 @@ export function createPaymentsRouter(
       return;
     }
     const payerId = authUserId(req);
+    const request = requestStore ? await requestStore.get(matchRequestId) : undefined;
     // 선결제는 해당 요청의 요청자(배출자) 본인만.
     if (requestStore) {
-      const request = await requestStore.get(matchRequestId);
       if (!request) {
         res.status(404).json({ error: '결제 대상 요청을 찾을 수 없습니다.' });
         return;
@@ -188,75 +190,105 @@ export function createPaymentsRouter(
       }
     }
 
-    // 재사용 방지: 포트원 검증은 상태·금액만 보므로, 같은 금액의 다른 요청에 이미 쓴 결제를
-    // 들고 오면 통과해 버린다(결제 1건으로 요청 2건 PAID + 기존 기록 덮어쓰기).
-    // 같은 요청의 재호출(가상계좌 발급 후 재확인 등)만 허용하고, 취소된 결제는 되살리지 않는다.
-    const existing = await paymentStore?.get(paymentId);
-    if (
-      existing &&
-      (existing.matchRequestId !== matchRequestId || existing.status === 'CANCELLED')
-    ) {
-      res.status(409).json({ error: '이미 사용된 결제입니다.', code: 'PAYMENT_ALREADY_USED' });
+    if (inflightPayments.has(paymentId)) {
+      res.status(409).json({ error: '이미 처리 중인 결제입니다.', code: 'PAYMENT_IN_PROGRESS' });
       return;
     }
+    inflightPayments.add(paymentId);
+    try {
+      // 재사용 방지: 포트원 검증은 상태·금액만 보므로, 같은 금액의 다른 요청에 이미 쓴 결제를
+      // 들고 오면 통과해 버린다(결제 1건으로 요청 2건 PAID + 기존 기록 덮어쓰기).
+      // 같은 요청의 재호출(가상계좌 발급 후 재확인 등)만 허용하고, 취소된 결제는 되살리지 않는다.
+      const existing = await paymentStore?.get(paymentId);
+      if (
+        existing &&
+        (existing.matchRequestId !== matchRequestId || existing.status === 'CANCELLED')
+      ) {
+        res.status(409).json({ error: '이미 사용된 결제입니다.', code: 'PAYMENT_ALREADY_USED' });
+        return;
+      }
 
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const dateParsed = parseSettlementDate(body);
-    if (typeof dateParsed === 'string') {
-      res.status(400).json({ error: dateParsed });
-      return;
-    }
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const dateParsed = parseSettlementDate(body);
+      if (typeof dateParsed === 'string') {
+        res.status(400).json({ error: dateParsed });
+        return;
+      }
 
-    // 금액 권위: 정산 금액은 클라이언트 입력이 아닌 서버 확정 금액에서 산출한다.
-    // 확정 금액 = 요청의 합의 금액(선착순 수락 또는 수락된 견적 금액). 단일 party 로 청구.
-    let fees: { transportFee: number; disposalFee: number };
-    if (quoteStore || requestStore) {
-      const agreedFee = (await requestStore?.get(matchRequestId))?.agreedFee;
-      const accepted = await quoteStore?.acceptedFees(matchRequestId);
-      const amount = agreedFee ?? (accepted ? accepted.transportFee + accepted.disposalFee : 0);
-      if (amount <= 0) {
+      // 금액 권위: 정산 금액은 클라이언트 입력이 아닌 서버 확정 금액에서 산출한다.
+      // 확정 금액 = 요청의 합의 금액(선착순 수락 또는 수락된 견적 금액). 단일 party 로 청구.
+      let fees: { transportFee: number; disposalFee: number };
+      if (quoteStore || requestStore) {
+        const agreedFee = request?.agreedFee;
+        const accepted = await quoteStore?.acceptedFees(matchRequestId);
+        const amount = agreedFee ?? (accepted ? accepted.transportFee + accepted.disposalFee : 0);
+        if (amount <= 0) {
+          res.status(409).json({
+            error:
+              '확정된 금액이 없어 결제할 수 없습니다. 견적 수락 또는 업체 수락(금액)을 먼저 진행해 주세요.',
+            code: 'NO_AGREED_AMOUNT',
+          });
+          return;
+        }
+        fees = { transportFee: amount, disposalFee: 0 };
+      } else {
+        // 스토어 미주입(테스트) 시에만 클라이언트 금액 사용.
+        fees = { transportFee: Number(body.transportFee), disposalFee: Number(body.disposalFee) };
+      }
+
+      const isPaidReverify =
+        Boolean(existing && existing.matchRequestId === matchRequestId) && request?.status === 'PAID';
+      if (request && request.status !== 'MATCHED' && !isPaidReverify) {
         res.status(409).json({
-          error:
-            '확정된 금액이 없어 결제할 수 없습니다. 견적 수락 또는 업체 수락(금액)을 먼저 진행해 주세요.',
-          code: 'NO_AGREED_AMOUNT',
+          error: '매칭 확정 상태의 요청만 결제할 수 있습니다.',
+          code: 'INVALID_STATUS',
         });
         return;
       }
-      fees = { transportFee: amount, disposalFee: 0 };
-    } else {
-      // 스토어 미주입(테스트) 시에만 클라이언트 금액 사용.
-      fees = { transportFee: Number(body.transportFee), disposalFee: Number(body.disposalFee) };
-    }
 
-    const plan = buildSettlementPlan({
-      transportFee: fees.transportFee,
-      disposalFee: fees.disposalFee,
-      completedDate: dateParsed.completedDate,
-      holidays: dateParsed.holidays,
-    });
-    try {
-      // 포트원에서 결제 상태·금액(=합의 금액)을 검증한다. 금액 불일치/미결제면 예외.
-      const payment = await service.confirmPrepayment(paymentId, plan);
-      await paymentStore?.record({
-        paymentId: payment.paymentId,
-        matchRequestId,
-        payerId,
-        amount: plan.prepaymentAmount,
-      });
-      // 결제 완료(PAID)면 매칭→결제완료로 전이. 가상계좌 발급만 된 상태(paid=false)면
-      // 입금 완료 웹훅(Transaction.Paid)이 올 때까지 매칭 상태를 유지한다.
-      if (payment.paid && (await requestStore?.get(matchRequestId))?.status === 'MATCHED') {
-        try {
-          await requestStore?.changeStatus(matchRequestId, 'PAID', {
-            paymentId: payment.paymentId,
+      const plan = request
+        ? buildDealSettlementPlan({
+            amount: fees.transportFee + fees.disposalFee,
+            party: request.payoutParty,
+            completedDate: dateParsed.completedDate,
+            holidays: dateParsed.holidays,
+            feeRate:
+              request.matchedProviderId && membership
+                ? await membership.feeRateFor(request.matchedProviderId, dateParsed.completedDate)
+                : undefined,
+          })
+        : buildSettlementPlan({
+            transportFee: fees.transportFee,
+            disposalFee: fees.disposalFee,
+            completedDate: dateParsed.completedDate,
+            holidays: dateParsed.holidays,
           });
-        } catch {
-          // 상태 전이 실패가 결제 응답을 막지 않게 한다(결제는 이미 성립).
+      try {
+        // 포트원에서 결제 상태·금액(=합의 금액)을 검증한다. 금액 불일치/미결제면 예외.
+        const payment = await service.confirmPrepayment(paymentId, plan);
+        await paymentStore?.record({
+          paymentId: payment.paymentId,
+          matchRequestId,
+          payerId,
+          amount: plan.prepaymentAmount,
+        });
+        // 결제 완료(PAID)면 매칭→결제완료로 전이. 가상계좌 발급만 된 상태(paid=false)면
+        // 입금 완료 웹훅(Transaction.Paid)이 올 때까지 매칭 상태를 유지한다.
+        if (payment.paid && (await requestStore?.get(matchRequestId))?.status === 'MATCHED') {
+          try {
+            await requestStore?.changeStatus(matchRequestId, 'PAID', {
+              paymentId: payment.paymentId,
+            });
+          } catch {
+            // 상태 전이 실패가 결제 응답을 막지 않게 한다(결제는 이미 성립).
+          }
         }
+        res.json({ plan, payment });
+      } catch (err) {
+        sendPortOneError(res, err, '선결제 확정 처리 중 오류가 발생했습니다.');
       }
-      res.json({ plan, payment });
-    } catch (err) {
-      sendPortOneError(res, err, '선결제 확정 처리 중 오류가 발생했습니다.');
+    } finally {
+      inflightPayments.delete(paymentId);
     }
   });
 
@@ -270,7 +302,7 @@ export function createPaymentsRouter(
         : JSON.stringify(req.body ?? {});
     try {
       const event = await service.verifyWebhook(raw, req.headers);
-      // 결제 승인 이벤트면 결제 건을 재검증하고 해당 요청을 PAID 로 확정한다.
+      // 결제 승인 이벤트면 결제 건을 포트원 API 로 재검증하고 해당 요청을 PAID 로 확정한다.
       if (
         (event.type === 'Transaction.Paid' || event.type === 'Transaction.VirtualAccountIssued') &&
         'data' in event &&
@@ -280,13 +312,25 @@ export function createPaymentsRouter(
         const evPaymentId = (event.data as { paymentId: string }).paymentId;
         if (event.type === 'Transaction.Paid') {
           const record = await paymentStore?.get(evPaymentId);
-          if (record && (await requestStore?.get(record.matchRequestId))?.status === 'MATCHED') {
-            try {
-              await requestStore?.changeStatus(record.matchRequestId, 'PAID', {
-                paymentId: evPaymentId,
-              });
-            } catch {
-              // 이미 전이됨 등 — 웹훅 응답을 막지 않는다.
+          const targetReq = record && record.status !== 'CANCELLED'
+            ? await requestStore?.get(record.matchRequestId)
+            : undefined;
+          if (record && targetReq?.status === 'MATCHED') {
+            const plan = buildDealSettlementPlan({
+              amount: record.amount,
+              party: targetReq.payoutParty,
+              completedDate: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              holidays: new Set(),
+            });
+            const verified = await service.confirmPrepayment(evPaymentId, plan).catch(() => null);
+            if (verified?.paid) {
+              try {
+                await requestStore?.changeStatus(record.matchRequestId, 'PAID', {
+                  paymentId: evPaymentId,
+                });
+              } catch {
+                // 이미 전이됨 등 — 웹훅 응답을 막지 않는다.
+              }
             }
           }
         }
@@ -310,78 +354,97 @@ export function createPaymentsRouter(
       res.status(400).json({ error: dateParsed });
       return;
     }
-
-    // 지급 금액 = 요청 합의 금액(권위). 사업자번호 = 매칭된 셀러의 등록번호.
-    let plan;
-    /** 정산 계좌 확인에 쓴다(아래 블록 밖에서 필요해 여기서 선언). */
-    let sellerId: string | undefined;
-    if (requestStore) {
-      const request = await requestStore.get(matchRequestId);
-      if (!request) {
-        res.status(404).json({ error: '정산 대상 요청을 찾을 수 없습니다.' });
-        return;
-      }
-      const amount = request.agreedFee ?? 0;
-      if (amount <= 0) {
-        res.status(409).json({ error: '확정된 정산 금액이 없습니다.', code: 'NO_AGREED_AMOUNT' });
-        return;
-      }
-      sellerId = request.matchedProviderId;
-      const seller = sellerId ? await userStore?.get(sellerId) : undefined;
-      // 수취인 역할을 요청 종류에서 정한다. 예전에는 무조건 TRANSPORT 로 넣어서
-      // 철거업체·처리장에게 지급할 때도 세금계산서가 "운반" 건으로 발행됐다.
-      plan = buildDealSettlementPlan({
-        amount,
-        party: request.payoutParty,
-        completedDate: dateParsed.completedDate,
-        holidays: dateParsed.holidays,
-        sellerBusinessNumber: seller?.businessNumber,
-        // 멤버십 회원이면 인하 수수료. 처리완료일 기준으로 판단한다.
-        feeRate:
-          sellerId && membership
-            ? await membership.feeRateFor(sellerId, dateParsed.completedDate)
-            : undefined,
-      });
-    } else {
-      const parsed = parsePlanInput(req.body);
-      if (typeof parsed === 'string') {
-        res.status(400).json({ error: parsed });
-        return;
-      }
-      plan = buildSettlementPlan(parsed);
+    if (inflightPayouts.has(matchRequestId)) {
+      res.status(409).json({ error: '이미 정산 처리 중인 요청입니다.', code: 'PAYOUT_IN_PROGRESS' });
+      return;
     }
-
-    /**
-     * 정산 계좌 확인 — **지급 실행 전에** 막는다.
-     *
-     * 계좌가 없으면 보낼 곳이 없고, 실명확인 전이면 보내면 안 된다. 계좌번호를 한
-     * 자리만 틀려도 남의 통장으로 가고, 되돌리려면 수취인 동의가 필요하다.
-     * 지급이 나간 뒤에 알아채면 늦는다.
-     */
-    if (payoutAccountStore && sellerId) {
-      const account = await payoutAccountStore.getRaw(sellerId);
-      const usable = canReceivePayout(account);
-      if (!usable.ok) {
-        res.status(409).json({ error: usable.error, code: 'PAYOUT_ACCOUNT_NOT_READY' });
-        return;
-      }
-    }
-
+    inflightPayouts.add(matchRequestId);
     try {
-      const payouts = await service.executePayouts(matchRequestId, plan);
-      // 전자세금계산서 발행(실패해도 지급 응답을 막지 않음).
-      const taxInvoices = await service.issueTaxInvoices(matchRequestId, plan).catch(() => []);
-      // 처리 완료(COMPLETED) 요청은 정산 완료(SETTLED)로 전이.
-      if ((await requestStore?.get(matchRequestId))?.status === 'COMPLETED') {
-        try {
-          await requestStore?.changeStatus(matchRequestId, 'SETTLED');
-        } catch {
-          // 상태 전이 실패가 지급 응답을 막지 않게 한다.
+      // 지급 금액 = 요청 합의 금액(권위). 사업자번호 = 매칭된 셀러의 등록번호.
+      let plan;
+      /** 정산 계좌 확인에 쓴다(아래 블록 밖에서 필요해 여기서 선언). */
+      let sellerId: string | undefined;
+      if (requestStore) {
+        const request = await requestStore.get(matchRequestId);
+        if (!request) {
+          res.status(404).json({ error: '정산 대상 요청을 찾을 수 없습니다.' });
+          return;
+        }
+        if (request.status === 'SETTLED') {
+          res.status(409).json({ error: '이미 정산이 완료된 요청입니다.', code: 'ALREADY_SETTLED' });
+          return;
+        }
+        if (request.status !== 'COMPLETED') {
+          res.status(409).json({
+            error: '작업 완료(COMPLETED) 상태의 요청만 정산할 수 있습니다.',
+            code: 'INVALID_STATUS',
+          });
+          return;
+        }
+        const amount = request.agreedFee ?? 0;
+        if (amount <= 0) {
+          res.status(409).json({ error: '확정된 정산 금액이 없습니다.', code: 'NO_AGREED_AMOUNT' });
+          return;
+        }
+        sellerId = request.matchedProviderId;
+        const seller = sellerId ? await userStore?.get(sellerId) : undefined;
+        // 수취인 역할을 요청 종류에서 정한다. 예전에는 무조건 TRANSPORT 로 넣어서
+        // 철거업체·처리장에게 지급할 때도 세금계산서가 "운반" 건으로 발행됐다.
+        plan = buildDealSettlementPlan({
+          amount,
+          party: request.payoutParty,
+          completedDate: dateParsed.completedDate,
+          holidays: dateParsed.holidays,
+          sellerBusinessNumber: seller?.businessNumber,
+          // 멤버십 회원이면 인하 수수료. 처리완료일 기준으로 판단한다.
+          feeRate:
+            sellerId && membership
+              ? await membership.feeRateFor(sellerId, dateParsed.completedDate)
+              : undefined,
+        });
+      } else {
+        const parsed = parsePlanInput(req.body);
+        if (typeof parsed === 'string') {
+          res.status(400).json({ error: parsed });
+          return;
+        }
+        plan = buildSettlementPlan(parsed);
+      }
+
+      /**
+       * 정산 계좌 확인 — **지급 실행 전에** 막는다.
+       *
+       * 계좌가 없으면 보낼 곳이 없고, 실명확인 전이면 보내면 안 된다. 계좌번호를 한
+       * 자리만 틀려도 남의 통장으로 가고, 되돌리려면 수취인 동의가 필요하다.
+       * 지급이 나간 뒤에 알아채면 늦는다.
+       */
+      if (payoutAccountStore && sellerId) {
+        const account = await payoutAccountStore.getRaw(sellerId);
+        const usable = canReceivePayout(account);
+        if (!usable.ok) {
+          res.status(409).json({ error: usable.error, code: 'PAYOUT_ACCOUNT_NOT_READY' });
+          return;
         }
       }
-      res.json({ settlementDate: plan.settlementDate, payouts, taxInvoices });
-    } catch (err) {
-      sendPortOneError(res, err, '지급대행 처리 중 오류가 발생했습니다.');
+
+      try {
+        const payouts = await service.executePayouts(matchRequestId, plan);
+        // 전자세금계산서 발행(실패해도 지급 응답을 막지 않음).
+        const taxInvoices = await service.issueTaxInvoices(matchRequestId, plan).catch(() => []);
+        // 처리 완료(COMPLETED) 요청은 정산 완료(SETTLED)로 전이.
+        if ((await requestStore?.get(matchRequestId))?.status === 'COMPLETED') {
+          try {
+            await requestStore?.changeStatus(matchRequestId, 'SETTLED');
+          } catch {
+            // 상태 전이 실패가 지급 응답을 막지 않게 한다.
+          }
+        }
+        res.json({ settlementDate: plan.settlementDate, payouts, taxInvoices });
+      } catch (err) {
+        sendPortOneError(res, err, '지급대행 처리 중 오류가 발생했습니다.');
+      }
+    } finally {
+      inflightPayouts.delete(matchRequestId);
     }
   });
 
@@ -409,76 +472,85 @@ export function createPaymentsRouter(
       return;
     }
 
-    // 결제자 본인 검증 + 환불 기준금액을 기록에서 가져온다(클라이언트 paidAmount 무시).
-    let paidAmount: number;
-    let matchRequestId: string | undefined;
-    if (paymentStore) {
-      const payment = await paymentStore.get(paymentId);
-      if (!payment) {
-        res.status(404).json({ error: '결제 내역을 찾을 수 없습니다.' });
-        return;
-      }
-      if (payment.payerId !== authUserId(req)) {
-        res.status(403).json({ error: '본인 결제만 취소할 수 있어요.' });
-        return;
-      }
-      // 이미 환불된 결제를 다시 취소하지 않는다(같은 버튼을 두 번 누르는 경우 등).
-      if (payment.status === 'CANCELLED') {
-        res.status(409).json({ error: '이미 취소된 결제예요.', code: 'ALREADY_CANCELLED' });
-        return;
-      }
-      paidAmount = payment.amount;
-      matchRequestId = payment.matchRequestId;
-    } else {
-      // paymentStore 미주입(테스트) 시에만 클라이언트 paidAmount 사용.
-      if (
-        typeof body.paidAmount !== 'number' ||
-        !Number.isInteger(body.paidAmount) ||
-        body.paidAmount < 0
-      ) {
-        res.status(400).json({ error: 'paidAmount(0 이상 정수)가 필요합니다.' });
-        return;
-      }
-      paidAmount = body.paidAmount;
+    if (inflightPayments.has(paymentId)) {
+      res.status(409).json({ error: '이미 취소 처리 중인 결제입니다.', code: 'CANCEL_IN_PROGRESS' });
+      return;
     }
-
-    const reason = typeof body.reason === 'string' ? body.reason : undefined;
-
-    // 단계는 클라이언트 말만 믿지 않는다 — 요청 상태로 본 단계가 더 엄격하면 그걸 쓴다.
-    // 작업이 시작된 건을 '배차 전'으로 보내 전액 환불받는 길을 막는다([[effectiveCancellationStage]]).
-    const requestStatus = matchRequestId
-      ? (await requestStore?.get(matchRequestId))?.status
-      : undefined;
-    const effectiveStage = effectiveCancellationStage(stage as CancellationStage, requestStatus);
-
+    inflightPayments.add(paymentId);
     try {
-      const result = await service.cancel({
-        paymentId,
-        paidAmount,
-        stage: effectiveStage,
-        reason,
-      });
-      await paymentStore?.markCancelled(paymentId);
-      // 환불 성립 시 해당 요청도 취소 처리(취소 가능 상태일 때만).
-      if (requestStore && matchRequestId) {
-        const request = await requestStore.get(matchRequestId);
-        if (request && (request.status === 'PAID' || request.status === 'MATCHED')) {
-          try {
-            await requestStore.changeStatus(matchRequestId, 'CANCELLED', {
-              cancelReason: reason ?? '결제 취소',
-            });
-          } catch {
-            // 상태 전이 실패가 환불 응답을 막지 않게 한다(환불은 이미 성립).
+      // 결제자 본인 검증 + 환불 기준금액을 기록에서 가져온다(클라이언트 paidAmount 무시).
+      let paidAmount: number;
+      let matchRequestId: string | undefined;
+      if (paymentStore) {
+        const payment = await paymentStore.get(paymentId);
+        if (!payment) {
+          res.status(404).json({ error: '결제 내역을 찾을 수 없습니다.' });
+          return;
+        }
+        if (payment.payerId !== authUserId(req)) {
+          res.status(403).json({ error: '본인 결제만 취소할 수 있어요.' });
+          return;
+        }
+        // 이미 환불된 결제를 다시 취소하지 않는다(같은 버튼을 두 번 누르는 경우 등).
+        if (payment.status === 'CANCELLED') {
+          res.status(409).json({ error: '이미 취소된 결제예요.', code: 'ALREADY_CANCELLED' });
+          return;
+        }
+        paidAmount = payment.amount;
+        matchRequestId = payment.matchRequestId;
+      } else {
+        // paymentStore 미주입(테스트) 시에만 클라이언트 paidAmount 사용.
+        if (
+          typeof body.paidAmount !== 'number' ||
+          !Number.isInteger(body.paidAmount) ||
+          body.paidAmount < 0
+        ) {
+          res.status(400).json({ error: 'paidAmount(0 이상 정수)가 필요합니다.' });
+          return;
+        }
+        paidAmount = body.paidAmount;
+      }
+
+      const reason = typeof body.reason === 'string' ? body.reason : undefined;
+
+      // 단계는 클라이언트 말만 믿지 않는다 — 요청 상태로 본 단계가 더 엄격하면 그걸 쓴다.
+      // 작업이 시작된 건을 '배차 전'으로 보내 전액 환불받는 길을 막는다([[effectiveCancellationStage]]).
+      const requestStatus = matchRequestId
+        ? (await requestStore?.get(matchRequestId))?.status
+        : undefined;
+      const effectiveStage = effectiveCancellationStage(stage as CancellationStage, requestStatus);
+
+      try {
+        const result = await service.cancel({
+          paymentId,
+          paidAmount,
+          stage: effectiveStage,
+          reason,
+        });
+        await paymentStore?.markCancelled(paymentId);
+        // 환불 성립 시 해당 요청도 취소 처리(취소 가능 상태일 때만).
+        if (requestStore && matchRequestId) {
+          const request = await requestStore.get(matchRequestId);
+          if (request && (request.status === 'PAID' || request.status === 'MATCHED')) {
+            try {
+              await requestStore.changeStatus(matchRequestId, 'CANCELLED', {
+                cancelReason: reason ?? '결제 취소',
+              });
+            } catch {
+              // 상태 전이 실패가 환불 응답을 막지 않게 한다(환불은 이미 성립).
+            }
           }
         }
+        res.json(result);
+      } catch (err) {
+        if (err instanceof CancellationNotAllowedError) {
+          res.status(409).json({ error: err.message, code: 'CANCELLATION_NOT_ALLOWED' });
+          return;
+        }
+        sendPortOneError(res, err, '취소/환불 처리 중 오류가 발생했습니다.');
       }
-      res.json(result);
-    } catch (err) {
-      if (err instanceof CancellationNotAllowedError) {
-        res.status(409).json({ error: err.message, code: 'CANCELLATION_NOT_ALLOWED' });
-        return;
-      }
-      sendPortOneError(res, err, '취소/환불 처리 중 오류가 발생했습니다.');
+    } finally {
+      inflightPayments.delete(paymentId);
     }
   });
 

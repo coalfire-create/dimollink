@@ -15,7 +15,11 @@ export class RedisRateLimitStore implements RateLimitStore {
       await this.redis.pExpire(redisKey, windowMs);
       return { count, resetMs: windowMs };
     }
-    const ttl = await this.redis.pTTL(redisKey);
+    let ttl = await this.redis.pTTL(redisKey);
+    if (ttl === -1) {
+      await this.redis.pExpire(redisKey, windowMs);
+      ttl = windowMs;
+    }
     return { count, resetMs: ttl > 0 ? ttl : windowMs };
   }
 }

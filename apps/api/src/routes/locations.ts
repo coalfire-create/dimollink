@@ -15,7 +15,11 @@ export function createLocationsRouter(
 
   function handleError(err: unknown, res: { status(code: number): { json(body: unknown): void } }) {
     if (err instanceof LocationValidationError) {
-      const status = err.message.includes('찾을 수 없습니다') ? 404 : 400;
+      const status = err.message.includes('찾을 수 없습니다')
+        ? 404
+        : err.message.includes('당사자') || err.message.includes('권한')
+          ? 403
+          : 400;
       res.status(status).json({ error: err.message });
       return;
     }
@@ -44,7 +48,7 @@ export function createLocationsRouter(
     try {
       const result = await geocoder.reverseGeocode(lat, lng);
       if (!result) {
-        res.status(444).json({ error: '해당 위치의 주소를 찾을 수 없습니다.' });
+        res.status(404).json({ error: '해당 위치의 주소를 찾을 수 없습니다.' });
         return;
       }
       res.json(result);
@@ -93,10 +97,10 @@ export function createLocationsRouter(
     }
   });
 
-  // GET /api/requests/:id/location — 배출자 조회. 공유 중이 아니면 { sharing: false }
+  // GET /api/requests/:id/location — 당사자 조회. 공유 중이 아니면 { sharing: false }
   router.get('/requests/:id/location', async (req, res) => {
     try {
-      const share = await store.getLocation(req.params.id);
+      const share = await store.getLocation(req.params.id, authUserId(req));
       res.json(share ? { sharing: true, ...share } : { sharing: false });
     } catch (err) {
       handleError(err, res);

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { AuthSession } from '@dimol/shared';
+import { AppIcon } from '../components/AppIcon';
 import { AppButton, ErrorBanner } from '../components/ui';
 import { FadeInUp, PressableScale } from '../components/motion';
 import { RoleSelector } from './onboarding/RoleSelector';
@@ -51,19 +52,18 @@ export function OnboardingScreen({
         keyboardShouldPersistTaps="handled"
       >
         {onBack ? (
-          <FadeInUp delay={20}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="뒤로 가기"
-              onPress={onBack}
-              style={styles.back}
-            >
-              <Text style={styles.backLabel}>‹ 뒤로</Text>
-            </Pressable>
-          </FadeInUp>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="뒤로 가기"
+            onPress={onBack}
+            style={styles.back}
+          >
+            <AppIcon name="chevronLeft" size={20} color={colors.textMuted} />
+            <Text style={styles.backLabel}>뒤로</Text>
+          </Pressable>
         ) : null}
 
-        <FadeInUp delay={60}>
+        <FadeInUp delay={0} offset={6}>
           <View style={styles.headerWrap}>
             <Image
               source={brandmark}
@@ -82,54 +82,42 @@ export function OnboardingScreen({
           </View>
         </FadeInUp>
 
-        <FadeInUp delay={100}>
-          <SectionStep label="1단계" title="어떤 역할로 가입하시나요?" />
-        </FadeInUp>
+        <SectionStep label="1단계" title="어떤 역할로 가입하시나요?" />
 
         <RoleSelector value={signup.userType} onChange={signup.setUserType} />
 
-        <FadeInUp delay={380}>
-          <SectionStep label="2단계" title="가입 상세 정보를 입력해 주세요" spaced />
-          <SignupFields signup={signup} />
-        </FadeInUp>
+        <SectionStep label="2단계" title="가입 상세 정보를 입력해 주세요" spaced />
+        <SignupFields signup={signup} />
 
         {signup.notice && !signup.codeSent ? (
-          <FadeInUp delay={420}>
-            <View style={styles.noticeBox}>
-              <Text style={styles.noticeBoxText}>{signup.notice}</Text>
-            </View>
-          </FadeInUp>
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeBoxText}>{signup.notice}</Text>
+          </View>
         ) : null}
 
         <ErrorBanner message={signup.error} />
 
-        <FadeInUp delay={430}>
-          <TermsConsent
-            accepted={signup.termsAccepted}
-            onToggle={() => signup.setTermsAccepted(!signup.termsAccepted)}
-          />
-        </FadeInUp>
+        <TermsConsent
+          accepted={signup.termsAccepted}
+          onToggle={() => signup.setTermsAccepted(!signup.termsAccepted)}
+        />
 
-        <FadeInUp delay={440}>
-          <View style={styles.submitBlock}>
-            <AppButton
-              label="가입 완료하고 시작하기"
-              onPress={signup.submit}
-              loading={signup.busy}
-              disabled={signup.busy}
-            />
-          </View>
-        </FadeInUp>
+        <View style={styles.submitBlock}>
+          <AppButton
+            label="가입 완료하고 시작하기"
+            onPress={signup.submit}
+            loading={signup.busy}
+            disabled={signup.busy}
+          />
+        </View>
 
         {onLogin ? (
-          <FadeInUp delay={480}>
-            <View style={styles.loginCard}>
-              <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
-              <PressableScale accessibilityRole="button" onPress={onLogin} style={styles.loginBtn}>
-                <Text style={styles.loginBtnText}>로그인 화면으로 이동</Text>
-              </PressableScale>
-            </View>
-          </FadeInUp>
+          <View style={styles.loginCard}>
+            <Text style={styles.loginHelper}>이미 계정이 있으신가요?</Text>
+            <PressableScale accessibilityRole="button" onPress={onLogin} style={styles.loginBtn}>
+              <Text style={styles.loginBtnText}>로그인 화면으로 이동</Text>
+            </PressableScale>
+          </View>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -166,15 +154,17 @@ const styles = StyleSheet.create({
     paddingBottom: 56,
   },
   back: {
-    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    gap: theme.spacing.xs / 2,
     minHeight: theme.touch.minButtonHeight,
     paddingRight: spacing.sm,
-    alignSelf: 'flex-start',
   },
   backLabel: {
-    color: colors.primary,
+    color: colors.textMuted,
     fontSize: font.bodyLarge,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   // 로그인 화면과 같은 머리 — 왼쪽 정렬 큰 제목(가운데 정렬 로고 배너는 뺐다).
   headerWrap: {
@@ -225,13 +215,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   loginCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.card,
-    padding: spacing.md,
     alignItems: 'center',
-    marginTop: spacing.md,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
   },
   loginHelper: {
     color: colors.textMuted,

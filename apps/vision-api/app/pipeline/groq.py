@@ -224,6 +224,12 @@ class GroqPipeline:
         )
         if computed_plan is not None:
             generation["waste_plan"] = computed_plan
+        elif not isinstance(generation.get("waste_plan"), dict):
+            generation["waste_plan"] = {
+                "items": [],
+                "allbaro_manifest_required": False,
+                "allbaro_reason": "물량 정보 없음",
+            }
 
         report = VisionReport(
             site_summary=SiteSummary(**recognition["site_summary"]),

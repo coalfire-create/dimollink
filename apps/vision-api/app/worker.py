@@ -90,7 +90,10 @@ class JobWorker:
             updated = self._store.get(job_id)
             if updated:
                 await callback.post_update(
-                    request.callback_url, updated, self._settings.callback_secret
+                    request.callback_url,
+                    updated,
+                    self._settings.callback_secret,
+                    allow_local=(self._settings.environment == "local"),
                 )
 
         try:
@@ -105,6 +108,10 @@ class JobWorker:
             if issues:
                 raise ValueError("출력 검증 실패: " + "; ".join(issues))
 
+            current = self._store.get(job_id)
+            if current is None or current.status == JobStatus.CANCELED:
+                return
+
             self._store.update(
                 job_id, status=JobStatus.DONE, stage=None, result=report, error=None
             )
@@ -115,7 +122,10 @@ class JobWorker:
         done = self._store.get(job_id)
         if done:
             await callback.post_update(
-                request.callback_url, done, self._settings.callback_secret
+                request.callback_url,
+                done,
+                self._settings.callback_secret,
+                allow_local=(self._settings.environment == "local"),
             )
 
     @staticmethod
@@ -124,7 +134,9 @@ class JobWorker:
 
     async def _handle_failure(self, job_id: str, exc: Exception, duration: float = 0.0) -> None:
         job = self._store.get(job_id)
-        attempts = (job.attempts if job else 0) + 1
+        if job is None or job.status == JobStatus.CANCELED:
+            return
+        attempts = job.attempts + 1
         # 레이트리밋·인증 오류는 재시도해도 같은 결과다. 429 는 다시 걸수록 한도만 더 깎는다.
         if attempts <= self._settings.max_retries and _is_retryable(exc):
             logger.warning(

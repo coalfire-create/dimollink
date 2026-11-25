@@ -28,15 +28,24 @@ export function ChatScreen({ requestId }: { requestId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const lastCreatedAt = useRef<string | undefined>(undefined);
+  const pollingRef = useRef(false);
   const listRef = useRef<FlatList<ChatMessage>>(null);
 
   const poll = useCallback(async () => {
+    if (pollingRef.current) return;
+    pollingRef.current = true;
     try {
       const fresh = await listMessages(requestId, user.id, lastCreatedAt.current);
       const newest = fresh.at(-1);
       if (newest) {
-        lastCreatedAt.current = newest.createdAt;
-        setMessages((prev) => [...prev, ...fresh]);
+        if (!lastCreatedAt.current || newest.createdAt > lastCreatedAt.current) {
+          lastCreatedAt.current = newest.createdAt;
+        }
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          const added = fresh.filter((m) => !seen.has(m.id));
+          return added.length > 0 ? [...prev, ...added] : prev;
+        });
       }
       // If there are fresh messages and we are viewing them, mark them as read
       if (fresh.some((m) => m.senderId !== user.id && !m.readAt)) {
@@ -45,6 +54,8 @@ export function ChatScreen({ requestId }: { requestId: string }) {
       setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '메시지를 불러오지 못했습니다.');
+    } finally {
+      pollingRef.current = false;
     }
   }, [requestId, user.id]);
 

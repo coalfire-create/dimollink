@@ -98,33 +98,45 @@ export class OAuthService {
   }
 
   /** authorization code → access token → 정규화된 신원. */
-  async fetchIdentity(provider: SocialProvider, code: string): Promise<NormalizedIdentity> {
+  async fetchIdentity(
+    provider: SocialProvider,
+    code: string,
+    timeoutMs = 10_000,
+  ): Promise<NormalizedIdentity> {
     const cfg = PROVIDERS[provider];
     const creds = this.requireCreds(provider);
 
-    const tokenRes = await this.fetchFn(cfg.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Accept: 'application/json',
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: creds.clientId,
-        client_secret: creds.clientSecret,
-        redirect_uri: this.redirectUri(provider),
-        code,
-      }).toString(),
-    });
-    if (!tokenRes.ok) throw new OAuthError(`${provider} 토큰 교환 실패 (status=${tokenRes.status})`);
-    const token = (await tokenRes.json()) as { access_token?: string };
-    if (!token.access_token) throw new OAuthError(`${provider} access_token 누락`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const tokenRes = await this.fetchFn(cfg.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: creds.clientId,
+          client_secret: creds.clientSecret,
+          redirect_uri: this.redirectUri(provider),
+          code,
+        }).toString(),
+        signal: controller.signal,
+      });
+      if (!tokenRes.ok) throw new OAuthError(`${provider} 토큰 교환 실패 (status=${tokenRes.status})`);
+      const token = (await tokenRes.json()) as { access_token?: string };
+      if (!token.access_token) throw new OAuthError(`${provider} access_token 누락`);
 
-    const infoRes = await this.fetchFn(cfg.userInfoUrl, {
-      headers: { Authorization: `Bearer ${token.access_token}` },
-    });
-    if (!infoRes.ok) throw new OAuthError(`${provider} 사용자정보 조회 실패 (status=${infoRes.status})`);
-    return cfg.parseIdentity(await infoRes.json());
+      const infoRes = await this.fetchFn(cfg.userInfoUrl, {
+        headers: { Authorization: `Bearer ${token.access_token}` },
+        signal: controller.signal,
+      });
+      if (!infoRes.ok) throw new OAuthError(`${provider} 사용자정보 조회 실패 (status=${infoRes.status})`);
+      return cfg.parseIdentity(await infoRes.json());
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** 미가입 신원에 발급하는 단기 가입 티켓(회원가입 시 신원 재확인용). */

@@ -154,7 +154,8 @@ export function useStoreCheckout() {
       currency: 'CURRENCY_KRW',
       payMethod: 'CARD',
       customer,
-    });
+      appScheme: 'dimollink',
+    } as PaymentRequest);
   }
 
   async function onPaymentComplete(res: PaymentResponse) {
@@ -246,7 +247,8 @@ export function useStoreCheckout() {
       customer,
       // 월 정기결제만 판다. KG이니시스 모바일 발급은 제공 주기가 필수다.
       offerPeriod: { interval: '1m' },
-    });
+      appScheme: 'dimollink',
+    } as BillingKeyRequest);
   }
 
   async function onBillingKeyComplete(res: BillingKeyResponse) {

@@ -1,6 +1,7 @@
 import type {
   BuildingLedgerInfo,
   GeoPoint,
+  IncidentType,
   MatchStatus,
   ProviderPricing,
   ServiceRequest,
@@ -144,11 +145,12 @@ export interface AdminIncident {
   requestId: string;
   targetId: string;
   reporterId: string;
-  kind: string;
+  type: IncidentType;
   status: 'OPEN' | 'RESOLVED';
-  note?: string;
+  detail?: string;
   resolutionNote?: string;
   createdAt: string;
+  resolvedAt?: string;
 }
 export const adminListIncidents = (adminToken: string, status?: 'OPEN' | 'RESOLVED') =>
   api<AdminIncident[]>(`/admin/incidents${status ? `?status=${status}` : ''}`, {
@@ -168,10 +170,14 @@ export const adminResolveIncident = (
 
 /** 이상거래 탐지 결과(룰 기반). 조치는 사람이 판단한다. */
 export interface AdminAnomaly {
-  kind: string;
+  type: 'REPEATED_PAIR' | 'PRICE_OUTLIER';
   message: string;
-  requestId?: string;
-  userId?: string;
+  requesterId?: string;
+  providerId?: string;
+  requestIds?: string[];
+  quoteId?: string;
+  amount?: number;
+  averageAmount?: number;
 }
 export const adminListAnomalies = (adminToken: string) =>
   api<AdminAnomaly[]>('/admin/anomalies', { headers: adminHeaders(adminToken) });

@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { ScreenHeader, useSession } from '../navigation';
 import { AppIcon } from '../components/AppIcon';
 import { theme } from '../theme';
-import { API_BASE_URL } from '../api/client';
+import { API_BASE_URL, getAuthToken } from '../api/client';
 import type { GeoPoint } from '@dimol/shared';
 import { EmptyState, ErrorBanner } from '../components/ui';
 
@@ -15,8 +15,9 @@ import { EmptyState, ErrorBanner } from '../components/ui';
  * 웹 운영 번들은 API 주소가 상대경로('/api')라 http 접두사를 떼는 방식으로는
  * 'ws:///ws/tracking' 같은 깨진 주소가 나왔다. 상대경로면 지금 페이지의 호스트를 쓴다.
  */
-function trackingSocketUrl(requestId: string, role: string): string {
-  const query = `/ws/tracking?requestId=${encodeURIComponent(requestId)}&role=${role}`;
+function trackingSocketUrl(requestId: string, role: string, token: string | null): string {
+  const tokenQuery = token ? `&token=${encodeURIComponent(token)}` : '';
+  const query = `/ws/tracking?requestId=${encodeURIComponent(requestId)}&role=${role}${tokenQuery}`;
   if (API_BASE_URL.startsWith('/') && typeof window !== 'undefined') {
     const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${window.location.host}${query}`;
@@ -35,7 +36,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
   const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const socket = new WebSocket(trackingSocketUrl(requestId, role));
+    const socket = new WebSocket(trackingSocketUrl(requestId, role, getAuthToken()));
     ws.current = socket;
 
     socket.onopen = () => {
@@ -68,32 +69,45 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
   }, [requestId, role, isProvider]);
 
   useEffect(() => {
+    let cancelled = false;
     let locationSub: Location.LocationSubscription | null = null;
     if (isProvider) {
       (async () => {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setErrorMsg('위치 권한이 거부되었습니다.');
-          return;
-        }
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (cancelled) return;
+          if (status !== 'granted') {
+            setErrorMsg('위치 권한이 거부되었습니다.');
+            return;
+          }
 
-        locationSub = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            timeInterval: 5000, // Send every 5 seconds
-            distanceInterval: 10,
-          },
-          (loc) => {
-            const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-            setLocation(coords);
-            if (ws.current?.readyState === WebSocket.OPEN) {
-              ws.current.send(JSON.stringify({ location: coords }));
-            }
-          },
-        );
+          const sub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 5000, // Send every 5 seconds
+              distanceInterval: 10,
+            },
+            (loc) => {
+              if (cancelled) return;
+              const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+              setLocation(coords);
+              if (ws.current?.readyState === WebSocket.OPEN) {
+                ws.current.send(JSON.stringify({ location: coords }));
+              }
+            },
+          );
+          if (cancelled) {
+            sub.remove();
+            return;
+          }
+          locationSub = sub;
+        } catch {
+          if (!cancelled) setErrorMsg('위치 정보를 가져오지 못했습니다.');
+        }
       })();
     }
     return () => {
+      cancelled = true;
       if (locationSub) {
         locationSub.remove();
       }
@@ -139,7 +153,7 @@ export function TrackingScreen({ requestId }: { requestId: string }) {
             description={isProvider ? '내 차량 위치' : '운반 트럭 위치'}
           >
             <View style={styles.markerBadge}>
-              <AppIcon name="truck" size={20} color={theme.colors.background} />
+              <AppIcon name="truck" size={20} color={theme.colors.primary} />
             </View>
           </Marker>
         </MapView>

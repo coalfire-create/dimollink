@@ -12,22 +12,28 @@ groups:
           summary: '디몰링크 API 인스턴스 다운'
           description: '{{ $labels.instance }} 가 1분 이상 스크레이프되지 않습니다.'
 
-      # 5xx 오류율 5% 초과(5분).
+      # 5xx 오류율 5% 초과(5분, 최소 10건 이상일 때만 경보해 저트래픽 오탐 방지).
       - alert: DimolApiHighErrorRate
         expr: >
-          sum(rate(http_requests_total{status="5xx"}[5m]))
-          / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+          (
+            sum(increase(http_requests_total{status="5xx"}[5m]))
+            / sum(increase(http_requests_total[5m]))
+          ) > 0.05
+          and sum(increase(http_requests_total[5m])) >= 10
         for: 5m
         labels: { severity: critical }
         annotations:
           summary: '5xx 오류율 상승(>5%)'
           description: '최근 5분 5xx 비율이 5% 를 초과했습니다.'
 
-      # 평균 응답 지연 1초 초과(5분).
+      # 평균 응답 지연 1초 초과(5분, 최소 10건 이상일 때만 경보).
       - alert: DimolApiHighLatency
         expr: >
-          rate(http_request_duration_ms_sum[5m])
-          / clamp_min(rate(http_request_duration_ms_count[5m]), 1) > 1000
+          (
+            increase(http_request_duration_ms_sum[5m])
+            / increase(http_request_duration_ms_count[5m])
+          ) > 1000
+          and increase(http_request_duration_ms_count[5m]) >= 10
         for: 5m
         labels: { severity: warning }
         annotations:
@@ -43,11 +49,11 @@ groups:
           summary: '4xx 급증(인증 실패/남용 의심)'
           description: '최근 10분 4xx 비율이 지속적으로 높습니다. 레이트리밋·인증 로그 확인.'
 
-      # 잦은 재시작 감지(가동시간이 계속 낮음).
+      # 잦은 재시작 감지(최근 15분 내 프로세스 가동시간 리셋 3회 이상).
       - alert: DimolApiFlapping
-        expr: process_uptime_seconds < 120
-        for: 10m
+        expr: resets(process_uptime_seconds[15m]) >= 3
+        for: 0m
         labels: { severity: warning }
         annotations:
           summary: '잦은 재시작 의심'
-          description: '가동시간이 10분간 지속적으로 2분 미만입니다(크래시루프 가능).'
+          description: '최근 15분 내 프로세스 재시작이 3회 이상 감지되었습니다.'

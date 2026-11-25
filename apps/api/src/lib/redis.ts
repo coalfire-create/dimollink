@@ -12,6 +12,7 @@ export interface RedisLike {
   incr(key: string): Promise<number>;
   pExpire(key: string, ms: number): Promise<unknown>;
   pTTL(key: string): Promise<number>;
+  quit?: () => Promise<unknown>;
 }
 
 /** 운영용 Redis 클라이언트 생성(연결까지 완료). */

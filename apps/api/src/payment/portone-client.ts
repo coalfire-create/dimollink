@@ -75,9 +75,9 @@ export interface TaxInvoiceResult {
 export interface SdkPaymentClient {
   getPayment(options: {
     paymentId: string;
-  }): Promise<{ status: string; amount?: { total: number } }>;
+  }): Promise<{ status: string; currency?: string; amount?: { total: number; paid?: number } }>;
   cancelPayment(options: { paymentId: string; amount?: number; reason: string }): Promise<unknown>;
-  /** 빌링키 결제(정기결제). 카드정보는 PG 가 들고 있고 우리는 키로만 청구한다. */
+  /** 빌링키 결제(정기결제). @portone/server-sdk v0.19 는 { payment: { pgTxId, paidAt } } 를 반환한다. */
   payWithBillingKey?(options: {
     paymentId: string;
     billingKey: string;
@@ -85,7 +85,14 @@ export interface SdkPaymentClient {
     customer?: { id?: string };
     amount: { total: number };
     currency: string;
-  }): Promise<{ payment?: { status?: string; amount?: { total?: number } } }>;
+  }): Promise<{
+    payment?: {
+      pgTxId?: string;
+      paidAt?: string;
+      status?: string;
+      amount?: { total?: number };
+    };
+  }>;
 }
 
 export interface PortOneClientConfig {
@@ -165,7 +172,7 @@ export class PortOneClient {
   }): Promise<VerifiedPayment> {
     const client = this.ensureReady();
 
-    let payment: { status: string; amount?: { total: number } };
+    let payment: { status: string; currency?: string; amount?: { total: number; paid?: number } };
     try {
       payment = await client.getPayment({ paymentId: input.paymentId });
     } catch (err) {
@@ -173,7 +180,15 @@ export class PortOneClient {
     }
 
     const status = typeof payment.status === 'string' ? payment.status : 'UNKNOWN';
-    const total = payment.amount?.total;
+    if (status !== PAID_STATUS && status !== 'VIRTUAL_ACCOUNT_ISSUED') {
+      throw new PortOneError('PAYMENT_NOT_PAID', `완료되지 않은 결제 상태입니다(${status}).`);
+    }
+    if (payment.currency !== undefined && payment.currency !== 'KRW') {
+      throw new PortOneError('AMOUNT_MISMATCH', `원화(KRW) 결제만 허용됩니다(${payment.currency}).`);
+    }
+    const total = status === PAID_STATUS && typeof payment.amount?.paid === 'number'
+      ? payment.amount.paid
+      : payment.amount?.total;
     if (typeof total !== 'number') {
       throw new PortOneError('PAYMENT_NOT_FOUND', '결제 정보를 확인할 수 없습니다.');
     }
@@ -205,7 +220,14 @@ export class PortOneClient {
     if (!client.payWithBillingKey) {
       throw new PortOneError('CONFIG_MISSING', '정기결제(빌링키) 연동이 준비되지 않았습니다.');
     }
-    let res: { payment?: { status?: string; amount?: { total?: number } } };
+    let res: {
+      payment?: {
+        pgTxId?: string;
+        paidAt?: string;
+        status?: string;
+        amount?: { total?: number };
+      };
+    };
     try {
       res = await client.payWithBillingKey({
         paymentId: input.paymentId,
@@ -217,6 +239,10 @@ export class PortOneClient {
       });
     } catch (err) {
       throw mapSdkError(err, `정기결제 실패(paymentId=${input.paymentId})`);
+    }
+    // @portone/server-sdk v0.19 의 BillingKeyPaymentSummary 는 { pgTxId, paidAt } 를 반환한다.
+    if (typeof res.payment?.paidAt === 'string' && res.payment.paidAt.length > 0) {
+      return { paymentId: input.paymentId, amount: input.amount, paid: true };
     }
     const status = res.payment?.status ?? 'UNKNOWN';
     const total = res.payment?.amount?.total ?? 0;

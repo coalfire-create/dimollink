@@ -22,6 +22,7 @@ import pg from 'pg';
 
 const args = process.argv.slice(2);
 const replace = args.includes('--replace');
+const allowBroken = args.includes('--allow-broken');
 const file = args.find((a) => !a.startsWith('--'));
 
 if (!process.env.DATABASE_URL) {
@@ -54,6 +55,12 @@ const target = process.env.DATABASE_URL.replace(/\/\/[^@]*@/, '//***@');
 console.log(`대상 DB : ${target}`);
 console.log(`덤프    : ${file}`);
 console.log(`복원 행 : ${rows.length}건${broken ? ` (읽지 못한 줄 ${broken}건)` : ''}`);
+if (broken > 0 && !allowBroken) {
+  console.error(
+    `덤프에 파싱 실패 행이 ${broken}건 있어 복원을 중단했습니다. 파일을 확인하거나 --allow-broken 을 지정하세요.`,
+  );
+  process.exit(1);
+}
 console.log(`모드    : ${replace ? '전체 교체(--replace) — 덤프에 없는 행은 삭제됨' : '병합(덤프에 있는 행만 덮어씀)'}`);
 
 const rl = createInterface({ input: process.stdin, output: process.stdout });

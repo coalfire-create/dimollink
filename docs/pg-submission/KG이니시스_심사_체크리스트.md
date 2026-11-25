@@ -12,7 +12,7 @@ PG 를 토스페이먼츠에서 KG이니시스로 바꾸면서(사유는 `CLAUDE
 | 고객센터 전화·이메일 | 같은 곳 (전화는 `tel:` 링크) | ✅ |
 | 개인정보 보호책임자 | `/landing`·앱 푸터 | ✅ |
 | **호스팅 서비스 제공자** | `/landing`·앱 푸터·`/terms` 푸터 (`COMPANY_INFO.hostingProvider`) | ✅ 2026-10 추가 |
-| **통신판매업 신고번호** | `COMPANY_INFO.mailOrderNumber` | ❌ **비어 있음** — 신고 후 값을 넣으면 모든 푸터에 자동 노출 |
+| **통신판매업 신고번호** | `COMPANY_INFO.mailOrderNumber` | ✅ `2026-경기양평-1329` 반영 완료(모든 푸터에 자동 노출) |
 | 이용약관 | `/terms` (제6조 취소·환불) | ✅ |
 | 개인정보처리방침 | `/privacy` — 위탁사에 KG이니시스·Railway 추가, 최종 개정 2026-10-06 | ✅ (앱 공지사항 고지는 운영에서) |
 | 환불규정 | `/landing#refund`, `/terms` 제6조, 상품별 환불 정책 | ✅ |

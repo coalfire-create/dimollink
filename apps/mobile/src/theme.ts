@@ -45,9 +45,9 @@ export const theme = {
    * 배지는 알약(999) 대신 살짝 각진 태그(6)로 둔다.
    */
   radius: {
-    card: 12,
-    button: 10,
-    badge: 6,
+    card: 4,
+    button: 4,
+    badge: 2,
     pill: 999,
   },
   /**
@@ -58,10 +58,10 @@ export const theme = {
     /** 카드·시트 기본 그림자 — 테두리 보조용으로 아주 옅게. */
     card: {
       shadowColor: STATUS_COLORS.shadow,
-      shadowOpacity: 0.04,
-      shadowRadius: 4,
-      shadowOffset: { width: 0, height: 1 },
-      elevation: 1,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 0,
     },
     /**
      * 떠 있는 판 — 데스크톱 웹에서 마우스를 올린 카드, 첫 화면의 화면 예시 카드.
@@ -69,9 +69,9 @@ export const theme = {
      */
     raised: {
       shadowColor: STATUS_COLORS.shadow,
-      shadowOpacity: 0.08,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.07,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 6 },
       elevation: 4,
     },
     /** 주요 버튼 — 평면. 키는 남겨 두어 기존 호출부가 깨지지 않게 한다. */

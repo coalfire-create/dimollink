@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   tab: {
     alignItems: 'center',
     borderBottomColor: 'transparent',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     flex: 1,
     flexDirection: 'row',
     gap: spacing.xs,
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     minHeight: touch.minButtonHeight,
   },
   tabActive: {
-    borderBottomColor: colors.primary,
+    borderBottomColor: colors.text,
   },
   tabLabel: {
     color: colors.textMuted,
@@ -172,29 +172,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabLabelActive: {
-    color: colors.primary,
+    color: colors.text,
     fontWeight: '700',
   },
   tabCount: {
-    backgroundColor: colors.surface,
-    borderRadius: 999,
     color: colors.textMuted,
     fontSize: font.caption,
     fontWeight: '700',
-    minWidth: 32,
-    overflow: 'hidden',
-    paddingHorizontal: spacing.xs,
+    minWidth: 24,
     textAlign: 'center',
   },
   tabCountActive: {
-    backgroundColor: colors.primarySoft,
     color: colors.primary,
   },
   chipRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
   },
@@ -211,15 +206,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderColor: colors.border,
-    borderRadius: radius.pill,
+    borderRadius: radius.badge,
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 40,
-    paddingHorizontal: spacing.xs,
+    minHeight: touch.minButtonHeight,
+    paddingHorizontal: spacing.sm,
   },
   chipActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    backgroundColor: colors.text,
+    borderColor: colors.text,
   },
   chipText: {
     color: colors.textMuted,
@@ -227,7 +222,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: {
-    color: colors.primary,
+    color: colors.background,
     fontWeight: '700',
   },
 });

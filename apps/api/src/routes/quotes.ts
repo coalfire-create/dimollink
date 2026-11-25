@@ -20,11 +20,37 @@ export function createQuotesRouter(
   // POST /api/quotes  { requestId, providerId, party, amount, memo? }
   router.post('/quotes', async (req, res) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
+    const actorId = authUserId(req);
+    const actor = await userStore.get(actorId);
+    if (!actor || actor.approvalStatus !== 'APPROVED') {
+      res.status(403).json({ error: '승인 완료된 업체만 견적을 제출할 수 있습니다.' });
+      return;
+    }
+    const party = parseParty(body.party);
+    if (!party) {
+      res.status(400).json({ error: 'party 는 TRANSPORT | DISPOSAL 이어야 합니다.' });
+      return;
+    }
+    const expectedUserType = party === 'TRANSPORT' ? 'TRANSPORT_COMPANY' : 'WASTE_TREATMENT_PLANT';
+    if (actor.userType !== expectedUserType) {
+      res.status(403).json({ error: '내 업종에 맞는 요청에만 견적을 제출할 수 있습니다.' });
+      return;
+    }
+    const reqId = String(body.requestId ?? '');
+    const targetRequest = reqId ? await requestStore.get(reqId) : undefined;
+    if (targetRequest && targetRequest.requesterId === actorId) {
+      res.status(403).json({ error: '본인이 등록한 요청에는 견적을 제출할 수 없습니다.' });
+      return;
+    }
+    if (targetRequest && targetRequest.kind === 'DEMOLITION') {
+      res.status(400).json({ error: '철거 요청은 철거 견적(/demolition-estimates)으로 진행해 주세요.' });
+      return;
+    }
     try {
       const quote = await store.createQuote({
-        requestId: String(body.requestId ?? ''),
-        providerId: authUserId(req),
-        party: body.party as ProviderRole,
+        requestId: reqId,
+        providerId: actorId,
+        party,
         amount: Number(body.amount),
         memo: typeof body.memo === 'string' ? body.memo : undefined,
       });

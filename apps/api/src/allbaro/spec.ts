@@ -48,9 +48,9 @@ export interface AllbaroApiSpec {
   noticesInterfaceId: string;
 
   buildMemberVerifyBody(businessNumber: string, roleType?: AllbaroRoleType): Record<string, unknown>;
-  parseMemberVerified(data: Record<string, unknown>): boolean;
-  parseMemberName(data: Record<string, unknown>): string | undefined;
-  extractMemberType(data: Record<string, unknown>): unknown;
+  parseMemberVerified(data: Record<string, unknown>, businessNumber?: string): boolean;
+  parseMemberName(data: Record<string, unknown>, businessNumber?: string): string | undefined;
+  extractMemberType(data: Record<string, unknown>, businessNumber?: string): unknown;
   parseMemberType(raw: unknown): AllbaroMemberType;
 
   buildManifestBody(request: ManifestIssueRequest): Record<string, unknown>;
@@ -89,6 +89,30 @@ function mapMemberType(raw: unknown): AllbaroMemberType {
   }
 }
 
+function extractBizNo(item: Record<string, unknown>): string | undefined {
+  const raw = item.bizrno ?? item.busi_reg_no ?? item.biz_no ?? item.businessNumber ?? item.bman_no;
+  return typeof raw === 'string' && raw.trim() !== '' ? normalizeBusinessNumber(raw) : undefined;
+}
+
+/**
+ * 응답 dataList 에서 요청한 사업자등록번호와 일치하는 업체 행을 찾는다.
+ * 응답 항목에 사업자번호 필드가 전혀 없는 레거시/단위테스트 목 응답만 첫 번째 행을 허용한다.
+ */
+function findMatchedMember(
+  data: Record<string, unknown>,
+  businessNumber?: string,
+): Record<string, unknown> | undefined {
+  const dataList = data.dataList;
+  if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
+  const rows = dataList.filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null);
+  if (rows.length === 0) return undefined;
+  if (!businessNumber) return rows[0];
+  const target = normalizeBusinessNumber(businessNumber);
+  const hasBizFields = rows.some((r) => extractBizNo(r) !== undefined);
+  if (!hasBizFields) return rows[0];
+  return rows.find((r) => extractBizNo(r) === target);
+}
+
 /**
  * 올바로 Open API v1.9.1 실제 규격 스펙.
  */
@@ -113,24 +137,18 @@ export const ALLBARO_SPEC: AllbaroApiSpec = {
     period_to_date: null,
   }),
 
-  parseMemberVerified: (data) => {
-    const dataList = data.dataList;
-    return Array.isArray(dataList) && dataList.length > 0;
-  },
+  parseMemberVerified: (data, businessNumber) => findMatchedMember(data, businessNumber) !== undefined,
 
-  parseMemberName: (data) => {
-    const dataList = data.dataList;
-    if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
-    const first = dataList[0] as Record<string, unknown>;
-    const name = first.firm_name ?? first.entn_nm ?? first.memberName;
+  parseMemberName: (data, businessNumber) => {
+    const matched = findMatchedMember(data, businessNumber);
+    if (!matched) return undefined;
+    const name = matched.firm_name ?? matched.entn_nm ?? matched.memberName;
     return typeof name === 'string' ? name : undefined;
   },
 
-  extractMemberType: (data) => {
-    const dataList = data.dataList;
-    if (!Array.isArray(dataList) || dataList.length === 0) return undefined;
-    const first = dataList[0] as Record<string, unknown>;
-    return first.entn_type ?? first.memberType;
+  extractMemberType: (data, businessNumber) => {
+    const matched = findMatchedMember(data, businessNumber);
+    return matched ? (matched.entn_type ?? matched.memberType) : undefined;
   },
 
   parseMemberType: mapMemberType,

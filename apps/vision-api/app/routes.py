@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from .auth import require_admin_key, require_api_key
+from .callback import is_safe_callback_url
 from .config import Settings, get_settings
 from .pipeline import get_pipeline
 from .schemas import JobCreateRequest, JobResponse, JobStatus
@@ -45,6 +46,13 @@ def create_job(
         raise HTTPException(
             status_code=422,  # Unprocessable — 상수명이 Starlette 버전마다 달라 리터럴 사용
             detail=f"사진은 최대 {settings.max_photos}장까지 허용됩니다.",
+        )
+    if body.callback_url and not is_safe_callback_url(
+        body.callback_url, allow_local=(settings.environment == "local")
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="유효하지 않은 callback_url 입니다.",
         )
     job_id = str(uuid.uuid4())
     job = store.create(job_id, body, settings.model_version)

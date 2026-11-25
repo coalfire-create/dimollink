@@ -20,8 +20,8 @@ export const useNativeDriver = Platform.OS !== 'web';
 export function FadeInUp({
   children,
   delay = 0,
-  offset = 14,
-  duration = 420,
+  offset = 6,
+  duration = 220,
   style,
 }: {
   children: React.ReactNode;
@@ -59,15 +59,15 @@ export function FadeInUp({
   );
 }
 
-/** 누르면 살짝 작아졌다 튕겨 돌아오는 스케일 값 + 핸들러. */
-export function usePressScale(to = 0.97) {
+/** 누르면 살짝 눌렸다 복원되는 즉각적 터치 피드백(과한 바운스 배제). */
+export function usePressScale(to = 0.985) {
   const scale = useRef(new Animated.Value(1)).current;
-  const spring = (toValue: number, bounciness: number) =>
-    Animated.spring(scale, { toValue, speed: 40, bounciness, useNativeDriver }).start();
+  const spring = (toValue: number) =>
+    Animated.spring(scale, { toValue, speed: 55, bounciness: 0, useNativeDriver }).start();
   return {
     scale,
-    onPressIn: () => spring(to, 0),
-    onPressOut: () => spring(1, 6),
+    onPressIn: () => spring(to),
+    onPressOut: () => spring(1),
   };
 }
 

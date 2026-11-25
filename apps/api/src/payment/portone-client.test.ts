@@ -160,3 +160,38 @@ describe('지급대행/세금계산서 — 모의 응답(Phase B)', () => {
       ).rejects.toMatchObject({ code: 'NOT_CONFIGURED' });
     });
   });
+
+describe('PortOneClient 검증/정기결제 보안 강화', () => {
+  it('verifyPayment: KRW 가 아닌 통화는 AMOUNT_MISMATCH 로 거부한다', async () => {
+    const sdk = fakeSdk({
+      getPayment: vi.fn().mockResolvedValue({ status: 'PAID', currency: 'USD', amount: { total: 150_000 } }),
+    });
+    await expect(
+      new PortOneClient(baseConfig, sdk).verifyPayment({ paymentId: 'p1', expectedAmount: 150_000 }),
+    ).rejects.toMatchObject({ code: 'AMOUNT_MISMATCH' });
+  });
+
+  it('verifyPayment: PAID/VIRTUAL_ACCOUNT_ISSUED 외 상태(FAILED 등)는 PAYMENT_NOT_PAID 로 거부한다', async () => {
+    const sdk = fakeSdk({
+      getPayment: vi.fn().mockResolvedValue({ status: 'FAILED', amount: { total: 150_000 } }),
+    });
+    await expect(
+      new PortOneClient(baseConfig, sdk).verifyPayment({ paymentId: 'p1', expectedAmount: 150_000 }),
+    ).rejects.toMatchObject({ code: 'PAYMENT_NOT_PAID' });
+  });
+
+  it('payWithBillingKey: @portone/server-sdk v0.19 응답({ pgTxId, paidAt })을 paid=true 로 처리한다', async () => {
+    const sdk = fakeSdk({
+      payWithBillingKey: vi.fn().mockResolvedValue({
+        payment: { pgTxId: 'pg-tx-1', paidAt: '2026-11-24T00:00:00.000Z' },
+      }),
+    });
+    const r = await new PortOneClient(baseConfig, sdk).payWithBillingKey({
+      paymentId: 'sub-1-2026-11-24',
+      billingKey: 'bk-1',
+      orderName: '업체 멤버십',
+      amount: 33_000,
+    });
+    expect(r).toEqual({ paymentId: 'sub-1-2026-11-24', amount: 33_000, paid: true });
+  });
+});

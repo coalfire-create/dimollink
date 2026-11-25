@@ -1,56 +1,51 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { UserType } from '@dimol/shared';
-import type { IconName } from '../../components/AppIcon';
-import { IconTile } from '../../components/ui';
-import { FadeInUp, PressableScale } from '../../components/motion';
+import { PressableScale } from '../../components/motion';
 import { FEATURE_INTERIOR } from '../../featureFlags';
+import { TABULAR_NUMS } from '../../lib/format';
 import { theme } from '../../theme';
 
 /**
- * 가입 유형 선택 — 이 선택이 이후 모든 화면의 구성을 바꾼다(탭·홈·메뉴).
- *
- * 드롭다운이 아니라 카드로 늘어놓는 이유: 유형마다 "무엇을 할 수 있는지"가 다른데,
- * 이름만으로는 배출자와 철거업체 중 어느 쪽인지 헷갈리는 사용자가 실제로 많다.
- * 설명 한 줄이 같이 보여야 잘못 가입하지 않는다.
+ * 가입 유형 선택 — 번호가 매겨진 건축 명세 선택 행(01..04).
  */
 interface RoleOption {
   type: UserType;
+  code: string;
   title: string;
   description: string;
-  iconName: IconName;
 }
 
 const TYPE_OPTIONS: RoleOption[] = [
   {
     type: 'CONSUMER',
+    code: '01',
     title: '소비자',
     description: '철거·폐기물 처리를 맡기고 싶어요',
-    iconName: 'home',
   },
   {
     type: 'DEMOLITION_COMPANY',
+    code: '02',
     title: '철거업체',
     description: '철거 작업을 수주하고 싶어요',
-    iconName: 'hammer',
   },
   {
     type: 'TRANSPORT_COMPANY',
+    code: '03',
     title: '운반업체',
     description: '폐기물 운반 콜을 받고 싶어요',
-    iconName: 'truck',
   },
   {
     type: 'WASTE_TREATMENT_PLANT',
+    code: '04',
     title: '처리장',
     description: '폐기물 반입 예약을 받고 싶어요',
-    iconName: 'building',
   },
   {
     type: 'INTERIOR_COMPANY',
+    code: '05',
     title: '인테리어 업체',
     description: '인테리어 시공 견적을 넣고 싶어요',
-    iconName: 'palette',
   },
 ];
 
@@ -61,100 +56,108 @@ export function RoleSelector({
   value: UserType;
   onChange: (type: UserType) => void;
 }) {
-  // 인테리어 업체 가입은 파일럿 밖 — FEATURE_INTERIOR 가 켜졌을 때만 노출.
   const options = TYPE_OPTIONS.filter(
     (option) => FEATURE_INTERIOR || option.type !== 'INTERIOR_COMPANY',
   );
 
   return (
     <>
-      {options.map((option, index) => {
+      {options.map((option) => {
         const selected = value === option.type;
         return (
-          <FadeInUp key={option.type} delay={120 + index * 50}>
-            <PressableScale
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={`${option.title} — ${option.description}`}
-              onPress={() => onChange(option.type)}
-              style={[styles.card, selected && styles.cardSelected]}
-            >
-              <IconTile
-                icon={option.iconName}
-                tone={selected ? 'solid' : 'brand'}
-                style={styles.iconCircle}
-              />
-              <View style={styles.info}>
-                <View style={styles.headerRow}>
-                  <Text style={[styles.title, selected && styles.titleSelected]}>
-                    {option.title}
-                  </Text>
-                </View>
-                <Text style={styles.description}>{option.description}</Text>
-              </View>
-              <View style={[styles.check, selected && styles.checkSelected]}>
-                {selected ? <Text style={styles.checkMark}>✓</Text> : null}
-              </View>
-            </PressableScale>
-          </FadeInUp>
+          <PressableScale
+            key={option.type}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={`${option.title} — ${option.description}`}
+            onPress={() => onChange(option.type)}
+            style={[styles.card, selected && styles.cardSelected]}
+          >
+            <View style={[styles.codePlate, selected && styles.codePlateSelected]}>
+              <Text style={[styles.codeText, TABULAR_NUMS, selected && styles.codeTextSelected]}>
+                {option.code}
+              </Text>
+            </View>
+            <View style={styles.info}>
+              <Text style={[styles.title, selected && styles.titleSelected]}>{option.title}</Text>
+              <Text style={styles.description}>{option.description}</Text>
+            </View>
+            <View style={[styles.check, selected && styles.checkSelected]}>
+              {selected ? <Text style={styles.checkMark}>✓</Text> : null}
+            </View>
+          </PressableScale>
         );
       })}
     </>
   );
 }
 
-const { colors, font, spacing, radius } = theme;
+const { colors, font, spacing, radius, onDark } = theme;
 
 const styles = StyleSheet.create({
-  titleSelected: {
-    color: theme.colors.primary,
-  },
   card: {
+    alignItems: 'center',
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: radius.card,
-    borderWidth: 1.5,
-    marginBottom: spacing.sm,
-    padding: spacing.md,
+    borderRadius: radius.button,
+    borderWidth: 1,
     flexDirection: 'row',
-    alignItems: 'center',
-    ...theme.shadow.card,
+    marginBottom: spacing.xs,
+    padding: spacing.md,
   },
   cardSelected: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
-    borderWidth: 2,
+    borderLeftWidth: 4,
   },
-  iconCircle: {
+  codePlate: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.badge,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
     marginRight: spacing.sm,
+    width: 44,
+  },
+  codePlateSelected: {
+    backgroundColor: onDark.canvas,
+    borderColor: onDark.canvas,
+  },
+  codeText: {
+    color: colors.textMuted,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
+  codeTextSelected: {
+    color: colors.background,
   },
   info: {
     flex: 1,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   title: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '700',
   },
+  titleSelected: {
+    color: colors.primary,
+  },
   description: {
     color: colors.textMuted,
     fontSize: font.body,
-    marginTop: spacing.xs / 2,
+    marginTop: 4,
   },
   check: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
     alignItems: 'center',
+    borderColor: colors.borderStrong,
+    borderRadius: radius.badge,
+    borderWidth: 1.5,
+    height: 24,
     justifyContent: 'center',
     marginLeft: spacing.xs,
+    width: 24,
   },
   checkSelected: {
     backgroundColor: colors.primary,

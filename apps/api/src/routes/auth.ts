@@ -53,6 +53,13 @@ export function createAuthRouter(
       res.status(401).json({ error: '휴대폰번호 또는 비밀번호가 올바르지 않습니다.' });
       return;
     }
+    if (user.approvalStatus === 'SUSPENDED') {
+      res.status(403).json({
+        error: '이용이 정지된 계정입니다. 고객센터로 문의해 주세요.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+      return;
+    }
     const token = await sessionStore.issue(user.id);
     const session: AuthSession = { token, user };
     res.json(session);
@@ -101,6 +108,14 @@ export function createAuthRouter(
       res.json({ phoneVerified: true, session: null });
       return;
     }
+    await otpService.consumePhoneVerification(body.phone);
+    if (user.approvalStatus === 'SUSPENDED') {
+      res.status(403).json({
+        error: '이용이 정지된 계정입니다. 고객센터로 문의해 주세요.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
+      return;
+    }
     const token = await sessionStore.issue(user.id);
     const session: AuthSession = { token, user };
     res.json({ phoneVerified: true, session });
@@ -113,6 +128,13 @@ export function createAuthRouter(
     const user = userId ? await userStore.get(userId) : undefined;
     if (!user) {
       res.status(401).json({ error: '세션이 만료되었습니다. 다시 로그인해 주세요.' });
+      return;
+    }
+    if (user.approvalStatus === 'SUSPENDED') {
+      res.status(403).json({
+        error: '이용이 정지된 계정입니다. 고객센터로 문의해 주세요.',
+        code: 'ACCOUNT_SUSPENDED',
+      });
       return;
     }
     res.json(user);

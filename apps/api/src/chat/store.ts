@@ -117,6 +117,16 @@ export class ChatStore {
   }
 
   async markAsRead(requestId: string, viewerId: string): Promise<void> {
+    const request = await this.requestStore.get(requestId);
+    if (!request) throw new ChatValidationError('요청을 찾을 수 없습니다.');
+    const participants = await this.participantsOf(
+      requestId,
+      request.matchedProviderId,
+      request.requesterId,
+    );
+    if (!participants.has(viewerId)) {
+      throw new ChatValidationError('요청 당사자만 읽음 처리할 수 있습니다.');
+    }
     const all = await this.listInner();
     const unread = all.filter(
       (m) => m.requestId === requestId && m.senderId !== viewerId && !m.readAt

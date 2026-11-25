@@ -22,6 +22,12 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    if settings.environment != "local" and (
+        settings.api_key in ("", "dev-edge-key") or settings.admin_key in ("", "dev-admin-key")
+    ):
+        raise RuntimeError(
+            "운영 환경에서는 VISION_API_KEY 와 VISION_ADMIN_KEY 를 기본값이 아닌 값으로 설정해야 합니다."
+        )
     store = JobStore(settings.db_path)
     pipeline = get_pipeline(settings)
     worker = JobWorker(settings, store, pipeline)

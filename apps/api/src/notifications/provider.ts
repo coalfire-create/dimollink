@@ -9,11 +9,12 @@ export interface NotificationProvider {
   send(notification: AppNotification): void;
 }
 
-/** 콘솔 목 — 개발/파일럿용. 전화번호 등 PII 는 출력하지 않는다 (userId 는 내부 id). */
+/** 콘솔 목 — 개발/파일럿용. 전화번호·채팅 본문 등 PII 는 출력하지 않는다 (userId 는 내부 id). */
 export class ConsoleNotificationProvider implements NotificationProvider {
   send(notification: AppNotification): void {
+    const preview = notification.kind === 'CHAT' ? '[새 채팅 메시지]' : notification.message;
     console.log(
-      `[notify] → ${notification.userId}: ${notification.message} (request=${notification.requestId}, status=${notification.status})`,
+      `[notify] → ${notification.userId}: ${preview} (request=${notification.requestId}, status=${notification.status})`,
     );
   }
 }

@@ -117,25 +117,27 @@ export function createJobsRouter(requestStore: RequestStore, userStore: UserStor
       });
       return;
     }
+    if (request.requesterId === providerId) {
+      res.status(403).json({ error: '본인이 등록한 요청은 수락할 수 없어요.' });
+      return;
+    }
     if (requestKindForProvider(provider.userType) !== request.kind) {
       res.status(403).json({ error: '내 업종에 맞는 일감이 아니에요.' });
       return;
     }
 
-    const maxRadiusKm =
-      provider.userType === 'TRANSPORT_COMPANY'
-        ? (provider.matchRadiusKm ?? MATCH_RADIUS_KM)
-        : MATCH_RADIUS_KM;
-
-    if (request.location && provider.location) {
-      const dist = haversineDistanceKm(request.location, provider.location);
-      if (dist > maxRadiusKm) {
-        res.status(400).json({ error: `매칭 반경(${maxRadiusKm}km)을 벗어난 일감은 수락할 수 없어요.` });
+    if (provider.userType === 'TRANSPORT_COMPANY') {
+      const maxRadiusKm = provider.matchRadiusKm ?? MATCH_RADIUS_KM;
+      if (request.location && provider.location) {
+        const dist = haversineDistanceKm(request.location, provider.location);
+        if (dist > maxRadiusKm) {
+          res.status(400).json({ error: `매칭 반경(${maxRadiusKm}km)을 벗어난 일감은 수락할 수 없어요.` });
+          return;
+        }
+      } else if (!regionMatches(request.region, provider.region)) {
+        res.status(400).json({ error: '다른 지역의 일감은 수락할 수 없어요.' });
         return;
       }
-    } else if (!regionMatches(request.region, provider.region)) {
-      res.status(400).json({ error: '다른 지역의 일감은 수락할 수 없어요.' });
-      return;
     }
 
     if (provider.userType === 'TRANSPORT_COMPANY' && provider.availability !== 'ONLINE') {

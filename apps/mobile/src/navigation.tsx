@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from 'react';
 import {
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -175,9 +176,10 @@ export function TabBar({ active }: { active: TabName }) {
             onPress={() => nav.switchTab(tab)}
             style={styles.tabItem}
           >
+            <View style={[styles.tabIndicator, isActive && styles.tabIndicatorActive]} />
             <AppIcon
               name={icon}
-              size={26}
+              size={24}
               color={isActive ? colors.text : colors.textMuted}
               filled={isActive}
             />
@@ -207,7 +209,7 @@ export function WebTopNav({ active }: { active: TabName | null }) {
   const hasNoti = tabs.some((t) => t.tab === 'notifications');
   const roleLabel = USER_TYPE_LABELS[user.userType] ?? '';
   return (
-    <View style={styles.topNav}>
+    <View style={[styles.topNav, Platform.OS === 'web' && (styles.topNavSticky as ViewStyle)]}>
       <View style={styles.topNavInner}>
         <Pressable
           accessibilityRole="link"
@@ -355,15 +357,16 @@ export function ScreenHeader({ title, canGoBack }: { title: string; canGoBack?: 
       ]}
     >
       {canGoBack ? (
-        <Pressable
+        <HoverPressable
           accessibilityRole="button"
           accessibilityLabel="뒤로 가기"
           onPress={() => nav.pop()}
           style={[styles.backButton, wide && styles.backButtonWide]}
+          hoverStyle={styles.backButtonHover}
         >
-          <AppIcon name="chevronLeft" size={26} color={colors.text} />
+          <AppIcon name="chevronLeft" size={24} color={colors.text} />
           <Text style={styles.backLabel}>뒤로</Text>
-        </Pressable>
+        </HoverPressable>
       ) : null}
       <Text
         numberOfLines={1}
@@ -388,7 +391,6 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     borderTopWidth: 1,
     flexDirection: 'row',
-    paddingTop: spacing.xs / 2,
     // paddingBottom 은 안전영역에 맞춰 런타임에 정한다.
   },
   tabItem: {
@@ -397,7 +399,18 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
     justifyContent: 'center',
     minHeight: touch.primaryButtonHeight + spacing.xs,
-    paddingVertical: spacing.xs / 2,
+    paddingBottom: spacing.xs / 2,
+    paddingTop: spacing.xs / 2,
+  },
+  tabIndicator: {
+    backgroundColor: 'transparent',
+    borderRadius: 1,
+    height: 2,
+    marginBottom: spacing.xs / 2,
+    width: 24,
+  },
+  tabIndicatorActive: {
+    backgroundColor: colors.primary,
   },
   tabLabel: {
     color: colors.textMuted,
@@ -416,6 +429,13 @@ const styles = StyleSheet.create({
     width: '100%',
     zIndex: 10,
   },
+  topNavSticky: {
+    position: 'sticky' as unknown as ViewStyle['position'],
+    top: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.90)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+  } as unknown as ViewStyle,
   topNavInner: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -454,7 +474,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   topNavTabActive: {
-    borderBottomColor: colors.text,
+    borderBottomColor: colors.primary,
   },
   topNavTabLabel: {
     color: colors.textMuted,
@@ -472,7 +492,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
   },
   topNavHover: {
-    backgroundColor: colors.appBackground,
+    backgroundColor: colors.surface,
   },
   topNavIconButton: {
     alignItems: 'center',
@@ -491,14 +511,16 @@ const styles = StyleSheet.create({
   },
   topNavAvatar: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: theme.radius.pill,
+    backgroundColor: theme.onDark.canvas,
+    borderColor: theme.onDark.border,
+    borderRadius: theme.radius.badge,
+    borderWidth: 1,
     height: 40,
     justifyContent: 'center',
     width: 40,
   },
   topNavAvatarText: {
-    color: colors.primary,
+    color: colors.background,
     fontSize: font.body,
     fontWeight: '700',
   },
@@ -562,7 +584,10 @@ const styles = StyleSheet.create({
     height: touch.minButtonHeight,
     justifyContent: 'center',
     marginRight: spacing.xs,
-    paddingRight: spacing.xs,
+    paddingHorizontal: spacing.xs,
+  },
+  backButtonHover: {
+    backgroundColor: colors.surface,
   },
   backButtonWide: {
     marginBottom: spacing.xs,

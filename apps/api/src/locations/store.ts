@@ -40,9 +40,16 @@ export class LocationStore {
   }
 
   /** 최신 위치. 작업이 진행중이 아니면 공유 종료로 간주하고 null. */
-  async getLocation(requestId: string): Promise<LocationShare | null> {
+  async getLocation(requestId: string, viewerId?: string): Promise<LocationShare | null> {
     const request = await this.requestStore.get(requestId);
     if (!request) throw new LocationValidationError('요청을 찾을 수 없습니다.');
+    if (
+      viewerId !== undefined &&
+      request.requesterId !== viewerId &&
+      request.matchedProviderId !== viewerId
+    ) {
+      throw new LocationValidationError('요청 당사자만 위치를 조회할 수 있습니다.');
+    }
     if (request.status !== 'IN_PROGRESS') {
       this.latest.delete(requestId);
       return null;

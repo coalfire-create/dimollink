@@ -69,10 +69,11 @@ export function createOffersRouter(store: OfferStore): Router {
   // GET /api/offers?requestId=&providerId=&status=
   router.get('/offers', async (req, res) => {
     const { requestId, providerId, status } = req.query;
+    const actorId = (req as Partial<AuthedRequest>).authUser?.id;
     res.json(
       await store.list({
         requestId: typeof requestId === 'string' ? requestId : undefined,
-        providerId: typeof providerId === 'string' ? providerId : undefined,
+        providerId: actorId ?? (typeof providerId === 'string' ? providerId : undefined),
         status: typeof status === 'string' ? (status as MatchOfferStatus) : undefined,
       }),
     );

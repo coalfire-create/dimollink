@@ -27,11 +27,13 @@ function parseGeoPoint(raw: unknown): GeoPoint | undefined {
   return isValidGeoPoint(point) ? point : undefined;
 }
 
-/** 남에게 보여줄 프로필 — 연락처·사업자등록번호(PII)를 뺀다. */
+/** 남에게 보여줄 프로필 — 연락처·사업자등록번호·이메일·소셜신원(PII)을 뺀다. */
 function toPublicProfile(user: UserProfile): UserProfile {
   const publicProfile = { ...user };
   delete publicProfile.phone;
   delete publicProfile.businessNumber;
+  delete publicProfile.email;
+  delete publicProfile.socialIdentities;
   return publicProfile;
 }
 
@@ -133,7 +135,7 @@ export function createUsersRouter(
     let socialIdentity: CreateUserInput['socialIdentity'];
     if (typeof body.socialTicket === 'string') {
       const parsed = oauth?.verifySignupTicket(body.socialTicket);
-      if (!parsed) {
+      if (!parsed || !oauth?.isConfigured(parsed.provider)) {
         res.status(400).json({ error: '소셜 인증이 만료되었습니다. 다시 로그인해 주세요.', code: 'SOCIAL_TICKET_INVALID' });
         return;
       }
@@ -168,7 +170,7 @@ export function createUsersRouter(
         : created;
       // 비밀번호 설정(번호+비밀번호 로그인). 소셜 가입은 비밀번호 없이 통과 가능.
       if (isValidPassword(password)) {
-        credentialStore.setPassword(user.id, phone, password);
+        await credentialStore.setPassword(user.id, phone, password);
       }
       // 번호 인증 창 소진 + 세션 토큰 발급(가입 즉시 로그인·자동 로그인).
       await otpService.consumePhoneVerification(phone);
@@ -218,7 +220,14 @@ export function createUsersRouter(
       res.status(400).json({ error: "availability 는 'ONLINE' 또는 'OFFLINE' 이어야 합니다." });
       return;
     }
-    const radiusKm = typeof body.radiusKm === 'number' ? body.radiusKm : undefined;
+    let radiusKm: number | undefined;
+    if (body.radiusKm !== undefined) {
+      if (typeof body.radiusKm !== 'number' || !Number.isInteger(body.radiusKm) || body.radiusKm < 1 || body.radiusKm > 100) {
+        res.status(400).json({ error: '매칭 반경은 1~100km 사이의 정수여야 합니다.' });
+        return;
+      }
+      radiusKm = body.radiusKm;
+    }
     try {
       res.json(await store.setAvailability(req.params.id, availability as CallAvailability, radiusKm));
     } catch (err) {
@@ -263,16 +272,36 @@ export function createUsersRouter(
   router.patch('/users/:id', async (req, res) => {
     if (!assertSelf(req, res)) return;
     const body = (req.body ?? {}) as Record<string, unknown>;
+    const nextPhone = typeof body.phone === 'string' ? body.phone.trim() : undefined;
+    let phoneChanged = false;
+    if (nextPhone) {
+      const current = await store.get(req.params.id);
+      const currentDigits = (current?.phone ?? '').replace(/\D/g, '');
+      const nextDigits = nextPhone.replace(/\D/g, '');
+      if (nextDigits !== currentDigits) {
+        if (!(await otpService.isPhoneVerified(nextPhone))) {
+          res.status(403).json({
+            error: '휴대폰번호 변경을 위해 먼저 인증코드를 검증해 주세요.',
+            code: 'PHONE_NOT_VERIFIED',
+          });
+          return;
+        }
+        phoneChanged = true;
+      }
+    }
     try {
-      res.json(
-        await store.update(req.params.id, {
-          name: typeof body.name === 'string' ? body.name : undefined,
-          region: typeof body.region === 'string' ? body.region : undefined,
-          phone: typeof body.phone === 'string' ? body.phone : undefined,
-          email: typeof body.email === 'string' ? body.email : undefined,
-          location: parseGeoPoint(body.location),
-        }),
-      );
+      const updated = await store.update(req.params.id, {
+        name: typeof body.name === 'string' ? body.name : undefined,
+        region: typeof body.region === 'string' ? body.region : undefined,
+        phone: nextPhone || undefined,
+        email: typeof body.email === 'string' ? body.email : undefined,
+        location: parseGeoPoint(body.location),
+      });
+      if (phoneChanged && nextPhone) {
+        await credentialStore.updatePhone(req.params.id, nextPhone);
+        await otpService.consumePhoneVerification(nextPhone);
+      }
+      res.json(updated);
     } catch (err) {
       handleError(err, res);
     }

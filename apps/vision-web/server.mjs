@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /**
  * 디몰비전 웹 서버 — 정적 서빙 + 디몰링크 API 프록시. 의존성 0.
@@ -18,7 +19,7 @@ import { extname, join, normalize, resolve } from 'node:path';
  * 공급망 취약점 알림·버전 업데이트에 끌려다닐 일이 없다.
  */
 
-const ROOT = resolve(new URL('.', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const PORT = Number(process.env.PORT ?? 8080);
 
 /** 디몰링크 API. 공공데이터(건축물대장) 키와 지오코딩이 여기 있다. */
@@ -66,17 +67,35 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+const BLOCKED_ROOT_FILES = new Set([
+  'server.mjs',
+  'Dockerfile',
+  'vercel.json',
+  'README.md',
+  'package.json',
+  'package-lock.json',
+]);
+
 /**
- * 요청 경로 → 실제 파일 경로. 루트를 벗어나면 null.
- * `..` 경로 탈출을 막는 것이 이 함수의 유일한 목적이므로 normalize 후 접두사를 검사한다.
+ * 요청 경로 → 실제 파일 경로. 루트를 벗어나거나 민감/서버 파일이면 null.
  */
 export function resolveFile(urlPath, root = ROOT) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0] ?? '/');
+  let decoded;
+  try {
+    decoded = decodeURIComponent(urlPath.split('?')[0] ?? '/');
+  } catch {
+    return null;
+  }
   const relative = decoded === '/' ? 'index.html' : decoded.replace(/^\/+/, '');
-  const target = normalize(join(root, relative));
-  if (!target.startsWith(root)) return null; // 경로 탈출 차단
+  const segments = relative.split('/').filter(Boolean);
+  if (segments.some((part) => part.startsWith('.'))) return null;
+  if (segments.length === 1 && BLOCKED_ROOT_FILES.has(segments[0])) return null;
+
+  const rootResolved = resolve(root);
+  const target = resolve(join(rootResolved, relative));
+  if (target !== rootResolved && !target.startsWith(rootResolved + sep)) return null; // 경로 탈출 차단
   if (existsSync(target) && statSync(target).isDirectory()) {
-    return normalize(join(target, 'index.html'));
+    return resolve(join(target, 'index.html'));
   }
   return target;
 }
@@ -96,7 +115,7 @@ export function proxyTarget(url, method = 'GET', allowed = PROXY_ALLOWED) {
   const permitted =
     method === 'POST'
       ? PROXY_ALLOWED_POST.has(path)
-      : allowed.has(path) || PROXY_ALLOWED_PATTERNS.some((re) => re.test(path));
+      : method === 'GET' && (allowed.has(path) || PROXY_ALLOWED_PATTERNS.some((re) => re.test(path)));
   if (!permitted) return null;
   return query ? `${path}?${query}` : path;
 }
@@ -133,6 +152,7 @@ async function handleProxy(target, res, { method = 'GET', body } = {}) {
     const upstream = await fetch(`${DIMOLLINK_API}${target}`, {
       method,
       headers,
+      signal: AbortSignal.timeout(15_000),
       ...(method === 'POST' ? { body } : {}),
     });
     // ⚠️ `body` 로 받지 말 것 — 인자 `body` 를 가려 TDZ 로 죽고, 아래 catch 가 그걸
@@ -181,6 +201,7 @@ const server = createServer((req, res) => {
     'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
     'Cache-Control': cacheControlFor(file),
     'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
   });
   createReadStream(file).pipe(res);

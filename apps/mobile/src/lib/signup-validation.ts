@@ -1,4 +1,4 @@
-import { isCompanyType, type UserType } from '@dimol/shared';
+import { isCompanyType, isValidBusinessNumber, type UserType } from '@dimol/shared';
 
 /**
  * 회원가입 입력 검증 — 화면에서 떼어낸 순수 함수.
@@ -18,6 +18,7 @@ export interface SignupValues {
   codeSent: boolean;
   password: string;
   passwordConfirm: string;
+  businessNumber?: string;
   termsAccepted: boolean;
 }
 
@@ -51,5 +52,9 @@ export function validateSignup(values: SignupValues): string | null {
     return `비밀번호를 ${MIN_PASSWORD_LENGTH}자 이상으로 설정해 주세요.`;
   }
   if (values.password !== values.passwordConfirm) return '비밀번호가 일치하지 않습니다.';
+  const bn = values.businessNumber?.trim() ?? '';
+  if (isCompany && bn.length > 0 && !isValidBusinessNumber(bn)) {
+    return '올바른 사업자등록번호(10자리)를 입력해 주세요.';
+  }
   return null;
 }

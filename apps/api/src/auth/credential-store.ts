@@ -63,10 +63,22 @@ export class CredentialStore {
     await this.saveInner(rec);
   }
 
+  async updatePhone(userId: string, newPhone: string): Promise<void> {
+    const rec = await this.getInner(userId);
+    if (!rec) return;
+    await this.saveInner({
+      ...rec,
+      phoneKey: normalizePhone(newPhone),
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   async verify(phone: string, password: string): Promise<string | null> {
     const phoneKey = normalizePhone(phone);
-    const all = await this.listInner();
-    const rec = all.find(r => r.phoneKey === phoneKey);
+    const list = this.persistence?.listBy
+      ? await this.persistence.listBy({ phoneKey })
+      : await this.listInner();
+    const rec = list.find(r => r.phoneKey === phoneKey);
     if (!rec) return null;
     return verifyHash(password, rec.passwordHash) ? rec.userId : null;
   }

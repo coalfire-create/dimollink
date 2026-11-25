@@ -1,41 +1,26 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
-import { IconTile, StatusBadge } from '../../components/ui';
-import { AppIcon, type IconName } from '../../components/AppIcon';
+import { StatusBadge } from '../../components/ui';
+import { AppIcon } from '../../components/AppIcon';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
+import { TABULAR_NUMS } from '../../lib/format';
 import { requestSubtitle, requestTons } from '../../lib/request-summary';
-import { theme } from '../../theme';
 import { payableAmount } from '../../lib/request-next-step';
+import { statusColor, theme } from '../../theme';
 
 /**
- * 대시보드 행 — 목록에서 한 건을 요약한다.
- *
- * 열을 늘리는 대신 **사용자가 목록에서 실제로 판단하는 것**만 남겼다: 무슨 요청인지 ·
- * 지금 어느 단계인지 · 얼마나 진행됐는지 · 언제 접수했는지.
- *
- * 진행률 막대를 두는 이유는 상태 이름(예: "결제완료")만으로는 전체 중 어디쯤인지
- * 안 보이기 때문이다. 취소된 건은 진행이 멈춘 것이라 막대를 그리지 않는다.
+ * 대시보드 행 — 반복 아이콘 타일을 걷어내고 왼쪽 3px 상태 컬러 레일과
+ * 단정한 타이포그래피 위계(종류 · 현장 제목 · 날짜/물량 · 얇은 진행선)로 구성한다.
  */
-
-/**
- * 요청 종류 → 아이콘.
- *
- * 이모지를 쓰지 않는다 — 같은 이모지도 안드로이드·iOS·폰트 버전마다 모양과 크기가
- * 달라 목록이 기기별로 다르게 보인다. 앱 전체가 쓰는 아이콘 세트로 맞춘다.
- */
-const KIND_ICON: Record<string, IconName> = {
-  DEMOLITION: 'hammer',
-  TRANSPORT: 'truck',
-  INTERIOR: 'tools',
-  DISPOSAL_RESERVATION: 'recycle',
-};
-
 export function RequestRow({ request, onPress }: { request: ServiceRequest; onPress: () => void }) {
+  const [hovered, setHovered] = React.useState(false);
   const tons = requestTons(request);
   const stepIndex = REQUEST_TIMELINE.indexOf(request.status);
   const cancelled = request.status === 'CANCELLED';
   const progress = cancelled || stepIndex < 0 ? 0 : (stepIndex + 1) / REQUEST_TIMELINE.length;
+  const due = payableAmount(request) !== null;
+  const accent = statusColor(due ? 'PAYMENT_DUE' : request.status).text;
 
   return (
     <Pressable
@@ -49,28 +34,32 @@ export function RequestRow({ request, onPress }: { request: ServiceRequest; onPr
         .filter(Boolean)
         .join(', ')}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => [
+        styles.card,
+        hovered && styles.cardHovered,
+        pressed && styles.cardPressed,
+      ]}
     >
+      <View style={[styles.statusRail, { backgroundColor: accent }]} />
       <View style={styles.inner}>
-        <IconTile icon={KIND_ICON[request.kind] ?? 'document'} style={styles.kindBadge} />
         <View style={styles.body}>
           <View style={styles.topRow}>
             <Text style={styles.title}>{REQUEST_KIND_LABELS[request.kind]}</Text>
             <View style={styles.topRowRight}>
-              {/* 결제가 남았으면 그게 지금 할 일이라 상태 배지 대신 "결제 대기" 하나만 보인다.
-                  예전엔 둘을 나란히 붙여 좁은 폰에서 오른쪽 배지가 잘렸다. */}
-              {payableAmount(request) !== null ? (
+              {due ? (
                 <StatusBadge status="PAYMENT_DUE" label="결제 대기" />
               ) : (
                 <StatusBadge status={request.status} label={REQUEST_STATUS_LABELS[request.status]} />
               )}
-              <AppIcon name="chevronRight" size={22} color={colors.textMuted} />
+              <AppIcon name="chevronRight" size={20} color={colors.textMuted} />
             </View>
           </View>
           <Text style={styles.headline} numberOfLines={1}>
             {requestSubtitle(request)}
           </Text>
-          <Text style={styles.meta} numberOfLines={1}>
+          <Text style={[styles.meta, TABULAR_NUMS]} numberOfLines={1}>
             {new Date(request.createdAt).toLocaleDateString('ko-KR')} 접수
             {tons ? ` · ${tons}` : ''}
           </Text>
@@ -91,23 +80,27 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.background,
     borderColor: colors.border,
-    borderRadius: radius.card,
+    borderRadius: radius.button,
     borderWidth: 1,
     flexDirection: 'row',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     overflow: 'hidden',
+    ...theme.shadow.card,
+  },
+  cardHovered: {
+    borderColor: colors.borderStrong,
   },
   cardPressed: {
     opacity: 0.92,
+  },
+  statusRail: {
+    width: 3,
   },
   inner: {
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
-    padding: spacing.sm,
-  },
-  kindBadge: {
-    marginRight: spacing.sm,
+    padding: spacing.md,
   },
   body: {
     flex: 1,
@@ -123,31 +116,31 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    color: colors.text,
-    fontSize: font.bodyLarge,
+    color: colors.textMuted,
+    fontSize: font.caption,
     fontWeight: '700',
   },
   headline: {
     color: colors.text,
     fontSize: font.bodyLarge,
     fontWeight: '700',
-    marginTop: spacing.xs / 2,
+    marginTop: 4,
   },
   meta: {
     color: colors.textMuted,
     fontSize: font.caption,
-    marginTop: spacing.xs / 2,
+    marginTop: 4,
   },
   progressTrack: {
-    backgroundColor: colors.border,
-    borderRadius: 999,
-    height: 6,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    height: 4,
     marginTop: spacing.xs,
     overflow: 'hidden',
   },
   progressFill: {
     backgroundColor: colors.primary,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     height: '100%',
   },
 });

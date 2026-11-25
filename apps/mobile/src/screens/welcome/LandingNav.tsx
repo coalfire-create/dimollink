@@ -1,7 +1,8 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { SUPPORT_PHONE } from '@dimol/shared';
 import brandmark from '../../../assets/brandmark.png';
+import { TABULAR_NUMS } from '../../lib/format';
 import { theme } from '../../theme';
 
 export type LandingSection = 'how' | 'features' | 'partners' | 'pricing';
@@ -15,12 +16,7 @@ const MENU: ReadonlyArray<{ key: LandingSection; label: string }> = [
 
 /**
  * 로그인 전 홈페이지(데스크톱 웹) 상단 메뉴바.
- *
- * 회사 사이트처럼 [로고 · 섹션 메뉴 · 고객센터 / 로그인 · 회원가입]. 메뉴는 같은 페이지의
- * 섹션으로 내려간다(페이지가 하나뿐이라 따로 주소를 만들지 않는다).
- * 로고를 길게 누르면 관리자 백오피스(공유 운영 토큰 경로) — 일반 사용자 눈에는 안 띈다.
- *
- * 로그인·회원가입 화면에서는 같은 막대를 메뉴 없이 쓴다(onJump 없음) — 로고를 누르면 첫 화면.
+ * tone="dark" 는 첫 화면 다크 3D 히어로 위에 얹히는 반투명 글래스 헤더다.
  */
 export function LandingNav({
   onJump,
@@ -28,15 +24,25 @@ export function LandingNav({
   onSignup,
   onLogoPress,
   onLogoLongPress,
+  tone = 'light',
 }: {
   onJump?: (section: LandingSection) => void;
   onLogin?: () => void;
   onSignup?: () => void;
   onLogoPress?: () => void;
   onLogoLongPress?: () => void;
+  tone?: 'dark' | 'light';
 }) {
+  const dark = tone === 'dark';
   return (
-    <View style={styles.bar}>
+    <View
+      style={[
+        styles.bar,
+        dark ? styles.barDark : styles.barLight,
+        Platform.OS === 'web' && WEB_STICKY,
+        Platform.OS === 'web' && (dark ? WEB_GLASS_DARK : WEB_GLASS_LIGHT),
+      ]}
+    >
       <View style={styles.inner}>
         <Pressable
           accessibilityRole={onLogoPress ? 'link' : 'image'}
@@ -47,18 +53,27 @@ export function LandingNav({
           style={styles.brand}
         >
           <Image source={brandmark} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.brandText}>비움</Text>
+          <Text style={[styles.brandText, dark && styles.brandTextDark]}>비움</Text>
+          <View style={[styles.brandDivider, dark && styles.brandDividerDark]} />
+          <Text style={[styles.brandTag, dark && styles.brandTagDark]}>건설폐기물 중개</Text>
         </Pressable>
         <View style={styles.menu}>
           {onJump
             ? MENU.map((item) => (
-                <NavLink key={item.key} label={item.label} onPress={() => onJump(item.key)} />
+                <NavLink
+                  key={item.key}
+                  label={item.label}
+                  dark={dark}
+                  onPress={() => onJump(item.key)}
+                />
               ))
             : null}
         </View>
         <View style={styles.actions}>
-          <Text style={styles.phone}>고객센터 {SUPPORT_PHONE}</Text>
-          {onLogin ? <NavLink label="로그인" onPress={onLogin} /> : null}
+          <Text style={[styles.phone, TABULAR_NUMS, dark && styles.phoneDark]}>
+            고객센터 {SUPPORT_PHONE}
+          </Text>
+          {onLogin ? <NavLink label="로그인" dark={dark} onPress={onLogin} /> : null}
           {onSignup ? <SignupButton onPress={onSignup} /> : null}
         </View>
       </View>
@@ -66,7 +81,15 @@ export function LandingNav({
   );
 }
 
-function NavLink({ label, onPress }: { label: string; onPress: () => void }) {
+function NavLink({
+  label,
+  dark,
+  onPress,
+}: {
+  label: string;
+  dark: boolean;
+  onPress: () => void;
+}) {
   const [hovered, setHovered] = React.useState(false);
   return (
     <Pressable
@@ -74,9 +97,20 @@ function NavLink({ label, onPress }: { label: string; onPress: () => void }) {
       onPress={onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
-      style={[styles.link, hovered && styles.linkHovered]}
+      style={[
+        styles.link,
+        hovered && (dark ? styles.linkHoveredDark : styles.linkHovered),
+      ]}
     >
-      <Text style={[styles.linkText, hovered && styles.linkTextHovered]}>{label}</Text>
+      <Text
+        style={[
+          styles.linkText,
+          dark && styles.linkTextDark,
+          hovered && (dark ? styles.linkTextHoveredDark : styles.linkTextHovered),
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -91,21 +125,39 @@ function SignupButton({ onPress }: { onPress: () => void }) {
       onHoverOut={() => setHovered(false)}
       style={[styles.signup, hovered && styles.signupHovered]}
     >
-      <Text style={styles.signupText}>회원가입</Text>
+      <Text style={styles.signupText}>시작하기</Text>
     </Pressable>
   );
 }
 
-const { colors, font, spacing, touch, radius } = theme;
+const { colors, font, spacing, touch, radius, onDark } = theme;
+
+const WEB_STICKY = { position: 'sticky', top: 0 } as unknown as ViewStyle;
+const WEB_GLASS_DARK = {
+  backgroundColor: 'rgba(17, 19, 21, 0.86)',
+  backdropFilter: 'blur(14px)',
+  WebkitBackdropFilter: 'blur(14px)',
+} as unknown as ViewStyle;
+const WEB_GLASS_LIGHT = {
+  backgroundColor: 'rgba(255, 255, 255, 0.90)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+} as unknown as ViewStyle;
 
 const styles = StyleSheet.create({
   bar: {
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderBottomColor: colors.border,
     borderBottomWidth: 1,
     width: '100%',
-    zIndex: 10,
+    zIndex: 20,
+  },
+  barLight: {
+    backgroundColor: colors.background,
+    borderBottomColor: colors.border,
+  },
+  barDark: {
+    backgroundColor: onDark.canvas,
+    borderBottomColor: onDark.border,
   },
   inner: {
     alignItems: 'center',
@@ -121,12 +173,32 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginRight: spacing.lg + spacing.sm,
   },
-  logo: { height: 32, width: 32 },
+  logo: { height: 28, width: 28 },
   brandText: {
     color: colors.text,
     fontSize: font.title,
     fontWeight: '700',
     letterSpacing: theme.tracking.title,
+  },
+  brandTextDark: {
+    color: colors.background,
+  },
+  brandDivider: {
+    backgroundColor: colors.borderStrong,
+    height: 14,
+    marginHorizontal: spacing.xs / 2,
+    width: 1,
+  },
+  brandDividerDark: {
+    backgroundColor: onDark.border,
+  },
+  brandTag: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '600',
+  },
+  brandTagDark: {
+    color: onDark.textMuted,
   },
   menu: { flex: 1, flexDirection: 'row', gap: spacing.xs / 2 },
   actions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
@@ -136,18 +208,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: spacing.sm,
   },
+  phoneDark: {
+    color: onDark.textMuted,
+  },
   link: {
-    borderRadius: radius.button,
+    borderRadius: radius.badge,
     justifyContent: 'center',
     minHeight: touch.minButtonHeight,
     paddingHorizontal: spacing.sm,
   },
-  linkHovered: { backgroundColor: colors.appBackground },
+  linkHovered: { backgroundColor: colors.surface },
+  linkHoveredDark: { backgroundColor: onDark.surface },
   linkText: { color: colors.textMuted, fontSize: font.body, fontWeight: '600' },
+  linkTextDark: { color: onDark.textMuted },
   linkTextHovered: { color: colors.text },
+  linkTextHoveredDark: { color: colors.background },
   signup: {
     backgroundColor: colors.primary,
-    borderRadius: radius.button,
+    borderRadius: radius.badge,
     justifyContent: 'center',
     minHeight: touch.minButtonHeight,
     paddingHorizontal: spacing.md,

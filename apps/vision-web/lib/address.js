@@ -48,6 +48,15 @@
 
     var picked = null; // { lat, lng }
     var mapReady = false;
+    var mapSrc =
+      (DV.config.dimollinkWebUrl || "") +
+      "/map?lat=" + DEFAULT_CENTER.lat + "&lng=" + DEFAULT_CENTER.lng;
+    var mapOrigin = "";
+    try {
+      mapOrigin = new URL(mapSrc, window.location.href).origin;
+    } catch (e) {
+      mapOrigin = "";
+    }
 
     /** 지도가 뜨기 전 들어온 이동 요청은 로드 후에 보낸다. */
     var pending = null;
@@ -64,11 +73,13 @@
         pending = { lat: lat, lng: lng };
         return;
       }
-      frame.contentWindow.postMessage({ type: "PAN_TO", lat: lat, lng: lng }, "*");
+      frame.contentWindow.postMessage({ type: "PAN_TO", lat: lat, lng: lng }, mapOrigin || "*");
     }
 
     // 지도가 멈추면 그 좌표의 주소를 받아 입력칸을 채운다(핀 찝기).
     window.addEventListener("message", function (event) {
+      if (event.source !== frame.contentWindow) return;
+      if (mapOrigin && event.origin !== mapOrigin) return;
       var data = event.data;
       if (!data || typeof data !== "object") return;
 
@@ -79,6 +90,7 @@
         return;
       }
       if (data.type === "MAP_MOVED") {
+        if (typeof data.lat !== "number" || typeof data.lng !== "number") return;
         picked = { lat: data.lat, lng: data.lng };
         void reverseGeocode(data.lat, data.lng);
       }
@@ -185,9 +197,7 @@
     });
 
     // 지도 로드
-    frame.src =
-      (DV.config.dimollinkWebUrl || "") +
-      "/map?lat=" + DEFAULT_CENTER.lat + "&lng=" + DEFAULT_CENTER.lng;
+    frame.src = mapSrc;
 
     return { getPicked: function () { return picked; } };
   };

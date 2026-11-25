@@ -48,7 +48,8 @@ function newPaymentId(): string {
 const isWeb = Platform.OS === 'web';
 
 function todayKST(): string {
-  return new Date().toISOString().slice(0, 10);
+  // KST(UTC+9) 기준 YYYY-MM-DD — 자정 전후 UTC 오차로 정산일이 하루 밀리지 않도록 보정.
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 /** 인테리어 요청인지 판별(합의 금액·표시 라벨을 종류별로 다르게 구성). */
@@ -75,13 +76,21 @@ export function PaymentScreen({
   const [payRequest, setPayRequest] = useState<Omit<PaymentRequest, 'requestUrl'> | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchRequest =
       source === 'interior' ? getInteriorRequest(requestId) : getRequest(requestId);
     fetchRequest
-      .then(setRequest)
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.'),
-      );
+      .then((res) => {
+        if (!cancelled) setRequest(res);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : '요청을 불러오지 못했습니다.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [requestId, source]);
 
   // 모바일 브라우저 결제는 결제사 페이지에 갔다가 돌아온다 — 돌아온 결과를 마저 검증한다.
@@ -112,7 +121,7 @@ export function PaymentScreen({
     buyer.withCustomer((customer) => {
       const orderName = isInterior(request)
         ? `인테리어 시공 · ${INTERIOR_CATEGORY_LABELS[request.category]}`
-        : `${REQUEST_KIND_LABELS[request.kind]} · ${request.wasteTons}톤`;
+        : [REQUEST_KIND_LABELS[request.kind], requestTons(request)].filter(Boolean).join(' · ');
       if (isWeb) {
         setPaying(true);
         requestWebRequestPayment({

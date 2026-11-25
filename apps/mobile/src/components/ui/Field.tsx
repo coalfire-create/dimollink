@@ -90,17 +90,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fieldInput: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     borderColor: colors.borderStrong,
     borderRadius: radius.button,
-    borderWidth: 1.5,
+    borderWidth: 1,
     color: colors.text,
     fontSize: font.bodyLarge,
     minHeight: touch.primaryButtonHeight,
     paddingHorizontal: spacing.md,
   },
   fieldInputFocused: {
+    backgroundColor: colors.background,
     borderColor: colors.primary,
+    borderWidth: 1.5,
   },
   fieldInputError: {
     borderColor: colors.error,

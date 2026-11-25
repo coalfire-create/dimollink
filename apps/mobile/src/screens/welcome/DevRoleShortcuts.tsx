@@ -4,12 +4,12 @@ import { theme } from '../../theme';
 
 export type DevRoleKey = 'CONSUMER' | 'DEMOLITION' | 'TRANSPORT' | 'TREATMENT' | 'INTERIOR';
 
-const ROLES: { key: DevRoleKey; label: string }[] = [
-  { key: 'CONSUMER', label: '👤 소비자' },
-  { key: 'DEMOLITION', label: '🏗 철거' },
-  { key: 'TRANSPORT', label: '🚚 운반' },
-  { key: 'TREATMENT', label: '🏭 처리장' },
-  { key: 'INTERIOR', label: '🛠 인테리어' },
+const ROLES: { key: DevRoleKey; code: string; label: string }[] = [
+  { key: 'CONSUMER', code: '01', label: '소비자' },
+  { key: 'DEMOLITION', code: '02', label: '철거' },
+  { key: 'TRANSPORT', code: '03', label: '운반' },
+  { key: 'TREATMENT', code: '04', label: '처리장' },
+  { key: 'INTERIOR', code: '05', label: '인테리어' },
 ];
 
 /**
@@ -19,7 +19,7 @@ const ROLES: { key: DevRoleKey; label: string }[] = [
 export function DevRoleShortcuts({ onSelect }: { onSelect: (role: DevRoleKey) => void }) {
   return (
     <View style={styles.devSection}>
-      <Text style={styles.devSectionTitle}>⚡️ UI 검증용 바로가기 (로그인 없이 바로 진입)</Text>
+      <Text style={styles.devSectionTitle}>DEV // 역할별 바로 진입</Text>
       <View style={styles.devGrid}>
         {ROLES.map((role) => (
           <Pressable
@@ -29,6 +29,7 @@ export function DevRoleShortcuts({ onSelect }: { onSelect: (role: DevRoleKey) =>
             style={styles.devChip}
             onPress={() => onSelect(role.key)}
           >
+            <Text style={styles.devChipCode}>{role.code}</Text>
             <Text style={styles.devChipText}>{role.label}</Text>
           </Pressable>
         ))}
@@ -37,41 +38,46 @@ export function DevRoleShortcuts({ onSelect }: { onSelect: (role: DevRoleKey) =>
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, radius, onDark } = theme;
 
 const styles = StyleSheet.create({
   devSection: {
-    marginTop: spacing.md,
-    paddingTop: spacing.sm,
+    borderTopColor: onDark.border,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    marginTop: spacing.lg,
+    paddingTop: spacing.sm,
   },
   devSectionTitle: {
-    color: colors.primary,
+    color: onDark.textMuted,
     fontSize: font.caption,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: '600',
     marginBottom: spacing.xs,
   },
   devGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
-    justifyContent: 'center',
   },
   devChip: {
-    justifyContent: 'center',
-    minHeight: theme.touch.minButtonHeight,
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: onDark.surface,
+    borderColor: onDark.border,
+    borderRadius: radius.badge,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing.xs / 2,
+    minHeight: theme.touch.minButtonHeight,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  devChipText: {
-    color: colors.primary,
+  devChipCode: {
+    color: colors.primarySoft,
     fontSize: font.caption,
     fontWeight: '700',
+  },
+  devChipText: {
+    color: onDark.text,
+    fontSize: font.caption,
+    fontWeight: '600',
   },
 });

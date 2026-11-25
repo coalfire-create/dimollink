@@ -47,7 +47,7 @@ export function ListRow({
       scaleTo={0.99}
       style={[styles.row, hovered && !disabled && styles.rowHovered, disabled && styles.disabled]}
     >
-      <IconTile icon={icon} style={styles.icon} />
+      <IconTile icon={icon} tone="neutral" style={styles.icon} />
       <View style={styles.text}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{title}</Text>

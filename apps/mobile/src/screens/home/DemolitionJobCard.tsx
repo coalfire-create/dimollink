@@ -7,6 +7,7 @@ import {
   resolveFloorArea,
   type RankedJob,
 } from '@dimol/shared';
+import { AppIcon } from '../../components/AppIcon';
 import { Card } from '../../components/ui';
 import { theme } from '../../theme';
 import { TABULAR_NUMS } from '../../lib/format';
@@ -59,8 +60,11 @@ export function DemolitionJobCard({ job, onPress }: { job: RankedJob; onPress: (
       {/* CTA 를 왼쪽에 둔다 — 오른쪽 아래는 고객센터 플로팅 버튼이 지나가는 자리라
           거기에 두면 목록을 스크롤할 때 버튼에 가린다. */}
       <View style={styles.jobFooter}>
-        <Text style={styles.jobCta}>견적 산정하기</Text>
-        <Text style={styles.jobDate}>
+        <View style={styles.jobCtaRow}>
+          <Text style={styles.jobCta}>견적 산정하기</Text>
+          <AppIcon name="chevronRight" size={18} color={theme.colors.primary} />
+        </View>
+        <Text style={[styles.jobDate, TABULAR_NUMS]}>
           {new Date(job.createdAt).toLocaleDateString('ko-KR')} 접수
         </Text>
       </View>
@@ -100,12 +104,15 @@ const styles = StyleSheet.create({
   },
   signal: {
     backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.badge,
+    borderWidth: 1,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.xs / 2,
   },
   signalWarn: {
     backgroundColor: theme.colors.warningSoft,
+    borderColor: theme.colors.warningSoft,
   },
   signalText: {
     ...TABULAR_NUMS,
@@ -124,6 +131,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: theme.spacing.sm,
     paddingTop: theme.spacing.sm,
+  },
+  jobCtaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.xs / 2,
   },
   jobCta: {
     color: theme.colors.primary,

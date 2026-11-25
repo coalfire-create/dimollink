@@ -1,4 +1,11 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+
+function safeKeyEquals(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 /**
  * 공모전 데모용 제한 접근 — 디몰비전 단독 배포에서만 쓴다.
@@ -20,6 +27,8 @@ export interface DemoAccessOptions {
   demoKey?: string;
   /** 하루 허용 호출 수. */
   dailyLimit: number;
+  /** 일일 한도를 차감하지 않는 HTTP 메서드(예: 폴링 GET). */
+  freeMethods?: readonly string[];
   /** 테스트에서 시간을 고정하기 위한 주입점. */
   now?: () => number;
 }
@@ -73,12 +82,17 @@ export function createDemoAccess(options: DemoAccessOptions): DemoAccessGate {
           return;
         }
         const presented = req.header(DEMO_KEY_HEADER);
-        if (!presented || presented !== options.demoKey) {
+        if (!presented || !safeKeyEquals(presented, options.demoKey)) {
           requireAuth(req, res, next);
           return;
         }
 
         rollWindow();
+        if (options.freeMethods?.includes(req.method)) {
+          (req as Request & { demoAccess?: boolean }).demoAccess = true;
+          next();
+          return;
+        }
         if (used >= options.dailyLimit) {
           res.status(429).json({
             error: '오늘의 체험 횟수를 모두 사용했습니다. 내일 다시 이용해 주세요.',

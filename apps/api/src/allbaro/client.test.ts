@@ -288,5 +288,33 @@ describe('AllbaroClient 역할별 회원 검증 & 신규 기능', () => {
     expect(notices).toHaveLength(1);
     expect(notices[0].title).toBe('올바로 점검 안내');
   });
+
+  it('dataList에 다른 사업자번호 행만 있으면 verified=false (오인·우회 차단)', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      allbaroResponse([{ bizrno: '1112233333', firm_name: '다른업체', entn_type: 'TRAN' }]),
+    );
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    const result = await client.verifyMember(VALID);
+    expect(result.verified).toBe(false);
+    expect(result.memberName).toBeUndefined();
+  });
+
+  it('상위 응답 JSON 파싱 실패 시 AllbaroError(UPSTREAM_ERROR)를 던진다', async () => {
+    const badRes = {
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON');
+      },
+    } as unknown as Response;
+    const fetchFn = vi.fn().mockResolvedValue(badRes);
+    const client = new AllbaroClient(sandboxConfig, fetchFn as unknown as typeof fetch);
+
+    await expect(client.verifyMember(VALID)).rejects.toMatchObject({
+      name: 'AllbaroError',
+      code: 'UPSTREAM_ERROR',
+    });
+  });
 });
 

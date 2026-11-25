@@ -106,9 +106,9 @@ export function StickyFooter({ children }: { children: React.ReactNode }) {
 }
 
 // ── 라벨-값 행 (상세 화면용)
-export function InfoRow({ label, value }: { label: string; value: string }) {
+export function InfoRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={styles.infoRow}>
+    <View style={[styles.infoRow, last && styles.infoRowLast]}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
@@ -141,14 +141,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderRadius: radius.badge,
     flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 4,
   },
   badgeDot: {
-    borderRadius: 4,
-    height: 8,
+    borderRadius: 3,
+    height: 6,
     marginRight: spacing.xs,
-    width: 8,
+    width: 6,
   },
   badgeText: {
     fontSize: font.body,
@@ -176,6 +176,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
   },
   infoLabel: {
     color: colors.textMuted,

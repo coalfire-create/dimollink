@@ -15,7 +15,7 @@ import {
 } from '../site-analysis/analyzer.js';
 import { applyLedgerConsistency } from '../site-analysis/consistency.js';
 import type { VolumeEstimator } from '../estimation/provider.js';
-import { uploadBase64Photo } from '../storage/s3.js';
+import { isStorageConfigured, uploadBase64Photo } from '../storage/s3.js';
 import { randomUUID } from 'node:crypto';
 import type { SiteAnalysisQueue } from '../site-analysis/queue.js';
 import type { SiteAnalysisStore } from '../site-analysis/store.js';
@@ -58,11 +58,14 @@ export function createSiteAnalysisRouter(
       imageBase64: typeof body.imageBase64 === 'string' ? body.imageBase64 : undefined,
       mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
       images: images && images.length > 0 ? images : undefined,
-      note: typeof body.note === 'string' ? body.note : undefined,
+      note: typeof body.note === 'string' ? body.note.trim().slice(0, 500) : undefined,
       buildingStructure:
-        typeof body.buildingStructure === 'string' ? body.buildingStructure : undefined,
+        typeof body.buildingStructure === 'string'
+          ? body.buildingStructure.trim().slice(0, 120)
+          : undefined,
       building: parseBuilding(body.building),
-      siteAddress: typeof body.siteAddress === 'string' ? body.siteAddress : undefined,
+      siteAddress:
+        typeof body.siteAddress === 'string' ? body.siteAddress.trim().slice(0, 200) : undefined,
     };
   }
 
@@ -148,20 +151,28 @@ export function createSiteAnalysisRouter(
     analyzeWithFallback(input)
       .then(async (result) => {
         queue.updateJob(job.id, { status: 'COMPLETED', result });
-        
-        try {
-          if (input.imageBase64) {
-            // S3에 원본 이미지 저장
+
+        let savedKey: string | undefined;
+        if (input.imageBase64 && isStorageConfigured()) {
+          try {
             await uploadBase64Photo({
               key: photoKey,
               base64: input.imageBase64,
               contentType: input.mimeType || 'image/jpeg',
             });
+            savedKey = photoKey;
+          } catch (storageErr) {
+            console.warn(
+              '[site-analysis] 이미지 업로드 실패:',
+              storageErr instanceof Error ? storageErr.name : 'error',
+            );
           }
+        }
+        try {
           // 데이터 수집용 DB에 저장
           await store.create({
             id: job.id,
-            photoKey,
+            photoKey: savedKey,
             result,
             buildingLedger: input.building,
             siteAddress: input.siteAddress,
@@ -169,21 +180,25 @@ export function createSiteAnalysisRouter(
             updatedAt: new Date().toISOString(),
           });
         } catch (storageErr) {
-          console.error('[site-analysis] 저장 실패:', storageErr);
+          console.error(
+            '[site-analysis] DB 저장 실패:',
+            storageErr instanceof Error ? storageErr.name : 'error',
+          );
         }
       })
       .catch((err) => {
         const error = err instanceof SiteAnalysisValidationError ? err.message : '현장 분석 처리 오류';
         queue.updateJob(job.id, { status: 'FAILED', error });
-        store.create({
+        store
+          .create({
             id: job.id,
-            photoKey,
             error,
             buildingLedger: input.building,
             siteAddress: input.siteAddress,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-        }).catch(() => {});
+          })
+          .catch(() => {});
       });
 
     res.status(202).json({ jobId: job.id });

@@ -256,11 +256,10 @@ export class KakaoGeocoder implements Geocoder {
         }
       }
 
-      if (results.length > 0) return results;
-      return new NoopGeocoder().searchAddress(query);
+      return results;
     } catch (err) {
       console.warn('[searchAddress] 카카오 검색 실패', err instanceof Error ? err.name : 'error');
-      return new NoopGeocoder().searchAddress(query);
+      return [];
     } finally {
       clearTimeout(timer);
     }

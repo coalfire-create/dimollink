@@ -23,19 +23,32 @@ export function IconTile({
   icon?: IconName;
   label?: string;
   size?: 'sm' | 'md' | 'lg';
-  /** brand: 연한 브랜드 바탕 / solid: 진한 브랜드 바탕(강조) */
-  tone?: 'brand' | 'solid';
+  /** brand: 연한 브랜드 바탕 / solid: 진한 브랜드 바탕 / neutral: 차분한 웜 스톤 바탕 */
+  tone?: 'brand' | 'solid' | 'neutral';
   style?: StyleProp<ViewStyle>;
 }) {
   const box = SIZES[size];
-  const fg = tone === 'solid' ? colors.background : colors.primary;
+  const bg =
+    tone === 'solid'
+      ? colors.primary
+      : tone === 'neutral'
+        ? colors.surface
+        : colors.primarySoft;
+  const fg =
+    tone === 'solid'
+      ? colors.background
+      : tone === 'neutral'
+        ? colors.text
+        : colors.primary;
   return (
     <View
       style={[
         styles.tile,
         {
-          backgroundColor: tone === 'solid' ? colors.primary : colors.primarySoft,
+          backgroundColor: bg,
+          borderColor: tone === 'neutral' ? colors.border : 'transparent',
           borderRadius: box.radius,
+          borderWidth: tone === 'neutral' ? 1 : 0,
           height: box.box,
           width: box.box,
         },
@@ -55,11 +68,11 @@ export function IconTile({
 
 const { colors, font } = theme;
 
-/** 크기별 상자·아이콘·글자 — 상자는 8배수, 모서리는 상자의 약 30%(둥근 사각). */
+/** 크기별 상자·아이콘·글자 — 정돈된 건축적 코너(8~14px). */
 const SIZES = {
-  sm: { box: 40, radius: 12, icon: 22, font: font.body },
-  md: { box: 48, radius: 14, icon: 26, font: font.bodyLarge },
-  lg: { box: 64, radius: 20, icon: 34, font: font.title },
+  sm: { box: 40, radius: 8, icon: 20, font: font.body },
+  md: { box: 48, radius: 10, icon: 24, font: font.bodyLarge },
+  lg: { box: 64, radius: 14, icon: 32, font: font.title },
 } as const;
 
 const styles = StyleSheet.create({

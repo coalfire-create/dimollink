@@ -31,3 +31,10 @@ LocaleConfig.locales.kr = {
   today: '오늘',
 };
 LocaleConfig.defaultLocale = 'kr';
+
+/** 기기 시간대 기준 'YYYY-MM-DD' — 달력 날짜 키와 같은 모양(toISOString 은 UTC 라 자정 무렵 하루 밀린다). */
+export function localDateKey(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}

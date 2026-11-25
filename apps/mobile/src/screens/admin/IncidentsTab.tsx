@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Text } from 'react-native';
+import { INCIDENT_TYPE_LABELS } from '@dimol/shared';
 import {
   adminListAnomalies,
   adminListIncidents,
@@ -10,6 +11,11 @@ import {
 import { AppButton, Card, Field, SectionTitle } from '../../components/ui';
 import { Empty, Hint, adminStyles as s, errorMessage, useAdminList } from './shared';
 import type { AdminTabProps } from './shared';
+
+const ANOMALY_TYPE_LABELS: Record<AdminAnomaly['type'], string> = {
+  REPEATED_PAIR: '반복 매칭 의심',
+  PRICE_OUTLIER: '시세 편차 견적',
+};
 
 /** 노쇼·분쟁 조정 + 이상거래 탐지 결과. 조치 여부는 사람이 판단한다. */
 export function IncidentsTab({ token, onError }: AdminTabProps) {
@@ -46,8 +52,8 @@ export function IncidentsTab({ token, onError }: AdminTabProps) {
       ) : (
         incidents.items.map((inc) => (
           <Card key={inc.id}>
-            <Text style={s.name}>{inc.kind}</Text>
-            <Text style={s.meta}>{inc.note ?? '내용 없음'}</Text>
+            <Text style={s.name}>{INCIDENT_TYPE_LABELS[inc.type] ?? inc.type}</Text>
+            <Text style={s.meta}>{inc.detail ?? '내용 없음'}</Text>
             <Field
               label="처리 내용 (필수)"
               value={notes[inc.id] ?? ''}
@@ -69,8 +75,8 @@ export function IncidentsTab({ token, onError }: AdminTabProps) {
         <Empty>탐지된 이상 패턴이 없어요.</Empty>
       ) : (
         anomalies.items.map((a, i) => (
-          <Card key={`${a.kind}-${i}`}>
-            <Text style={s.name}>{a.kind}</Text>
+          <Card key={`${a.type}-${a.quoteId ?? a.requesterId ?? i}-${i}`}>
+            <Text style={s.name}>{ANOMALY_TYPE_LABELS[a.type] ?? a.type}</Text>
             <Text style={s.meta}>{a.message}</Text>
           </Card>
         ))

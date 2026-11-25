@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RatingSummary, UserProfile } from '@dimol/shared';
-import { Card, IconTile, SectionTitle } from '../../components/ui';
+import { AppIcon } from '../../components/AppIcon';
+import { Card, SectionTitle } from '../../components/ui';
+import { TABULAR_NUMS } from '../../lib/format';
 import { theme } from '../../theme';
 
 /**
@@ -81,8 +83,10 @@ function PartnerCard({ partner }: { partner: DemolitionPartner }) {
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        {/* 모든 업체가 같은 망치 아이콘이면 줄마다 구분이 안 된다 — 업체 이름 첫 글자로. */}
-        <IconTile label={partner.name.trim().charAt(0) || '비'} style={styles.logo} />
+        {/* 모든 업체가 같은 아이콘이면 줄마다 구분이 안 된다 — 건축 인덱스 명판 + 첫 글자. */}
+        <View style={styles.monogram}>
+          <Text style={styles.monogramText}>{partner.name.trim().charAt(0) || '비'}</Text>
+        </View>
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={2}>
             {partner.name}
@@ -101,8 +105,12 @@ function PartnerCard({ partner }: { partner: DemolitionPartner }) {
             accessibilityLabel={`평점 ${partner.rating.average}점, 리뷰 ${partner.rating.reviewCount}건`}
             style={styles.ratingBox}
           >
-            <Text style={styles.ratingScore}>{partner.rating.average.toFixed(1)}</Text>
-            <Text style={styles.ratingCount}>리뷰 {partner.rating.reviewCount}</Text>
+            <Text style={[styles.ratingScore, TABULAR_NUMS]}>
+              {partner.rating.average.toFixed(1)}
+            </Text>
+            <Text style={[styles.ratingCount, TABULAR_NUMS]}>
+              리뷰 {partner.rating.reviewCount}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -110,9 +118,10 @@ function PartnerCard({ partner }: { partner: DemolitionPartner }) {
       {verifications.length > 0 ? (
         <View style={styles.verifyRow}>
           {verifications.map((item) => (
-            <Text key={item} style={styles.verifyItem}>
-              {item}
-            </Text>
+            <View key={item} style={styles.verifyChip}>
+              <AppIcon name="check" size={14} color={colors.success} />
+              <Text style={styles.verifyItem}>{item}</Text>
+            </View>
           ))}
         </View>
       ) : null}
@@ -139,7 +148,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: radius.card,
+    borderWidth: 1,
     marginBottom: spacing.sm,
     padding: spacing.md,
     ...theme.shadow.card,
@@ -148,8 +159,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
   },
-  logo: {
+  monogram: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.badge,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
     marginRight: spacing.sm,
+    width: 44,
+  },
+  monogramText: {
+    color: colors.text,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
   },
   info: {
     flex: 1,
@@ -200,9 +224,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
   },
+  verifyChip: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs / 2,
+  },
   verifyItem: {
-    color: colors.primary,
+    color: colors.textMuted,
     fontSize: font.caption,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

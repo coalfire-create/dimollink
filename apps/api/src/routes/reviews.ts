@@ -67,15 +67,15 @@ export function createReviewsRouter(store: ReviewStore): Router {
     }
   });
 
-  // GET /api/incidents?targetId=&status= — 신고 이력
+  // GET /api/incidents?targetId=&status= — 본인 관련 신고 이력만
   router.get('/incidents', async (req, res) => {
     const { targetId, status } = req.query;
-    res.json(
-      await store.listIncidents({
-        targetId: typeof targetId === 'string' ? targetId : undefined,
-        status: typeof status === 'string' ? (status as IncidentStatus) : undefined,
-      }),
-    );
+    const me = authUserId(req);
+    const list = await store.listIncidents({
+      targetId: typeof targetId === 'string' ? targetId : undefined,
+      status: typeof status === 'string' ? (status as IncidentStatus) : undefined,
+    });
+    res.json(list.filter((inc) => inc.reporterId === me || inc.targetId === me));
   });
 
   return router;

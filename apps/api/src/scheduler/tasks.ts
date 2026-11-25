@@ -1,4 +1,4 @@
-import { findSalesProduct } from '@dimol/shared';
+import { buildKoreanHolidaySet, findSalesProduct } from '@dimol/shared';
 import { calculateSettlementDate } from '../settlement/settlement-date.js';
 import type { SubscriptionStore } from '../subscriptions/store.js';
 import type { PortOneClient } from '../payment/portone-client.js';
@@ -160,7 +160,9 @@ export function createSettlementTask(deps: SettlementTaskDeps): ScheduledTask {
         // 합의 금액이 없으면 정산할 것이 없다 — 알려봐야 운영자가 할 일이 없다.
         if (agreedFee <= 0) continue;
         const completedDate = kstDate(new Date(request.updatedAt));
-        const settlementDate = calculateSettlementDate(completedDate, deps.holidays);
+        const year = Number(completedDate.slice(0, 4));
+        const holidays = deps.holidays ?? buildKoreanHolidaySet([year, year + 1]);
+        const settlementDate = calculateSettlementDate(completedDate, holidays);
         if (settlementDate <= today) {
           due.push({ matchRequestId: request.id, completedDate, settlementDate, agreedFee });
         }

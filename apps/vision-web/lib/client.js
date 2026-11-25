@@ -225,6 +225,7 @@
   function createRestClient(config) {
     var base = String(config.restBaseUrl).replace(/\/$/, "");
     var polling = null;
+    var canceled = false;
 
     function headers() {
       var h = { "Content-Type": "application/json" };
@@ -244,9 +245,11 @@
 
     return {
       cancel: function () {
+        canceled = true;
         if (polling) { clearTimeout(polling); polling = null; }
       },
       analyze: async function (files, meta, handlers) {
+        canceled = false;
         var onStage = handlers.onStage || function () {};
         var onDone = handlers.onDone || function () {};
         var onError = handlers.onError || function () {};
@@ -254,34 +257,39 @@
           // 사진을 data: URI 로 그대로 실어 보낸다. 별도 저장소 왕복이 없어 데모가 단순해지고,
           // AI 서버(Groq)가 OpenAI 호환 image_url 로 그대로 읽는다.
           var urls = await Promise.all(files.map(toDataUrl));
+          if (canceled) return;
           var res = await fetch(base + "/jobs", {
             method: "POST",
             headers: headers(),
             body: JSON.stringify({ photo_urls: urls, input_meta: meta || {}, callback_url: null }),
           });
+          if (canceled) return;
           if (!res.ok) throw new Error("잡 생성 실패(" + res.status + ")");
           var job = await res.json();
+          if (canceled) return;
           var id = job.id;
           var lastStage = null;
 
           function poll() {
+            if (canceled) return;
             fetch(base + "/jobs/" + id, { headers: headers() })
               .then(function (r) {
                 if (!r.ok) throw new Error("잡 조회 실패(" + r.status + ")");
                 return r.json();
               })
               .then(function (j) {
+                if (canceled) return;
                 if (j.stage && j.stage !== lastStage) { lastStage = j.stage; onStage(j.stage); }
                 if (j.status === "done") { onDone(j.result); return; }
                 if (j.status === "failed") { onError(new Error(j.error || "분석 실패")); return; }
                 if (j.status === "canceled") { return; }
                 polling = setTimeout(poll, 800);
               })
-              .catch(function (e) { onError(e); });
+              .catch(function (e) { if (!canceled) onError(e); });
           }
           poll();
         } catch (e) {
-          onError(e);
+          if (!canceled) onError(e);
         }
       },
     };

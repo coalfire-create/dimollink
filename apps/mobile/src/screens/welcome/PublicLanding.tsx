@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -6,32 +6,40 @@ import {
   StyleSheet,
   Text,
   View,
+  type ImageSourcePropType,
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import brandmark from '../../../assets/brandmark.png';
 import { AppButton } from '../../components/ui';
-import { AppIcon, type IconName } from '../../components/AppIcon';
 import { CompanyInfoFooter } from '../../components/CompanyInfoFooter';
-import { FadeInUp } from '../../components/motion';
+import editorialLogistics from '../../../assets/editorial-logistics.png';
+import editorialPlant from '../../../assets/editorial-plant.png';
+import editorialSite from '../../../assets/editorial-site.png';
 import { useWideLayout } from '../../lib/layout';
 import { theme } from '../../theme';
 import { ProductShowcase } from '../store/ProductShowcase';
-import { HeroPreview } from './HeroPreview';
 import { Features, HowItWorks, PartnersSection } from './LandingSections';
 import { LandingNav, type LandingSection } from './LandingNav';
+import { Band, MobileBrand, TextLink } from './LandingPrimitives';
+
+type HeroStageIndex = 0 | 1 | 2;
+
+/** 히어로 3단계 — 탭을 고르면 배경 사진과 한 줄 설명이 바뀐다. */
+const HERO_STAGES: ReadonlyArray<{
+  index: HeroStageIndex;
+  label: string;
+  caption: string;
+  image: ImageSourcePropType;
+}> = [
+  { index: 0, label: '현장 철거', caption: '현장 사진·주소로 철거 범위를 확인합니다.', image: editorialSite },
+  { index: 1, label: '운반 배차', caption: '성상별로 분리해 가까운 차주에게 배차합니다.', image: editorialLogistics },
+  { index: 2, label: '처리·올바로', caption: '적법 처리장 반입과 전자인계서까지 이어집니다.', image: editorialPlant },
+];
 
 /**
  * 로그인 전 홈페이지 — 첫 화면(Welcome)과 둘러보기(Guest)가 같이 쓴다.
- *
- * 웹(데스크톱)에서는 이 화면이 곧 회사 홈페이지다. 예전에는 넓은 화면 가운데에 소개 글과
- * 로그인 카드만 떠 있어 "폼 하나 띄운 페이지"로 보였다. 지금은 회사 사이트 구성 그대로:
- * 상단 메뉴바 → 대표 문구 + 화면 예시 → 이용 방법 → 서비스 특징 → 업체 회원 → 요금 → 사업자 정보.
- *
- * PG(KG이니시스) 심사는 홈페이지에서 판매 상품과 하단 사업자 정보(고객센터 포함)를 확인한다
- * — 요금 안내(ProductShowcase)와 푸터는 빼지 않는다.
- *
- * 앱(좁은 화면)은 같은 내용을 세로로 쌓되, 첫 화면 안에 로그인·회원가입 버튼이 보이게 둔다.
+ * 어두운 히어로 위에 철거·운반·처리 3D 모형을 두고,
+ * 이어서 진행 순서·상품 요금(PG 심사)·사업자 정보 푸터가 나온다.
  */
 export function PublicLanding({
   onLogin,
@@ -55,6 +63,8 @@ export function PublicLanding({
   const wide = useWideLayout();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+  const [stage, setStage] = useState<HeroStageIndex>(0);
+
   const offsets = useRef<Record<LandingSection, number>>({
     how: 0,
     features: 0,
@@ -67,82 +77,108 @@ export function PublicLanding({
   const jump = (key: LandingSection) =>
     scrollRef.current?.scrollTo({ y: offsets.current[key], animated: true });
 
+  const activeMeta = HERO_STAGES[stage];
+
   return (
     <View style={styles.screen}>
       {wide ? (
-        <LandingNav onJump={jump} onLogin={onLogin} onSignup={onSignup} onLogoLongPress={onAdmin} />
+        <LandingNav
+          tone="dark"
+          onJump={jump}
+          onLogin={onLogin}
+          onSignup={onSignup}
+          onLogoLongPress={onAdmin}
+        />
       ) : null}
       <ScrollView ref={scrollRef} style={styles.screen} contentContainerStyle={styles.scroll}>
-        {/* ── 대표 영역 */}
+        {/* ── 사진 히어로 */}
         <View
           style={[
             styles.hero,
-            wide ? styles.heroWide : { paddingTop: insets.top + spacing.sm },
+            wide
+              ? styles.heroWide
+              : { paddingTop: insets.top + spacing.sm, paddingBottom: spacing.lg },
           ]}
         >
-          <View style={[styles.inner, wide && styles.innerWide, wide && styles.heroRow]}>
+          <Image source={activeMeta.image} style={styles.heroPhoto} resizeMode="cover" />
+          <View style={styles.heroShade} />
+          <View style={[styles.inner, wide && styles.innerWide]}>
             <View style={wide ? styles.heroCopyWide : undefined}>
-              {!wide ? <MobileBrand onLongPress={onAdmin} /> : null}
-              <FadeInUp delay={40}>
-                <Text style={styles.eyebrow}>철거 · 운반 · 처리 매칭</Text>
-                <Text
-                  accessibilityRole="header"
-                  style={[styles.heroTitle, wide && styles.heroTitleWide]}
-                >
-                  {'철거하고 남은 폐기물,\n운반·처리까지 맡기세요'}
-                </Text>
-                <Text style={[styles.heroLead, wide && styles.heroLeadWide]}>
-                  철거업체·운반업체·처리장을 한 번에 연결하고, 올바로 전자인계서까지 처리합니다.
-                </Text>
-              </FadeInUp>
+              {!wide ? <MobileBrand tone="dark" onLongPress={onAdmin} /> : null}
+              <Text style={styles.eyebrow}>건설폐기물 철거 중개</Text>
+              <Text
+                accessibilityRole="header"
+                style={[styles.heroTitle, wide && styles.heroTitleWide]}
+              >
+                {'철거 현장 폐기물,\n견적부터 올바로까지'}
+              </Text>
+              <Text style={[styles.heroLead, wide && styles.heroLeadWide]}>
+                사업자 확인을 마친 업체의 견적을 비교하고, 올바로 전자인계서까지 한 번에 처리합니다.
+              </Text>
 
-              <FadeInUp delay={200}>
-                {wide ? (
-                  <View style={styles.ctaRow}>
-                    <AppButton label="지금 시작하기" onPress={onSignup} style={styles.ctaWide} />
-                    <AppButton
-                      label={onGuest ? '로그인 없이 둘러보기' : '로그인'}
-                      variant="outline"
-                      onPress={onGuest ?? onLogin}
-                      style={[styles.ctaWide, styles.ctaWideSecondary]}
+              {wide ? (
+                <View style={styles.ctaRow}>
+                  <AppButton label="무료로 시작하기" onPress={onSignup} style={styles.ctaWide} />
+                  <DarkGhostButton
+                    label={onGuest ? '로그인 없이 둘러보기' : '로그인'}
+                    onPress={onGuest ?? onLogin}
+                  />
+                </View>
+              ) : (
+                <View style={styles.ctaStack}>
+                  <AppButton label="로그인" onPress={onLogin} />
+                  <DarkGhostButton label="회원가입" onPress={onSignup} fullWidth />
+                  <View style={styles.linksRow}>
+                    {onGuest ? (
+                      <>
+                        <TextLink label="로그인 없이 둘러보기" tone="dark" onPress={onGuest} />
+                        <Text style={styles.linkDivider}>|</Text>
+                      </>
+                    ) : null}
+                    <TextLink
+                      label="상품·요금 보기"
+                      tone="dark"
+                      onPress={() => jump('pricing')}
                     />
                   </View>
-                ) : (
-                  <View style={styles.ctaStack}>
-                    <AppButton label="로그인" onPress={onLogin} />
-                    <AppButton label="회원가입" variant="outline" onPress={onSignup} />
-                    <View style={styles.linksRow}>
-                      {onGuest ? (
-                        <>
-                          <TextLink label="로그인 없이 둘러보기" onPress={onGuest} />
-                          <Text style={styles.linkDivider}>|</Text>
-                        </>
-                      ) : null}
-                      <TextLink label="상품·요금 보기" onPress={() => jump('pricing')} />
-                    </View>
-                  </View>
-                )}
-                {wide ? <ProofPoints /> : null}
-                {devShortcuts}
-              </FadeInUp>
-            </View>
+                </View>
+              )}
 
-            {wide ? (
-              <FadeInUp delay={320} offset={24}>
-                <HeroPreview />
-              </FadeInUp>
-            ) : null}
+              {devShortcuts}
+            </View>
+          </View>
+
+          <View style={[styles.inner, wide && styles.innerWide]}>
+            <View style={styles.stageTabs} accessibilityRole="tablist">
+              {HERO_STAGES.map((item) => {
+                const selected = item.index === stage;
+                return (
+                  <Pressable
+                    key={item.label}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    onPress={() => setStage(item.index)}
+                    style={[styles.stageTab, selected && styles.stageTabActive]}
+                  >
+                    <Text style={[styles.stageTabLabel, selected && styles.stageTabLabelActive]}>
+                      {item.label}
+                    </Text>
+                    {selected ? <Text style={styles.stageCaption}>{item.caption}</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        {/* ── 본문 섹션 — 흰 바탕 / 회색 바탕을 번갈아 깔아 구획을 나눈다. */}
-        <Band tone="gray" wide={wide} onLayout={mark('how')}>
+
+        <Band tone="white" wide={wide} onLayout={mark('how')}>
           <HowItWorks />
         </Band>
-        <Band tone="white" wide={wide} onLayout={mark('features')}>
+        <Band tone="stone" wide={wide} onLayout={mark('features')}>
           <Features />
         </Band>
-        <Band tone="gray" wide={wide} onLayout={mark('partners')}>
+        <Band tone="dark" wide={wide} onLayout={mark('partners')}>
           <PartnersSection onSignup={onSignup} />
         </Band>
         <Band tone="white" wide={wide} onLayout={mark('pricing')}>
@@ -157,161 +193,132 @@ export function PublicLanding({
   );
 }
 
-/** 앱 첫 줄 — 로고 + 서비스 이름. 길게 누르면 관리자 경로(운영자만 안다). */
-function MobileBrand({ onLongPress }: { onLongPress?: () => void }) {
+function DarkGhostButton({
+  label,
+  onPress,
+  fullWidth,
+}: {
+  label: string;
+  onPress: () => void;
+  fullWidth?: boolean;
+}) {
+  const [hovered, setHovered] = useState(false);
   return (
     <Pressable
-      accessibilityRole="image"
-      accessibilityLabel="비움"
-      delayLongPress={1200}
-      onLongPress={onLongPress}
-      style={styles.brandRow}
-    >
-      <Image source={brandmark} style={styles.brandLogo} resizeMode="contain" />
-      <Text style={styles.brandName}>비움</Text>
-    </Pressable>
-  );
-}
-
-const PROOF: ReadonlyArray<{ icon: IconName; label: string }> = [
-  { icon: 'location', label: '전국 접수' },
-  { icon: 'shield', label: '사업자 확인 업체' },
-  { icon: 'document', label: '올바로 전자인계서' },
-];
-
-/** 대표 문구 아래 한 줄 — 이 서비스를 믿어도 되는 근거 세 가지. */
-function ProofPoints() {
-  return (
-    <View style={styles.proofRow}>
-      {PROOF.map((p, i) => (
-        <View key={p.label} style={[styles.proofItem, i > 0 && styles.proofDivider]}>
-          <AppIcon name={p.icon} size={22} color={colors.primary} filled />
-          <Text style={styles.proofText}>{p.label}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function TextLink({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress}>
-      <Text style={styles.linkText}>{label}</Text>
-    </Pressable>
-  );
-}
-
-/** 본문 구획 하나 — 바탕색 띠 + 가운데 본문 칸. */
-function Band({
-  tone,
-  wide,
-  onLayout,
-  children,
-}: {
-  tone: 'white' | 'gray';
-  wide: boolean;
-  onLayout: (e: LayoutChangeEvent) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <View
-      onLayout={onLayout}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       style={[
-        styles.band,
-        tone === 'gray' && styles.bandGray,
-        wide && styles.bandWide,
+        styles.darkGhostBtn,
+        fullWidth ? styles.darkGhostFull : styles.ctaWide,
+        hovered && styles.darkGhostHovered,
       ]}
     >
-      <View style={[styles.inner, wide && styles.innerWide]}>{children}</View>
-    </View>
+      <Text style={styles.darkGhostLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
-const { colors, font, spacing } = theme;
+const { colors, font, spacing, radius, touch, onDark } = theme;
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: colors.background, flex: 1 },
+  screen: { backgroundColor: onDark.canvas, flex: 1 },
   scroll: { flexGrow: 1 },
   inner: { alignSelf: 'center', paddingHorizontal: spacing.md, width: '100%' },
   innerWide: { maxWidth: theme.wideContentWidth },
-  hero: { backgroundColor: colors.background, paddingBottom: spacing.lg },
-  heroWide: { paddingBottom: spacing.lg + spacing.lg, paddingTop: spacing.lg + spacing.lg },
-  heroRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: spacing.lg + spacing.lg,
+  hero: {
+    backgroundColor: onDark.canvas,
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
-  heroCopyWide: { flex: 1, maxWidth: 620 },
-  brandRow: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
-    minHeight: theme.touch.minButtonHeight,
+  heroWide: {
+    minHeight: 640,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.lg * 2,
   },
-  brandLogo: { height: 32, width: 32 },
-  brandName: {
-    color: colors.text,
-    fontSize: font.title,
-    fontWeight: '700',
+  heroPhoto: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
+  /** 사진 위 글자 대비 — 먹색을 얹어 눌러 준다. */
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: onDark.canvas, opacity: 0.66 },
+  heroCopyWide: { maxWidth: 560 },
+  eyebrow: {
+    color: onDark.textMuted,
+    fontSize: font.caption,
+    fontWeight: '600',
     letterSpacing: theme.tracking.title,
   },
-  eyebrow: { color: colors.primary, fontSize: font.body, fontWeight: '700' },
   heroTitle: {
-    color: colors.text,
+    color: colors.background,
     fontSize: font.titleLarge + 4,
     fontWeight: '700',
     letterSpacing: theme.tracking.title * 2,
     lineHeight: 44,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   heroTitleWide: {
     fontSize: font.hero,
     letterSpacing: theme.tracking.display * 1.5,
-    lineHeight: 68,
+    lineHeight: 64,
     marginTop: spacing.sm,
   },
   heroLead: {
-    color: colors.textMuted,
+    color: onDark.text,
     fontSize: font.body,
     lineHeight: 28,
     marginTop: spacing.sm,
   },
-  heroLeadWide: { fontSize: font.bodyLarge, lineHeight: 32, marginTop: spacing.md },
+  heroLeadWide: {
+    fontSize: font.bodyLarge,
+    lineHeight: 32,
+    marginTop: spacing.md,
+  },
   ctaRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  ctaWide: { minWidth: 200 },
-  ctaWideSecondary: { height: theme.touch.primaryButtonHeight },
+  ctaWide: { minWidth: 196 },
   ctaStack: { gap: spacing.xs, marginTop: spacing.lg },
+  darkGhostBtn: {
+    alignItems: 'center',
+    backgroundColor: onDark.surface,
+    borderColor: onDark.border,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    height: touch.primaryButtonHeight,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  darkGhostFull: { width: '100%' },
+  darkGhostHovered: {
+    backgroundColor: onDark.divider,
+    borderColor: onDark.textMuted,
+  },
+  darkGhostLabel: {
+    color: colors.background,
+    fontSize: font.body,
+    fontWeight: '700',
+  },
   linksRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: spacing.xs,
   },
-  linkText: {
-    color: colors.textMuted,
-    fontSize: font.body,
-    fontWeight: '600',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.sm, // 18px 글자 + 위아래 16 → 터치 높이 48 이상
-  },
-  linkDivider: { color: colors.border, fontSize: font.body, marginHorizontal: spacing.xs / 2 },
-  proofRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.lg },
-  proofItem: {
-    alignItems: 'center',
+  linkDivider: { color: onDark.border, fontSize: font.body, marginHorizontal: spacing.xs / 2 },
+  stageTabs: {
+    borderTopColor: onDark.textMuted,
+    borderTopWidth: 1,
     flexDirection: 'row',
-    gap: spacing.xs,
+    marginTop: spacing.lg,
+  },
+  stageTab: {
+    borderTopColor: 'transparent',
+    borderTopWidth: 3,
+    flex: 1,
+    marginTop: -2,
     paddingRight: spacing.sm,
+    paddingTop: spacing.sm,
   },
-  proofDivider: {
-    borderLeftColor: colors.border,
-    borderLeftWidth: 1,
-    paddingLeft: spacing.sm,
-  },
-  proofText: { color: colors.text, fontSize: font.body, fontWeight: '600' },
-  band: { backgroundColor: colors.background, paddingVertical: spacing.lg },
-  bandGray: { backgroundColor: colors.appBackground },
-  bandWide: { paddingVertical: spacing.lg * 3 },
+  stageTabActive: { borderTopColor: colors.background },
+  stageTabLabel: { color: onDark.textMuted, fontSize: font.body, fontWeight: '600' },
+  stageTabLabelActive: { color: colors.background, fontWeight: '700' },
+  stageCaption: { color: onDark.text, fontSize: font.caption, marginTop: spacing.xs / 2 },
 });

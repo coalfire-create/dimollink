@@ -15,6 +15,11 @@ export const env = {
   nodeEnv,
   isProduction: nodeEnv === 'production',
   port: Number(process.env.PORT ?? 4000),
+  /** 리버스 프록시 홉 수(Railway 기본 1). true 대신 명시적 홉 수로 X-Forwarded-For 스푸핑 방지. */
+  trustProxy: (() => {
+    const raw = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 1;
+  })(),
   /** CORS 허용 출처(콤마 구분). 미설정 시 개발 편의로 전체 허용, 운영에선 반드시 지정. */
   corsOrigins: (process.env.CORS_ORIGINS ?? '')
     .split(',')

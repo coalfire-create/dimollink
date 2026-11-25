@@ -78,7 +78,8 @@ export function CompanyInfoFooter({ tone = 'light' }: { tone?: 'light' | 'dark' 
         </View>
         <Text style={[styles.notice, muted]}>
           {COMPANY_INFO.name}은(는) 통신판매중개자로서 매칭 거래의 당사자가 아니며, 업체가 등록한
-          용역 정보와 작업 결과에 대한 책임은 해당 업체에 있습니다.
+          용역 정보와 작업 결과에 대한 책임은 해당 업체에 있습니다. 단, 위 상품·요금의 판매자는{' '}
+          {COMPANY_INFO.name}입니다.
         </Text>
         <Text style={[styles.version, muted]}>
           © {COMPANY_INFO.name} · {COMPANY_INFO.serviceName} v1.0.0
@@ -98,8 +99,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   footerDark: {
-    backgroundColor: colors.text,
-    borderTopWidth: 0,
+    backgroundColor: theme.onDark.canvas,
+    borderTopColor: theme.onDark.border,
+    borderTopWidth: 1,
     marginTop: 0,
     paddingBottom: spacing.lg,
     paddingHorizontal: spacing.md,
@@ -126,7 +128,7 @@ const styles = StyleSheet.create({
     letterSpacing: theme.tracking.title,
   },
   linksDark: {
-    borderBottomColor: theme.onDark.divider,
+    borderBottomColor: theme.onDark.border,
     borderBottomWidth: 1,
     marginBottom: spacing.sm,
     marginTop: 0,

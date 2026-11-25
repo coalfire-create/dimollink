@@ -39,6 +39,21 @@ describe('resolveFile — 경로 탈출 차단', () => {
   it('디렉터리 요청은 그 안의 index.html 로 간다', () => {
     expect(resolveFile('/lib', ROOT)).toBe(`${ROOT}/lib/index.html`);
   });
+
+  it('잘못된 URL 인코딩, 숨김/서버 설정 파일, 동일 접두사 외부 경로를 차단한다', () => {
+    for (const blocked of [
+      '/%E0%A4%A',
+      '/.env',
+      '/.git/config',
+      '/lib/.hidden',
+      '/server.mjs',
+      '/package.json',
+      '/Dockerfile',
+      '/../vision-web-sibling/secret.html',
+    ]) {
+      expect(resolveFile(blocked, ROOT)).toBeNull();
+    }
+  });
 });
 
 describe('cacheControlFor — HTML 은 배포 즉시 반영돼야 한다', () => {
@@ -107,5 +122,10 @@ describe('proxyTarget — 3D 스캔 경로(쓰기 포함)', () => {
     for (const url of ['/api/auth/login', '/api/requests', '/api/scan3d/jobs/x/rescale']) {
       expect(proxyTarget(url, 'POST')).toBeNull();
     }
+  });
+
+  it('GET 화이트리스트 경로라도 DELETE·PUT 메서드는 차단한다', () => {
+    expect(proxyTarget('/api/locations/search-address?query=x', 'DELETE')).toBeNull();
+    expect(proxyTarget('/api/scan3d/capability', 'PUT')).toBeNull();
   });
 });

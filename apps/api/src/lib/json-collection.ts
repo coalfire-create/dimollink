@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -56,7 +57,7 @@ export class JsonCollectionFile<T> implements CollectionPersistence<T> {
 
   private async writeAll(items: T[]): Promise<void> {
     await fs.mkdir(dirname(this.filePath), { recursive: true });
-    const tmpPath = `${this.filePath}.tmp`;
+    const tmpPath = `${this.filePath}.${randomUUID()}.tmp`;
     await fs.writeFile(tmpPath, JSON.stringify(items, null, 2), 'utf8');
     await fs.rename(tmpPath, this.filePath);
   }

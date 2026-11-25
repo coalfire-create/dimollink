@@ -52,9 +52,8 @@ export function AvailabilityCard({ onChanged }: { onChanged: () => void }) {
         </View>
         <AppIcon
           name={online ? 'notifications' : 'lock'}
-          size={32}
-          color={online ? colors.primary : colors.textMuted}
-          filled={online}
+          size={24}
+          color={online ? colors.success : colors.textMuted}
         />
       </View>
 
@@ -90,15 +89,17 @@ const { colors, font, spacing } = theme;
 const styles = StyleSheet.create({
   card: {
     borderColor: colors.border,
-    borderWidth: 2,
+    borderWidth: 1,
     marginHorizontal: spacing.sm,
     padding: spacing.lg,
     borderRadius: theme.radius.card,
     backgroundColor: colors.background,
   },
   cardOn: {
-    backgroundColor: theme.colors.primarySoft,
-    borderColor: colors.primary,
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderLeftColor: colors.success,
+    borderLeftWidth: 4,
   },
   headerRow: {
     alignItems: 'center',

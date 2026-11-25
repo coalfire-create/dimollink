@@ -25,6 +25,13 @@ export function createRequireAuth(sessionStore: SessionStore, userStore: UserSto
         res.status(401).json({ error: '로그인이 필요합니다.' });
         return;
       }
+      if (user.approvalStatus === 'SUSPENDED') {
+        res.status(403).json({
+          error: '이용이 정지된 계정입니다. 고객센터로 문의해 주세요.',
+          code: 'ACCOUNT_SUSPENDED',
+        });
+        return;
+      }
       (req as AuthedRequest).authUser = user;
       next();
     })().catch(next);

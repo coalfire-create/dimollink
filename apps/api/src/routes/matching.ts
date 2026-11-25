@@ -57,6 +57,10 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
       res.status(400).json({ error: 'candidates(배열)가 필요합니다.' });
       return;
     }
+    if (body.candidates.length > 200) {
+      res.status(400).json({ error: 'candidates 는 한 번에 최대 200건까지 요청할 수 있습니다.' });
+      return;
+    }
 
     try {
       const ranked = rankCandidatesByDistance(
@@ -83,6 +87,10 @@ export function createMatchingRouter(ratingLookup?: RatingLookup): Router {
     }
     if (!Array.isArray(body.candidates)) {
       res.status(400).json({ error: 'candidates(배열)가 필요합니다.' });
+      return;
+    }
+    if (body.candidates.length > 200) {
+      res.status(400).json({ error: 'candidates 는 한 번에 최대 200건까지 요청할 수 있습니다.' });
       return;
     }
 

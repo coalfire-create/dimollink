@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { MARKET_RATE_MIN_SAMPLE, type MarketRate, type ProviderRole } from '@dimol/shared';
 import { Card } from './ui';
-import { won } from '../lib/format';
+import { TABULAR_NUMS, won } from '../lib/format';
 import { theme } from '../theme';
 
 /**
@@ -33,7 +33,7 @@ export function MarketRateCard({
   return (
     <Card style={styles.card}>
       <Text style={styles.title}>{RATE_TITLE[party]}</Text>
-      <Text style={styles.amount}>{won(rate.averageAmount)}</Text>
+      <Text style={[styles.amount, TABULAR_NUMS]}>{won(rate.averageAmount)}</Text>
       <Text style={styles.note}>최근 견적 {rate.quoteCount}건 기준 참고용이에요</Text>
     </Card>
   );

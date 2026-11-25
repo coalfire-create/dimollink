@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
 import { describe, expect, it, vi } from 'vitest';
-import { createRateLimiter, securityHeaders } from './security.js';
+import { SessionTokenStore } from '../auth/session-store.js';
+import { UserStore } from '../users/store.js';
+import { createRequireAuth } from './auth.js';
+import { createRateLimiter, requestId, securityHeaders } from './security.js';
 
 function mockRes() {
   const headers = new Map<string, string>();
@@ -68,5 +71,51 @@ describe('createRateLimiter', () => {
     await flush();
     expect(bPassed).toBe(true);
     expect(resB.statusCode).toBe(200);
+  });
+});
+
+describe('requestId', () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  it('유효한 X-Request-Id 는 그대로 유지하고, 규칙 위반 헤더는 새 UUID 로 교체한다', () => {
+    const mw = requestId();
+
+    const okRes = mockRes();
+    mw({ header: () => 'req-abc.123_ok' } as unknown as Request, okRes, vi.fn() as unknown as NextFunction);
+    expect(okRes.headers.get('x-request-id')).toBe('req-abc.123_ok');
+
+    for (const invalid of ['bad id with space', 'line1\nline2', 'a'.repeat(65)]) {
+      const badRes = mockRes();
+      mw({ header: () => invalid } as unknown as Request, badRes, vi.fn() as unknown as NextFunction);
+      expect(badRes.headers.get('x-request-id')).toMatch(UUID_RE);
+    }
+  });
+});
+
+describe('createRequireAuth — 계정 정지 차단', () => {
+  it('SUSPENDED 회원은 403 ACCOUNT_SUSPENDED 로 차단한다', async () => {
+    const userStore = new UserStore();
+    const sessionStore = new SessionTokenStore();
+    const user = await userStore.create({
+      userType: 'CONSUMER',
+      name: '정지회원',
+      region: '전국',
+      phone: '01099998888',
+    });
+    await userStore.setApprovalStatus(user.id, 'SUSPENDED');
+    const token = await sessionStore.issue(user.id);
+
+    const res = mockRes();
+    const next = vi.fn();
+    createRequireAuth(sessionStore, userStore)(
+      { header: (k: string) => (k.toLowerCase() === 'authorization' ? `Bearer ${token}` : undefined) } as unknown as Request,
+      res,
+      next as unknown as NextFunction,
+    );
+    await flush();
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: 'ACCOUNT_SUSPENDED' }));
+    expect(next).not.toHaveBeenCalled();
   });
 });

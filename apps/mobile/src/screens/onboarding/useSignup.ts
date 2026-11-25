@@ -34,6 +34,7 @@ export function useSignup({
   const isCompany = isCompanyType(userType);
 
   async function sendCode() {
+    if (busy) return;
     setError(null);
     setNotice(null);
     if (!isPhoneLike(phone)) {
@@ -53,6 +54,7 @@ export function useSignup({
   }
 
   async function submit() {
+    if (busy) return;
     const problem = validateSignup({
       userType,
       name,
@@ -61,6 +63,7 @@ export function useSignup({
       codeSent,
       password,
       passwordConfirm,
+      businessNumber,
       termsAccepted,
     });
     setError(problem);

@@ -21,6 +21,12 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     'https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css';
   document.head.appendChild(font);
 
+  const monoFont = document.createElement('link');
+  monoFont.rel = 'stylesheet';
+  monoFont.href =
+    'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap';
+  document.head.appendChild(monoFont);
+
   const themeColor = document.createElement('meta');
   themeColor.name = 'theme-color';
   themeColor.content = COLORS.background;
@@ -28,6 +34,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
   const family =
     '"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
+  const monoFamily = '"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace';
   const textClasses = ['css-text-', 'css-textHasAncestor-', 'css-textinput-']
     .map((c) => `[class*="${c}"]:not([class*="r-fontFamily"])`)
     .join(',');
@@ -37,6 +44,13 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     '*{word-break:keep-all;overflow-wrap:anywhere}',
     `html,body{background:${APP_BACKGROUND};-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}`,
     `body,${textClasses}{font-family:${family}}`,
+    `.dimol-mono{font-family:${monoFamily} !important;font-variant-numeric:tabular-nums}`,
+    '.dimol-draft-grid{background-image:linear-gradient(to right,rgba(23,25,28,0.035) 1px,transparent 1px),linear-gradient(to bottom,rgba(23,25,28,0.035) 1px,transparent 1px);background-size:48px 48px}',
+    '.dimol-draft-grid-dark{background-image:linear-gradient(to right,rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(255,255,255,0.04) 1px,transparent 1px);background-size:48px 48px}',
+    '.dimol-glass-dark{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}',
+    '.dimol-glass-light{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}',
+    '[role="button"],[role="tab"],[role="link"],a,button{cursor:pointer;transition:background-color 160ms cubic-bezier(0.22,1,0.36,1),border-color 160ms cubic-bezier(0.22,1,0.36,1),color 160ms cubic-bezier(0.22,1,0.36,1),box-shadow 160ms cubic-bezier(0.22,1,0.36,1),opacity 160ms cubic-bezier(0.22,1,0.36,1),transform 160ms cubic-bezier(0.22,1,0.36,1)}',
+    `input::placeholder,textarea::placeholder{color:${COLORS.textMuted};opacity:0.75}`,
     `::selection{background:${COLORS.primarySoft};color:${COLORS.text}}`,
     `:focus-visible{outline:2px solid ${COLORS.primary};outline-offset:2px}`,
     '::-webkit-scrollbar{width:10px;height:10px}',

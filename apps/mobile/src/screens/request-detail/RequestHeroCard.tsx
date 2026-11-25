@@ -69,8 +69,10 @@ const { colors, font, spacing } = theme;
 
 const styles = StyleSheet.create({
   cardHighlight: {
-    borderColor: colors.primary,
-    borderWidth: 2,
+    borderColor: colors.border,
+    borderLeftColor: colors.secondary,
+    borderLeftWidth: 4,
+    borderWidth: 1,
   },
   topRow: {
     alignItems: 'center',

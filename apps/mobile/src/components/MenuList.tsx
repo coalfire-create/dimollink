@@ -31,24 +31,33 @@ export function MenuList({ items }: { items: MenuItem[] }) {
       {items.map((item, index) => (
         <React.Fragment key={item.key}>
           {index > 0 ? <View style={styles.divider} /> : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={item.accessibilityLabel ?? item.label}
-            style={styles.item}
-            onPress={item.onPress}
-          >
-            <View style={styles.left}>
-              <IconTile icon={item.icon} size="sm" style={styles.iconCircle} />
-              <View style={styles.labelBox}>
-                <Text style={styles.label}>{item.label}</Text>
-                {item.subLabel ? <Text style={styles.subLabel}>{item.subLabel}</Text> : null}
-              </View>
-            </View>
-            <AppIcon name="chevronRight" size={22} color={colors.textMuted} />
-          </Pressable>
+          <MenuItemRow item={item} />
         </React.Fragment>
       ))}
     </Card>
+  );
+}
+
+function MenuItemRow({ item }: { item: MenuItem }) {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={item.accessibilityLabel ?? item.label}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[styles.item, hovered && styles.itemHovered]}
+      onPress={item.onPress}
+    >
+      <View style={styles.left}>
+        <IconTile icon={item.icon} size="sm" tone="neutral" style={styles.iconCircle} />
+        <View style={styles.labelBox}>
+          <Text style={styles.label}>{item.label}</Text>
+          {item.subLabel ? <Text style={styles.subLabel}>{item.subLabel}</Text> : null}
+        </View>
+      </View>
+      <AppIcon name="chevronRight" size={22} color={colors.textMuted} />
+    </Pressable>
   );
 }
 
@@ -60,16 +69,12 @@ const styles = StyleSheet.create({
   },
   group: {
     backgroundColor: colors.background,
+    borderColor: colors.border,
     borderRadius: theme.radius.card,
-    // Card 가 좌우로도 16 을 주는데 줄(item)이 자기 16 을 또 주고, 구분선이 거기서 다시
-    // 16 을 들어가 내용이 세 겹으로 밀려 있었다. 좌우 여백은 줄이 정한다.
+    borderWidth: 1,
     paddingHorizontal: 0,
-    paddingVertical: spacing.xs,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    paddingVertical: spacing.xs / 2,
+    ...theme.shadow.card,
   },
   item: {
     flexDirection: 'row',
@@ -77,6 +82,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  itemHovered: {
+    backgroundColor: colors.surface,
   },
   left: {
     flexDirection: 'row',

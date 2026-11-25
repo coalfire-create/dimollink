@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import compression from 'compression';
 import cors from 'cors';
-import express, { type NextFunction, type Request, type Response } from 'express';
+import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import type {
   AppNotification,
   ChatMessage,
@@ -79,7 +79,8 @@ import { createAllbaroRouter } from './routes/allbaro.js';
 import { bearerToken, createAuthRouter } from './routes/auth.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { OAuthService } from './auth/oauth/oauth-service.js';
-import { healthRouter } from './routes/health.js';
+import { wrapAsyncRouter } from './lib/async-handler.js';
+import { createHealthRouter } from './routes/health.js';
 import { createMatchingRouter } from './routes/matching.js';
 import { createPaymentsRouter } from './routes/payments.js';
 import { createAdminRouter } from './routes/admin.js';
@@ -159,7 +160,10 @@ export function createApp(
 ) {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', true); // 프록시(로드밸런서/Vercel) 뒤 실제 클라이언트 IP 사용.
+  app.set('trust proxy', env.trustProxy); // 프록시 뒤 실제 클라이언트 IP 사용(기본 1홉으로 스푸핑 방지).
+  const mountApi = (router: Router) => {
+    app.use('/api', wrapAsyncRouter(router));
+  };
 
   // 응답 압축(gzip/br) — 웹 번들 1.8MB, 목록 JSON 응답이 모바일 회선에서 가장 큰 비용이다.
   // 이미 압축된 포맷(이미지·폰트)은 compression 이 알아서 건너뛴다.
@@ -217,7 +221,7 @@ export function createApp(
   app.use('/', createLandingPageRouter({ billingEnabled: Boolean(env.portone.billingChannelKey) }));
 
   // 헬스체크는 레이트리밋 이전에 처리(오케스트레이터 헬스체크가 제한에 걸리지 않게).
-  app.use('/api', healthRouter);
+  app.use('/api', createHealthRouter(shared.pool));
   // 지도 페이지 — 앱이 iframe/WebView 로 띄운다(실제 URL 이어야 카카오 SDK 가 동작).
   app.use('/', createMapPageRouter());
   // 3D 스캔 뷰어 — 앱이 WebView 로 띄우는 실제 URL(지도 페이지와 같은 이유).
@@ -244,18 +248,23 @@ export function createApp(
 
   // 외부 유료·쿼터 API 를 호출하는 경로(비전 AI, 공공데이터 건축물대장)는 더 엄격히 제한한다.
   // 호출당 실제 비용·일일 쿼터가 걸려 있어 전역 상한(300/분)만으로는 남용을 못 막는다.
-  app.use(
-    '/api/site-analysis',
-    createRateLimiter(
-      {
-        windowMs: 60_000,
-        max: 10,
-        keyPrefix: 'vision',
-        message: '현장 분석 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
-      },
-      shared.rateLimitStore,
-    ),
+  // 단, GET 상태 폴링은 전역 상한만 적용해 분석 완료 대기 중 오탐 차단을 막는다.
+  const siteAnalysisPostLimiter = createRateLimiter(
+    {
+      windowMs: 60_000,
+      max: 10,
+      keyPrefix: 'vision',
+      message: '현장 분석 요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.',
+    },
+    shared.rateLimitStore,
   );
+  app.use('/api/site-analysis', (req, res, next) => {
+    if (req.method === 'POST') {
+      siteAnalysisPostLimiter(req, res, next);
+      return;
+    }
+    next();
+  });
   app.use(
     '/api/locations/building-info',
     createRateLimiter(
@@ -452,6 +461,10 @@ export function createApp(
   app.post('/api/allbaro/transport-info', requireAuth);
   app.post('/api/allbaro/disposal-info', requireAuth);
   app.post('/api/allbaro/treatment-completion', requireAuth);
+  app.get('/api/allbaro/notices', requireAuth);
+  app.get('/api/allbaro/common-codes', requireAuth);
+  app.use('/api/uploads', requireAuth);
+  app.use('/api/matching', requireAuth);
   app.get('/api/allbaro/manifest/:manifestNo', (req, res, next) => {
     if (req.params.manifestNo === 'queue' || req.params.manifestNo === 'failures') {
       next();
@@ -492,6 +505,7 @@ export function createApp(
   const visionDemo = createDemoAccess({
     demoKey: env.ai.visionDemoKey,
     dailyLimit: env.ai.visionDemoDailyLimit,
+    freeMethods: ['GET'],
   });
   app.use('/api/site-analysis', visionDemo.wrap(requireAuth));
   // 건축물대장도 같은 데모 문을 쓴다. 디몰비전 분석의 기준 정보라 둘이 함께 열려야
@@ -542,10 +556,9 @@ export function createApp(
   app.use('/api/allbaro/manifest/queue', requireAdmin);
   app.use('/api/allbaro/manifest/failures', requireAdmin);
 
-  app.use('/api', createAllbaroRouter(undefined, undefined, undefined, requestStore));
+  mountApi(createAllbaroRouter(undefined, undefined, undefined, requestStore));
   // 결제/정산은 폐기물·인테리어 요청을 합친 창구로 처리(합의 금액=agreedFee 기준 선결제·정산).
-  app.use(
-    '/api',
+  mountApi(
     createPaymentsRouter(
       undefined,
       compositePayableStore(requestStore, interiorStore),
@@ -557,16 +570,15 @@ export function createApp(
     ),
   );
   const geocoder = createGeocoder();
-  app.use(
-    '/api',
+  mountApi(
     createMatchingRouter(
       async (providerId) => (await reviewStore.ratingSummary(providerId)).average,
     ),
   );
-  app.use('/api', createUploadsRouter());
-  app.use('/api', createRequestsRouter(requestStore, userStore, geocoder));
-  app.use('/api', createJobsRouter(requestStore, userStore));
-  app.use('/api', createAuthRouter(userStore, otpService, sessionStore, credentialStore));
+  mountApi(createUploadsRouter());
+  mountApi(createRequestsRouter(requestStore, userStore, geocoder));
+  mountApi(createJobsRouter(requestStore, userStore));
+  mountApi(createAuthRouter(userStore, otpService, sessionStore, credentialStore));
   // 소셜 로그인(카카오/구글/네이버). 자격증명 미설정 시 각 라우트가 503 으로 안내.
   const oauthService = new OAuthService({
     credentials: {
@@ -586,12 +598,10 @@ export function createApp(
     redirectBase: env.oauth.redirectBase,
     secret: env.oauth.secret,
   });
-  app.use(
-    '/api',
+  mountApi(
     createOAuthRouter(userStore, otpService, sessionStore, oauthService, env.oauth.appRedirect),
   );
-  app.use(
-    '/api',
+  mountApi(
     createUsersRouter(
       userStore,
       otpService,
@@ -601,18 +611,17 @@ export function createApp(
       oauthService,
     ),
   );
-  app.use('/api', createReviewsRouter(reviewStore));
-  app.use('/api', createQuotesRouter(quoteStore, userStore, requestStore));
-  app.use('/api', createPricingRouter(pricingStore));
+  mountApi(createReviewsRouter(reviewStore));
+  mountApi(createQuotesRouter(quoteStore, userStore, requestStore));
+  mountApi(createPricingRouter(pricingStore));
   // 인테리어 밀봉 역경매 — 플래그가 켜졌을 때만 노출(꺼져 있으면 경로 자체가 404).
-  if (env.features.interior) app.use('/api', createInteriorRouter(interiorStore));
-  app.use('/api', createOffersRouter(offerStore));
-  app.use('/api', createNotificationsRouter(notificationService));
-  app.use('/api', createLocationsRouter(new LocationStore(requestStore), geocoder));
+  if (env.features.interior) mountApi(createInteriorRouter(interiorStore));
+  mountApi(createOffersRouter(offerStore));
+  mountApi(createNotificationsRouter(notificationService));
+  mountApi(createLocationsRouter(new LocationStore(requestStore), geocoder));
   // 철거는 실사 일정을 잡아야 견적이 나오는데 실사는 매칭 전 단계다 —
   // 실사 예약된 업체도 대화 상대로 넣어야 정작 필요한 구간에서 막히지 않는다.
-  app.use(
-    '/api',
+  mountApi(
     createChatRouter(
       new ChatStore(
         requestStore,
@@ -627,7 +636,7 @@ export function createApp(
   );
   // 3D 스캔 실측이 있으면 그걸 쓰고, 없거나 품질 미달이면 연면적 원단위로 폴백한다.
   const volumeEstimator = new ScanVolumeEstimator(new HeuristicVolumeEstimator());
-  app.use('/api', createEstimationRouter(volumeEstimator));
+  mountApi(createEstimationRouter(volumeEstimator));
   // 현장 사진 AI 분석: 키 있으면 Claude 비전, 없으면 목. 실제 분석 실패 시 목으로 폴백.
   const mockSiteAnalyzer = new MockSiteAnalyzer();
   // 공급자 우선순위: Groq(무료·카드불필요) > Gemini(무료티어) > Claude(유료) > 목. 실패 시 라우터가 목 폴백.
@@ -663,8 +672,7 @@ export function createApp(
     : new MockReconstructor();
   const siteAnalysisQueue = new SiteAnalysisQueue();
   const siteAnalysisStore = new SiteAnalysisStore(persistence<SiteAnalysisRecord>('site-analysis'));
-  app.use(
-    '/api',
+  mountApi(
     createSiteAnalysisRouter(
       consensusSiteAnalyzer,
       mockSiteAnalyzer,
@@ -673,7 +681,7 @@ export function createApp(
       volumeEstimator,
     ),
   );
-  app.use('/api', createScan3DRouter(scan3dQueue, reconstructor));
+  mountApi(createScan3DRouter(scan3dQueue, reconstructor));
   // 철거 견적 — 개산(범위) → 실사 → 확정. 운반·처리의 단발 견적과 분리한다
   // (철거 금액은 현장을 봐야 정해져서, 사진만 보고 낸 금액을 계약금액으로 쓰면 안 된다).
   // 원격 실사로 진행 — 업체가 소비자가 보낸 원격 실사 자료로 실사를 마쳤다고 견적에 남긴다
@@ -684,8 +692,7 @@ export function createApp(
     requesterOf: async (requestId) => (await requestStore.get(requestId))?.requesterId,
     notify: surveyNotifier,
   });
-  app.use(
-    '/api',
+  mountApi(
     createDemolitionEstimateRouter(
       demolitionEstimateStore,
       requestStore,
@@ -694,7 +701,7 @@ export function createApp(
     ),
   );
   // 원격 실사 촬영 패키지 + 추가 촬영 요청 — 방문 없이 현장에서 보던 것을 보게 한다.
-  app.use('/api', createRemoteSurveyRouter(remoteSurveyStore, remoteSurveyShotRequestStore));
+  mountApi(createRemoteSurveyRouter(remoteSurveyStore, remoteSurveyShotRequestStore));
   // 영상통화 실사(Phase 4) — 업체가 현장에 가지 않고 "거기 비춰 주세요"로 본다.
   // Daily 키가 있으면 실제, 없으면 목(화면에 '테스트 모드' 표시).
   const videoProvider = env.video.dailyApiKey
@@ -728,10 +735,9 @@ export function createApp(
     },
     displayName: async (userId) => (await userStore.get(userId))?.name,
   });
-  app.use('/api', createVideoSurveyRouter(videoSurveyService));
+  mountApi(createVideoSurveyRouter(videoSurveyService));
   // 실판매 상품(PG 심사 대상) — 일반결제 1건 + 월 정기결제 1건.
-  app.use(
-    '/api',
+  mountApi(
     createProductRouter(subscriptionStore, portOneClient, {
       billingEnabled: Boolean(env.portone.billingChannelKey),
       membership,
@@ -747,9 +753,8 @@ export function createApp(
     }),
   );
   // 정산 계좌 — 파트너정산이든 직접 이체든 이 정보는 똑같이 필요하다.
-  app.use('/api', createPayoutAccountRouter(payoutAccountStore));
-  app.use(
-    '/api',
+  mountApi(createPayoutAccountRouter(payoutAccountStore));
+  mountApi(
     createAdminRouter(
       {
         userStore,
@@ -765,7 +770,7 @@ export function createApp(
     ),
   );
   // 원격 vs 방문 견적 정합성 — 관리자 전용, 같은 가드.
-  app.use('/api', createEstimateParityRouter(estimateParityService, requireAdmin));
+  mountApi(createEstimateParityRouter(estimateParityService, requireAdmin));
 
   // SPA 폴백 — /api 외 GET 요청은 Expo 웹 앱 진입점으로(클라이언트 라우팅 지원).
   app.get(/^(?!\/api(\/|$)).*/, (_req: Request, res: Response) => {
@@ -805,7 +810,8 @@ export function createApp(
     } else {
       console.warn('[dimol-api] DB 백업 꺼짐 — DATABASE_URL 또는 BACKUP_* 설정이 없습니다.');
     }
-    startScheduler(tasks);
+    const scheduler = startScheduler(tasks);
+    app.locals.stopScheduler = () => scheduler.stop();
   }
 
   // 중앙 오류 처리 — 미처리 예외를 500 JSON 으로 변환하고 스택/내부정보는 노출하지 않는다.
@@ -823,5 +829,6 @@ export function createApp(
     res.status(500).json({ error: '서버 오류가 발생했습니다.' });
   });
 
+  app.locals.wsDeps = { sessionStore, requestStore };
   return app;
 }

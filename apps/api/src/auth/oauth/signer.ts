@@ -31,12 +31,16 @@ export class SignedPayload {
 
   /** data 를 담아 서명한 토큰을 만든다. ttlMs 후 만료. */
   sign<T>(data: T, ttlMs: number): string {
+    if (!this.secret || this.secret.trim().length === 0) {
+      throw new Error('서명 시크릿이 설정되지 않았습니다.');
+    }
     const body = b64urlEncode(JSON.stringify({ d: data, e: this.now() + ttlMs }));
     return `v1.${body}.${this.sig(`v1.${body}`)}`;
   }
 
   /** 서명·만료 검증 후 data 를 반환한다. 위조·만료·형식오류면 undefined. */
   verify<T>(token: string): T | undefined {
+    if (!this.secret || this.secret.trim().length === 0) return undefined;
     const parts = token.split('.');
     if (parts.length !== 3 || parts[0] !== 'v1') return undefined;
     const [, body, sig] = parts;

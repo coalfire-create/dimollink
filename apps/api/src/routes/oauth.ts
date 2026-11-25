@@ -91,6 +91,10 @@ export function createOAuthRouter(
 
     const existing = await userStore.getBySocialIdentity(provider, identity.providerUserId);
     if (existing) {
+      if (existing.approvalStatus === 'SUSPENDED') {
+        backToApp(res, { status: 'suspended', provider });
+        return;
+      }
       const token = await sessionStore.issue(existing.id);
       backToApp(res, { status: 'login', token });
       return;
@@ -115,9 +119,14 @@ export function createOAuthRouter(
       res.status(401).json({ error: '로그인이 필요합니다.' });
       return;
     }
+    const current = await userStore.get(userId);
+    if (!current || current.approvalStatus === 'SUSPENDED') {
+      res.status(403).json({ error: '소셜 계정을 연결할 수 없는 계정 상태입니다.' });
+      return;
+    }
     const ticket = (req.body as { ticket?: unknown } | undefined)?.ticket;
     const parsed = typeof ticket === 'string' ? oauth.verifySignupTicket(ticket) : undefined;
-    if (!parsed) {
+    if (!parsed || !oauth.isConfigured(parsed.provider)) {
       res.status(400).json({ error: '연결 정보가 만료되었습니다. 다시 시도해 주세요.' });
       return;
     }
@@ -126,7 +135,7 @@ export function createOAuthRouter(
       res.status(409).json({ error: '이미 다른 계정에 연결된 소셜 계정입니다.' });
       return;
     }
-    const user = userStore.linkSocialIdentity(userId, {
+    const user = await userStore.linkSocialIdentity(userId, {
       provider: parsed.provider,
       providerUserId: parsed.providerUserId,
       ...(parsed.email ? { email: parsed.email } : {}),

@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEMO_KEY_HEADER, createDemoAccess } from './demo-access.js';
 
 /** 헤더만 흉내 내는 최소 요청 객체. */
-function req(headers: Record<string, string> = {}): Request {
+function req(headers: Record<string, string> = {}, method = 'POST'): Request {
   return {
+    method,
     header: (name: string) => headers[name.toLowerCase()],
   } as unknown as Request;
 }
@@ -104,5 +105,25 @@ describe('createDemoAccess — 인증을 대체하지 않고 옆에 문을 낸�
   it('사용량을 조회할 수 있다(운영 확인용)', () => {
     const gate = createDemoAccess({ demoKey: 'secret', dailyLimit: 50 });
     expect(gate.usage()).toEqual({ used: 0, limit: 50, enabled: true });
+  });
+
+  it('freeMethods(GET 폴링)에 포함된 메서드는 일일 사용량 한도를 차감하지 않는다', () => {
+    const auth = fakeAuth();
+    const gate = createDemoAccess({
+      demoKey: 'secret',
+      dailyLimit: 1,
+      freeMethods: ['GET'],
+    });
+    const nextGet = vi.fn();
+    const nextPost = vi.fn();
+
+    gate.wrap(auth.mw)(req({ [DEMO_KEY_HEADER]: 'secret' }, 'GET'), res().res, nextGet);
+    gate.wrap(auth.mw)(req({ [DEMO_KEY_HEADER]: 'secret' }, 'GET'), res().res, nextGet);
+    expect(nextGet).toHaveBeenCalledTimes(2);
+    expect(gate.usage().used).toBe(0);
+
+    gate.wrap(auth.mw)(req({ [DEMO_KEY_HEADER]: 'secret' }, 'POST'), res().res, nextPost);
+    expect(nextPost).toHaveBeenCalledOnce();
+    expect(gate.usage().used).toBe(1);
   });
 });

@@ -1,8 +1,7 @@
 import React from 'react';
-import { AppIcon } from '../components/AppIcon';
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import brandmark from '../../assets/brandmark.png';
+import { AppIcon } from '../components/AppIcon';
 import { ErrorBanner, IconTile, WideColumns } from '../components/ui';
 import { MarketRateCard } from '../components/MarketRateCard';
 import { UserGuideModal } from '../components/UserGuideModal';
@@ -95,22 +94,22 @@ export function ConsumerHomeScreen() {
                 </FadeInUp>
               ) : null}
 
-              <FadeInUp delay={100}>
+              <FadeInUp delay={40}>
                 <PressableScale
                   accessibilityLabel="철거 · 원상복구 신청하기"
                   accessibilityHint="현장 사진과 주소를 입력해 견적을 요청합니다"
                   style={styles.ctaCard}
                   onPress={() => nav.push({ name: 'requestForm', kind: 'DEMOLITION' })}
                 >
-                  <View style={styles.ctaTextBox}>
-                    <Text style={styles.ctaTitle}>
-                      {active.length > 0 ? '다른 현장도 신청하기' : '철거 · 원상복구\n신청하기'}
-                    </Text>
-                    <Text style={styles.ctaSubtitle}>사진 한 장이면 업체 견적까지 한 번에</Text>
+                  <View style={styles.ctaIcon}>
+                    <AppIcon name="hammer" size={28} color={colors.primary} />
                   </View>
-                  {/* 망치 아이콘 대신 비움 로고(집 + 굴착기) — 이 버튼이 이 앱의 대표 서비스다. */}
-                  <View style={styles.ctaIconWrap}>
-                    <Image source={brandmark} style={styles.ctaLogo} resizeMode="contain" />
+                  <Text style={styles.ctaTitle}>
+                    {active.length > 0 ? '다른 현장도\n신청할까요?' : '철거할 곳이\n있으신가요?'}
+                  </Text>
+                  <Text style={styles.ctaSubtitle}>사진 한 장이면 업체 견적을 한 번에 받아요</Text>
+                  <View style={styles.ctaButton}>
+                    <Text style={styles.ctaButtonText}>견적 받아보기</Text>
                   </View>
                 </PressableScale>
               </FadeInUp>
@@ -118,19 +117,19 @@ export function ConsumerHomeScreen() {
           }
           side={
             <>
-              <FadeInUp delay={180}>
+              <FadeInUp delay={40}>
                 <View style={styles.gutter}>
                   <PartnerList partners={home.partners} loaded={home.partnersLoaded} />
                 </View>
               </FadeInUp>
 
-              <FadeInUp delay={220}>
+              <FadeInUp delay={60}>
                 <View style={styles.gutter}>
                   <GuaranteeCard />
                 </View>
               </FadeInUp>
 
-              <FadeInUp delay={260}>
+              <FadeInUp delay={80}>
                 <View style={styles.gutter}>
                   <MarketRateCard rate={rate} party={config.marketRateParty} />
                 </View>
@@ -231,43 +230,46 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ctaCard: {
-    alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: radius.card,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: spacing.sm,
     marginHorizontal: spacing.sm,
     padding: spacing.md,
     ...theme.shadow.card,
   },
-  ctaTextBox: {
-    flex: 1,
-    paddingRight: spacing.sm,
+  ctaIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.card,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
   },
   ctaTitle: {
     color: colors.text,
-    fontSize: font.title,
+    fontSize: font.titleLarge,
     letterSpacing: theme.tracking.title,
-    fontWeight: '700',
-    lineHeight: 32,
+    fontWeight: '800',
+    lineHeight: 38,
+    marginTop: spacing.sm,
   },
   ctaSubtitle: {
     color: colors.textMuted,
     fontSize: font.body,
     marginTop: spacing.xs,
   },
-  ctaIconWrap: {
+  ctaButton: {
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: theme.radius.card,
-    height: 72,
+    backgroundColor: colors.primary,
+    borderRadius: radius.button,
     justifyContent: 'center',
-    width: 72,
+    marginTop: spacing.md,
+    minHeight: 56,
   },
-  ctaLogo: {
-    height: 56,
-    width: 56,
+  ctaButtonText: {
+    color: colors.background,
+    fontSize: font.bodyLarge,
+    fontWeight: '700',
   },
   interiorCard: {
     alignItems: 'center',

@@ -199,8 +199,14 @@ export class DemolitionEstimateStore {
     notifyProvider: boolean,
   ): Promise<DemolitionEstimate> {
     const estimate = await this.requireEstimate(estimateId);
+    if (estimate.stage === 'DECLINED') {
+      throw new DemolitionEstimateError('선정이 종료된 견적에는 실사를 예약할 수 없습니다.');
+    }
     const request = await this.requestStore.get(estimate.requestId);
     if (!request) throw new DemolitionEstimateError('요청을 찾을 수 없습니다.');
+    if (request.status !== 'REQUESTED') {
+      throw new DemolitionEstimateError('매칭 대기중인 요청에만 실사를 예약할 수 있습니다.');
+    }
     if (request.requesterId !== requesterId) {
       throw new DemolitionEstimateError('본인 요청에만 실사를 예약할 수 있습니다.');
     }
@@ -275,6 +281,13 @@ export class DemolitionEstimateStore {
     if (estimate.providerId !== providerId) {
       throw new DemolitionEstimateError('본인 견적만 제출할 수 있습니다.');
     }
+    if (estimate.stage === 'DECLINED') {
+      throw new DemolitionEstimateError('선정이 종료된 견적은 확정할 수 없습니다.');
+    }
+    const targetReq = await this.requestStore.get(estimate.requestId);
+    if (targetReq && targetReq.status !== 'REQUESTED') {
+      throw new DemolitionEstimateError('매칭 대기중인 요청에만 확정 견적을 제출할 수 있습니다.');
+    }
     if (!estimate.visit) {
       throw new DemolitionEstimateError('현장 실사 후에 확정 견적을 낼 수 있습니다.');
     }
@@ -311,8 +324,14 @@ export class DemolitionEstimateStore {
    */
   async accept(estimateId: string, requesterId: string): Promise<DemolitionEstimate> {
     const estimate = await this.requireEstimate(estimateId);
+    if (estimate.stage === 'DECLINED') {
+      throw new DemolitionEstimateError('선정이 종료된 견적은 수락할 수 없습니다.');
+    }
     const request = await this.requestStore.get(estimate.requestId);
     if (!request) throw new DemolitionEstimateError('요청을 찾을 수 없습니다.');
+    if (request.status !== 'REQUESTED') {
+      throw new DemolitionEstimateError('매칭 대기중인 요청의 견적만 수락할 수 있습니다.');
+    }
     if (request.requesterId !== requesterId) {
       throw new DemolitionEstimateError('본인 요청의 견적만 수락할 수 있습니다.');
     }

@@ -16,6 +16,7 @@ import { YesNoRow } from '../../components/form/YesNoRow';
 import { theme } from '../../theme';
 import { BuildingLedgerCard } from './BuildingLedgerCard';
 import { VisionPanel } from './VisionPanel';
+import { localDateKey } from './calendarLocale';
 import type { DemolitionStepKey } from '../../lib/demolition-form-steps';
 import type { AreaUnit, RequestFormState } from './useRequestForm';
 
@@ -40,13 +41,6 @@ const AREA_UNITS: Array<{ value: AreaUnit; label: string }> = [
   { value: 'PYEONG', label: '평' },
   { value: 'M2', label: '㎡' },
 ];
-
-/** 기기 시간대 기준 'YYYY-MM-DD' — 달력 날짜 키와 같은 모양(toISOString 은 UTC 라 자정 무렵 하루 밀린다). */
-function localDateKey(d: Date): string {
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${mm}-${dd}`;
-}
 
 /**
  * 단계별로 이 단계 칸만 그린다 — 단계 나누기·이동은 [[DemolitionStepper]] 가,

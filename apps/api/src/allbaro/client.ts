@@ -100,10 +100,10 @@ export class AllbaroClient {
 
     return {
       businessNumber,
-      verified: this.spec.parseMemberVerified(data),
-      memberName: this.spec.parseMemberName(data),
+      verified: this.spec.parseMemberVerified(data, businessNumber),
+      memberName: this.spec.parseMemberName(data, businessNumber),
       memberType: this.spec.parseMemberType(
-        this.spec.extractMemberType(data),
+        this.spec.extractMemberType(data, businessNumber),
       ),
       environment: this.config.mode,
       checkedAt: new Date().toISOString(),
@@ -253,6 +253,7 @@ export class AllbaroClient {
     const timer = setTimeout(() => controller.abort(), this.config.timeoutMs);
 
     let response: Response;
+    let result: Record<string, unknown>;
     try {
       response = await this.fetchFn(url, {
         method: 'POST',
@@ -263,7 +264,18 @@ export class AllbaroClient {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
+      if (!response.ok) {
+        console.warn(`[allbaro] ${verb}${interfaceId} HTTP ${response.status} (${logKey})`);
+        throw new AllbaroError('UPSTREAM_ERROR', `올바로 API HTTP 오류(status=${response.status}).`);
+      }
+      try {
+        result = (await response.json()) as Record<string, unknown>;
+      } catch {
+        console.warn(`[allbaro] ${verb}${interfaceId} invalid JSON (${logKey})`);
+        throw new AllbaroError('UPSTREAM_ERROR', '올바로 응답 형식이 올바르지 않습니다.');
+      }
     } catch (err) {
+      if (err instanceof AllbaroError) throw err;
       if (err instanceof Error && err.name === 'AbortError') {
         console.warn(`[allbaro] ${verb}${interfaceId} timeout (${logKey})`);
         throw new AllbaroError('TIMEOUT', '올바로 응답이 시간 내 도착하지 않았습니다.');
@@ -274,18 +286,9 @@ export class AllbaroClient {
       clearTimeout(timer);
     }
 
-    if (!response.ok) {
-      console.warn(`[allbaro] ${verb}${interfaceId} HTTP ${response.status} (${logKey})`);
-      throw new AllbaroError('UPSTREAM_ERROR', `올바로 API HTTP 오류(status=${response.status}).`);
-    }
-
-    const result = (await response.json()) as Record<string, unknown>;
-
     const resultCode = typeof result.resultCode === 'string' ? result.resultCode : undefined;
     if (resultCode !== undefined && resultCode !== '0000') {
-      console.warn(
-        `[allbaro] ${verb}${interfaceId} resultCode=${resultCode} msg=${String(result.resultMessage)} (${logKey})`,
-      );
+      console.warn(`[allbaro] ${verb}${interfaceId} resultCode=${resultCode} (${logKey})`);
       throw new AllbaroError(
         'UPSTREAM_ERROR',
         `올바로 오류(${resultCode}): ${String(result.resultMessage ?? result.errorMessage ?? '알 수 없는 오류')}`,

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 
+const REQUEST_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
 /** 요청 상관관계 ID — 로그·응답 헤더(X-Request-Id)에 실어 추적한다. */
 export function requestId() {
   return function assignRequestId(req: Request, res: Response, next: NextFunction): void {
     const incoming = req.header('x-request-id');
-    const id = (incoming && incoming.length <= 64 ? incoming : randomUUID());
+    const id = incoming && REQUEST_ID_RE.test(incoming) ? incoming : randomUUID();
     (req as Request & { id?: string }).id = id;
     res.setHeader('X-Request-Id', id);
     next();

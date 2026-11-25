@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { REQUEST_KIND_LABELS, REQUEST_STATUS_LABELS, type ServiceRequest } from '@dimol/shared';
 import { REQUEST_TIMELINE } from '../../components/StatusTimeline';
 import { AppButton, Card, StatusBadge } from '../../components/ui';
-import { won } from '../../lib/format';
+import { TABULAR_NUMS, won } from '../../lib/format';
 import { requesterNextStep, type NextStepAction } from '../../lib/request-next-step';
 import { requestSubtitle } from '../../lib/request-summary';
 import { useNavigation, type Route } from '../../navigation';
@@ -54,6 +54,11 @@ export function NextStepCard({ request }: { request: ServiceRequest }) {
       </Text>
       <Text style={styles.headline}>{step.headline}</Text>
       <Text style={styles.hint}>{step.hint}</Text>
+      <View style={styles.progressHeader}>
+        <Text style={[styles.progressLabel, TABULAR_NUMS]}>
+          {Math.max(stepIndex + 1, 1)} / {REQUEST_TIMELINE.length}단계
+        </Text>
+      </View>
       <View
         style={styles.track}
         accessibilityRole="progressbar"
@@ -75,8 +80,10 @@ const { colors, font, spacing, radius } = theme;
 
 const styles = StyleSheet.create({
   attention: {
-    borderColor: colors.primary,
-    borderWidth: 2,
+    borderColor: colors.border,
+    borderLeftColor: colors.secondary,
+    borderLeftWidth: 4,
+    borderWidth: 1,
   },
   topRow: {
     alignItems: 'center',
@@ -106,17 +113,25 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     marginTop: spacing.xs,
   },
+  progressHeader: {
+    marginTop: spacing.sm,
+  },
+  progressLabel: {
+    color: colors.textMuted,
+    fontSize: font.caption,
+    fontWeight: '700',
+  },
   track: {
     backgroundColor: colors.surface,
     borderRadius: radius.pill,
-    height: 8,
-    marginTop: spacing.sm,
+    height: 6,
+    marginTop: spacing.xs / 2,
     overflow: 'hidden',
   },
   fill: {
     backgroundColor: colors.primary,
     borderRadius: radius.pill,
-    height: 8,
+    height: 6,
   },
   button: {
     marginTop: spacing.sm,

@@ -125,5 +125,9 @@ export async function initPgPersistence(
 }
 
 export function createPgPool(connectionString: string): pg.Pool {
-  return new pg.Pool({ connectionString, max: 10 });
+  const pool = new pg.Pool({ connectionString, max: 10 });
+  pool.on('error', (err) => {
+    console.error('[pg] idle client error', err.message);
+  });
+  return pool;
 }

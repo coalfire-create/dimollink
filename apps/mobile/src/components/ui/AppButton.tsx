@@ -121,23 +121,23 @@ const { colors, font, spacing, radius, touch } = theme;
 /** 변형별 바탕·글자·마우스 올림 색. 화면에서 버튼 색을 따로 칠하지 않게 여기서만 정한다. */
 const TONES = {
   primary: StyleSheet.create({
-    box: { backgroundColor: colors.primary },
+    box: { backgroundColor: colors.primary, borderColor: 'transparent', borderWidth: 1 },
     hover: { backgroundColor: colors.primaryDark },
     label: { color: colors.background },
   }),
   outline: StyleSheet.create({
     box: { backgroundColor: colors.background, borderColor: colors.borderStrong, borderWidth: 1 },
-    hover: { backgroundColor: colors.surface },
+    hover: { backgroundColor: colors.surface, borderColor: colors.textMuted },
     label: { color: colors.text },
   }),
   secondary: StyleSheet.create({
-    box: { backgroundColor: colors.primarySoft },
-    hover: { borderColor: colors.primary, borderWidth: 1 },
+    box: { backgroundColor: colors.primarySoft, borderColor: 'transparent', borderWidth: 1 },
+    hover: { borderColor: colors.primary },
     label: { color: colors.primary },
   }),
   danger: StyleSheet.create({
-    box: { backgroundColor: colors.errorSoft },
-    hover: { borderColor: colors.error, borderWidth: 1 },
+    box: { backgroundColor: colors.errorSoft, borderColor: 'transparent', borderWidth: 1 },
+    hover: { borderColor: colors.error },
     label: { color: colors.error },
   }),
 } as const;

@@ -9,7 +9,8 @@ set -euo pipefail
 DUMP="${1:?복원할 덤프 파일 경로를 인자로 주세요}"
 [[ -f "$DUMP" ]] || { echo "덤프 파일 없음: $DUMP" >&2; exit 1; }
 
-echo "[restore] 대상: ${DATABASE_URL%%\?*}"
+MASKED_URL="$(printf '%s' "${DATABASE_URL%%\?*}" | sed -E 's#://[^@]*@#://***@#')"
+echo "[restore] 대상: ${MASKED_URL}"
 echo "[restore] 파일: ${DUMP}"
 read -r -p "정말 복원하시겠습니까? 대상 데이터가 덮어써집니다 (yes 입력): " confirm
 [[ "$confirm" == "yes" ]] || { echo "취소됨"; exit 1; }

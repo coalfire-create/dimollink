@@ -32,7 +32,8 @@ export function createUploadsRouter(): Router {
       const presigned = await presignSitePhotoUpload({ key, contentType, contentLength });
       res.status(201).json(presigned);
     } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : 'presign 실패' });
+      console.warn('[uploads] presign upload error', err instanceof Error ? err.name : 'error');
+      res.status(502).json({ error: '사진 업로드 URL 생성에 실패했습니다.' });
     }
   });
 
@@ -50,7 +51,8 @@ export function createUploadsRouter(): Router {
     try {
       res.json(await presignSitePhotoView(key));
     } catch (err) {
-      res.status(502).json({ error: err instanceof Error ? err.message : 'presign 실패' });
+      console.warn('[uploads] presign view error', err instanceof Error ? err.name : 'error');
+      res.status(502).json({ error: '사진 조회 URL 생성에 실패했습니다.' });
     }
   });
 

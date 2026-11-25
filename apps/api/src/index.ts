@@ -7,8 +7,9 @@ import { env } from './config/env.js';
 import { jsonPersistenceFactory, type PersistenceFactory } from './lib/json-collection.js';
 import { createPgPool, initPgPersistence } from './lib/pg-collection.js';
 import type { Pool } from 'pg';
-import { createRedisClient, createUpstashRedis } from './lib/redis.js';
+import { createRedisClient, createUpstashRedis, type RedisLike } from './lib/redis.js';
 import { RedisRateLimitStore } from './middleware/redis-rate-limit-store.js';
+import type { TrackingWsDeps } from './tracking/websocket.js';
 
 /**
  * 운영 기동 전 필수 설정 점검. 누락 시 조용히 취약하게 뜨지 않도록 즉시 종료한다.
@@ -48,11 +49,15 @@ async function buildPersistence(pool?: Pool): Promise<PersistenceFactory> {
  * 공유 상태 구성: 세션·레이트리밋은 Redis(TCP) > Upstash(REST) > 무상태 서명.
  * OTP 는 Redis 없으면 PostgreSQL(풀 있을 때)로 저장 — 서버 재시작·다중 인스턴스에도 유지.
  */
-async function buildSharedStores(pool?: Pool): Promise<SharedStores> {
+async function buildSharedStores(
+  pool?: Pool,
+): Promise<{ shared: SharedStores; redisClient?: RedisLike }> {
   const sessionTtlMs = env.auth.sessionTtlDays * 24 * 60 * 60 * 1000;
   const shared: SharedStores = {};
+  let redisClient: RedisLike | undefined;
   if (env.redisUrl) {
     const redis = await createRedisClient(env.redisUrl);
+    redisClient = redis;
     console.log('[dimol-api] 공유 상태: Redis (세션·OTP·레이트리밋)');
     shared.sessionStore = new RedisSessionStore(redis, sessionTtlMs);
     shared.rateLimitStore = new RedisRateLimitStore(redis);
@@ -75,7 +80,7 @@ async function buildSharedStores(pool?: Pool): Promise<SharedStores> {
     shared.otpKv = new PgOtpKv(pool);
     console.log('[dimol-api] OTP: PostgreSQL');
   }
-  return shared;
+  return { shared, redisClient };
 }
 
 async function main(): Promise<void> {
@@ -83,7 +88,7 @@ async function main(): Promise<void> {
   // pg 풀은 한 번만 만들어 영속 저장소와 OTP 저장소가 공유한다.
   const pool = env.databaseUrl ? createPgPool(env.databaseUrl) : undefined;
   const persistence = await buildPersistence(pool);
-  const shared = await buildSharedStores(pool);
+  const { shared, redisClient } = await buildSharedStores(pool);
   const app = createApp(persistence, shared);
 
   const server = app.listen(env.port, () => {
@@ -93,13 +98,27 @@ async function main(): Promise<void> {
 
   // Attach WebSocket server
   const { setupTrackingWebSocket } = await import('./tracking/websocket.js');
-  setupTrackingWebSocket(server);
+  const wsDeps = app.locals.wsDeps as TrackingWsDeps | undefined;
+  const wss = setupTrackingWebSocket(server, wsDeps);
 
-  // 무중단 배포·컨테이너 종료 대응 — 진행 중 요청을 마치고 정리 후 종료.
+  // 무중단 배포·컨테이너 종료 대응 — 진행 중 요청·스케줄러·WS·DB·Redis를 순서대로 정리 후 종료.
+  let shuttingDown = false;
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.log(`[dimol-api] ${signal} 수신 — 서버를 정상 종료합니다.`);
-      server.close(() => process.exit(0));
+      const stopScheduler = app.locals.stopScheduler as (() => void) | undefined;
+      stopScheduler?.();
+      for (const client of wss.clients) client.terminate();
+      wss.close();
+      server.close(() => {
+        void (async () => {
+          await pool?.end().catch(() => {});
+          await redisClient?.quit?.().catch(() => {});
+          process.exit(0);
+        })();
+      });
       // 정리가 지연되면 강제 종료(무한 대기 방지).
       setTimeout(() => process.exit(1), 10_000).unref();
     });

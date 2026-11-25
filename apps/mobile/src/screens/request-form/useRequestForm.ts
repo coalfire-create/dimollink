@@ -43,6 +43,7 @@ import {
   type RequestFormPrefill,
 } from '../../navigation';
 import { useBuildingLedger } from '../../lib/useBuildingLedger';
+import { theme } from '../../theme';
 import { useFormDraft } from './useFormDraft';
 import { useVisionAnalysis } from './useVisionAnalysis';
 
@@ -236,7 +237,22 @@ export function useRequestForm(kind: RequestKind, prefill?: RequestFormPrefill) 
       apply(saved.siteAddress, prefill?.siteAddress ?? '', setSiteAddress);
       apply(saved.spaceSize, prefill?.spaceSize ?? '', setSpaceSize);
       apply(saved.floorCount, prefill?.floorCount ?? '', setFloorCount);
-      apply(saved.desiredDate, '', setDesiredDate);
+      if (saved.desiredDate.trim() && Object.keys(selectedDates).length === 0) {
+        const dates = saved.desiredDate
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => /^\d{4}-\d{2}-\d{2}$/.test(s));
+        if (dates.length > 0) {
+          setSelectedDates(
+            Object.fromEntries(
+              dates.map((d) => [d, { selected: true, selectedColor: theme.colors.primary }]),
+            ),
+          );
+          restored = true;
+        } else {
+          apply(saved.desiredDate, '', setDesiredDate);
+        }
+      }
       apply(saved.description, '', setDescription);
       apply(saved.loadAddress, prefill?.loadAddress ?? '', setLoadAddress);
       apply(saved.unloadAddress, prefill?.unloadAddress ?? '', setUnloadAddress);

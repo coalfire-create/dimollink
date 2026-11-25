@@ -124,12 +124,12 @@ const styles = StyleSheet.create({
   dot: {
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
-    borderWidth: 2,
-    height: 20,
+    borderWidth: 1.5,
+    height: 18,
     justifyContent: 'center',
-    width: 20,
+    width: 18,
   },
   dotReached: {
     backgroundColor: colors.primary,
@@ -138,10 +138,10 @@ const styles = StyleSheet.create({
   dotCurrent: {
     // 현재 단계만 크게 — 눈이 먼저 가는 지점을 하나로 만든다.
     borderColor: colors.primary,
-    borderWidth: 6,
+    borderWidth: 5,
     backgroundColor: colors.background,
-    height: 28,
-    width: 28,
+    height: 24,
+    width: 24,
   },
   dotCheck: {
     color: colors.background,
@@ -166,13 +166,14 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.xs,
   },
   labelWrapCurrent: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.border,
-    borderRadius: radius.card / 2,
-    borderWidth: 1,
+    backgroundColor: colors.surface,
+    borderLeftColor: colors.primary,
+    borderLeftWidth: 3,
+    borderRadius: radius.button,
     marginBottom: spacing.xs,
     marginLeft: spacing.xs,
-    padding: spacing.xs + 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   labelHeaderRow: {
     alignItems: 'center',
